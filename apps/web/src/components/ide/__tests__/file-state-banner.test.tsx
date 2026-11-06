@@ -120,3 +120,57 @@ describe('FileStateBanner', () => {
     expect(screen.getByRole('status')).toHaveTextContent('was deleted on the server')
   })
 })
+
+describe('FileStateBanner for a step source', () => {
+  const step = 'steps/k3j9x_a1b2c3.ts'
+  const stepBaseline = new Map([
+    [step, { path: step, source: 'return 1', role: 'source' as const, hash: 'hs2' }],
+  ])
+
+  function setupStep(baselineMap = stepBaseline) {
+    const bindings = makeReviewBindings({
+      baseline: baselineMap,
+      ownerOf: (path) => (path.startsWith('steps/') ? 'step' : 'project'),
+    })
+    render(<FileStateBanner path={step} bindings={bindings} />)
+    return bindings
+  }
+
+  it('speaks of the canvas when the node’s code moved, and offers its version', async () => {
+    useIdeStore.getState().setDraft(step, 'mine', 'hs1')
+    const bindings = setupStep()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'k3j9x_a1b2c3.ts changed on the canvas while you were editing it.',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Use canvas version' }))
+    expect(bindings.onUseServerVersion).toHaveBeenCalledWith(step, 'hs2')
+  })
+
+  it('a refused step save says the canvas changed it', () => {
+    useIdeStore.getState().setDraft(step, 'mine', 'hs1')
+    useIdeStore.getState().setConflict(step, { currentHash: 'hs2' })
+    setupStep()
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Couldn’t save k3j9x_a1b2c3.ts. It changed on the canvas.',
+    )
+  })
+
+  it('a step whose node was removed offers Copy code and Discard, never recreate', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    useIdeStore.getState().setDraft(step, 'my code', 'hs2')
+    const bindings = setupStep(new Map())
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The step behind k3j9x_a1b2c3.ts was removed from the canvas. Your unsaved code is kept here.',
+    )
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Copy code',
+      'Discard',
+    ])
+    await userEvent.click(screen.getByRole('button', { name: 'Copy code' }))
+    expect(writeText).toHaveBeenCalledWith('my code')
+    expect(bindings.onRecreate).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(bindings.onDiscardDeleted).toHaveBeenCalledWith(step)
+  })
+})

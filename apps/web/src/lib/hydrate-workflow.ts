@@ -36,10 +36,19 @@ export function buildWorkflowStoreState(
      * to them again; one the new graph no longer has is dropped.
      */
     keepSelectedNodeId?: string | null
+    /**
+     * `WorkflowFull.graphHash` of the version being loaded: the base the
+     * canvas's next save names, so a save that landed in Code meanwhile is
+     * refused rather than overwritten. Null without a version. Taken only
+     * when the version's graph is actually loaded: a base must name the
+     * graph the canvas shows, never one whose IR could not be read.
+     */
+    graphHash?: string | null
   } = {},
 ) {
   const state: Record<string, unknown> = {
     kind: serverWorkflow.kind ?? 'workflow',
+    graphHash: null,
     workflowEnvVars: [],
     dependencies: {},
     triggerCode: '',
@@ -135,6 +144,7 @@ export function buildWorkflowStoreState(
       }
     }
     if (irNodes && irEdges) {
+      state.graphHash = options.graphHash ?? null
       state.nodes = irNodes.map((irNode: WorkflowNode, i: number) => ({
         id: irNode.id,
         type: toFlowType(irNode.type),

@@ -288,6 +288,16 @@ export const endpoints: EndpointDef[] = [
     bodyExample: JSON.stringify({ ir: {} }, null, 2),
   },
   {
+    id: 'commit-version',
+    group: 'Versions',
+    method: 'POST',
+    path: '/api/workflows/:workflowId/versions/commit',
+    label: 'Commit project files',
+    permission: 'workflows:write',
+    params: [{ name: 'workflowId', in: 'path', required: true }],
+    hasBody: false,
+  },
+  {
     id: 'lock-version',
     group: 'Versions',
     method: 'PATCH',

@@ -35,10 +35,22 @@ const projectPaths = new Set([
   'lib/lonely.ts',
 ])
 const nodeIds = ['validate', 'charge', 'wait', 'member']
+const sourcePaths = new Map([
+  ['validate', 'steps/validate.ts'],
+  ['charge', 'steps/charge.ts'],
+  ['member', 'steps/member.ts'],
+])
 
 function build(overrides: Partial<Parameters<typeof buildStepMap>[0]> = {}) {
-  return buildStepMap({ manifest, nodeIds, files, projectPaths, ...overrides })
+  return buildStepMap({ manifest, nodeIds, files, projectPaths, sourcePaths, ...overrides })
 }
+
+/** The workspace once it shows step sources: charge's body imports format, validate's nothing. */
+const withSources = new Map([
+  ...files,
+  ['steps/validate.ts', { source: 'return input' }],
+  ['steps/charge.ts', { source: "import { fmt } from '#app/lib/format'\nreturn fmt(input)" }],
+])
 
 describe('buildStepMap', () => {
   it('maps each node to its step file and what that file imports', () => {
@@ -46,9 +58,42 @@ describe('buildStepMap', () => {
     expect(map.hasManifest).toBe(true)
     expect(map.byNode.get('charge')).toMatchObject({
       filePath: 'nodes/charge_card.ts',
+      sourcePath: null,
       uses: ['lib/payments/charge.ts', 'lib/format.ts'],
     })
     expect(map.byFile.get('nodes/validate_order.ts')).toEqual(['validate'])
+  })
+
+  it('names a step’s editable source once the workspace has it, and reads its imports from there', () => {
+    const map = build({ files: withSources })
+    expect(map.byNode.get('charge')).toMatchObject({
+      filePath: 'nodes/charge_card.ts',
+      sourcePath: 'steps/charge.ts',
+      uses: ['lib/format.ts'],
+    })
+    expect(map.byNode.get('validate')).toMatchObject({
+      sourcePath: 'steps/validate.ts',
+      uses: [],
+    })
+    // Both files belong to the step.
+    expect(map.byFile.get('steps/charge.ts')).toEqual(['charge'])
+    expect(map.byFile.get('nodes/charge_card.ts')).toEqual(['charge'])
+    // A source the workspace does not show (the merged member's) is no file.
+    expect(map.byNode.get('member')?.sourcePath).toBeNull()
+    expect(map.usedBy.get('lib/format.ts')).toEqual(['charge'])
+    expect(map.usedBy.has('lib/payments/charge.ts')).toBe(false)
+  })
+
+  it('gives a function’s steps their source even though no module exists', () => {
+    const map = build({ manifest: null, files: withSources })
+    expect(map.hasManifest).toBe(false)
+    expect(map.byNode.get('charge')).toMatchObject({
+      filePath: null,
+      sourcePath: 'steps/charge.ts',
+      uses: ['lib/format.ts'],
+    })
+    expect(map.byFile.get('steps/charge.ts')).toEqual(['charge'])
+    expect(map.usedBy.get('lib/format.ts')).toEqual(['charge'])
   })
 
   it('gives a node with no module no file, and says nothing is used', () => {
@@ -104,6 +149,11 @@ describe('highlightFor', () => {
 
   it('outlines the step whose file is open', () => {
     expect(highlightFor(map, 'nodes/charge_card.ts')).toEqual({ primary: ['charge'], usedBy: [] })
+  })
+
+  it('outlines the step whose source is open', () => {
+    const sourced = build({ files: withSources })
+    expect(highlightFor(sourced, 'steps/charge.ts')).toEqual({ primary: ['charge'], usedBy: [] })
   })
 
   it('outlines every step that imports an open project file', () => {

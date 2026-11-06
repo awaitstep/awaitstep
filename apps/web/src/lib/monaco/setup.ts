@@ -15,7 +15,7 @@ import { defineAwaitstepThemes } from './theme'
  * - 2307: imports of npm packages installed at deploy time can't resolve in
  *   the browser. The code workspace lifts this one once type acquisition
  *   has supplied (or stubbed) every package in view — see
- *   {@link setProjectDiagnostics}.
+ *   {@link setProjectDiagnostics}; the canvas keeps it muted.
  */
 export const MUTED_DIAGNOSTIC_CODES = [1108, 1206, 1434, 2307]
 
@@ -121,9 +121,10 @@ export function languageHosts(monaco: Monaco): LanguageHosts {
 /**
  * Lays a project's options over the shared ones: the workflow root (so
  * `#app/*` and relative imports resolve across its models) and whatever its
- * tsconfig.json may switch on. `null` restores the shared options — the
- * canvas's editors share these defaults and must not inherit a root.
- * Monaco replaces the whole options object, so the base is always re-applied.
+ * tsconfig.json may switch on. Both surfaces install a root for the workflow
+ * they show (`useProjectLanguageService`); `null` restores the shared
+ * options when one unmounts, so the next never inherits another workflow's
+ * root. Monaco replaces the whole options object, so the base is always re-applied.
  */
 export function setProjectCompilerOptions(
   monaco: Monaco,

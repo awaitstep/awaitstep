@@ -10,20 +10,27 @@ import {
   type Notifier,
   type ProjectFileClient,
 } from '../ide/project-actions'
+import type { StepSaveOutcome } from '../ide/step-save'
 import { useIdeStore } from '../../stores/ide-store'
 
 function file(path: string, source: string, hash?: string): SourceFile {
   return { path, source, role: 'module', ...(hash && { hash }) }
 }
 
+const STEP = 'steps/validate.ts'
 const baseline = new Map<string, SourceFile>([
   ['worker.ts', file('worker.ts', 'generated')],
   ['config/env.ts', file('config/env.ts', 'base env', 'h-env')],
   ['config/other.ts', file('config/other.ts', 'base other', 'h-other')],
   ['handlers.ts', file('handlers.ts', '@fetch function handler() {}')],
+  [STEP, { path: STEP, source: 'return 1', role: 'source', hash: 'h-step' }],
 ])
 
-function setup(baselineOverride = baseline, isCurrent: () => boolean = () => true) {
+function setup(
+  baselineOverride = baseline,
+  isCurrent: () => boolean = () => true,
+  canEdit: () => boolean = () => true,
+) {
   const client = {
     putProjectFile: vi.fn(
       async (_id: string, path: string, source: string, _p: WritePrecondition) => ({
@@ -43,6 +50,14 @@ function setup(baselineOverride = baseline, isCurrent: () => boolean = () => tru
   } satisfies ProjectFileClient
   const notify = { success: vi.fn(), error: vi.fn() } satisfies Notifier
   const refresh = vi.fn(async () => undefined)
+  const commit = vi.fn(async () => undefined)
+  // Stands in for the step saver: every step draft it is handed is 'saved'.
+  const saveSteps = vi.fn(
+    async (paths: readonly string[]): Promise<Map<string, StepSaveOutcome>> => {
+      for (const path of paths) useIdeStore.getState().rebaseDraft(path, `saved:${path}`)
+      return new Map(paths.map((path) => [path, 'saved' as const]))
+    },
+  )
   const actions = createProjectFileActions({
     workflowId: 'wf-1',
     target: 'workflow',
@@ -52,9 +67,13 @@ function setup(baselineOverride = baseline, isCurrent: () => boolean = () => tru
     getStore: useIdeStore.getState,
     isCurrent,
     getProjectPaths: () => new Set(baselineOverride.keys()),
+    ownerOf: (path) => (path.startsWith('steps/') ? 'step' : 'project'),
+    saveSteps,
+    commit,
     refresh,
+    canEdit,
   })
-  return { client, notify, refresh, actions }
+  return { client, notify, refresh, commit, saveSteps, actions }
 }
 
 describe('project file actions', () => {
@@ -656,5 +675,227 @@ describe('writes that outlive the workspace', () => {
     expect(await actions.saveAll()).toBe(1)
     expect(client.putProjectFile).toHaveBeenCalledTimes(1)
     expect(notify.error).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('project file actions and step sources', () => {
+  beforeEach(() => {
+    useIdeStore.getState().resetSession()
+  })
+
+  it('saveFile of a step source goes to the step saver, never to a file write, and does not commit', async () => {
+    useIdeStore.getState().setDraft(STEP, 'return 2', 'h-step')
+    const { client, saveSteps, commit, refresh, actions } = setup()
+    expect(await actions.saveFile(STEP)).toBe(true)
+    expect(saveSteps).toHaveBeenCalledWith([STEP])
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(commit).not.toHaveBeenCalled()
+    // The saver refetches by itself.
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('saveAll posts every dirty step draft once and writes the files one by one, then commits once', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft(STEP, 'return 2', 'h-step')
+    store.setDraft('steps/other.ts', 'orphan edit', 'h-o')
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    store.setDraft('config/other.ts', 'edited other', 'h-other')
+    const { client, saveSteps, commit, refresh, actions } = setup()
+    expect(await actions.saveAll()).toBe(4)
+    expect(saveSteps).toHaveBeenCalledTimes(1)
+    expect(new Set(saveSteps.mock.calls[0]![0])).toEqual(new Set([STEP, 'steps/other.ts']))
+    expect(client.putProjectFile).toHaveBeenCalledTimes(2)
+    expect(commit).toHaveBeenCalledTimes(1)
+    expect(refresh).toHaveBeenCalledTimes(1)
+    // The commit comes before the refetch, so the refetch sees the recorded version.
+    expect(commit.mock.invocationCallOrder[0]!).toBeLessThan(refresh.mock.invocationCallOrder[0]!)
+  })
+
+  it('saveFiles saves only the paths it was given and answers in their order', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft(STEP, 'return 2', 'h-step')
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    store.setDraft('config/other.ts', 'edited other', 'h-other')
+    const { client, saveSteps, actions } = setup()
+    expect(await actions.saveFiles(['config/env.ts', STEP])).toEqual([true, true])
+    expect(saveSteps).toHaveBeenCalledWith([STEP])
+    expect(client.putProjectFile).toHaveBeenCalledTimes(1)
+    expect(useIdeStore.getState().drafts['config/other.ts']?.source).toBe('edited other')
+  })
+
+  it('a batch of files only does not touch the step saver; a batch of steps only does not commit', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    const { saveSteps, commit, actions } = setup()
+    expect(await actions.saveAll()).toBe(1)
+    expect(saveSteps).not.toHaveBeenCalled()
+    expect(commit).toHaveBeenCalledTimes(1)
+
+    // The refetch would have found the saved draft clean and dropped it.
+    useIdeStore.getState().clearDraft('config/env.ts')
+    useIdeStore.getState().setDraft(STEP, 'return 2', 'h-step')
+    expect(await actions.saveAll()).toBe(1)
+    expect(saveSteps).toHaveBeenCalledTimes(1)
+    expect(commit).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports a step draft the saver refused on its own tab, like a file conflict', async () => {
+    useIdeStore.getState().setDraft(STEP, 'return 2', 'stale')
+    const { saveSteps, actions } = setup()
+    saveSteps.mockResolvedValueOnce(new Map([[STEP, 'conflict' as const]]))
+    expect(await actions.saveFile(STEP)).toBe(false)
+    expect(useIdeStore.getState().activePath).toBe(STEP)
+  })
+
+  it('says a step whose node is gone cannot be saved, in canvas terms, and shows the file', async () => {
+    useIdeStore.getState().setDraft('steps/gone.ts', 'orphan', 'h-gone')
+    const { saveSteps, notify, actions } = setup()
+    saveSteps.mockResolvedValueOnce(new Map([['steps/gone.ts', 'deleted' as const]]))
+    expect(await actions.saveFile('steps/gone.ts')).toBe(false)
+    expect(notify.error).toHaveBeenCalledWith(
+      'Couldn’t save gone.ts',
+      expect.objectContaining({ description: expect.stringContaining('removed from the canvas') }),
+    )
+    expect(useIdeStore.getState().activePath).toBe('steps/gone.ts')
+  })
+
+  it('a graph conflict is not toasted and not shown as a file conflict; the notice carries it', async () => {
+    useIdeStore.getState().setDraft(STEP, 'return 2', 'h-step')
+    const { saveSteps, notify, actions } = setup()
+    saveSteps.mockResolvedValueOnce(new Map([[STEP, 'graph-conflict' as const]]))
+    expect(await actions.saveFile(STEP)).toBe(false)
+    expect(notify.error).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().activePath).toBeNull()
+  })
+
+  it('overwriteFile of a step rebases the draft onto the compared code and posts it', async () => {
+    useIdeStore.getState().setDraft(STEP, 'mine', 'stale')
+    useIdeStore.getState().setConflict(STEP, { currentHash: 'h-step' })
+    const { client, saveSteps, actions } = setup()
+    expect(await actions.overwriteFile(STEP, 'h-step')).toBe(true)
+    expect(saveSteps).toHaveBeenCalledWith([STEP])
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    // Rebased before the post, which the stand-in saver then rebased again.
+    expect(useIdeStore.getState().drafts[STEP]?.baseHash).toBe(`saved:${STEP}`)
+    expect(useIdeStore.getState().conflicts[STEP]).toBeUndefined()
+  })
+
+  it('recreateFile, renameFile and deleteFile do nothing for a step source', async () => {
+    useIdeStore.getState().setDraft('steps/gone.ts', 'orphan', 'h-gone')
+    const { client, actions } = setup()
+    expect(await actions.recreateFile('steps/gone.ts')).toBe(false)
+    expect(await actions.renameFile(STEP, 'lib/validate.ts')).toBe(false)
+    expect(await actions.deleteFile(STEP)).toBe(false)
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+  })
+
+  it('deleteFolder leaves step sources and their drafts alone', async () => {
+    useIdeStore.getState().setDraft(STEP, 'return 2', 'h-step')
+    const { client, actions, notify } = setup()
+    expect(await actions.deleteFolder('steps')).toBe(true)
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().drafts[STEP]?.source).toBe('return 2')
+    expect(notify.success).toHaveBeenCalledWith('Deleted steps')
+  })
+
+  it('every landed file write records the version once, after the write and before the refetch', async () => {
+    const { client, commit, refresh, actions } = setup()
+    await actions.createFile('lib/new.ts')
+    expect(commit).toHaveBeenCalledTimes(1)
+    await actions.deleteFile('config/other.ts')
+    expect(commit).toHaveBeenCalledTimes(2)
+    useIdeStore.getState().setDraft('config/env.ts', 'v2', 'h-env')
+    await actions.overwriteFile('config/env.ts', 'h-env')
+    expect(commit).toHaveBeenCalledTimes(3)
+    useIdeStore.getState().setDraft('lib/gone.ts', 'copy', 'h-gone')
+    await actions.recreateFile('lib/gone.ts')
+    expect(commit).toHaveBeenCalledTimes(4)
+    expect(client.putProjectFile).toHaveBeenCalledTimes(3)
+    expect(refresh).toHaveBeenCalledTimes(4)
+  })
+
+  it('a refused write records no version', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'mine', 'h-env')
+    const { client, commit, actions } = setup()
+    client.putProjectFile.mockRejectedValueOnce(new ProjectFileConflictError('moved', 'h-agent'))
+    expect(await actions.saveFile('config/env.ts')).toBe(false)
+    expect(commit).not.toHaveBeenCalled()
+  })
+})
+
+describe('project file actions record a version only for a write that landed', () => {
+  beforeEach(() => {
+    useIdeStore.getState().resetSession()
+  })
+
+  it('deleteFolder commits nothing when every delete was refused, but still reads the files back', async () => {
+    const { client, commit, refresh, actions } = setup()
+    client.deleteProjectFile.mockRejectedValue(new ProjectFileConflictError('moved', 'h-new'))
+    expect(await actions.deleteFolder('config')).toBe(false)
+    expect(commit).not.toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it('a handlers.ts saved ahead of a conversion that then fails is still recorded and read back', async () => {
+    useIdeStore.getState().setDraft('handlers.ts', '@fetch function mine() {}', null)
+    const { client, commit, refresh, actions } = setup()
+    client.convertHandlers.mockRejectedValueOnce(new ApiError('Nope', 500))
+    expect(await actions.convertHandlers()).toBeNull()
+    expect(client.putProjectFile).toHaveBeenCalledTimes(1)
+    expect(commit).toHaveBeenCalledTimes(1)
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('project file actions in a workspace that cannot edit', () => {
+  beforeEach(() => {
+    useIdeStore.getState().resetSession()
+  })
+
+  it('sends nothing from any entry point: a view gone read-only under open drafts writes no file and no version', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft(STEP, 'return 2', 'h-step')
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    store.setDraft('lib/gone.ts', 'copy', 'h-gone')
+    const { client, saveSteps, commit, actions } = setup(
+      baseline,
+      () => true,
+      () => false,
+    )
+    expect(await actions.saveFile(STEP)).toBe(false)
+    expect(await actions.saveFile('config/env.ts')).toBe(false)
+    expect(await actions.saveFiles([STEP, 'config/env.ts'])).toEqual([false, false])
+    expect(await actions.saveAll()).toBe(0)
+    expect(await actions.overwriteFile('config/env.ts', 'h-env')).toBe(false)
+    expect(await actions.recreateFile('lib/gone.ts')).toBe(false)
+    expect(await actions.createFile('lib/new.ts')).toBe(false)
+    expect(await actions.renameFile('config/env.ts', 'lib/env.ts')).toBe(false)
+    expect(await actions.deleteFile('config/env.ts')).toBe(false)
+    expect(await actions.deleteFolder('config')).toBe(false)
+    expect(await actions.convertHandlers()).toBeNull()
+    expect(saveSteps).not.toHaveBeenCalled()
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(client.deleteProjectFile).not.toHaveBeenCalled()
+    expect(client.convertHandlers).not.toHaveBeenCalled()
+    expect(commit).not.toHaveBeenCalled()
+    // The drafts are untouched: nothing was saved, nothing was dropped.
+    expect(useIdeStore.getState().drafts[STEP]?.source).toBe('return 2')
+    expect(useIdeStore.getState().drafts['config/env.ts']?.source).toBe('edited env')
+  })
+
+  it('reads the flag when the action starts, not when the actions were built', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'edited env', 'h-env')
+    let editable = true
+    const { client, actions } = setup(
+      baseline,
+      () => true,
+      () => editable,
+    )
+    editable = false
+    expect(await actions.saveFile('config/env.ts')).toBe(false)
+    editable = true
+    expect(await actions.saveFile('config/env.ts')).toBe(true)
+    expect(client.putProjectFile).toHaveBeenCalledTimes(1)
   })
 })

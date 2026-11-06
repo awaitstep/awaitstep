@@ -24,10 +24,11 @@ const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
 }
 
 /**
- * What the selected step is and how it last did, read-only. Settings are
- * changed on the canvas, which owns the graph: saving them from here would be
- * a second way to write it. The panel mounts only while a step is selected,
- * so the run requests it makes start and stop with it.
+ * What the selected step is and how it last did, read-only. Its code is
+ * edited in its source file; its settings are changed on the canvas, which
+ * owns the graph — saving them from here would be a second way to write it.
+ * The panel mounts only while a step is selected, so the run requests it
+ * makes start and stop with it.
  */
 export function StepInspector({ nodeId }: { nodeId: string }) {
   const sync = useStepSync()
@@ -58,6 +59,33 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
   function handleEditOnCanvas() {
     void switchView('canvas', { version: linkVersion, node: nodeId })
   }
+
+  // Where the step's code runs: its generated module, or why it has none.
+  const moduleDescription =
+    info.filePath !== null ? (
+      <>
+        <FileLink path={info.filePath} />
+        <span className="text-muted-foreground"> · generated</span>
+      </>
+    ) : !map.hasManifest ? (
+      <span className="text-muted-foreground">
+        {kind === 'script' ? 'A function has no step files' : 'No step files in this version'}
+      </span>
+    ) : leader && leaderFile ? (
+      <span className="text-muted-foreground">
+        Runs inside {leader.name}, in <FileLink path={leaderFile} />
+      </span>
+    ) : (
+      <span className="text-muted-foreground">
+        {sync.workflowFile ? (
+          <>
+            Written in <FileLink path={sync.workflowFile} />
+          </>
+        ) : (
+          'No file of its own'
+        )}
+      </span>
+    )
 
   return (
     <section
@@ -92,31 +120,16 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         {settings.retries !== null && <Field label="Retries">{settings.retries}</Field>}
         {settings.timeout !== null && <Field label="Timeout">{settings.timeout}</Field>}
         <Field label="File">
-          {info.filePath !== null ? (
+          {info.sourcePath !== null ? (
             <>
-              <FileLink path={info.filePath} />
-              <span className="text-muted-foreground"> · generated</span>
+              <FileLink path={info.sourcePath} />
+              <span className="text-muted-foreground"> · step code</span>
             </>
-          ) : !map.hasManifest ? (
-            <span className="text-muted-foreground">
-              {kind === 'script' ? 'A function has no step files' : 'No step files in this version'}
-            </span>
-          ) : leader && leaderFile ? (
-            <span className="text-muted-foreground">
-              Runs inside {leader.name}, in <FileLink path={leaderFile} />
-            </span>
           ) : (
-            <span className="text-muted-foreground">
-              {sync.workflowFile ? (
-                <>
-                  Written in <FileLink path={sync.workflowFile} />
-                </>
-              ) : (
-                'No file of its own'
-              )}
-            </span>
+            moduleDescription
           )}
         </Field>
+        {info.sourcePath !== null && <Field label="Module">{moduleDescription}</Field>}
         {info.uses.length > 0 && (
           <Field label="Uses">
             <ul className="space-y-0.5">
@@ -139,7 +152,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
           disabled={info.filePath === null}
           title={
             info.filePath === null
-              ? 'This step has no file of its own to run'
+              ? 'This step has no module of its own to run'
               : 'Run this step on its own in Quick test'
           }
         >

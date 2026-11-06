@@ -153,10 +153,17 @@ const getInitialWorkflowState = () => ({
   simulationResult: null,
   isDirty: false,
   readOnly: false,
+  graphHash: null,
 })
 
 interface WorkflowState {
   workflowId: string | null
+  /**
+   * The save precondition of the version the canvas shows (`WorkflowFull.graphHash`,
+   * or the last save's response): what the next save names as its base. Null
+   * until a version is loaded.
+   */
+  graphHash: string | null
   /** `'workflow'` (default) or `'script'`. Drives codegen shape and UI affordances. */
   kind: 'workflow' | 'script'
   metadata: WorkflowMetadata

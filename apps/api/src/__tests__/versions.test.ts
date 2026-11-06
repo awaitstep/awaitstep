@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { contentHash } from '@awaitstep/codegen'
 import {
   createTestApp,
   recordedAuditEvents,
@@ -7,6 +8,7 @@ import {
   TEST_PROJECT_ID,
   mockDb,
 } from './helpers.js'
+import { graphHash } from '../lib/graph-hash.js'
 
 const validIR = {
   metadata: {
@@ -91,6 +93,27 @@ describe('version routes', () => {
       expect(res.status).toBe(422)
       const body = (await res.json()) as { details: { path: string; message: string }[] }
       expect(body.details).toContainEqual(expect.objectContaining({ path: 'awaitstep/util.ts' }))
+    })
+
+    it('refuses a first save that seeds a file under steps/, the step-source folder', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ir: {
+            ...validIR,
+            runtime: { files: [{ path: 'steps/k3j9x_a1b2c3.ts', source: 'return 1' }] },
+          },
+        }),
+      })
+      expect(res.status).toBe(422)
+      const body = (await res.json()) as { details: { path: string; message: string }[] }
+      expect(body.details).toEqual([
+        {
+          path: 'steps/k3j9x_a1b2c3.ts',
+          message: 'is step code; edit the step under steps/ or on the canvas',
+        },
+      ])
     })
 
     it('returns existing version when IR has not changed', async () => {
@@ -412,6 +435,558 @@ describe('version routes', () => {
       })
       expect(res.status).toBe(400)
       expect(recordedAuditEvents()).toEqual([])
+    })
+  })
+
+  describe('the save precondition (baseGraphHash)', () => {
+    const post = (body: unknown) =>
+      app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    const stored = async (id: string) => (await mockDb.getWorkflowVersionById(id))!.ir
+
+    it('answers every save with the graph hash of what is stored, which /full and /project repeat', async () => {
+      const res = await post({ ir: validIR })
+      const created = await res.json()
+      expect(created.graphHash).toBe(graphHash(await stored(created.id)))
+      const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+      expect(full.version.id).toBe(created.id)
+      expect(full.graphHash).toBe(created.graphHash)
+      const listing = await (await app.request(url('/api/workflows/wf-1/project'))).json()
+      expect(listing.version).toEqual({ id: created.id, graphHash: created.graphHash })
+    })
+
+    it('reports no hash while the workflow has no version, and refuses a save that names one', async () => {
+      const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+      expect(full).toMatchObject({ version: null, graphHash: null })
+      const listing = await (await app.request(url('/api/workflows/wf-1/project'))).json()
+      expect(listing.version).toBeNull()
+
+      const res = await post({ ir: validIR, baseGraphHash: 'deadbeefdeadbeef' })
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({
+        error: 'This workflow changed since it was loaded',
+        currentVersionId: null,
+        currentGraphHash: null,
+      })
+      expect((await mockDb.listVersionsByWorkflow('wf-1')).data).toEqual([])
+    })
+
+    it('saves over the draft when the base is the latest graph, and moves the hash', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const res = await post({ ir: modifiedIR, baseGraphHash: created.graphHash })
+      expect(res.status).toBe(200)
+      const saved = await res.json()
+      expect(saved.id).toBe(created.id)
+      expect(saved.graphHash).not.toBe(created.graphHash)
+      expect(saved.graphHash).toBe(graphHash(await stored(created.id)))
+    })
+
+    it('refuses a stale base with the current version and hash, leaving the row byte-identical', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const before = await stored(created.id)
+      const res = await post({ ir: modifiedIR, baseGraphHash: 'deadbeefdeadbeef' })
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({
+        error: 'This workflow changed since it was loaded',
+        currentVersionId: created.id,
+        currentGraphHash: created.graphHash,
+      })
+      expect(await stored(created.id)).toBe(before)
+      expect((await mockDb.listVersionsByWorkflow('wf-1')).data).toHaveLength(1)
+    })
+
+    it('lets an unchanged IR through on a stale base: a retried save must not 409 on its own result', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const res = await post({ ir: validIR, baseGraphHash: 'deadbeefdeadbeef' })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ id: created.id, graphHash: created.graphHash })
+    })
+
+    /**
+     * A version saved before project files existed: its document still
+     * carries the dependencies setting, so a save echoing it is not stale
+     * and would seed package.json. What the tests below hold back is that
+     * seed.
+     */
+    async function legacyFirstVersion() {
+      const version = await mockDb.createVersion({
+        id: 'v-legacy',
+        workflowId: 'wf-1',
+        ir: JSON.stringify({ ...validIR, runtime: { dependencies: { zod: '^4.0.0' } } }),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+      return { id: version.id as string, graphHash: full.graphHash as string }
+    }
+
+    it('writes nothing on a 409, not even the files the IR would seed', async () => {
+      const legacy = await legacyFirstVersion()
+      const withDeps = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+      const stale = await post({ ir: withDeps, baseGraphHash: 'deadbeefdeadbeef' })
+      expect(stale.status).toBe(409)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+
+      const current = await post({ ir: withDeps, baseGraphHash: legacy.graphHash })
+      expect(current.status).toBe(200)
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['package.json'])
+      expect(JSON.parse(await stored(legacy.id)).runtime?.dependencies).toBeUndefined()
+    })
+
+    it('writes no seeds either when the write loses a race and the retry answers 409', async () => {
+      const legacy = await legacyFirstVersion()
+      const moved = { ...validIR, nodes: [{ ...validIR.nodes[0]!, name: 'Moved' }] }
+      const spy = vi
+        .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
+        .mockImplementationOnce(async (latest) => {
+          await mockDb.updateVersion(latest.id, { ir: JSON.stringify(moved) })
+          return null
+        })
+      try {
+        const withDeps = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+        const res = await post({ ir: withDeps, baseGraphHash: legacy.graphHash })
+        expect(res.status).toBe(409)
+        expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('never seeds over a file another writer created between the read and the write', async () => {
+      const legacy = await legacyFirstVersion()
+      const real = mockDb.updateLatestVersionIfIrMatches
+      const spy = vi
+        .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
+        .mockImplementationOnce(async (latest, expectedIr, patch) => {
+          await mockDb.upsertWorkflowFile({
+            id: 'theirs',
+            workflowId: 'wf-1',
+            path: 'package.json',
+            source: '{"dependencies":{"theirs":"1.0.0"}}',
+            hash: 'h-theirs',
+            size: 36,
+          })
+          return real.call(mockDb, latest, expectedIr, patch)
+        })
+      try {
+        const withDeps = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+        const res = await post({ ir: withDeps, baseGraphHash: legacy.graphHash })
+        expect(res.status).toBe(200)
+        const file = await mockDb.getWorkflowFile('wf-1', 'package.json')
+        expect(file?.source).toBe('{"dependencies":{"theirs":"1.0.0"}}')
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('never re-seeds a file from a stale document once a stored version has dropped the setting', async () => {
+      // v1 arrives with inline dependencies: package.json is seeded and the
+      // stored document drops the setting, since the file owns it now.
+      const withDeps = { ...validIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+      const created = await (await post({ ir: withDeps })).json()
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['package.json'])
+      expect(JSON.parse(await stored(created.id)).runtime?.dependencies).toBeUndefined()
+
+      // Code deletes the file (a files-only commit: neither the version id
+      // nor the graph hash moves, so a tab still holding v1's document sees
+      // nothing to refetch).
+      const removed = await app.request(url('/api/workflows/wf-1/files/package.json'), {
+        method: 'DELETE',
+      })
+      expect(removed.status).toBe(204)
+      await app.request(url('/api/workflows/wf-1/versions/commit'), { method: 'POST' })
+      const base = (await (await app.request(url('/api/workflows/wf-1/full'))).json()).graphHash
+
+      // That tab saves a step: the document it posts still carries the
+      // dependencies v1 had. The file used to come back from it.
+      const stale = { ...modifiedIR, runtime: { dependencies: { zod: '^4.0.0' } } }
+      const res = await post({ ir: stale, baseGraphHash: base })
+      expect(res.status).toBe(200)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      const saved = JSON.parse(await stored(created.id))
+      expect(saved.runtime?.dependencies).toBeUndefined()
+      expect(saved.nodes[0].name).toBe('Modified')
+    })
+
+    it('treats a stale legacy block alone as no change: no new version, nothing seeded', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const res = await post({
+        ir: { ...validIR, runtime: { triggerCode: '@fetch function ghost() {}' } },
+        baseGraphHash: created.graphHash,
+      })
+      expect(res.status).toBe(200)
+      expect((await res.json()).id).toBe(created.id)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      expect(await stored(created.id)).not.toContain('ghost')
+    })
+
+    it('still seeds handlers.ts for a legacy version that carries trigger code, and only that', async () => {
+      // A workflow saved before project files existed: the stored document
+      // still carries the setting, so a client echoing it is not stale.
+      const legacy = {
+        ...validIR,
+        runtime: { triggerCode: '@fetch function handler() {}', dependencies: { zod: '^4.0.0' } },
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-legacy',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(legacy),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const base = (await (await app.request(url('/api/workflows/wf-1/full'))).json()).graphHash
+
+      const res = await post({
+        ir: { ...modifiedIR, runtime: legacy.runtime },
+        baseGraphHash: base,
+      })
+      expect(res.status).toBe(200)
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual([
+        'handlers.ts',
+        'package.json',
+      ])
+      const saved = JSON.parse(await stored('v-legacy')).runtime
+      expect(saved.triggerCode).toBeUndefined()
+      expect(saved.dependencies).toBeUndefined()
+    })
+
+    it('trusts nothing from a stored row it cannot read: the client’s legacy block seeds no file', async () => {
+      const version = await mockDb.createVersion({ id: 'v-raw', workflowId: 'wf-1', ir: '{' })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const res = await post({ ir: { ...validIR, runtime: { dependencies: { zod: '^4.0.0' } } } })
+      expect(res.status).toBe(200)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      expect(JSON.parse(await stored('v-raw')).runtime).toBeUndefined()
+    })
+
+    it('never re-seeds the project from a stale file snapshot once Code deleted the files', async () => {
+      // An import: the first version carries the files and seeds the table.
+      const imported = {
+        ...validIR,
+        runtime: { files: [{ path: 'lib/a.ts', source: 'export const a = 1' }] },
+      }
+      const created = await (await post({ ir: imported })).json()
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['lib/a.ts'])
+
+      // Code deletes every file and commits: the table is empty, the latest
+      // version's snapshot is gone, and neither the id nor the graph moved.
+      const removed = await app.request(url('/api/workflows/wf-1/files/lib/a.ts'), {
+        method: 'DELETE',
+      })
+      expect(removed.status).toBe(204)
+      await app.request(url('/api/workflows/wf-1/versions/commit'), { method: 'POST' })
+      expect(JSON.parse(await stored(created.id)).runtime?.files).toBeUndefined()
+
+      // A client still holding the imported document saves a change: the
+      // snapshot it carries used to be taken for an import again.
+      const res = await post({
+        ir: { ...modifiedIR, runtime: imported.runtime },
+        baseGraphHash: created.graphHash,
+      })
+      expect(res.status).toBe(200)
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      expect(JSON.parse(await stored(created.id)).runtime?.files).toBeUndefined()
+    })
+
+    it('holds an import to the handler rules a PUT would apply: a look-alike handler name is refused', async () => {
+      // The schema already refuses handlers.ts beside modules, duplicate
+      // roles and a bad manifest (400); a module that would silently never
+      // run is a write-time rule, which the seed path now shares with PUT.
+      const res = await post({
+        ir: {
+          ...validIR,
+          runtime: {
+            files: [
+              { path: 'lib/a.ts', source: 'export const a = 1' },
+              { path: 'handlers/Fetch.ts', source: 'export default async () => new Response()' },
+            ],
+          },
+        },
+      })
+      expect(res.status).toBe(422)
+      expect(await res.json()).toEqual({
+        error: 'Invalid project file path',
+        details: [
+          {
+            path: 'handlers/Fetch.ts',
+            message: expect.stringContaining('did you mean handlers/fetch.ts'),
+          },
+        ],
+      })
+      expect((await mockDb.listVersionsByWorkflow('wf-1')).data).toEqual([])
+      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+    })
+
+    it('drops a handlers.ts seed when handler modules landed between the read and the write', async () => {
+      const legacy = {
+        ...validIR,
+        runtime: { triggerCode: '@fetch function handler() {}' },
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-legacy',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(legacy),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const base = (await (await app.request(url('/api/workflows/wf-1/full'))).json()).graphHash
+      const spy = vi
+        .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
+        .mockImplementationOnce(async () => {
+          // A conversion to handler modules lands between this save's read
+          // and its write; the save loses its race and re-reads.
+          await mockDb.upsertWorkflowFile({
+            id: 'f-mod',
+            workflowId: 'wf-1',
+            path: 'handlers/fetch.ts',
+            source: 'export default async () => new Response()',
+            hash: 'h-mod',
+            size: 40,
+          })
+          return null
+        })
+      try {
+        const res = await post({
+          ir: { ...modifiedIR, runtime: legacy.runtime },
+          baseGraphHash: base,
+        })
+        expect(res.status).toBe(200)
+        expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual([
+          'handlers/fetch.ts',
+        ])
+        expect(JSON.parse(await stored('v-legacy')).runtime?.triggerCode).toBeUndefined()
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('does not care about metadata or project files in the base: only the graph counts', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      await app.request(url('/api/workflows/wf-1/files/lib/x.ts'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'If-None-Match': '*' },
+        body: JSON.stringify({ source: 'export const x = 1' }),
+      })
+      const res = await post({
+        ir: { ...modifiedIR, metadata: { ...validIR.metadata, name: 'Renamed', version: 9 } },
+        baseGraphHash: created.graphHash,
+      })
+      expect(res.status).toBe(200)
+      const doc = JSON.parse(await stored(created.id))
+      expect(doc.nodes[0].data.code).toBe('return 2;')
+      expect(doc.runtime.files).toEqual([{ path: 'lib/x.ts', source: 'export const x = 1' }])
+    })
+
+    it('creates the next version when the latest is deployed and the base matches', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      await mockDb.createDeployment({
+        id: 'd-1',
+        workflowId: 'wf-1',
+        versionId: created.id,
+        versionNumber: created.version,
+        connectionId: 'c-1',
+        serviceName: 's',
+        status: 'success',
+      })
+      const res = await post({ ir: modifiedIR, baseGraphHash: created.graphHash })
+      expect(res.status).toBe(201)
+      const next = await res.json()
+      expect(next.version).toBe(created.version + 1)
+      expect(next.id).not.toBe(created.id)
+      expect((await mockDb.getWorkflowById('wf-1'))!.currentVersionId).toBe(next.id)
+      expect(await stored(created.id)).toContain('return 1;')
+    })
+
+    it('builds on the highest version number, not the most recently saved row', async () => {
+      const v1 = await mockDb.createVersion({
+        id: 'v-1',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(validIR),
+      })
+      const v2 = await mockDb.createVersion({
+        id: 'v-2',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(modifiedIR),
+      })
+      await mockDb.updateVersion(v2.id, { createdAt: '2020-01-01T00:00:00.000Z' })
+      expect((await mockDb.listVersionsByWorkflow('wf-1')).data[0]!.id).toBe(v1.id)
+
+      const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
+      expect(full.version.id).toBe(v2.id)
+      expect(full.versions[0].id).toBe(v1.id)
+      const listing = await (await app.request(url('/api/workflows/wf-1/project'))).json()
+      expect(listing.version.id).toBe(v2.id)
+
+      // v2 holds modifiedIR: saving validIR with v1's hash as base is a stale base.
+      const stale = await post({ ir: validIR, baseGraphHash: graphHash(JSON.stringify(validIR)) })
+      expect(stale.status).toBe(409)
+      const saved = await post({ ir: validIR, baseGraphHash: full.graphHash })
+      expect(saved.status).toBe(200)
+      expect((await saved.json()).id).toBe(v2.id)
+    })
+
+    it('re-reads and re-folds once after a lost race, so a files-only commit that landed is kept', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const spy = vi
+        .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
+        .mockImplementationOnce(async (latest, expectedIr) => {
+          // Another request commits a new file into the version between this
+          // save's read and its write: the text moves, the graph does not.
+          await mockDb.upsertWorkflowFile({
+            id: 'f-1',
+            workflowId: 'wf-1',
+            path: 'lib/late.ts',
+            source: 'export const late = 1',
+            hash: contentHash('export const late = 1'),
+            size: 21,
+          })
+          await mockDb.updateVersion(latest.id, {
+            ir: JSON.stringify({
+              ...JSON.parse(expectedIr),
+              runtime: { files: [{ path: 'lib/late.ts', source: 'export const late = 1' }] },
+            }),
+          })
+          return null
+        })
+      try {
+        const res = await post({ ir: modifiedIR, baseGraphHash: created.graphHash })
+        expect(res.status).toBe(200)
+        expect(spy).toHaveBeenCalledTimes(2)
+        const doc = JSON.parse(await stored(created.id))
+        expect(doc.nodes[0].data.code).toBe('return 2;')
+        expect(doc.runtime.files).toEqual([
+          { path: 'lib/late.ts', source: 'export const late = 1' },
+        ])
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('answers 409 with what is stored when the graph moved under a lost race', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const moved = { ...validIR, nodes: [{ ...validIR.nodes[0]!, name: 'Moved' }] }
+      const spy = vi
+        .spyOn(mockDb, 'updateLatestVersionIfIrMatches')
+        .mockImplementationOnce(async (latest) => {
+          await mockDb.updateVersion(latest.id, { ir: JSON.stringify(moved) })
+          return null
+        })
+      try {
+        const res = await post({ ir: modifiedIR, baseGraphHash: created.graphHash })
+        expect(res.status).toBe(409)
+        expect(await res.json()).toEqual({
+          error: 'This workflow changed since it was loaded',
+          currentVersionId: created.id,
+          currentGraphHash: graphHash(JSON.stringify(moved)),
+        })
+        expect(spy).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(await stored(created.id)).nodes[0].name).toBe('Moved')
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('a save without a base keeps today’s behaviour: last writer wins', async () => {
+      const created = await (await post({ ir: validIR })).json()
+      const res = await post({ ir: modifiedIR })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ id: created.id })
+    })
+  })
+
+  describe('POST /api/workflows/:workflowId/versions/commit', () => {
+    const commit = () => app.request(url('/api/workflows/wf-1/versions/commit'), { method: 'POST' })
+    const putFile = (path: string, source: string) =>
+      app.request(url(`/api/workflows/wf-1/files/${path}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'If-None-Match': '*' },
+        body: JSON.stringify({ source }),
+      })
+    const save = (ir: unknown, baseGraphHash?: string) =>
+      app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir, baseGraphHash }),
+      })
+    const deploy = (versionId: string, versionNumber = 1) =>
+      mockDb.createDeployment({
+        id: 'd-1',
+        workflowId: 'wf-1',
+        versionId,
+        versionNumber,
+        connectionId: 'c-1',
+        serviceName: 's',
+        status: 'success',
+      })
+
+    it('has nothing to commit into before the first save', async () => {
+      await putFile('lib/x.ts', 'export const x = 1')
+      const res = await commit()
+      expect(res.status).toBe(404)
+      expect(await res.json()).toEqual({ error: 'No version to commit into' })
+    })
+
+    it('folds the live files into the undeployed version in place, keeping the graph hash', async () => {
+      const created = await (await save(validIR)).json()
+      await putFile('lib/x.ts', 'export const x = 1')
+      const res = await commit()
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.id).toBe(created.id)
+      expect(body.graphHash).toBe(created.graphHash)
+      expect(body.createdBy).toBe(TEST_USER_ID)
+      const doc = JSON.parse(await (await mockDb.getWorkflowVersionById(created.id))!.ir)
+      expect(doc.runtime.files).toEqual([{ path: 'lib/x.ts', source: 'export const x = 1' }])
+      expect(doc.nodes).toEqual(JSON.parse(created.ir).nodes)
+    })
+
+    it('is a no-op when the version already holds the live files', async () => {
+      const created = await (await save(validIR)).json()
+      await putFile('lib/x.ts', 'export const x = 1')
+      const first = await (await commit()).json()
+      const before = (await mockDb.getWorkflowVersionById(created.id))!
+      const res = await commit()
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ id: created.id, graphHash: first.graphHash })
+      expect(await mockDb.getWorkflowVersionById(created.id)).toEqual(before)
+    })
+
+    it('creates the next version when the current one is deployed', async () => {
+      const created = await (await save(validIR)).json()
+      await deploy(created.id)
+      await putFile('lib/x.ts', 'export const x = 1')
+      const res = await commit()
+      expect(res.status).toBe(201)
+      const next = await res.json()
+      expect(next.version).toBe(created.version + 1)
+      expect(next.graphHash).toBe(created.graphHash)
+      expect((await mockDb.getWorkflowById('wf-1'))!.currentVersionId).toBe(next.id)
+      const deployed = JSON.parse((await mockDb.getWorkflowVersionById(created.id))!.ir)
+      expect(deployed.runtime).toBeUndefined()
+    })
+
+    it('a canvas save after a commit succeeds on the base it loaded: files do not move the graph', async () => {
+      const created = await (await save(validIR)).json()
+      await putFile('lib/x.ts', 'export const x = 1')
+      await commit()
+      const res = await save(modifiedIR, created.graphHash)
+      expect(res.status).toBe(200)
+      const doc = JSON.parse((await mockDb.getWorkflowVersionById(created.id))!.ir)
+      expect(doc.nodes[0].data.code).toBe('return 2;')
+      expect(doc.runtime.files).toEqual([{ path: 'lib/x.ts', source: 'export const x = 1' }])
+    })
+
+    it('a revert answers with the new version’s graph hash', async () => {
+      const v1 = await (await save(validIR)).json()
+      await deploy(v1.id)
+      await save(modifiedIR)
+      const res = await app.request(url(`/api/workflows/wf-1/versions/${v1.id}/revert`), {
+        method: 'POST',
+      })
+      expect(res.status).toBe(201)
+      const reverted = await res.json()
+      expect(reverted.version).toBe(3)
+      expect(reverted.graphHash).toBe(v1.graphHash)
     })
   })
 })

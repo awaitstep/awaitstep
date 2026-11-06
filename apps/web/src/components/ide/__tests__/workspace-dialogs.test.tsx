@@ -23,6 +23,7 @@ function projectFilesStub(overrides: Partial<Record<string, unknown>> = {}) {
     renameFile: vi.fn().mockResolvedValue(true),
     deleteFile: vi.fn().mockResolvedValue(true),
     saveFile: vi.fn().mockResolvedValue(true),
+    saveFiles: vi.fn((paths: string[]) => Promise.resolve(paths.map(() => true))),
     convertHandlers: vi.fn().mockResolvedValue(null),
     ...overrides,
   } as unknown as ProjectFilesController & Record<string, ReturnType<typeof vi.fn>>
@@ -36,7 +37,7 @@ function renderDialogs(projectFiles = projectFilesStub()) {
   }
   render(
     <WorkspaceDialogs
-      baseline={baseline}
+      storedPaths={new Set(baseline.keys())}
       projectFiles={projectFiles}
       conversionPreview={conversionPreview}
     />,
@@ -79,27 +80,30 @@ describe('WorkspaceDialogs', () => {
     expect(await screen.findByText(/handlers\.ts is replaced by handlers\/a\.ts/)).toBeTruthy()
   })
 
-  it('closes the tabs after saving every unsaved one', async () => {
+  it('closes the tabs after saving every unsaved one, as one batch', async () => {
     const projectFiles = renderDialogs()
     const store = useIdeStore.getState()
     store.openFile('a.ts')
+    store.openFile('b.ts')
     store.setDraft('a.ts', 'x', 'ha')
-    act(() => useIdeStore.getState().requestClose(['a.ts']))
-    await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
-    expect(projectFiles.saveFile).toHaveBeenCalledWith('a.ts')
-    await waitFor(() => expect(useIdeStore.getState().openPaths).not.toContain('a.ts'))
+    store.setDraft('b.ts', 'y', 'hb')
+    act(() => useIdeStore.getState().requestClose(['a.ts', 'b.ts']))
+    await userEvent.click(await screen.findByRole('button', { name: 'Save all' }))
+    expect(projectFiles.saveFiles).toHaveBeenCalledTimes(1)
+    expect(projectFiles.saveFiles).toHaveBeenCalledWith(['a.ts', 'b.ts'])
+    await waitFor(() => expect(useIdeStore.getState().openPaths).toEqual([]))
   })
 
   it('keeps a tab open, with its edit, when its save failed', async () => {
     const projectFiles = renderDialogs(
-      projectFilesStub({ saveFile: vi.fn().mockResolvedValue(false) }),
+      projectFilesStub({ saveFiles: vi.fn().mockResolvedValue([false]) }),
     )
     const store = useIdeStore.getState()
     store.openFile('a.ts')
     store.setDraft('a.ts', 'x', 'ha')
     act(() => useIdeStore.getState().requestClose(['a.ts']))
     await userEvent.click(await screen.findByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(projectFiles.saveFile).toHaveBeenCalled())
+    await waitFor(() => expect(projectFiles.saveFiles).toHaveBeenCalled())
     await waitFor(() => expect(useIdeStore.getState().closeRequest).toBeNull())
     expect(useIdeStore.getState().openPaths).toContain('a.ts')
     expect(useIdeStore.getState().drafts['a.ts']).toBeDefined()

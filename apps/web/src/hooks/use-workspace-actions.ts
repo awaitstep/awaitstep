@@ -6,6 +6,7 @@ import type { SourceFile } from '../lib/api-client'
 import type { IdeCommandActions } from '../lib/ide/commands'
 import type { DraftUndo } from '../lib/ide/draft-undo'
 import type { Editability } from '../lib/ide/editability'
+import type { FileOwner } from '../lib/ide/project'
 import { runShortcut } from '../lib/ide/key-ownership'
 import { filePathOfTab } from '../lib/ide/tabs'
 import { showStepsView } from '../lib/ide/step-actions'
@@ -40,6 +41,7 @@ interface WorkspaceActionsInput {
   dirty: ReadonlySet<string>
   storedPaths: ReadonlySet<string>
   editabilityOf: (path: string) => Editability
+  ownerOf: (path: string) => FileOwner
   projectFiles: ProjectFilesController
   searchActions: SearchActions
   draftUndo: DraftUndo
@@ -63,6 +65,7 @@ export function useWorkspaceActions({
   dirty,
   storedPaths,
   editabilityOf,
+  ownerOf,
   projectFiles,
   searchActions,
   draftUndo,
@@ -98,6 +101,7 @@ export function useWorkspaceActions({
     projectFiles,
     draftUndo,
     editabilityOf,
+    ownerOf,
     onChange: handleEditorChange,
   })
 

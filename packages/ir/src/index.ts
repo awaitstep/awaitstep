@@ -113,6 +113,7 @@ export {
   HANDLER_SHARED_PATH,
   QUEUE_NAME_PATTERN,
   GENERATED_PATH_RULES,
+  STEP_SOURCE_DIR,
   MAX_PROJECT_FILES,
   MAX_PROJECT_FILE_BYTES,
   MAX_PROJECT_TOTAL_BYTES,
@@ -123,6 +124,8 @@ export {
   isGeneratedPath,
   isProjectCodePath,
   isReservedToolchainPath,
+  isSafePathSegment,
+  isStepSourcePath,
   parsePackageManifest,
   projectFileBytes,
   projectFilePathError,
@@ -157,6 +160,8 @@ export {
   isGlobalEnvRef,
   variableLevelOf,
 } from './env-vars.js'
+export { contentHash } from './content-hash.js'
+export { stepSourcePath } from './node-source.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
 export {

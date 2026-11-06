@@ -125,4 +125,23 @@ describe('groupProblems', () => {
   it('stops flagging once the file is saved', () => {
     expect(groupProblems([], [p('a.ts')], new Set()).saved[0]!.pending).toBe(false)
   })
+
+  it('flags a finding on a step module while the step’s source has unsaved edits', () => {
+    const stepSourceOf = (nodeId: string) => (nodeId === 'a' ? 'steps/a.ts' : undefined)
+    const onModule = { ...p('nodes/a.ts'), nodeId: 'a' }
+    const other = { ...p('nodes/b.ts'), nodeId: 'b' }
+    const groups = groupProblems([], [onModule, other], new Set(['steps/a.ts']), stepSourceOf)
+    expect(groups.saved.map((x) => x.pending)).toEqual([true, false])
+  })
+
+  it('keeps a node finding without a file unflagged even while that step’s source is dirty', () => {
+    const stepSourceOf = () => 'steps/a.ts'
+    const groups = groupProblems(
+      [],
+      [{ ...p(''), nodeId: 'a' }],
+      new Set(['steps/a.ts']),
+      stepSourceOf,
+    )
+    expect(groups.saved[0]!.pending).toBe(false)
+  })
 })

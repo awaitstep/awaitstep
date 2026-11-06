@@ -207,9 +207,20 @@ export interface DeploymentSummary {
   connectionName?: string | null
 }
 
+/** The latest version's identity: what a save names as its base, and what the poll compares. */
+export interface VersionRef {
+  id: string
+  graphHash: string
+}
+
+/** A version as a save returns it, with the precondition for the next save. */
+export type SavedVersion = WorkflowVersion & { graphHash: string }
+
 export interface WorkflowFull {
   workflow: WorkflowSummary
   version: WorkflowVersion | null
+  /** The save precondition for `version` (`baseGraphHash`); null without a version. */
+  graphHash: string | null
   versions: VersionSummary[]
   /** What is live on each account, newest first. */
   liveDeployments: LiveDeployment[]
@@ -297,6 +308,12 @@ export interface ProjectFileContent extends ProjectFileSummary {
   source: string
 }
 
+/** `GET /project`: the stored files with their hashes and the latest version, no text. */
+export interface ProjectListing {
+  files: ProjectFileSummary[]
+  version: VersionRef | null
+}
+
 /**
  * What the annotations declared that modules cannot carry — provider-shaped;
  * these are the Cloudflare keys the UI knows how to describe.
@@ -354,6 +371,55 @@ export class ProjectFileConflictError extends Error {
     super(message)
     this.name = 'ProjectFileConflictError'
   }
+}
+
+/**
+ * A save the server refused because the workflow's graph moved since it was
+ * loaded (`baseGraphHash` is not the latest version's). Nothing was written;
+ * `currentVersionId`/`currentGraphHash` are what is stored now (null while
+ * the workflow has no version).
+ */
+export class VersionConflictError extends Error {
+  /** A refusal: its message is the server's reason. */
+  readonly status = 409
+
+  constructor(
+    message: string,
+    readonly currentVersionId: string | null,
+    readonly currentGraphHash: string | null,
+  ) {
+    super(message)
+    this.name = 'VersionConflictError'
+  }
+}
+
+async function versionRequest<T>(path: string, options: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+    ...options,
+  })
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string
+      currentVersionId?: string | null
+      currentGraphHash?: string | null
+    }
+    throw new VersionConflictError(
+      body.error ?? 'Conflict',
+      body.currentVersionId ?? null,
+      body.currentGraphHash ?? null,
+    )
+  }
+  if (!res.ok) {
+    const { message, field, hasReason } = await readErrorBody(res)
+    throw new ApiError(message, res.status, {
+      requestId: res.headers.get('x-request-id') ?? undefined,
+      field,
+      hasReason,
+    })
+  }
+  return res.json()
 }
 
 function encodeProjectPath(path: string): string {
@@ -536,12 +602,21 @@ export function createApiClient(scope: () => ApiScope) {
       return request(withProject(`/workflows/${pathSegment(id)}/source${params}`))
     },
 
-    /** The stored files with their hashes (no text): what the IDE polls to notice outside changes. */
+    /**
+     * The stored files with their hashes and the latest version's identity
+     * (no text): what the IDE polls to notice outside changes, from an agent's
+     * file write to a canvas save.
+     */
+    getProjectListing(id: string): Promise<ProjectListing> {
+      return request(withProject(`/workflows/${pathSegment(id)}/project`))
+    },
+
+    /** The files half of the listing. */
     async getProjectFiles(id: string): Promise<ProjectFileSummary[]> {
-      const body = await request<{ files: ProjectFileSummary[] }>(
+      const listing = await request<ProjectListing>(
         withProject(`/workflows/${pathSegment(id)}/project`),
       )
-      return body.files
+      return listing.files
     },
 
     getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
@@ -644,10 +719,25 @@ export function createApiClient(scope: () => ApiScope) {
       )
     },
 
-    createVersion(workflowId: string, data: { ir: unknown }): Promise<WorkflowVersion> {
-      return request(withProject(`/workflows/${pathSegment(workflowId)}/versions`), {
+    /**
+     * Saves `ir` as the current version. With `baseGraphHash` (the loaded
+     * `WorkflowFull.graphHash`, or the last save's) the server refuses with a
+     * `VersionConflictError` when the graph moved meanwhile, writing nothing.
+     */
+    createVersion(
+      workflowId: string,
+      data: { ir: unknown; baseGraphHash?: string },
+    ): Promise<SavedVersion> {
+      return versionRequest(withProject(`/workflows/${pathSegment(workflowId)}/versions`), {
         method: 'POST',
         body: JSON.stringify(data),
+      })
+    },
+
+    /** Snapshots the live project files into the current version; a workflow with no version answers 404. */
+    commitVersion(workflowId: string): Promise<SavedVersion> {
+      return versionRequest(withProject(`/workflows/${pathSegment(workflowId)}/versions/commit`), {
+        method: 'POST',
       })
     },
 
@@ -661,7 +751,7 @@ export function createApiClient(scope: () => ApiScope) {
       )
     },
 
-    revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
+    revertToVersion(workflowId: string, versionId: string): Promise<SavedVersion> {
       return request(
         withProject(
           `/workflows/${pathSegment(workflowId)}/versions/${pathSegment(versionId)}/revert`,

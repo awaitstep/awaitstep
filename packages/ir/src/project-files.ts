@@ -294,7 +294,33 @@ export const PROJECT_ROOT_CONFIG_FILES = ['package.json', 'tsconfig.json', 'jsco
 /** Human-readable description of what the canvas generates and projects cannot shadow. */
 export const GENERATED_PATH_RULES = ['worker.*', 'nodes/**', 'awaitstep/**', 'wrangler.*'] as const
 
+/**
+ * The folder where the code workspace shows each step node's body as an
+ * editable `steps/<id>.ts` (the path rule is `stepSourcePath`). Those files
+ * are a view of the IR, never stored, so nothing may be written there: a
+ * project file under it would sit beside — or hide — a step of the same name.
+ */
+export const STEP_SOURCE_DIR = 'steps'
+
 const SAFE_SEGMENT = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/
+
+/**
+ * A path segment the project-file rules accept: no dotfiles, no traversal,
+ * nothing a URL or a shell would read differently from the name.
+ */
+export function isSafePathSegment(segment: string): boolean {
+  return SAFE_SEGMENT.test(segment) && !segment.includes('..')
+}
+
+/**
+ * A path inside the step-source folder, at any depth and in any case: the
+ * folder is reserved the way `nodes/` is, so `Steps/x.ts` is refused too
+ * rather than shown as a second folder beside the real one.
+ */
+export function isStepSourcePath(path: string): boolean {
+  const slash = path.indexOf('/')
+  return slash !== -1 && path.slice(0, slash).toLowerCase() === STEP_SOURCE_DIR
+}
 
 const ROOT_CONFIG_FILES = new Set<string>(PROJECT_ROOT_CONFIG_FILES)
 
@@ -380,18 +406,19 @@ export function projectFileBytes(source: string): number {
 export interface ProjectFilePathOptions {
   /**
    * Validate a stored snapshot instead of a new write. The generated-path
-   * rule is write-time only, the same way handler-path rules are: a version
-   * saved before a path was reserved must still load and deploy, or an old
-   * version becomes unreachable with no way to edit it.
+   * and step-source rules are write-time only, the same way handler-path
+   * rules are: a version saved before a path was reserved must still load
+   * and deploy, or an old version becomes unreachable with no way to edit it.
    */
   stored?: boolean
 }
 
 /**
  * Why a path cannot be a project file, or null when it can: conservative
- * segments (no dotfiles, no traversal), nothing the canvas generates (for a
- * new write), no lockfiles or node_modules, toolchain config only at the
- * root, and a code/data extension.
+ * segments (no dotfiles, no traversal), nothing the canvas generates and
+ * nothing under the step-source folder (both for a new write only), no
+ * lockfiles or node_modules, toolchain config only at the root, and a
+ * code/data extension.
  */
 export function projectFilePathError(
   path: string,
@@ -401,11 +428,14 @@ export function projectFilePathError(
     return `exceeds ${MAX_PROJECT_FILE_PATH_LENGTH} characters`
   }
   const segments = path.split('/')
-  if (segments.some((segment) => !SAFE_SEGMENT.test(segment) || segment.includes('..'))) {
+  if (segments.some((segment) => !isSafePathSegment(segment))) {
     return 'contains an unsafe path segment'
   }
   if (!options?.stored && isGeneratedPath(path)) {
     return 'is generated from the canvas'
+  }
+  if (!options?.stored && isStepSourcePath(path)) {
+    return `is step code; edit the step under ${STEP_SOURCE_DIR}/ or on the canvas`
   }
   const lower = segments.map((s) => s.toLowerCase())
   if (lower.includes('node_modules')) {

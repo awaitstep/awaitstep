@@ -14,8 +14,9 @@ import { dirtyPaths, overlayDrafts } from './drafts'
 import { basename } from './file-tree'
 import { outsideState } from './outside-changes'
 import { compareTabId } from './tabs'
-import { importSpecifier } from './project'
+import { importSpecifier, type FileOwner } from './project'
 import { countImporters, toSearchFiles } from './search'
+import type { StepSaveOutcome, StepSaveOutcomes } from './step-save'
 
 export interface ProjectFileClient {
   putProjectFile(
@@ -54,8 +55,28 @@ export interface ProjectActionDeps {
    * write must not touch it. Defaults to always true.
    */
   isCurrent?: () => boolean
-  /** The project's own paths (stored files and virtual seeds); every other file is generated. */
+  /**
+   * The workspace accepts edits right now (the current version, a role that
+   * may edit). Read when an action starts: a view that turned read-only
+   * under open drafts (its version became historical) still shows the
+   * buttons that call these, and none of them may then send a write.
+   */
+  canEdit: () => boolean
+  /** The project's own paths (stored files, virtual seeds, step sources); every other file is generated. */
   getProjectPaths: () => ReadonlySet<string>
+  /**
+   * Who a path belongs to. A step's source is saved through the version,
+   * never written as a file, so every write here asks first.
+   */
+  ownerOf: (path: string) => FileOwner
+  /** Saves step drafts as one version (`createStepSaver`); it refetches by itself. */
+  saveSteps: (paths: readonly string[]) => Promise<StepSaveOutcomes>
+  /**
+   * Records the project files into the current version once a batch of file
+   * writes has landed, so a files-only edit is versioned too. Never throws;
+   * does nothing while the workflow has no version.
+   */
+  commit: () => Promise<void>
   /** Refetches the workspace once a write has landed. */
   refresh: () => Promise<void>
   /** Opens Search on the old import path after a rename that left importers behind. */
@@ -65,6 +86,12 @@ export interface ProjectActionDeps {
 export interface ProjectFileActions {
   /** Saves one file; false when there was nothing to save or the write was refused. */
   saveFile(path: string): Promise<boolean>
+  /**
+   * Saves these drafts as one batch — the step drafts as one version, the
+   * files one write each, then one commit — and says for each whether it
+   * was written, in the order given.
+   */
+  saveFiles(paths: readonly string[]): Promise<boolean[]>
   /** Saves every dirty draft; resolves to how many were written. */
   saveAll(): Promise<number>
   /**
@@ -91,7 +118,9 @@ export interface ProjectFileActions {
 }
 
 type WriteOutcome = ProjectFileSummary | 'conflict' | 'failed'
-type SaveOutcome = 'saved' | 'unchanged' | 'conflict' | 'deleted' | 'failed'
+type SaveOutcome = StepSaveOutcome
+
+const NO_OUTCOMES: StepSaveOutcomes = new Map()
 
 /** The create toast's button: puts the import path on the clipboard. */
 function copyImportAction(specifier: string, notify: Notifier): ToastAction {
@@ -126,10 +155,22 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     getBaseline,
     getStore,
     getProjectPaths,
+    ownerOf,
+    saveSteps,
+    commit,
     refresh,
     onShowImporters,
+    canEdit,
   } = deps
   const isCurrent = deps.isCurrent ?? (() => true)
+  const isStep = (path: string) => ownerOf(path) === 'step'
+
+  // After a batch of file writes has landed: the version records the files
+  // as they are now, then the workspace reads everything back.
+  async function settle(): Promise<void> {
+    await commit()
+    await refresh()
+  }
 
   // The session store, or null when the workspace has moved on since the
   // action started. Called after every await, never cached across one.
@@ -162,21 +203,34 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   }
 
   async function overwriteFile(path: string, serverHash: string | null): Promise<boolean> {
-    const source = getStore().drafts[path]?.source
-    if (source === undefined) return false
+    if (!canEdit()) return false
+    const store = liveStore()
+    if (!store || store.drafts[path] === undefined) return false
+    if (isStep(path)) {
+      // Compare showed the node's code as the workspace has it; keeping yours
+      // means saving over exactly that, so the draft is rebased onto its hash
+      // and posted. A node that moved on again since is a fresh conflict.
+      if (serverHash !== null) store.rebaseDraft(path, serverHash)
+      const outcome = (await saveSteps([path])).get(path)
+      if (outcome === 'conflict') showConflict(path)
+      return outcome === 'saved'
+    }
+    const source = store.drafts[path]!.source
     const precondition: WritePrecondition = serverHash
       ? { ifMatch: serverHash }
       : { ifNoneMatch: true }
     const saved = await write(path, source, precondition, true)
     if (typeof saved === 'string') return false
     liveStore()?.rebaseDraft(path, saved.hash)
-    await refresh()
+    await settle()
     return true
   }
 
   // 'unchanged' is a draft that matches the file (or a stored file with no
   // draft): nothing to send, and nothing wrong either.
   async function saveOne(path: string): Promise<SaveOutcome> {
+    // Step code is routed before any file logic: it is never PUT.
+    if (isStep(path)) return (await saveSteps([path])).get(path) ?? 'failed'
     const base = getBaseline().get(path)
     const draft = getStore().drafts[path]
     if (!draft && !base) return 'failed'
@@ -200,12 +254,19 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   }
 
   // A save of a deleted file does nothing by itself, so it says why and shows
-  // the file, where the banner offers Save to recreate and Discard.
+  // the file, where the banner offers Save to recreate and Discard — or, for
+  // a step whose node is gone from the canvas, Copy code and Discard.
   function announceDeleted(path: string) {
     if (!isCurrent()) return
-    notify.error(`${basename(path)} was deleted on the server`, {
-      description: 'Save to recreate it from your copy, or discard your copy.',
-    })
+    if (isStep(path)) {
+      notify.error(`Couldn’t save ${basename(path)}`, {
+        description: 'Its step was removed from the canvas. Copy the code or discard your copy.',
+      })
+    } else {
+      notify.error(`${basename(path)} was deleted on the server`, {
+        description: 'Save to recreate it from your copy, or discard your copy.',
+      })
+    }
     liveStore()?.openFile(path)
   }
 
@@ -254,6 +315,8 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
   /** One file's delete: no refresh, no toast, so a folder can do many and say it once. */
   async function removeFile(path: string): Promise<boolean> {
+    // A step's source is not a file: deleting the step is the canvas's job.
+    if (isStep(path)) return false
     const base = getBaseline().get(path)
     const draft = getStore().drafts[path]
     // A draft built on no stored version (a virtual seed, or one restored
@@ -287,43 +350,63 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     return true
   }
 
+  async function saveFiles(paths: readonly string[]): Promise<boolean[]> {
+    if (!canEdit()) return paths.map(() => false)
+    const unique = [...new Set(paths)]
+    const steps = unique.filter(isStep)
+    const files = unique.filter((path) => !isStep(path))
+    const [stepOutcomes, fileOutcomes] = await Promise.all([
+      steps.length > 0 ? saveSteps(steps) : NO_OUTCOMES,
+      Promise.all(files.map(saveOne)),
+    ])
+    const outcomes = new Map<string, SaveOutcome>(stepOutcomes)
+    files.forEach((path, index) => outcomes.set(path, fileOutcomes[index]!))
+    const firstConflict = unique.find((path) => outcomes.get(path) === 'conflict')
+    if (firstConflict !== undefined) showConflict(firstConflict)
+    const firstDeleted = unique.find((path) => outcomes.get(path) === 'deleted')
+    if (firstDeleted !== undefined) announceDeleted(firstDeleted)
+    // The step saver has refetched for its own write; the files need the
+    // commit, once for the whole batch.
+    if (files.some((path) => outcomes.get(path) === 'saved')) await settle()
+    return paths.map((path) => outcomes.get(path) === 'saved')
+  }
+
   return {
     async saveFile(path) {
+      if (!canEdit()) return false
       const outcome = await saveOne(path)
       // The banners live on the file's own tab.
       if (outcome === 'conflict') showConflict(path)
       if (outcome === 'deleted') announceDeleted(path)
       const ok = outcome === 'saved'
       // No toast: the dirty dot clearing is the confirmation, as in any editor.
-      if (ok) await refresh()
+      if (ok && !isStep(path)) await settle()
       return ok
     },
 
     overwriteFile,
 
     async recreateFile(path) {
+      // A step's node is gone: its code can only be copied, not recreated here.
+      if (!canEdit() || isStep(path)) return false
       const source = getStore().drafts[path]?.source
       if (source === undefined) return false
       const saved = await write(path, source, { ifNoneMatch: true }, true)
       if (typeof saved === 'string') return false
       liveStore()?.rebaseDraft(path, saved.hash)
-      await refresh()
+      await settle()
       return true
     },
 
+    saveFiles,
+
     async saveAll() {
-      const paths = dirtyPaths(getBaseline(), getStore().drafts)
-      const results = await Promise.all(paths.map(saveOne))
-      const firstConflict = paths.find((_, index) => results[index] === 'conflict')
-      if (firstConflict !== undefined) showConflict(firstConflict)
-      const firstDeleted = paths.find((_, index) => results[index] === 'deleted')
-      if (firstDeleted !== undefined) announceDeleted(firstDeleted)
-      const saved = results.filter((r) => r === 'saved').length
-      if (saved > 0) await refresh()
-      return saved
+      const results = await saveFiles(dirtyPaths(getBaseline(), getStore().drafts))
+      return results.filter(Boolean).length
     },
 
     async createFile(path, source) {
+      if (!canEdit()) return false
       // A new handler entry starts from its scaffold: an empty
       // handlers/fetch.ts would take over the HTTP entry and answer
       // nothing, and a new file row is how the docs say to add one.
@@ -337,7 +420,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       // A conflict means someone else created it first: show their file.
       if (created === 'conflict') await refresh()
       if (typeof created === 'string') return false
-      await refresh()
+      await settle()
       liveStore()?.openFile(path)
       const specifier = importSpecifier(path)
       notify.success(
@@ -348,6 +431,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     },
 
     async renameFile(from, to) {
+      if (!canEdit() || isStep(from)) return false
       const base = getBaseline().get(from)
       // The editor as it stood when the rename began: the count below must
       // not mix this workflow's baseline with another one's drafts.
@@ -393,30 +477,35 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const store = liveStore()
       store?.moveFile(from, to)
       store?.clearDraft(to)
-      await refresh()
+      await settle()
       if (removed) announceRename(to, isCurrent() ? importers : null)
       return true
     },
 
     async deleteFile(path) {
+      if (!canEdit()) return false
       if (!(await removeFile(path))) return false
-      await refresh()
+      await settle()
       notify.success(`Deleted ${basename(path)}`)
       return true
     },
 
     async deleteFolder(dir) {
+      if (!canEdit()) return false
       const prefix = `${dir}/`
-      const stored = [...getBaseline()].filter(
-        ([p, f]) => p.startsWith(prefix) && f.hash !== undefined,
-      )
+      // Step sources under the folder are not files and are left alone.
+      const inFolder = (p: string) => p.startsWith(prefix) && !isStep(p)
+      const stored = [...getBaseline()].filter(([p, f]) => inFolder(p) && f.hash !== undefined)
       const paths = new Set([
         ...stored.map(([p]) => p),
-        ...Object.keys(getStore().drafts).filter((p) => p.startsWith(prefix)),
+        ...Object.keys(getStore().drafts).filter(inFolder),
       ])
       const results = await Promise.all([...paths].map(removeFile))
       const removed = results.filter(Boolean).length
-      await refresh()
+      // Only a delete that landed is something to record; refused ones are
+      // read back so each file shows why.
+      if (removed > 0) await settle()
+      else await refresh()
       const name = basename(dir)
       if (removed === paths.size) {
         notify.success(`Deleted ${name}`)
@@ -429,11 +518,14 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     },
 
     async convertHandlers() {
+      if (!canEdit()) return null
       // The server converts what it has stored; an unsaved draft of the
       // annotation file would be lost, so it is saved first.
+      let savedFirst = false
       if (getStore().drafts[PROJECT_HANDLERS_PATH]) {
         const outcome = await saveOne(PROJECT_HANDLERS_PATH)
-        if (outcome === 'failed' || outcome === 'conflict' || outcome === 'deleted') return null
+        if (outcome !== 'saved' && outcome !== 'unchanged') return null
+        savedFirst = outcome === 'saved'
       }
       // The hash the conversion is conditional on is read after that save:
       // a saved draft now builds on the hash the server returned.
@@ -448,13 +540,16 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
         result = await client.convertHandlers(workflowId, hash)
       } catch (err) {
         failed(notify, `Couldn’t convert ${PROJECT_HANDLERS_PATH}`, err)
-        if (err instanceof ProjectFileConflictError) await refresh()
+        // The save that preceded a failed conversion still landed: it is
+        // recorded and read back like any other write.
+        if (savedFirst) await settle()
+        else if (err instanceof ProjectFileConflictError) await refresh()
         return null
       }
       const store = liveStore()
       store?.clearDraft(PROJECT_HANDLERS_PATH)
       store?.closeFile(PROJECT_HANDLERS_PATH)
-      await refresh()
+      await settle()
       if (result.files[0]) liveStore()?.openFile(result.files[0].path)
       notify.success(
         result.files.length === 1

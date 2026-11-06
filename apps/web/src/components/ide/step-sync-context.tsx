@@ -38,6 +38,12 @@ interface ProviderProps {
   /** Every file as the editor has it, drafts included. */
   files: ReadonlyMap<string, { source: string }>
   projectPaths: ReadonlySet<string>
+  /**
+   * Node → its editable `steps/<id>.ts`, for the nodes the workspace shows
+   * one for (`useWorkspaceData.stepSourceByNode`). A step whose path a stored
+   * file or another step holds is absent, so its module is what opens.
+   */
+  sourcePaths: ReadonlyMap<string, string>
   workflowFile: string | null
   versions: readonly VersionSummary[]
   graphVersionId: string | null
@@ -58,6 +64,7 @@ export function StepSyncProvider({
   manifest,
   files,
   projectPaths,
+  sourcePaths,
   workflowFile,
   versions,
   graphVersionId,
@@ -92,8 +99,9 @@ export function StepSyncProvider({
         nodeIds: rows.map((r) => r.nodeId),
         files: deferredFiles,
         projectPaths,
+        sourcePaths,
       }),
-    [manifest, rows, deferredFiles, projectPaths],
+    [manifest, rows, deferredFiles, projectPaths, sourcePaths],
   )
 
   const value = useMemo<StepSyncValue>(

@@ -14,6 +14,7 @@ import {
 } from '@awaitstep/ir'
 import { inheritedWorkspaceRole, workspaceCapabilities } from '@awaitstep/ir'
 import { unresolvableEnvRefs } from '../lib/env-resolve.js'
+import { graphHash } from '../lib/graph-hash.js'
 import { rolesOf } from '../lib/scope-records.js'
 import { apiKeyLevel, apiKeyWorkspaceScopes } from '../middleware/auth.js'
 import type { AppEnv } from '../types.js'
@@ -163,17 +164,20 @@ workflows.get('/:id/full', async (c) => {
 
   const versionId = c.req.query('version')
 
-  const [liveDeployments, versionsResult, projectFiles, handlersFile, requested] =
+  const [liveDeployments, versionsResult, latest, projectFiles, handlersFile, requested] =
     await Promise.all([
       db.listLiveDeployments(workflow.id),
       db.listVersionsByWorkflow(workflow.id, { limit: 100 }),
+      versionId ? null : db.getLatestVersion(workflow.id),
       db.listWorkflowFileSummaries(workflow.id),
       db.getWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH),
       versionId ? db.getWorkflowVersionById(versionId) : null,
     ])
   const versions = versionsResult.data
 
-  let version: WorkflowVersion | null = versions[0] ?? null
+  // The current version is the highest-numbered one — the row a save builds
+  // on — so the graph hash handed out here is the one `POST /versions` checks.
+  let version: WorkflowVersion | null = latest
   if (versionId) {
     version = requested?.workflowId === workflow.id ? requested : null
   }
@@ -194,6 +198,8 @@ workflows.get('/:id/full', async (c) => {
       consumedQueues: handlers.queues.map((q) => q.queue),
     },
     version,
+    /** The save precondition for `version`; null without one. */
+    graphHash: version ? graphHash(version.ir) : null,
     versions: versions.map(({ id, version, locked, createdAt }) => ({
       id,
       version,

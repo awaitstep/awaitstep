@@ -1,5 +1,6 @@
 import type { GeneratedFile } from '@awaitstep/codegen'
 import {
+  STEP_SOURCE_DIR,
   HANDLER_FETCH_PATH,
   HANDLER_QUEUE_DIR,
   HANDLER_SCHEDULED_PATH,
@@ -11,6 +12,7 @@ import {
   PROJECT_HANDLERS_PATH,
   PROJECT_IMPORT_PREFIX,
   isProjectCodePath,
+  isStepSourcePath,
   projectFileBytes,
   projectHandlerModules,
   findProjectPathCollision,
@@ -21,7 +23,7 @@ import {
 } from '@awaitstep/ir'
 import { basename, dirname, normalizeBundlePath } from './file-tree'
 
-export type FileOwner = 'project' | 'generated'
+export type FileOwner = 'project' | 'generated' | 'step'
 
 export interface WorkspaceFiles {
   project: GeneratedFile[]
@@ -40,8 +42,39 @@ export function splitWorkspaceFiles(
   return split
 }
 
-export function fileOwner(path: string, projectPaths: ReadonlySet<string>): FileOwner {
-  return projectPaths.has(path) ? 'project' : 'generated'
+/**
+ * The stored project files among a bundle's files: those with a hash, the
+ * file routes' write precondition. Generated files and step sources have
+ * none, so they are left out — only these count toward usage, folder
+ * counts and the outside-changes poll, and only these back the canvas's
+ * import resolution.
+ */
+export function storedFiles<T extends { path: string; hash?: string }>(
+  files: Iterable<T>,
+): Map<string, T> {
+  const stored = new Map<string, T>()
+  for (const file of files) if (file.hash !== undefined) stored.set(file.path, file)
+  return stored
+}
+
+export interface OwnerSets {
+  /** Every path the person edits as the editor sees it: stored files, virtual seeds, unsaved new files, step sources. */
+  projectPaths: ReadonlySet<string>
+  /** The paths with a row in the project-file table. */
+  storedPaths: ReadonlySet<string>
+}
+
+/**
+ * Who a path belongs to: `step` for a step node's source under `steps/` — a
+ * view of the IR, saved through the version, never a file — `project` for
+ * what the person owns as files, `generated` for the rest of the bundle. A
+ * file stored under `steps/` before the folder was reserved stays a project
+ * file; the path of a step whose node has since been deleted stays a step,
+ * so its draft is never offered as a file to create.
+ */
+export function fileOwner(path: string, sets: OwnerSets): FileOwner {
+  if (isStepSourcePath(path) && !sets.storedPaths.has(path)) return 'step'
+  return sets.projectPaths.has(path) ? 'project' : 'generated'
 }
 
 interface LegacySettings {
@@ -121,10 +154,16 @@ export interface ExplorerSelection {
   section: ExplorerSection
 }
 
+/** The `steps/` folder itself or anything in it: nothing new can be created there. */
+function inStepFolder(path: string): boolean {
+  return path === STEP_SOURCE_DIR || isStepSourcePath(path)
+}
+
 /**
  * The folder a new file lands in: the selected folder, else the folder of the
- * selected file, else the folder of the active file. Generated files and an
- * empty selection mean the project root.
+ * selected file, else the folder of the active file. Generated files, the
+ * `steps/` folder (reserved for step code) and an empty selection mean the
+ * project root.
  */
 export function resolveTargetFolder(input: {
   selected: ExplorerSelection | null
@@ -133,10 +172,12 @@ export function resolveTargetFolder(input: {
 }): string {
   const { selected, activePath, projectPaths } = input
   if (selected) {
-    if (selected.section === 'generated') return ''
+    if (selected.section === 'generated' || inStepFolder(selected.path)) return ''
     return selected.kind === 'dir' ? selected.path : dirname(selected.path)
   }
-  return activePath && projectPaths.has(activePath) ? dirname(activePath) : ''
+  return activePath && projectPaths.has(activePath) && !inStepFolder(activePath)
+    ? dirname(activePath)
+    : ''
 }
 
 /**
@@ -151,9 +192,14 @@ export function resolveNewPath(target: string, typed: string, relative = false):
   return normalizeBundlePath(target ? `${target}/${clean}` : clean)
 }
 
-/** The `#app/…` specifier that imports a project file, or null when nothing imports it by hand. */
+/**
+ * The `#app/…` specifier that imports a project file, or null when nothing
+ * imports it by hand: handlers are wired by the runtime, and a step's source
+ * is a canvas node's body, not a module.
+ */
 export function importSpecifier(path: string): string | null {
   if (!isProjectCodePath(path) || path.startsWith(PROJECT_HANDLERS_DIR)) return null
+  if (isStepSourcePath(path)) return null
   return `${PROJECT_IMPORT_PREFIX}${path.replace(/\.(ts|js)$/, '')}`
 }
 

@@ -47,6 +47,8 @@ interface ExplorerRowProps {
   selected: boolean
   dirty: boolean
   virtual: boolean
+  /** A step's source, or the `steps/` folder: no file menu, and the title says why. */
+  step: boolean
   actions?: RowActions
   /** Set when the project can be added to; the Project row opens it on right-click. */
   newMenu?: ProjectNewMenu
@@ -57,7 +59,8 @@ interface ExplorerRowProps {
 }
 
 export function ExplorerRow(props: ExplorerRowProps) {
-  const { row, tabbable, active, selected, dirty, virtual, actions, onActivate, onFocusRow } = props
+  const { row, tabbable, active, selected, dirty, virtual, step, actions } = props
+  const { onActivate, onFocusRow } = props
   // Where a right-click landed: the menu opens there instead of under the ⋯ button.
   const [point, setPoint] = useState<Point | null>(null)
 
@@ -91,6 +94,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
     hasProjectMenu ||
     (!!actions &&
       row.section === 'project' &&
+      !step &&
       ((isFile && (!virtual || row.path === PROJECT_HANDLERS_PATH)) ||
         (row.kind === 'dir' && row.editable)))
   const isSection = row.kind === 'section'
@@ -105,7 +109,9 @@ export function ExplorerRow(props: ExplorerRowProps) {
       ]
         .filter(Boolean)
         .join(' · ')
-    : undefined
+    : step
+      ? 'Step code belongs to its node. Add, rename or remove steps on the canvas.'
+      : undefined
 
   return (
     <div

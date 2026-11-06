@@ -31,6 +31,7 @@ import type {
   WorkflowVersion,
 } from '@awaitstep/db'
 import { retiredByDelete, toWorkflowFileRows } from '../lib/project-files.js'
+import { graphHash } from '../lib/graph-hash.js'
 import { newProjectFileProblems } from '../lib/source-check.js'
 import { legacyTriggerCode, projectWriteRuleErrors } from '../lib/project-write-rules.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
@@ -89,17 +90,23 @@ function currentVersion(db: DatabaseAdapter, workflow: Workflow): Promise<Workfl
 
 /**
  * The project's file tree with content hashes plus the conventions: what an
- * agent polls to know whether anything changed and where it may write.
+ * agent polls to know whether anything changed and where it may write. The
+ * latest version's identity rides along so the same poll notices a canvas
+ * save (its graph hash moves) without reading the whole workflow.
  */
 projectFiles.get('/:workflowId/project', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const files = await db.listWorkflowFileSummaries(workflow.id)
+  const [files, latest] = await Promise.all([
+    db.listWorkflowFileSummaries(workflow.id),
+    db.getLatestVersion(workflow.id),
+  ])
   return c.json({
     ...CONVENTIONS,
     files: files.map(summarize),
+    version: latest ? { id: latest.id, graphHash: graphHash(latest.ir) } : null,
   })
 })
 

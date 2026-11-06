@@ -22,6 +22,7 @@ import { nodeTypes } from './nodes'
 import { LabeledEdge } from './labeled-edge'
 import { buildContainerEdgeColors } from '../../lib/container-edge-colors'
 import { CanvasContextMenu, type ContextMenuAction } from './canvas-context-menu'
+import { CanvasLanguageService } from './canvas-language-service'
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
 
 const edgeTypes = { smoothstep: LabeledEdge }
@@ -29,9 +30,13 @@ const edgeTypes = { smoothstep: LabeledEdge }
 interface WorkflowCanvasProps {
   /** Opens centred on this node instead of fitting the whole graph. Unknown ids are ignored. */
   focusNodeId?: string
+  /** The saved workflow on show, null while it is new: its project files back the step editors' imports. */
+  workflowId: string | null
+  /** The `?version=` on show, so those are that version's files. */
+  versionParam?: string
 }
 
-export function WorkflowCanvas({ focusNodeId }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: WorkflowCanvasProps) {
   // Keep Monaco's per-workflow ambient types (Env, node outputs) in sync
   // with the canvas for every editor pane on this page.
   useWorkflowTypeContext()
@@ -309,6 +314,9 @@ export function WorkflowCanvas({ focusNodeId }: WorkflowCanvasProps) {
 
   return (
     <div ref={containerRef} className="h-full w-full">
+      {workflowId !== null && (
+        <CanvasLanguageService workflowId={workflowId} versionParam={versionParam} />
+      )}
       <ReactFlow
         nodes={nodes}
         edges={styledEdges}

@@ -1,9 +1,5 @@
 import { actionToast, LONG_TOAST_MS } from '../../lib/action-toast'
-import {
-  describeHandlerDeclarations,
-  type HandlerConversionPreview,
-  type SourceFile,
-} from '../../lib/api-client'
+import { describeHandlerDeclarations, type HandlerConversionPreview } from '../../lib/api-client'
 import { basename } from '../../lib/ide/file-tree'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
@@ -14,7 +10,8 @@ import { CloseDirtyDialog } from './close-dirty-dialog'
 import { describeConversion, describeFolderDelete } from './workspace-notices'
 
 interface WorkspaceDialogsProps {
-  baseline: ReadonlyMap<string, SourceFile>
+  /** The stored project files: what a folder delete removes. */
+  storedPaths: ReadonlySet<string>
   projectFiles: ProjectFilesController
   /**
    * What the conversion will do. The query lives in the always-mounted
@@ -34,7 +31,7 @@ interface WorkspaceDialogsProps {
  * Which one is open lives in the session store, so this reads it directly.
  */
 export function WorkspaceDialogs({
-  baseline,
+  storedPaths,
   projectFiles,
   conversionPreview,
 }: WorkspaceDialogsProps) {
@@ -76,9 +73,10 @@ export function WorkspaceDialogs({
   }
 
   // Save, then close: a tab whose save failed stays open, dirty dot and all,
-  // because closing it would drop the only copy of the edit.
+  // because closing it would drop the only copy of the edit. One batch, so
+  // several step files become one version.
   function handleCloseSave(dirtyPaths: string[], paths: string[]) {
-    void Promise.all(dirtyPaths.map((path) => projectFiles.saveFile(path))).then((results) => {
+    void projectFiles.saveFiles(dirtyPaths).then((results) => {
       // Cancel pressed while the save ran: the saves stand, the tabs stay.
       if (useIdeStore.getState().closeRequest === null) return
       const failed = dirtyPaths.filter((_, index) => !results[index])
@@ -121,7 +119,7 @@ export function WorkspaceDialogs({
         open={dialog === 'deleteFolder'}
         onOpenChange={handleDialogOpenChange}
         title={`Delete ${dialogTarget ? basename(dialogTarget) : 'folder'}?`}
-        description={describeFolderDelete(dialogTarget, baseline)}
+        description={describeFolderDelete(dialogTarget, storedPaths)}
         confirmLabel="Delete"
         loading={projectFiles.busy}
         onConfirm={handleDeleteFolder}

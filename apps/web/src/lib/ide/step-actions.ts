@@ -1,6 +1,7 @@
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { focusEditor } from './editor-focus'
+import type { Problem } from './problems'
 import type { StepMap } from './step-map'
 
 /** Where the keyboard goes after a step is picked. */
@@ -8,20 +9,25 @@ export type StepFocus = 'editor' | 'stay'
 
 /**
  * Picks a step: selects it for the inspector and the preview, and opens its
- * file when it has one. A step without a file (a sleep, a branch) is only
- * selected. A click in the preview hands the keyboard to the editor, because
- * the person came to read code; Enter in the Steps list keeps it in the list
- * so the next arrow key moves on.
+ * code when it has some — the editable source when the workspace has one,
+ * else the generated module (a custom node's, say). A step without either
+ * (a sleep, a branch) is only selected. A click in the preview hands the
+ * keyboard to the editor, because the person came to read code; Enter in
+ * the Steps list keeps it in the list so the next arrow key moves on.
  */
 export function selectStep(map: StepMap, nodeId: string, focus: StepFocus): void {
   const ide = useIdeStore.getState()
   ide.selectNode(nodeId)
-  const filePath = map.byNode.get(nodeId)?.filePath ?? null
-  if (filePath !== null) ide.openFile(filePath)
+  const info = map.byNode.get(nodeId)
+  const path = info?.sourcePath ?? info?.filePath ?? null
+  if (path !== null) ide.openFile(path)
   if (focus === 'editor') focusEditor()
 }
 
-/** Opens a step's file in Quick test. Does nothing for a step without a file. */
+/**
+ * Opens a step's generated module in Quick test — the module is what runs,
+ * whichever file its code is edited in. Does nothing for a step without one.
+ */
 export function runStepQuickTest(map: StepMap, nodeId: string): boolean {
   const filePath = map.byNode.get(nodeId)?.filePath ?? null
   if (filePath === null) return false
@@ -40,4 +46,27 @@ export function showStepsView(): void {
 /** Opens a file the step uses, without moving the step selection. */
 export function openUsedFile(path: string): void {
   useIdeStore.getState().openFile(path)
+}
+
+/**
+ * Takes the person to what a problem is about. A finding on a step whose
+ * code is editable here opens that source — the message's position names
+ * the generated module, but the fix is typed in `steps/<id>.ts` — and
+ * selects the step. A finding on any other file reveals the position; one
+ * about a node with no file selects the node, so the inspector and the
+ * preview show it. A finding with neither is left where it is.
+ */
+export function openProblem(map: StepMap, problem: Problem): void {
+  const step = problem.nodeId === undefined ? undefined : map.byNode.get(problem.nodeId)
+  if (step && step.sourcePath !== null) {
+    selectStep(map, step.nodeId, 'editor')
+    return
+  }
+  if (problem.file !== '') {
+    useIdeStore
+      .getState()
+      .revealLocation({ path: problem.file, line: problem.line, column: problem.column })
+    return
+  }
+  if (problem.nodeId !== undefined) useIdeStore.getState().selectNode(problem.nodeId)
 }

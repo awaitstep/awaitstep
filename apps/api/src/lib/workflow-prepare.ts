@@ -390,8 +390,18 @@ export async function prepareWorkflow(
         ...(compileErrors.length > 1 && { details: compileErrors }),
       }
     }
+    // A step's module is edited as `steps/<id>.ts` in Code and on the canvas,
+    // so a compile error in one names its node: the editor opens the body
+    // where the fix goes. The position in the message stays the module's.
+    const nodeOfModule = stepNodesByModule(bundle)
     for (const error of compileErrors) {
-      diagnostics.push({ source: 'compile', message: error.message, path: error.path })
+      const nodeId = nodeOfModule.get(error.path)
+      diagnostics.push({
+        source: 'compile',
+        message: error.message,
+        path: error.path,
+        ...(nodeId !== undefined && { nodeId }),
+      })
     }
   }
 
@@ -454,6 +464,20 @@ export async function prepareWorkflow(
     checked,
     projectFileRows: loadedFiles.map(({ path, hash }) => ({ path, hash })),
   }
+}
+
+/**
+ * Generated module path → the node whose code it carries. Every node with a
+ * module has one of its own (a coalesced member included: it runs under its
+ * leader's step label but from its own file), and var names are unique, so
+ * a path names exactly one node.
+ */
+function stepNodesByModule(bundle: GeneratedBundle): Map<string, string> {
+  const byModule = new Map<string, string>()
+  for (const step of bundle.manifest?.steps ?? []) {
+    if (step.filePath !== undefined) byModule.set(step.filePath, step.nodeId)
+  }
+  return byModule
 }
 
 export function isPrepareError(

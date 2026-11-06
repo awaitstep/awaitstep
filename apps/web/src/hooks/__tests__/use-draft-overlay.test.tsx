@@ -24,7 +24,8 @@ describe('useDraftOverlay', () => {
     const { result } = renderHook(() => useDraftOverlay(baseline, drafts, saved))
     expect(result.current.files.get('lib/gone.ts')?.source).toBe('my copy')
     expect(result.current.ghostPaths).toEqual(['lib/gone.ts'])
-    expect(fileOwner('lib/gone.ts', result.current.projectPaths)).toBe('project')
+    const sets = { projectPaths: result.current.projectPaths, storedPaths: saved }
+    expect(fileOwner('lib/gone.ts', sets)).toBe('project')
   })
 
   it('does not rebuild the project paths while the person types in another file', () => {

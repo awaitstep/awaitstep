@@ -107,6 +107,38 @@ export class WorkflowFilesAdapter {
    * conflict clause, so two writers creating the same path cannot both
    * succeed. Null when the path was already taken.
    */
+  /**
+   * Insert-only for a set, as one unit: paths already stored are left as
+   * they are (a writer who got there first wins), the rest are created.
+   * Returns only the rows this call wrote. A few rows per statement, as
+   * `upsertMany`.
+   */
+  async createManyIfAbsent(rows: UpsertWorkflowFileData[]): Promise<WorkflowFile[]> {
+    if (rows.length === 0) return []
+    const now = new Date().toISOString()
+    const byPath = new Map(rows.map((data) => [`${data.workflowId}\u0000${data.path}`, data]))
+    const values = [...byPath.values()].map((data) => ({
+      id: data.id,
+      workflowId: data.workflowId,
+      path: data.path,
+      source: data.source,
+      hash: data.hash,
+      size: data.size,
+      createdAt: now,
+      updatedAt: now,
+    }))
+    const results = await atomicallyReturning<WorkflowFile>(this.db, (tx) =>
+      chunked(values, rowsPerInsert(this.table)).map((some) =>
+        tx
+          .insert(this.table)
+          .values(some)
+          .onConflictDoNothing({ target: [this.table.workflowId, this.table.path] })
+          .returning(),
+      ),
+    )
+    return results.flat()
+  }
+
   async createIfAbsent(data: UpsertWorkflowFileData): Promise<WorkflowFile | null> {
     const now = new Date().toISOString()
     const rows = await this.db

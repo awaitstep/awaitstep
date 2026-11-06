@@ -50,7 +50,11 @@ function setup(baseline = baselineOf()) {
     getBaseline: () => baseline,
     getStore: useIdeStore.getState,
     getProjectPaths: () => ownedBy(baseline),
+    ownerOf: () => 'project',
+    saveSteps: async () => new Map(),
+    commit: async () => undefined,
     refresh: async () => undefined,
+    canEdit: () => true,
     onShowImporters,
   })
   return { notify, actions, onShowImporters }
@@ -135,7 +139,11 @@ describe('rename follow-up', () => {
       getBaseline: () => baselineOf(),
       getStore: useIdeStore.getState,
       getProjectPaths: () => ownedBy(baselineOf()),
+      ownerOf: () => 'project',
+      saveSteps: async () => new Map(),
+      commit: async () => undefined,
       refresh: async () => undefined,
+      canEdit: () => true,
     })
     await failing.renameFile('lib/payments/refund.ts', 'lib/payments/refunds.ts')
     expect(notify.success).not.toHaveBeenCalled()

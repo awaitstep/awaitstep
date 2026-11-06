@@ -238,6 +238,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     '/workflows/:id',
     '/workflows/:id/move',
     '/workflows/:workflowId/versions',
+    // `/versions/:versionId` also matches `/versions/commit`, which is an edit too.
     '/workflows/:workflowId/versions/:versionId',
     '/workflows/:workflowId/versions/:versionId/revert',
     '/workflows/:workflowId/files/*',
@@ -379,6 +380,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // A move crosses projects: never a key's (the handler says so for the old clients too).
   router.patch('/workflows/:id/move', requireSessionAuth)
   router.post('/workflows/:workflowId/versions', key('workflows', 'write'))
+  router.post('/workflows/:workflowId/versions/commit', key('workflows', 'write'))
   router.patch('/workflows/:workflowId/versions/:versionId', key('workflows', 'write'))
   router.post('/workflows/:workflowId/versions/:versionId/revert', key('workflows', 'write'))
   router.put('/workflows/:workflowId/files/*', key('workflows', 'write'))

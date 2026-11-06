@@ -5,6 +5,7 @@ import {
   foldProjectHandlers,
   legacyRuntimeSeeds,
   stripProjectOwnedRuntime,
+  withoutStaleProjectRuntime,
 } from '../lib/runtime-fold.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 
@@ -99,6 +100,61 @@ describe('legacyRuntimeSeeds', () => {
     expect(legacyRuntimeSeeds({ triggerCode: 'x' }, ['handlers/fetch.ts'])).toEqual([])
     expect(legacyRuntimeSeeds({ triggerCode: '', dependencies: {} }, [])).toEqual([])
     expect(legacyRuntimeSeeds(undefined, [])).toEqual([])
+  })
+})
+
+describe('withoutStaleProjectRuntime', () => {
+  const posted: ArtifactIR = {
+    ...baseIr,
+    runtime: {
+      files: [{ path: 'lib/a.ts', source: 'export const a = 1' }],
+      triggerCode: '@fetch function h() {}',
+      dependencies: { zod: '^4' },
+      env: [{ name: 'A' }],
+    },
+  }
+
+  it('drops the fields the latest stored version does not carry, keeping the rest of the runtime', () => {
+    const stored: ArtifactIR = { ...baseIr, runtime: { env: [{ name: 'A' }] } }
+    expect(withoutStaleProjectRuntime(posted, stored).runtime).toEqual({ env: [{ name: 'A' }] })
+  })
+
+  it('keeps a field the latest stored version carries, each judged on its own', () => {
+    const stored: ArtifactIR = {
+      ...baseIr,
+      runtime: {
+        files: [{ path: 'other.ts', source: '' }],
+        triggerCode: 'old',
+        dependencies: { a: '1' },
+      },
+    }
+    expect(withoutStaleProjectRuntime(posted, stored).runtime).toEqual(posted.runtime)
+    const onlyDeps: ArtifactIR = { ...baseIr, runtime: { dependencies: { a: '1' } } }
+    expect(withoutStaleProjectRuntime(posted, onlyDeps).runtime).toEqual({
+      dependencies: { zod: '^4' },
+      env: [{ name: 'A' }],
+    })
+  })
+
+  it('treats empty dependencies and an empty file list as none', () => {
+    const stored: ArtifactIR = { ...baseIr, runtime: { dependencies: {}, files: [] } }
+    const { runtime } = withoutStaleProjectRuntime(posted, stored)
+    expect(runtime?.dependencies).toBeUndefined()
+    expect(runtime?.files).toBeUndefined()
+  })
+
+  it('leaves the document alone without a stored version to judge by', () => {
+    expect(withoutStaleProjectRuntime(posted, null)).toBe(posted)
+    expect(withoutStaleProjectRuntime(baseIr, baseIr)).toBe(baseIr)
+  })
+
+  it('a document carrying nothing (an unreadable stored row) drops every project-owned field', () => {
+    expect(withoutStaleProjectRuntime(posted, {}).runtime).toEqual({ env: [{ name: 'A' }] })
+  })
+
+  it('removes an emptied runtime block', () => {
+    const legacyOnly: ArtifactIR = { ...baseIr, runtime: { triggerCode: 'x' } }
+    expect(withoutStaleProjectRuntime(legacyOnly, baseIr)).toEqual(baseIr)
   })
 })
 

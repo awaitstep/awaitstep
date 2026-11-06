@@ -133,6 +133,15 @@ describe('useWorkspaceLifecycle tabs', () => {
     expect(useIdeStore.getState().activePath).toBeNull()
   })
 
+  it('neither opens nor prunes before the workflow has loaded: the baseline has no step files yet', () => {
+    const store = useIdeStore.getState()
+    store.openFile('steps/k3j9x_a1b2c3.ts')
+    store.setDraft('steps/k3j9x_a1b2c3.ts', 'return 2', 'hs1')
+    setup(inputOf({ fullData: undefined, baseline: new Map() }))
+    expect(useIdeStore.getState().openPaths).toEqual(['steps/k3j9x_a1b2c3.ts'])
+    expect(useIdeStore.getState().drafts['steps/k3j9x_a1b2c3.ts']).toBeDefined()
+  })
+
   it('prunes tabs for files that are gone but keeps a ghost that still holds edits', () => {
     const store = useIdeStore.getState()
     store.openFile('workflow.ts')

@@ -230,11 +230,55 @@ describe('source routes', () => {
 
       const res = await app.request(url('/api/workflows/wf-1/source'))
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { diagnostics: { source: string; path?: string }[] }
+      const body = (await res.json()) as {
+        diagnostics: { source: string; path?: string; nodeId?: string }[]
+      }
       // Without the path, a multi-file project gets "Unexpected token (3:10)"
-      // and no way to tell which file it came from.
+      // and no way to tell which file it came from; the node lets the editor
+      // open the step body the module was generated from.
       const compile = body.diagnostics.find((d) => d.source === 'compile')
-      expect(compile?.path).toMatch(/\.ts$/)
+      expect(compile?.path).toMatch(/^nodes\/.*\.ts$/)
+      expect(compile?.nodeId).toBe('step-1')
+    })
+
+    it('names the member of a merged step whose module fails to compile, not its leader', async () => {
+      // Two adjacent plain steps coalesce into one durable step under the
+      // leader's label; each still has its own module, and the broken one
+      // is the file the person has to open.
+      const chain = {
+        ...validIR,
+        nodes: [
+          validIR.nodes[0],
+          {
+            id: 'step-2',
+            type: 'step',
+            name: 'World',
+            position: { x: 0, y: 100 },
+            version: '1.0.0',
+            provider: 'cloudflare',
+            data: { code: 'const y = ;' },
+          },
+        ],
+        edges: [{ id: 'e1', source: 'step-1', target: 'step-2' }],
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-chain',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(chain),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      const body = (await res.json()) as {
+        manifest: { steps: { nodeId: string; coalescedInto?: string; filePath?: string }[] }
+        diagnostics: { source: string; path?: string; nodeId?: string }[]
+      }
+      const member = body.manifest.steps.find((s) => s.nodeId === 'step-2')
+      expect(member?.coalescedInto).toBe('step-1')
+      const compile = body.diagnostics.filter((d) => d.source === 'compile')
+      expect(compile).toEqual([
+        expect.objectContaining({ path: member?.filePath, nodeId: 'step-2' }),
+      ])
     })
 
     it('reports no issues for a healthy workflow', async () => {

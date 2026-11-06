@@ -6,10 +6,24 @@ import type { ProblemGroups } from '../../../lib/ide/problems'
 import { UP_TO_DATE } from '../../../lib/ide/session-staleness'
 import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStore } from '../../../stores/ide-store'
+import { buildStepMap } from '../../../lib/ide/step-map'
 import { BottomDock } from '../bottom-dock'
 
 const switchView = vi.fn()
 vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
+
+// The workspace's step map: step `a` has an editable source here, `sleep` has no file.
+const stepMap = buildStepMap({
+  manifest: { irHash: 'h', steps: [{ nodeId: 'a', varName: 'a', filePath: 'nodes/a.ts' }] },
+  nodeIds: ['a', 'sleep'],
+  files: new Map([
+    ['nodes/a.ts', { source: '' }],
+    ['steps/a.ts', { source: 'return 1' }],
+  ]),
+  projectPaths: new Set(),
+  sourcePaths: new Map([['a', 'steps/a.ts']]),
+})
+vi.mock('../step-sync-context', () => ({ useStepSync: () => ({ map: stepMap }) }))
 
 const noSession = {
   session: null,
@@ -191,6 +205,48 @@ describe('Problems tab', () => {
     const reveal = vi.spyOn(useIdeStore.getState(), 'revealLocation')
     await userEvent.click(screen.getByRole('button', { name: /no place/ }))
     expect(reveal).not.toHaveBeenCalled()
+    expect(useIdeStore.getState().activePath).toBeNull()
+  })
+
+  it('reveals the position of a finding on a file', async () => {
+    renderDock({ live: [problem('lib/x.ts', 'Cannot find name x')], saved: [] })
+    await userEvent.click(screen.getByRole('button', { name: /Cannot find name x/ }))
+    expect(useIdeStore.getState()).toMatchObject({
+      activePath: 'lib/x.ts',
+      reveal: { path: 'lib/x.ts', line: 3, column: 2 },
+    })
+  })
+
+  it('opens the step’s source for a compile error in its generated module', async () => {
+    useIdeStore.getState().setEditorHandle(null)
+    renderDock({
+      live: [],
+      saved: [
+        {
+          problem: { ...problem('nodes/a.ts', 'Unexpected token (3:1)'), nodeId: 'a' },
+          pending: false,
+        },
+      ],
+    })
+    // The row still names where the server saw the error.
+    expect(screen.getByText('nodes/a.ts:3:2')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Unexpected token/ }))
+    expect(useIdeStore.getState()).toMatchObject({
+      activePath: 'steps/a.ts',
+      selectedNodeId: 'a',
+      reveal: null,
+    })
+  })
+
+  it('selects the node for a finding about a node with no file', async () => {
+    renderDock({
+      live: [],
+      saved: [
+        { problem: { ...problem('', 'sleep is too short'), nodeId: 'sleep' }, pending: false },
+      ],
+    })
+    await userEvent.click(screen.getByRole('button', { name: /sleep is too short/ }))
+    expect(useIdeStore.getState()).toMatchObject({ selectedNodeId: 'sleep', activePath: null })
   })
 
   it('counts both groups on the tab', () => {

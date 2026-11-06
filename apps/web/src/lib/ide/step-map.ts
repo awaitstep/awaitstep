@@ -3,11 +3,16 @@ import { projectImports } from './imports'
 
 export interface StepFileInfo {
   nodeId: string
-  /** The step file this node emits, or null: it is written in the workflow file (`awaitstep/workflow.ts`). */
+  /**
+   * The generated module this node emits — what Quick test runs — or null:
+   * it is written in the workflow file (`awaitstep/workflow.ts`).
+   */
   filePath: string | null
+  /** The editable body of a step node, `steps/<id>.ts`, when the workspace has it; null for other nodes. */
+  sourcePath: string | null
   /** The leader whose labelled step this node's code runs inside, when merged. */
   coalescedInto: string | null
-  /** The project files the step file imports directly. */
+  /** The project files the step imports directly, read from its source when the workspace has one, else from its module. */
   uses: string[]
 }
 
@@ -15,7 +20,7 @@ export interface StepMap {
   /** False for a script workflow, whose source has no manifest. */
   hasManifest: boolean
   byNode: ReadonlyMap<string, StepFileInfo>
-  /** A step file → the steps it belongs to (usually one). */
+  /** A step's file — its source or its module — → the steps it belongs to (usually one). */
   byFile: ReadonlyMap<string, readonly string[]>
   /**
    * A project file → every step whose file imports it, directly or through
@@ -32,18 +37,21 @@ interface BuildInput {
   files: ReadonlyMap<string, { source: string }>
   /** The files the person owns; only these can be "used by" a step. */
   projectPaths: ReadonlySet<string>
+  /** Each step node's source path (`stepSourcePaths`); a node absent here has no editable source. */
+  sourcePaths: ReadonlyMap<string, string>
 }
 
 /**
- * The link between canvas nodes and files, from data the source response
- * already carries: the manifest names each node's module, and the `#app/`
- * imports in the files say what each module uses.
+ * The link between canvas nodes and files, from data the workspace already
+ * has: the manifest names each node's generated module, the IR gives each
+ * step node its editable source, and the `#app/` imports in the files say
+ * what each step uses.
  *
- * A node with no module (a sleep, a branch) maps to no file. Nothing here
+ * A node with neither (a sleep, a branch) maps to no file. Nothing here
  * touches the graph; it only reads it.
  */
 export function buildStepMap(input: BuildInput): StepMap {
-  const { manifest, nodeIds, files, projectPaths } = input
+  const { manifest, nodeIds, files, projectPaths, sourcePaths } = input
   const entries = new Map((manifest?.steps ?? []).map((entry) => [entry.nodeId, entry]))
 
   const byNode = new Map<string, StepFileInfo>()
@@ -63,18 +71,26 @@ export function buildStepMap(input: BuildInput): StepMap {
     const entry = entries.get(nodeId)
     const filePath =
       entry?.filePath !== undefined && files.has(entry.filePath) ? entry.filePath : null
+    const source = sourcePaths.get(nodeId)
+    const sourcePath = source !== undefined && files.has(source) ? source : null
+    // The source is the body being typed; the module is the same body wrapped,
+    // and only as fresh as the last save.
+    const read = sourcePath ?? filePath
     byNode.set(nodeId, {
       nodeId,
       filePath,
+      sourcePath,
       coalescedInto: entry?.coalescedInto ?? null,
-      uses: filePath === null ? [] : importsFor(filePath),
+      uses: read === null ? [] : importsFor(read),
     })
-    if (filePath !== null) byFile.set(filePath, [...(byFile.get(filePath) ?? []), nodeId])
+    for (const path of [filePath, sourcePath]) {
+      if (path !== null) byFile.set(path, [...(byFile.get(path) ?? []), nodeId])
+    }
   }
 
   const usedBy = new Map<string, string[]>()
   for (const info of byNode.values()) {
-    if (info.filePath === null) continue
+    if (info.uses.length === 0) continue
     // Follow imports through project files, so a helper reached by way of
     // another helper still counts as feeding this step.
     const seen = new Set<string>()

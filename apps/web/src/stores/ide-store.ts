@@ -53,6 +53,18 @@ export interface SaveConflict {
   currentHash: string | null
 }
 
+/**
+ * A step save the server refused because the workflow's graph moved since
+ * it was loaded (the canvas saved): what the latest version is now (null
+ * while the workflow has none), and which step drafts were refused. The
+ * notice is about those drafts and goes with them.
+ */
+export interface GraphConflict {
+  currentVersionId: string | null
+  currentGraphHash: string | null
+  paths: readonly string[]
+}
+
 export interface CursorPosition {
   line: number
   column: number
@@ -78,6 +90,12 @@ export interface IdeSessionState extends TabState {
   reviewInline: boolean
   /** Files whose last save was refused because they changed on the server. */
   conflicts: Readonly<Record<string, SaveConflict>>
+  /**
+   * The last step save was refused because the canvas changed the workflow
+   * meanwhile. Shown as a workspace notice until dismissed or the next step
+   * save succeeds; the drafts themselves are kept.
+   */
+  graphConflict: GraphConflict | null
   /**
    * Files whose "changed on the server" banner was dismissed, with the
    * server hash they were dismissed at: a further change brings it back.
@@ -135,6 +153,7 @@ export interface IdeSessionState extends TabState {
   openCompare: (path: string) => void
   setConflict: (path: string, conflict: SaveConflict) => void
   clearConflict: (path: string) => void
+  setGraphConflict: (conflict: GraphConflict | null) => void
   dismissOutside: (path: string, serverHash: string | null) => void
   setRestoreNotice: (notice: RestoreNotice | null) => void
   setCursor: (cursor: CursorPosition) => void
@@ -167,6 +186,7 @@ const initialSession = {
   reviewPath: null as string | null,
   reviewInline: false,
   conflicts: {} as Readonly<Record<string, SaveConflict>>,
+  graphConflict: null as GraphConflict | null,
   dismissedOutside: {} as Readonly<Record<string, string | null>>,
   editorHandle: null as EditorHandle | null,
   selectedNodeId: null as string | null,
@@ -247,6 +267,9 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   openCompare: (path) => set(openTab(get(), compareTabId(path))),
   setConflict: (path, conflict) => set({ conflicts: { ...get().conflicts, [path]: conflict } }),
   clearConflict: (path) => set({ conflicts: without(get().conflicts, path) }),
+  setGraphConflict: (graphConflict) => {
+    if (get().graphConflict !== graphConflict) set({ graphConflict })
+  },
   dismissOutside: (path, serverHash) =>
     set({ dismissedOutside: { ...get().dismissedOutside, [path]: serverHash } }),
   setRestoreNotice: (restoreNotice) => set({ restoreNotice }),

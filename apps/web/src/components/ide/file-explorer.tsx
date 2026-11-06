@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { STEP_SOURCE_DIR } from '@awaitstep/ir'
 import {
   dirname,
   flattenTreeRows,
@@ -47,6 +48,8 @@ interface FileExplorerProps {
   onReview: (path?: string) => void
   /** Project files surfaced from legacy settings that are not stored yet. */
   virtual: ReadonlySet<string>
+  /** Step sources: a canvas node's code under `steps/`, edited here but never a file to create, rename or delete. */
+  stepPaths: ReadonlySet<string>
   canEdit: boolean
   /** Stored project files only (virtual seeds are not counted by the server). */
   usage: ProjectUsage
@@ -73,6 +76,7 @@ export function FileExplorer({
   unsavedPaths,
   onReview,
   virtual,
+  stepPaths,
   canEdit,
   usage,
   onCreateFile,
@@ -108,15 +112,22 @@ export function FileExplorer({
 
   const rows = useMemo(() => {
     const forceOpen = create ? new Set([sectionKey('project'), ...ancestorKeys(target)]) : undefined
+    // The steps folder and its files take no file menu: step code belongs to
+    // its node, and only the canvas adds, renames or removes steps.
+    const isStep = (node: TreeNode) =>
+      node.kind === 'dir' ? node.path === STEP_SOURCE_DIR : stepPaths.has(node.path)
     return flattenTreeRows(
       [
         { id: 'project', label: 'Project', nodes: project },
         { id: 'generated', label: 'Generated', nodes: generated },
       ],
       collapsed,
-      { forceOpen, isEditable: (node) => canEdit && !virtual.has(node.path) },
+      {
+        forceOpen,
+        isEditable: (node) => canEdit && !virtual.has(node.path) && !isStep(node),
+      },
     )
-  }, [project, generated, collapsed, create, target, canEdit, virtual])
+  }, [project, generated, collapsed, create, target, canEdit, virtual, stepPaths])
 
   const createAnchor =
     rows.find((r) => r.kind === 'dir' && r.section === 'project' && r.path === target) ??
@@ -424,6 +435,10 @@ export function FileExplorer({
                 }
                 dirty={row.kind === 'file' && dirty.has(row.path)}
                 virtual={row.kind === 'file' && virtual.has(row.path)}
+                step={
+                  row.section === 'project' &&
+                  (row.kind === 'file' ? stepPaths.has(row.path) : row.path === STEP_SOURCE_DIR)
+                }
                 actions={rowActions}
                 newMenu={newMenu}
                 menuOpen={menuKey === row.key}

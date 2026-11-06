@@ -187,3 +187,76 @@ describe('CompareView', () => {
     expect(useIdeStore.getState().openPaths).toEqual([])
   })
 })
+
+describe('CompareView for a step source', () => {
+  const step = 'steps/k3j9x_a1b2c3.ts'
+  const stepBaseline = new Map([
+    [step, { ...sourceFile(step, 'return 1', 'hs2'), role: 'source' as const }],
+  ])
+  const stepFiles = new Map([[step, { ...sourceFile(step, 'return 2'), role: 'source' as const }]])
+
+  function setupStep(overrides = {}) {
+    const bindings = makeReviewBindings({
+      baseline: stepBaseline,
+      files: stepFiles,
+      ownerOf: (path) => (path.startsWith('steps/') ? 'step' : 'project'),
+      ...overrides,
+    })
+    const tree = (b: typeof bindings) => (
+      <QueryClientProvider client={new QueryClient()}>
+        <CompareView path={step} bindings={b} />
+      </QueryClientProvider>
+    )
+    const view = render(tree(bindings))
+    return Object.assign(bindings, {
+      update: (next: Partial<typeof bindings>) => view.rerender(tree({ ...bindings, ...next })),
+    })
+  }
+
+  beforeEach(() => {
+    useIdeStore.getState().resetSession()
+    useIdeStore.getState().setDraft(step, 'return 2', 'hs1')
+    useIdeStore.getState().openCompare(step)
+  })
+
+  it('shows the node’s code from the workspace on the left and fetches nothing', async () => {
+    setupStep()
+    await screen.findByTestId('diff')
+    expect(api.getProjectFile).not.toHaveBeenCalled()
+    expect(pane.props.at(-1)).toMatchObject({ original: 'return 1', modified: 'return 2' })
+    expect(screen.getByText('On the canvas · read-only')).toBeInTheDocument()
+    expect(screen.queryByText(/changed again after this was loaded/)).toBeNull()
+  })
+
+  it('Keep mine and overwrite saves over exactly the code shown, and Use canvas version drops the copy', async () => {
+    const bindings = setupStep()
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep mine and overwrite' }))
+    expect(bindings.onOverwrite).toHaveBeenCalledWith(step, 'hs2')
+    expect(api.getProjectFile).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Use canvas version' }))
+    expect(bindings.onUseServerVersion).toHaveBeenCalledWith(step, 'hs2')
+  })
+
+  it('follows the workspace when the node’s code moves again', async () => {
+    const bindings = setupStep()
+    await screen.findByTestId('diff')
+    bindings.update({
+      baseline: new Map([
+        [step, { ...sourceFile(step, 'return 3', 'hs3'), role: 'source' as const }],
+      ]),
+    })
+    await vi.waitFor(() => expect(pane.props.at(-1)).toMatchObject({ original: 'return 3' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Keep mine and overwrite' }))
+    expect(bindings.onOverwrite).toHaveBeenLastCalledWith(step, 'hs3')
+  })
+
+  it('a step whose node was removed offers Discard and Close, never recreate', async () => {
+    const bindings = setupStep({ baseline: new Map() })
+    expect(await screen.findByText(/was removed from the canvas/)).toBeInTheDocument()
+    expect(screen.queryByTestId('diff')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Save to recreate' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }))
+    expect(bindings.onDiscardDeleted).toHaveBeenCalledWith(step)
+    expect(useIdeStore.getState().openPaths).not.toContain(`ide:compare:${step}`)
+  })
+})

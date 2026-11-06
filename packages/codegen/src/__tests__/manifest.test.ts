@@ -1,18 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import { contentHash as irContentHash } from '@awaitstep/ir'
 import { contentHash, resolveStepNode } from '../manifest.js'
 
 describe('contentHash', () => {
-  it('is deterministic for equal input', () => {
-    expect(contentHash('hello world')).toBe(contentHash('hello world'))
-  })
-
-  it('differs for different input', () => {
-    expect(contentHash('a')).not.toBe(contentHash('b'))
-    expect(contentHash('')).not.toBe(contentHash(' '))
-  })
-
-  it('emits 16 hex chars', () => {
-    expect(contentHash('anything')).toMatch(/^[0-9a-f]{16}$/)
+  it('is the ir package’s hash, re-exported for the importers that found it here', () => {
+    expect(contentHash).toBe(irContentHash)
   })
 })
 

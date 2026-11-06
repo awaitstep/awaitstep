@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import type { StepManifest } from '@awaitstep/codegen'
-import type { WorkflowNode } from '@awaitstep/ir'
+import { stepSourcePath, type WorkflowNode } from '@awaitstep/ir'
 import type { VersionSummary } from '../../../../lib/api-client'
 import { useWorkflowStore } from '../../../../stores/workflow-store'
 import { StepSyncProvider } from '../../step-sync-context'
@@ -59,6 +59,11 @@ export const FILES = new Map([
 
 export const PROJECT_PATHS = new Set(['lib/payments/charge.ts'])
 
+/** Every step node's editable source path, as `useWorkspaceData.stepSourceByNode` hands it to the provider. */
+export const SOURCE_PATHS: ReadonlyMap<string, string> = new Map(
+  NODES.filter((node) => node.type === 'step').map((node) => [node.id, stepSourcePath(node.id)]),
+)
+
 export const VERSIONS: VersionSummary[] = [
   { id: 'v-11', version: 11, locked: 0, createdAt: '2026-11-01' },
   { id: 'v-12', version: 12, locked: 0, createdAt: '2026-11-02' },
@@ -81,6 +86,7 @@ export function SyncHarness({
   manifest = MANIFEST,
   kind = 'workflow',
   files = FILES,
+  sourcePaths = SOURCE_PATHS,
   codeVersionId = 'v-12' as string | null,
   workflowFile = 'awaitstep/workflow.ts',
   graphVersionId = 'v-12',
@@ -89,6 +95,7 @@ export function SyncHarness({
   manifest?: StepManifest | null
   kind?: 'workflow' | 'script'
   files?: ReadonlyMap<string, { source: string }>
+  sourcePaths?: ReadonlyMap<string, string>
   codeVersionId?: string | null
   workflowFile?: string | null
   /** Null: the workflow has never been saved on the canvas. */
@@ -102,6 +109,7 @@ export function SyncHarness({
       manifest={manifest}
       files={files}
       projectPaths={PROJECT_PATHS}
+      sourcePaths={sourcePaths}
       workflowFile={workflowFile}
       versions={VERSIONS}
       graphVersionId={graphVersionId}

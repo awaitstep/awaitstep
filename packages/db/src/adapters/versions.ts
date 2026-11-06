@@ -1,4 +1,17 @@
-import { eq, desc, max, and, or, lt, sql, aliasedTable, getTableColumns } from 'drizzle-orm'
+import {
+  eq,
+  desc,
+  max,
+  and,
+  or,
+  lt,
+  gt,
+  gte,
+  notExists,
+  sql,
+  aliasedTable,
+  getTableColumns,
+} from 'drizzle-orm'
 import type {
   CreateVersionData,
   LatestVersionForSave,
@@ -102,6 +115,71 @@ export class VersionsAdapter {
     if (!row) return null
     const { everDeployed, ...version } = row
     return { version, everDeployed: truthy(everDeployed) }
+  }
+
+  /** By version number, not `createdAt`: an in-place save moves `createdAt`, and clocks can disagree. */
+  async getLatest(workflowId: string): Promise<WorkflowVersion | null> {
+    const rows = await this.db
+      .select()
+      .from(this.table)
+      .where(eq(this.table.workflowId, workflowId))
+      .orderBy(desc(this.table.version))
+      .limit(1)
+    return rows[0] ?? null
+  }
+
+  /**
+   * Conditional save-over for optimistic concurrency, as
+   * `WorkflowFilesAdapter.updateIfMatches`: the `ir` the caller read and the
+   * "still the newest version" test both ride in the UPDATE's WHERE, so the
+   * lost writer changes nothing instead of racing. `ir` is text on both
+   * dialects and the comparison runs once, on the primary-key hit. The
+   * subquery sees what the statement's snapshot sees: a version inserted in
+   * the same instant on Postgres is the one race this does not settle.
+   */
+  async updateIfIrMatches(
+    latest: Pick<WorkflowVersion, 'id' | 'workflowId' | 'version'>,
+    expectedIr: string,
+    patch: UpdateVersionData,
+  ): Promise<WorkflowVersion | null> {
+    const newer = this.db
+      .select({ id: this.table.id })
+      .from(this.table)
+      .where(
+        and(eq(this.table.workflowId, latest.workflowId), gt(this.table.version, latest.version)),
+      )
+    const rows = await this.db
+      .update(this.table)
+      .set(patch)
+      .where(and(eq(this.table.id, latest.id), eq(this.table.ir, expectedIr), notExists(newer)))
+      .returning()
+    return rows[0] ?? null
+  }
+
+  /**
+   * `workflows.current_version_id` follows the highest version number. The
+   * "not already higher" test is a correlated subquery in the UPDATE, so a
+   * creator whose pointer write lands after a later creator's leaves it alone.
+   */
+  async advanceCurrent(
+    workflowId: string,
+    version: Pick<WorkflowVersion, 'id' | 'version'>,
+  ): Promise<boolean> {
+    const alreadyAhead = this.db
+      .select({ id: this.table.id })
+      .from(this.table)
+      .where(
+        and(
+          eq(this.table.id, this.workflows.currentVersionId),
+          gte(this.table.version, version.version),
+        ),
+      )
+    const rows = await this.db
+      .update(this.workflows)
+      .set({ currentVersionId: version.id, updatedAt: new Date().toISOString() })
+      .where(and(eq(this.workflows.id, workflowId), notExists(alreadyAhead)))
+      .returning({ id: this.workflows.id })
+    return rows.length > 0
   }
 
   async getMaxVersionNumber(workflowId: string): Promise<number> {

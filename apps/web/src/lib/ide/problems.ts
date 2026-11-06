@@ -13,6 +13,8 @@ export interface Problem {
   severity: ProblemSeverity
   source?: string
   code?: string
+  /** The node the finding is about, when the server named one; its step source is where a fix goes. */
+  nodeId?: string
 }
 
 /**
@@ -22,7 +24,9 @@ export interface Problem {
  * explanation for the marker sitting next to it.
  *
  * A compile message ends in `(line:column)`; that position is lifted out so
- * the entry navigates like any other.
+ * the entry navigates like any other. The node a finding names travels with
+ * it: a compile error in a generated step module is fixed in the step's
+ * source, which the dock opens instead of the read-only module.
  */
 export function diagnosticProblems(diagnostics: readonly SourceDiagnostic[]): Problem[] {
   return diagnostics.map((diagnostic) => {
@@ -36,6 +40,7 @@ export function diagnosticProblems(diagnostics: readonly SourceDiagnostic[]): Pr
       message: diagnostic.message,
       severity: 'error' as ProblemSeverity,
       source: diagnostic.source === 'compile' ? 'compile' : 'workflow',
+      ...(diagnostic.nodeId !== undefined && { nodeId: diagnostic.nodeId }),
     }
   })
 }
@@ -125,20 +130,26 @@ export interface ProblemGroups {
 /**
  * Problems by when they were checked. Editor markers move with every
  * keystroke; the server only re-checks on save, so a finding about a file
- * with unsaved edits is flagged rather than left to look current. Findings
- * without a file (a missing node) are never pending — no edit can have fixed
- * what has no place in the editor.
+ * with unsaved edits is flagged rather than left to look current. A finding
+ * about a generated step module is also pending while the step's source
+ * (`stepSourceOf` its node) has unsaved edits: that is the file the fix is
+ * typed in. Findings without a file (a missing node) are never pending — no
+ * edit can have fixed what has no place in the editor.
  */
 export function groupProblems(
   live: readonly Problem[],
   saved: readonly Problem[],
   dirty: ReadonlySet<string>,
+  stepSourceOf: (nodeId: string) => string | undefined = () => undefined,
 ): ProblemGroups {
+  const isPending = (problem: Problem): boolean => {
+    if (problem.file === '') return false
+    if (dirty.has(problem.file)) return true
+    const source = problem.nodeId === undefined ? undefined : stepSourceOf(problem.nodeId)
+    return source !== undefined && dirty.has(source)
+  }
   return {
     live: [...live],
-    saved: saved.map((problem) => ({
-      problem,
-      pending: problem.file !== '' && dirty.has(problem.file),
-    })),
+    saved: saved.map((problem) => ({ problem, pending: isPending(problem) })),
   }
 }

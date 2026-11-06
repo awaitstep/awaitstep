@@ -230,9 +230,9 @@ function envVarRank(v: EnvVar): number {
   return v.workspaceId ? 0 : v.projectId ? 1 : 2
 }
 
-/** A name already set at the place: what the level's unique index raises. */
-function uniqueViolation(): Error {
-  return Object.assign(new Error('UNIQUE constraint failed: env_vars.name'), {
+/** What a unique index raises, as better-sqlite3 reports it: a name already set at the place, a version number taken. */
+function uniqueViolation(index = 'env_vars.name'): Error {
+  return Object.assign(new Error(`UNIQUE constraint failed: ${index}`), {
     code: 'SQLITE_CONSTRAINT_UNIQUE',
   })
 }
@@ -912,13 +912,14 @@ const mockDb: DatabaseAdapter = {
 
   // Versions
   async createVersion(data) {
-    const maxExisting = Math.max(
-      0,
-      ...[...store.versions.values()]
-        .filter((v) => v.workflowId === data.workflowId)
-        .map((v) => v.version),
-    )
+    const existing = [...store.versions.values()].filter((v) => v.workflowId === data.workflowId)
+    const maxExisting = Math.max(0, ...existing.map((v) => v.version))
     const assigned = data.version ?? maxExisting + 1
+    // The (workflow_id, version) unique index: an explicit number that is
+    // taken is the lost race the save route reads it as.
+    if (existing.some((v) => v.version === assigned)) {
+      throw uniqueViolation('workflow_versions.workflow_id, workflow_versions.version')
+    }
     const v: WorkflowVersion = {
       // The dead source columns, as a real row comes back from the adapter —
       // mirrored here, not configurable, because `CreateVersionData` no
@@ -943,11 +944,39 @@ const mockDb: DatabaseAdapter = {
     const versions = [...store.versions.values()].filter((v) => v.workflowId === workflowId)
     return versions.length > 0 ? Math.max(...versions.map((v) => v.version)) + 1 : 1
   },
+  async getLatestVersion(workflowId) {
+    return (
+      [...store.versions.values()]
+        .filter((v) => v.workflowId === workflowId)
+        .sort((a, b) => b.version - a.version)[0] ?? null
+    )
+  },
+  async updateLatestVersionIfIrMatches(latest, expectedIr, patch) {
+    const v = store.versions.get(latest.id)
+    if (!v || v.ir !== expectedIr) return null
+    const newer = [...store.versions.values()].some(
+      (o) => o.workflowId === latest.workflowId && o.version > latest.version,
+    )
+    if (newer) return null
+    const saved = { ...v, ...patch }
+    store.versions.set(latest.id, saved)
+    return saved
+  },
+  async advanceCurrentVersion(workflowId, version) {
+    const wf = store.workflows.get(workflowId)
+    if (!wf) return false
+    const current = wf.currentVersionId ? store.versions.get(wf.currentVersionId) : undefined
+    if (current && current.version >= version.version) return false
+    store.workflows.set(workflowId, { ...wf, currentVersionId: version.id, updatedAt: now() })
+    return true
+  },
   async listVersionsByWorkflow(workflowId) {
     return {
       data: [...store.versions.values()]
         .filter((v) => v.workflowId === workflowId)
-        .sort((a, b) => b.version - a.version)
+        // As the adapter lists: newest save first, not highest number — so a
+        // route that confuses the two cannot pass here.
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
         // Names come from a join on users, which the sqlite harness covers.
         .map((v) => ({ ...v, createdByName: null })),
       nextCursor: null,
@@ -1296,6 +1325,10 @@ const mockDb: DatabaseAdapter = {
     if (store.files.has(key)) return null
     const [row] = await this.upsertWorkflowFiles([data])
     return row!
+  },
+  async createWorkflowFilesIfAbsent(rows) {
+    const absent = rows.filter((data) => !store.files.has(`${data.workflowId}|${data.path}`))
+    return this.upsertWorkflowFiles(absent)
   },
   async updateWorkflowFileIfMatches(data, expectedHash) {
     const key = `${data.workflowId}|${data.path}`

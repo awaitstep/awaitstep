@@ -211,6 +211,8 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       const { body } = await check()
       const compile = body.diagnostics.filter((d) => d.source === 'compile')
       expect(compile.map((d) => d.path).sort()).toEqual(['lib/one.ts', 'lib/two.ts'])
+      // A project file is nobody's step: no node to open for it.
+      expect(compile.every((d) => d.nodeId === undefined)).toBe(true)
     })
 
     it('reports a graph that cannot be generated as a finding, not a failure', async () => {

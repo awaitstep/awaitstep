@@ -105,6 +105,8 @@ Get a single workflow by ID.
 
 Get a workflow with its current version, all version summaries, and `liveDeployments`: what is live on each account, newest first (the same entries as `deployedWith` below). `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
 
+`version` is the highest-numbered version (or the one `?version=` names) and `graphHash` is its save precondition: send it back as `baseGraphHash` on `POST /versions` so a save made from this load is refused if the workflow changed meanwhile. `graphHash` is `null` while the workflow has no version. It covers the graph only — nodes, edges, trigger, node code and settings, `runtime.env`/`bindings` — not `metadata` or the project-file snapshot, so saving project files does not move it.
+
 **Permission:** `workflows:read`
 
 | Param     | In    | Required | Description                 |
@@ -996,9 +998,31 @@ The same rule applies to an IR that is already stored: reading its source (`GET 
 
 ```json
 {
-  "ir": {}
+  "ir": {},
+  "baseGraphHash": "3f2a…"
 }
 ```
+
+| Field           | Required | Description                                                                                                |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `ir`            | yes      | The workflow IR document                                                                                   |
+| `baseGraphHash` | no       | The `graphHash` the client loaded (`GET /full`, `GET /project`, or the previous save's answer). See below. |
+
+The current version is saved over in place while it has never gone out on any account (`200`); once it has — live there now or since taken down — a changed IR becomes the next version (`201`). An unchanged IR answers `200` with the current version and writes nothing. The response is the version row plus `graphHash`, the precondition for the next save.
+
+With `baseGraphHash`, the save only goes through while the latest version's `graphHash` is the one sent; otherwise it answers `409` with `{ error, currentVersionId, currentGraphHash }` and writes nothing (`currentVersionId` and `currentGraphHash` are `null` while the workflow has no version). The check and the write are one statement, so two clients saving from the same base get one `2xx` and one `409`. An unchanged IR is accepted whatever the base, so a save retried after a lost response does not conflict with its own result. Without `baseGraphHash` the last writer wins, as before.
+
+A document's `runtime.files` seeds the project-file table only on a workflow's first version and only while the table is empty (an import); every path it would create is held to the path, handler and manifest rules a `PUT /files` write meets, so a generated path, one under `steps/`, a handler look-alike (`handlers/Fetch.ts`) or an invalid `package.json` answers `422` `{ error: "Invalid project file path", details: [{ path, message }] }` (or `400` where the IR schema catches it first) and nothing is saved. Inline `runtime.triggerCode` / `runtime.dependencies` are honoured on a workflow's first version and, after that, only while the latest stored version itself carries that setting (see [Project files](#project-files)); the same holds for a `runtime.files` snapshot. A field the latest stored version does not carry — one it dropped when the file that owns it was created, one deleted since, or one the workflow never had — is ignored, and a document that differs from the current version only by such a field is an unchanged save (`200`, nothing written). To add trigger code, a dependency or a file to an existing workflow, write `handlers/…`, `package.json` or the file with `PUT /files`.
+
+### `POST /workflows/:workflowId/versions/commit`
+
+Snapshot the live project files into the current version, under the same rule as a save: in place while the version never went out on any account (`200`), as the next version once it has (`201`), and a no-op `200` when the version already holds them. The graph is left as it is, so `graphHash` does not move. No body, no precondition. A workflow with no version answers `404` (`No version to commit into`).
+
+**Permission:** `workflows:write`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ### `PATCH /workflows/:workflowId/versions/:versionId`
 
@@ -1081,7 +1105,8 @@ return `200`, with what was found listed in `diagnostics`:
     },
     {
       "source": "compile",
-      "path": "awaitstep/workflow.ts",
+      "path": "nodes/fetch_data.ts",
+      "nodeId": "k3j9x_a1b2c3",
       "message": "Unexpected token, expected \";\" (16:21)"
     }
   ]
@@ -1090,13 +1115,13 @@ return `200`, with what was found listed in `diagnostics`:
 
 `source` is one of:
 
-|            |                                                                                               |
-| ---------- | --------------------------------------------------------------------------------------------- |
-| `ir`       | the workflow itself — fix it on the canvas                                                    |
-| `provider` | the node cannot deploy here                                                                   |
-| `compile`  | the file does not parse; `path` names it                                                      |
-| `import`   | an `#app/` or `#awaitstep/` specifier with no file behind it; `path` names the importing file |
-| `env`      | a variable with no value to resolve at deploy; names only, never values                       |
+|            |                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| `ir`       | the workflow itself — fix it on the canvas                                                           |
+| `provider` | the node cannot deploy here                                                                          |
+| `compile`  | the file does not parse; `path` names it, and `nodeId` the step when it is a step's generated module |
+| `import`   | an `#app/` or `#awaitstep/` specifier with no file behind it; `path` names the importing file        |
+| `env`      | a variable with no value to resolve at deploy; names only, never values                              |
 
 The array is empty for a healthy workflow and always present. Only a
 failure that leaves no source to return — generation itself throwing — is
@@ -1234,6 +1259,17 @@ any folder (`config/env.ts`, `services/stripe/client.ts`), data and docs
 paths. Nothing touches a disk until deploy, when every file is written beside
 the generated code.
 
+**Step code is not a project file.** The Code view shows every step node's
+body as `steps/<node id>.ts`, editable, but that is a view of the node's
+`data.code` in the IR: it is never stored in the file table, never listed by
+`GET /project` or `GET /source`, and never written with `PUT /files`. Editing
+it saves a version (`POST /versions`), exactly as the canvas does. The
+`steps/` folder is therefore reserved: a write there, by any spelling of the
+folder and at any depth, is refused with `422` (`is step code; edit the step
+under steps/ or on the canvas`). A version stored before the folder was
+reserved keeps whatever it holds there (read and deployed as before; writes
+to it still refuse).
+
 **Imports.** Use plain relative paths, or the `#app/` alias for the project
 root from anywhere: `import { region } from '#app/config/env'` reaches
 `config/env.ts` from the entry, a generated step module, or another project
@@ -1304,9 +1340,12 @@ code workspace honours its strictness switches (`strict`, `noImplicitAny`,
 immediately, every `POST /versions` snapshots the current set into the
 version's IR (`runtime.files`), an IR that arrives with files before the
 table has any (an import) seeds it, inline `runtime.triggerCode` /
-`runtime.dependencies` seed `handlers.ts` / `package.json` when the project
-has none (and are dropped from the stored IR once those files exist, so a
-stale copy can never come back through a version), and a revert replaces
+`runtime.dependencies` seed `handlers.ts` / `package.json` on a workflow's
+first version and are dropped from the stored IR once those files exist;
+after that a save honours them, and a `runtime.files` snapshot, only while
+the latest stored version itself carries that field — one it does not carry
+(loaded before the file was deleted, or never had) is ignored, so it neither
+re-seeds the file nor rides into the version — and a revert replaces
 the table with the reverted version's snapshot. `GET /source` marks each
 project-owned file with its `hash`, the ETag a conditional write needs. A
 deploy of the current version uses the live set, and older versions deploy
@@ -1318,7 +1357,8 @@ larger one is rejected with `413` before any of these apply. So the 2 MB
 project total is reached across several requests, never in one, and a single
 file near 512 KB has to be sent on its own. Paths use
 `[A-Za-z0-9._-]` segments (no dotfiles, no `..`), may not be generated paths
-(`worker.*`, `nodes/**`, `awaitstep/**`, `wrangler.*`, in any case), lockfiles or
+(`worker.*`, `nodes/**`, `awaitstep/**`, `wrangler.*`, in any case), the step-code
+folder (`steps/**`, in any case), lockfiles or
 `node_modules`, may hold `package.json`/`tsconfig.json`/`jsconfig.json` only
 at the root, must not collide with another file after compile or on a
 case-insensitive disk (`a.ts` vs `a.js`, `Env.ts` vs `env.ts`), and end in a
@@ -1332,7 +1372,7 @@ know whether anything changed before reading or writing.
 
 **Permission:** `workflows:read`
 
-Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }] }`.
+Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }], version: { id, graphHash } | null }`. `version` is the latest version's identity (see `GET /workflows/:id/full`), so one poll also notices a save made elsewhere; it is `null` while the workflow has no version.
 
 ### `GET /workflows/:workflowId/files/:path`
 
@@ -1363,7 +1403,8 @@ stored.
 | `source` | body | yes      | File contents (≤ 512 KB) |
 
 Returns `201` (created) or `200` (replaced) with `{ path, hash, size, updatedAt }`
-and the new `ETag`; `422` (with `details` for a manifest) for invalid paths,
+and the new `ETag`; `422` (with `details` for a manifest) for invalid paths
+(generated paths, the reserved `steps/` folder, handler look-alikes),
 compile collisions, invalid `package.json` or exceeded limits.
 
 ### `GET /workflows/:workflowId/project/convert-handlers`

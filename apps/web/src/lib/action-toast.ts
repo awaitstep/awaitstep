@@ -12,7 +12,12 @@ import { toast } from 'sonner'
 // message can never break the action it describes: one that throws is dropped.
 
 type SuccessMessage = string | ((variables: unknown, data: unknown) => string)
-type ErrorMessage = string | ((variables: unknown) => string)
+/**
+ * The general line for a failure; as a function it also sees the error and
+ * may answer null to say nothing, for a failure the caller judges itself (a
+ * refusal that is a state of the page rather than a toast).
+ */
+type ErrorMessage = string | ((variables: unknown, error: unknown) => string | null)
 
 /**
  * What an action says when it finishes. `success: null` is for an action whose
@@ -113,18 +118,23 @@ export function showCarriedToast(now = Date.now()) {
  */
 export function defineToast<TVariables = void, TData = unknown>(messages: {
   success: string | ((variables: TVariables, data: TData) => string) | null
-  error: string | ((variables: TVariables) => string)
+  error: string | ((variables: TVariables, error: unknown) => string | null)
 }): ActionToast {
   return messages as ActionToast
 }
 
-/** The lines a `meta.toast` gives for these variables and result; null where it stays quiet. */
-export function toastLines(meta: ActionToastMeta | undefined, variables: unknown, data?: unknown) {
-  return { success: successText(meta, variables, data), error: errorText(meta, variables) }
+/** The lines a `meta.toast` gives for these variables, result and error; null where it stays quiet. */
+export function toastLines(
+  meta: ActionToastMeta | undefined,
+  variables: unknown,
+  data?: unknown,
+  error?: unknown,
+) {
+  return { success: successText(meta, variables, data), error: errorText(meta, variables, error) }
 }
 
 /** A message function's line, or null when it throws: a bad message never fails the action. */
-function safely(line: () => string): string | null {
+function safely(line: () => string | null): string | null {
   try {
     return line()
   } catch {
@@ -138,10 +148,10 @@ function successText(meta: ActionToastMeta | undefined, variables: unknown, data
   return typeof success === 'function' ? safely(() => success(variables, data)) : success
 }
 
-function errorText(meta: ActionToastMeta | undefined, variables: unknown) {
+function errorText(meta: ActionToastMeta | undefined, variables: unknown, error: unknown) {
   if (!meta || meta === 'silent') return null
-  const error = meta.error
-  return typeof error === 'function' ? safely(() => error(variables)) : error
+  const line = meta.error
+  return typeof line === 'function' ? safely(() => line(variables, error)) : line
 }
 
 /**
@@ -173,7 +183,7 @@ export const mutationToastHandlers = {
     if (text) actionToast.success(text)
   },
   onError(error: unknown, variables: unknown, _result: unknown, mutation: AnyMutation) {
-    const text = errorText(mutation.meta?.toast, variables)
+    const text = errorText(mutation.meta?.toast, variables, error)
     if (text) actionToast.error(failureLine(error, text))
   },
 }

@@ -427,6 +427,7 @@ describe('deriveDeploymentState', () => {
   ): WorkflowFull => ({
     workflow: { ...baseWorkflow, currentVersionId },
     version: null,
+    graphHash: null,
     versions: [{ id: 'v2', version: 2, locked: 0, createdAt: '' }],
     handlers: { modules: false, consumedQueues: [] },
     liveDeployments,
@@ -459,5 +460,30 @@ describe('deriveDeploymentState', () => {
     const result = deriveDeploymentState(undefined)
     expect(result.hasActiveDeployment).toBe(false)
     expect(result.currentVersion).toBe(0)
+  })
+})
+
+describe('buildWorkflowStoreState graphHash', () => {
+  it('carries the loaded version’s graph hash into the store, as the next save’s base', () => {
+    const state = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false, { graphHash: 'g1' })
+    expect(state.graphHash).toBe('g1')
+  })
+
+  it('names only a graph the canvas actually shows: an unreadable IR leaves it null', () => {
+    const unreadable = { ...baseVersion, ir: '{not json' }
+    expect(
+      buildWorkflowStoreState(baseWorkflow, unreadable, 1, false, { graphHash: 'g1' }).graphHash,
+    ).toBeNull()
+    const noGraph = { ...baseVersion, ir: JSON.stringify({ metadata: {} }) }
+    expect(
+      buildWorkflowStoreState(baseWorkflow, noGraph, 1, false, { graphHash: 'g1' }).graphHash,
+    ).toBeNull()
+  })
+
+  it('is null when nothing says otherwise (no version to compare with)', () => {
+    expect(buildWorkflowStoreState(baseWorkflow, null, 0, false).graphHash).toBeNull()
+    expect(
+      buildWorkflowStoreState(baseWorkflow, null, 0, false, { graphHash: null }).graphHash,
+    ).toBeNull()
   })
 })

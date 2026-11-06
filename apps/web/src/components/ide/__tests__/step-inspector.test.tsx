@@ -8,7 +8,7 @@ import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStore } from '../../../stores/ide-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { StepInspector } from '../step-inspector'
-import { EDGES, irNode, loadGraph, NODES, SyncHarness } from './fixtures/step-sync'
+import { EDGES, FILES, irNode, loadGraph, NODES, SyncHarness } from './fixtures/step-sync'
 
 const listWorkflowRuns = vi.fn()
 const getWorkflowRunSteps = vi.fn()
@@ -96,6 +96,33 @@ describe('StepInspector', () => {
     expect(screen.getByRole('button', { name: 'lib/payments/charge.ts' })).toBeInTheDocument()
     // Timeout is empty on this step.
     expect(screen.getAllByText('Default')).toHaveLength(1)
+    await screen.findByText('No runs yet')
+  })
+
+  it('names the editable source first once the workspace has it, with the module beside it, and still runs the module', async () => {
+    const files = new Map([
+      ...FILES,
+      ['steps/charge.ts', { source: "import { c } from '#app/lib/payments/charge'" }],
+    ])
+    renderInspector('charge', { files })
+    expect(screen.getByRole('button', { name: 'steps/charge.ts' })).toBeInTheDocument()
+    expect(screen.getByText(/step code/)).toBeInTheDocument()
+    expect(screen.getByText('Module')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'nodes/charge_card.ts' })).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Run step' }))
+    expect(useIdeStore.getState().activePath).toBe('nodes/charge_card.ts')
+    await screen.findByText('No runs yet')
+  })
+
+  it('keeps saying why a step has no module when it has a source but no module', async () => {
+    const files = new Map([...FILES, ['steps/charge.ts', { source: 'return 1' }]])
+    renderInspector('charge', { files, manifest: null, kind: 'script' })
+    expect(screen.getByRole('button', { name: 'steps/charge.ts' })).toBeInTheDocument()
+    expect(screen.getByText('Module')).toBeInTheDocument()
+    expect(screen.getByText('A function has no step files')).toBeInTheDocument()
+    const run = screen.getByRole('button', { name: 'Run step' })
+    expect(run).toBeDisabled()
+    expect(run).toHaveAttribute('title', 'This step has no module of its own to run')
     await screen.findByText('No runs yet')
   })
 
