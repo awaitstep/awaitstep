@@ -4,12 +4,16 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { projectFilePathError, validateArtifact, migrateArtifact } from '@awaitstep/ir'
-import {
-  foldProjectFiles,
-  legacyRuntimeSeeds,
-  stripProjectOwnedRuntime,
-} from '../lib/runtime-fold.js'
+import { legacyRuntimeSeeds } from '../lib/runtime-fold.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
+import { graphHash } from '../lib/graph-hash.js'
+import {
+  VERSION_CHANGED,
+  commitProjectFiles,
+  persistVersion,
+  readForSave,
+  type VersionSaveResult,
+} from '../lib/version-save.js'
 import { recordAudit, type AuditRecord } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 
@@ -18,42 +22,21 @@ import type { AppEnv } from '../types.js'
 // the schema work on every autosave.
 const createVersionSchema = z.object({
   ir: z.unknown(),
+  /** The `graphHash` the client loaded (`GET /full`, or the last save's answer). */
+  baseGraphHash: z.string().min(1).max(64).optional(),
 })
 
 const lockVersionSchema = z.object({
   locked: z.boolean(),
 })
 
-/**
- * Unchanged-IR check for save dedup. Fast path is string equality; the
- * canonical comparison migrates the stored document first so the lazy
- * irVersion stamp (and key-order differences) never register as a change —
- * without it, every legacy workflow's first no-op save would spawn a
- * content-identical version row and a false "undeployed changes" state.
- */
-function irUnchanged(storedIr: string, newIr: string): boolean {
-  if (storedIr === newIr) return true
-  try {
-    return canonicalJson(migrateArtifact(JSON.parse(storedIr))) === canonicalJson(JSON.parse(newIr))
-  } catch {
-    return false
+/** A save's answer: the version row with its graph hash, or the 409 with the current one. */
+function saveResponse(c: Context<AppEnv>, result: VersionSaveResult) {
+  if (result.status === 409) {
+    const { currentVersionId, currentGraphHash } = result
+    return c.json({ error: VERSION_CHANGED, currentVersionId, currentGraphHash }, 409)
   }
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortKeysDeep(value))
-}
-
-function sortKeysDeep(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeysDeep)
-  if (value !== null && typeof value === 'object') {
-    const out: Record<string, unknown> = {}
-    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
-      out[key] = sortKeysDeep((value as Record<string, unknown>)[key])
-    }
-    return out
-  }
-  return value
+  return c.json({ ...result.version, graphHash: result.graphHash }, result.status)
 }
 
 /** Where a version event is recorded: the workflow's workspace, under its name. */
@@ -102,14 +85,11 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }
 
-  const [existingResult, workflow, activeDeployment, storedFiles] = await Promise.all([
-    db.listVersionsByWorkflow(workflowId, { limit: 1 }),
-    db.getWorkflowById(workflowId),
-    db.getActiveDeployment(workflowId),
-    db.listWorkflowFiles(workflowId),
-  ])
-  const latest = existingResult.data[0] // most recent version
-  if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
+  if (!c.get('workflow')) return c.json({ error: 'Workflow not found' }, 404)
+  // Everything the save is judged against, in one round: the files decide
+  // the seeds below, the version and deployment decide how it is written.
+  const reads = await readForSave(db, workflowId)
+  const storedFiles = reads.files
 
   // The project-file table is the truth. An IR that arrives carrying files
   // before the table has any (an import) seeds it once, and inline trigger
@@ -138,57 +118,38 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   if (pathProblems.length > 0) {
     return c.json({ error: 'Invalid project file path', details: pathProblems }, 422)
   }
-  const projectFiles =
-    seeds.length > 0
-      ? [...storedFiles, ...(await db.upsertWorkflowFiles(toWorkflowFileRows(workflowId, seeds)))]
-      : storedFiles
 
   // Persist the schema-parsed value (unknown top-level keys stripped, as the
-  // previous zValidator parse did) with the project files snapshotted in and
-  // the settings those files own removed, so the version is self-contained
-  // and never carries a stale duplicate of handlers.ts or package.json.
-  const irString = JSON.stringify(
-    stripProjectOwnedRuntime(
-      foldProjectFiles(validation.value, projectFiles, { useSnapshot: false }),
-      projectFiles,
-    ),
+  // previous zValidator parse did); the save folds the project files in and
+  // writes the seeds only when it writes the version.
+  const result = await persistVersion(
+    db,
+    {
+      workflowId,
+      ir: validation.value,
+      userId: c.get('userId'),
+      baseGraphHash: body.baseGraphHash,
+      seeds: toWorkflowFileRows(workflowId, seeds),
+    },
+    reads,
   )
+  return saveResponse(c, result)
+})
 
-  if (latest) {
-    // If latest version has NOT been deployed, overwrite it in place
-    if (latest.id !== activeDeployment?.versionId) {
-      // Check if IR actually changed
-      if (irUnchanged(latest.ir, irString)) {
-        return c.json(latest, 200)
-      }
-      // Saved over: it reads as saved by this person, now.
-      await db.updateVersion(latest.id, {
-        ir: irString,
-        createdBy: c.get('userId'),
-        createdAt: new Date().toISOString(),
-      })
-      const updated = await db.getWorkflowVersionById(latest.id)
-      return c.json(updated, 200)
-    }
-
-    // If latest version HAS been deployed and IR hasn't changed, return it
-    if (irUnchanged(latest.ir, irString)) {
-      return c.json(latest, 200)
-    }
-  }
-
-  // Create new version: either first version, or IR changed from a deployed
-  // version. The adapter assigns MAX(version)+1 atomically in SQL.
-  const version = await db.createVersion({
-    id: nanoid(),
-    workflowId,
-    ir: irString,
-    createdBy: c.get('userId'),
+/**
+ * Snapshots the live project files into the current version — the version a
+ * files-only edit in Code lands in. Same overwrite-or-create rule and no-op
+ * as a save; no precondition, since the graph is whatever the version holds.
+ */
+versions.post('/:workflowId/versions/commit', async (c) => {
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
+  const result = await commitProjectFiles(c.get('db'), {
+    workflowId: workflow.id,
+    userId: c.get('userId'),
   })
-
-  await db.updateWorkflow(workflowId, { currentVersionId: version.id })
-
-  return c.json(version, 201)
+  if ('error' in result) return c.json({ error: result.error }, result.status)
+  return saveResponse(c, result)
 })
 
 versions.patch(
@@ -237,7 +198,7 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
     ),
   ])
 
-  await db.updateWorkflow(workflowId, { currentVersionId: newVersion.id })
+  await db.advanceCurrentVersion(workflowId, newVersion)
   const audited = workflowAudit(c, workflowId)
   await recordAudit(c, {
     event: 'version.revert',
@@ -245,7 +206,7 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
     facts: { ...audited.facts, version: targetVersion.version },
   })
 
-  return c.json(newVersion, 201)
+  return c.json({ ...newVersion, graphHash: graphHash(newVersion.ir) }, 201)
 })
 
 versions.delete('/:workflowId/versions/:versionId', async (c) => {

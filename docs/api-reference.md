@@ -103,6 +103,8 @@ Get a single workflow by ID.
 
 Get a workflow with its current version, all version summaries, and active deployment. `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
 
+`version` is the highest-numbered version (or the one `?version=` names) and `graphHash` is its save precondition: send it back as `baseGraphHash` on `POST /versions` so a save made from this load is refused if the workflow changed meanwhile. `graphHash` is `null` while the workflow has no version. It covers the graph only — nodes, edges, trigger, node code and settings, `runtime.env`/`bindings` — not `metadata` or the project-file snapshot, so saving project files does not move it.
+
 **Permission:** `workflows:read`
 
 | Param     | In    | Required | Description                 |
@@ -991,9 +993,29 @@ The same rule applies to an IR that is already stored: reading its source (`GET 
 
 ```json
 {
-  "ir": {}
+  "ir": {},
+  "baseGraphHash": "3f2a…"
 }
 ```
+
+| Field           | Required | Description                                                                                                |
+| --------------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `ir`            | yes      | The workflow IR document                                                                                   |
+| `baseGraphHash` | no       | The `graphHash` the client loaded (`GET /full`, `GET /project`, or the previous save's answer). See below. |
+
+The current version is saved over in place while it is undeployed (`200`); once it is deployed, a changed IR becomes the next version (`201`). An unchanged IR answers `200` with the current version and writes nothing. The response is the version row plus `graphHash`, the precondition for the next save.
+
+With `baseGraphHash`, the save only goes through while the latest version's `graphHash` is the one sent; otherwise it answers `409` with `{ error, currentVersionId, currentGraphHash }` and writes nothing (`currentVersionId` and `currentGraphHash` are `null` while the workflow has no version). The check and the write are one statement, so two clients saving from the same base get one `2xx` and one `409`. An unchanged IR is accepted whatever the base, so a save retried after a lost response does not conflict with its own result. Without `baseGraphHash` the last writer wins, as before.
+
+### `POST /workflows/:workflowId/versions/commit`
+
+Snapshot the live project files into the current version, under the same rule as a save: in place while the version is undeployed (`200`), as the next version once it is deployed (`201`), and a no-op `200` when the version already holds them. The graph is left as it is, so `graphHash` does not move. No body, no precondition. A workflow with no version answers `404` (`No version to commit into`).
+
+**Permission:** `workflows:write`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
 
 ### `PATCH /workflows/:workflowId/versions/:versionId`
 
@@ -1326,7 +1348,7 @@ know whether anything changed before reading or writing.
 
 **Permission:** `workflows:read`
 
-Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }] }`.
+Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }], version: { id, graphHash } | null }`. `version` is the latest version's identity (see `GET /workflows/:id/full`), so one poll also notices a save made elsewhere; it is `null` while the workflow has no version.
 
 ### `GET /workflows/:workflowId/files/:path`
 
