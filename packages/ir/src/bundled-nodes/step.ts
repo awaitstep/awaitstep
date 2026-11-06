@@ -18,10 +18,10 @@ export const stepDefinition: NodeDefinition = {
     },
     inline: {
       type: 'boolean',
-      label: 'Inline (no step.do)',
+      label: 'Inline (no step)',
       default: false,
       description:
-        'Emit this code raw in the workflow body — no step.do, no wrapping. You own the surrounding scope: declare your own variables, add your own try/catch or IIFE if needed. Loses durability and retries.',
+        'Emit this code raw in the surrounding body — no step boundary, no wrapping. You own the scope: declare your own variables, add your own try/catch or IIFE if needed. No retries, no timeout, and in a workflow no durability.',
     },
     retryLimit: {
       type: 'number',

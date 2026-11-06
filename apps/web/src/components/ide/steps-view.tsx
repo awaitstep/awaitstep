@@ -112,9 +112,7 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
       <div className="flex h-9 shrink-0 items-center border-b border-border px-3">{tabs}</div>
       {!map.hasManifest && rows.length > 0 && (
         <p className="border-b border-border px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
-          {kind === 'script'
-            ? 'A function has no step files, so steps here don’t open code.'
-            : 'No step files for this version, so steps here don’t open code.'}
+          No step files for this version, so steps here don’t open code.
         </p>
       )}
       {!hasVersion ? (
@@ -142,7 +140,7 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
                 name={node.name}
                 icon={getNodeVisuals(node.type, registry.get(node.type)?.icon).icon}
                 meta={metaLine(
-                  stepMeta(summary),
+                  stepMeta(summary, { kind }),
                   info?.uses.length ?? 0,
                   info?.filePath ?? null,
                   map.hasManifest,

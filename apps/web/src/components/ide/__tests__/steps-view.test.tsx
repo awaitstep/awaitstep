@@ -144,9 +144,11 @@ describe('StepsView', () => {
     expect(useIdeStore.getState().stepsFocusRequested).toBe(false)
   })
 
-  it('tells a function’s author that steps have no files, and links nothing', async () => {
+  it('reads the same for a function without a manifest: no step files, nothing to open', async () => {
+    // A function's steps are modules now, so a missing manifest means an
+    // older version, exactly as for a workflow.
     setup({ manifest: null, kind: 'script' })
-    expect(screen.getByText(/A function has no step files/)).toBeInTheDocument()
+    expect(screen.getByText(/No step files for this version/)).toBeInTheDocument()
     await userEvent.setup().click(item(/Validate order/))
     expect(useIdeStore.getState().selectedNodeId).toBe('validate')
     expect(useIdeStore.getState().openPaths).toEqual([])
