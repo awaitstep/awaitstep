@@ -50,7 +50,13 @@ describe('IDE reads under a workflow URL', () => {
     })
     const fetch = stubFetch({ files: [] })
     renderHook(
-      () => useOutsideChanges({ workflowId: 'wf_1', enabled: true, baseline: new Map() }),
+      () =>
+        useOutsideChanges({
+          workflowId: 'wf_1',
+          versionParam: undefined,
+          enabled: true,
+          stored: new Map(),
+        }),
       { wrapper },
     )
     await waitFor(() => expect(fetch).toHaveBeenCalled())
