@@ -16,10 +16,12 @@ interface AuthState {
   clear: () => void
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   setSession: (data) => {
+    // The layout hands over the same loader data on every render: no change, no update.
+    if (data && get().session === data.session && get().user === data.user) return
     // Before anything renders with the new user: remembered payloads that are
     // not theirs must be gone first.
     if (data) reconcileRememberedOwner(data.user.id)
