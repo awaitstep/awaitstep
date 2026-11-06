@@ -30,6 +30,7 @@ import {
   type RunSummary,
   type WorkflowSummary,
 } from './api-client'
+import { apiPath } from './api-path'
 
 // The dashboard's calls, addressed by the slugs its URLs carry rather than
 // by the org store: `GET /scope`, the workspace routes, and the project,
@@ -496,7 +497,7 @@ export interface KeySlugs {
 
 export const dashboardApi = {
   getScope(slugs: { org: string; project?: string; workspace?: string }): Promise<ApiScope> {
-    return request(`/scope${query(slugs)}`)
+    return request(apiPath`/scope` + query(slugs))
   },
 
   listOrgs(): Promise<{ data: ApiOrgListing[] }> {
@@ -504,21 +505,24 @@ export const dashboardApi = {
   },
 
   listFailing(org: string): Promise<{ data: ApiFailing[] }> {
-    return request(`/failing${query({ org })}`)
+    return request(apiPath`/failing` + query({ org }))
   },
 
   listProjects(
     org: string,
     page?: { cursor?: string; limit?: number },
   ): Promise<PaginatedResponse<ApiProject>> {
-    return request(`/projects${query({ org, ...page })}`)
+    return request(apiPath`/projects` + query({ org, ...page }))
   },
 
   createProject(
     org: string,
     data: { name: string; slug: string; description?: string },
   ): Promise<ApiProjectRow & { defaultWorkspace: ApiWorkspaceRow }> {
-    return request(`/projects${query({ org })}`, { method: 'POST', body: JSON.stringify(data) })
+    return request(apiPath`/projects` + query({ org }), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   updateProject(
@@ -526,25 +530,25 @@ export const dashboardApi = {
     id: string,
     data: { name?: string; slug?: string; description?: string },
   ): Promise<ApiProjectRow> {
-    return request(`/projects/${id}${query({ org })}`, {
+    return request(apiPath`/projects/${id}` + query({ org }), {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   },
 
   deleteProject(org: string, id: string): Promise<{ ok: true }> {
-    return request(`/projects/${id}${query({ org })}`, { method: 'DELETE' })
+    return request(apiPath`/projects/${id}` + query({ org }), { method: 'DELETE' })
   },
 
   setProjectLock(org: string, id: string, locked: boolean): Promise<{ lock: ApiLock | null }> {
-    return request(`/projects/${id}/lock${query({ org })}`, {
+    return request(apiPath`/projects/${id}/lock` + query({ org }), {
       method: 'PUT',
       body: JSON.stringify({ locked }),
     })
   },
 
   listWorkspaces(slugs: ProjectSlugs): Promise<{ data: ApiWorkspace[] }> {
-    return request(`/workspaces${query(slugs)}`)
+    return request(apiPath`/workspaces` + query(slugs))
   },
 
   createWorkspace(
@@ -557,11 +561,14 @@ export const dashboardApi = {
       members?: { userId: string; role: WorkspaceRole }[]
     },
   ): Promise<ApiWorkspaceRow> {
-    return request(`/workspaces${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+    return request(apiPath`/workspaces` + query(slugs), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   moveProject(id: string, organizationId: string): Promise<{ ok: true }> {
-    return request(`/projects/${id}/move`, {
+    return request(apiPath`/projects/${id}/move`, {
       method: 'POST',
       body: JSON.stringify({ organizationId }),
     })
@@ -569,37 +576,37 @@ export const dashboardApi = {
 
   // People and access (session only)
   listOrgMembers(org: string): Promise<{ data: ApiOrgMember[] }> {
-    return request(`/members${query({ org })}`)
+    return request(apiPath`/members` + query({ org }))
   },
 
   listProjectMembers(slugs: ProjectSlugs): Promise<ApiProjectMembers> {
-    return request(`/members${query(slugs)}`)
+    return request(apiPath`/members` + query(slugs))
   },
 
   getPersonAccess(org: string, userId: string): Promise<ApiPersonAccess> {
-    return request(`/members/${userId}/access${query({ org })}`)
+    return request(apiPath`/members/${userId}/access` + query({ org }))
   },
 
   saveAccess(org: string, userId: string, grant: ApiAccessGrant): Promise<{ ok: true }> {
-    return request(`/members/${userId}/access${query({ org })}`, {
+    return request(apiPath`/members/${userId}/access` + query({ org }), {
       method: 'PUT',
       body: JSON.stringify(grant),
     })
   },
 
   removeFromOrg(org: string, userId: string): Promise<{ ok: true }> {
-    return request(`/members/${userId}${query({ org })}`, { method: 'DELETE' })
+    return request(apiPath`/members/${userId}` + query({ org }), { method: 'DELETE' })
   },
 
   listWorkspacePeople(workspaceId: string): Promise<{ data: ApiWorkspacePerson[] }> {
-    return request(`/workspaces/${workspaceId}/members`)
+    return request(apiPath`/workspaces/${workspaceId}/members`)
   },
 
   addWorkspaceMember(
     workspaceId: string,
     data: { userId: string; role: WorkspaceRole },
   ): Promise<unknown> {
-    return request(`/workspaces/${workspaceId}/members`, {
+    return request(apiPath`/workspaces/${workspaceId}/members`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -610,7 +617,7 @@ export const dashboardApi = {
     workspaceId: string,
     data: { emails: string[]; role: WorkspaceRole },
   ): Promise<{ data: PlaceInviteReply[] }> {
-    return request(`/workspaces/${workspaceId}/invitations`, {
+    return request(apiPath`/workspaces/${workspaceId}/invitations`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -627,7 +634,7 @@ export const dashboardApi = {
     /** The workspaces written (the workspaces scope): those asked for, less any already held. */
     workspaces?: { id: string; name: string }[]
   }> {
-    return request(`/projects/${projectId}/members`, {
+    return request(apiPath`/projects/${projectId}/members`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -638,26 +645,26 @@ export const dashboardApi = {
     projectId: string,
     data: { emails: string[]; access: ProjectAccessChoice },
   ): Promise<{ data: PlaceInviteReply[] }> {
-    return request(`/projects/${projectId}/invitations`, {
+    return request(apiPath`/projects/${projectId}/invitations`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
   },
 
   setWorkspaceRole(workspaceId: string, userId: string, role: WorkspaceRole): Promise<unknown> {
-    return request(`/workspaces/${workspaceId}/members/${userId}`, {
+    return request(apiPath`/workspaces/${workspaceId}/members/${userId}`, {
       method: 'PATCH',
       body: JSON.stringify({ role }),
     })
   },
 
   removeWorkspaceMember(workspaceId: string, userId: string): Promise<{ ok: true }> {
-    return request(`/workspaces/${workspaceId}/members/${userId}`, { method: 'DELETE' })
+    return request(apiPath`/workspaces/${workspaceId}/members/${userId}`, { method: 'DELETE' })
   },
 
   // Invitations (session only)
   listInvitations(org: string): Promise<{ data: ApiInvitation[] }> {
-    return request(`/invitations${query({ org })}`)
+    return request(apiPath`/invitations` + query({ org }))
   },
 
   sendInvites(
@@ -668,27 +675,30 @@ export const dashboardApi = {
       places: { projectId: string; workspaceId: string | null; role: ProjectRole | WorkspaceRole }[]
     },
   ): Promise<{ data: { id: string; email: string }[] }> {
-    return request(`/invitations${query({ org })}`, { method: 'POST', body: JSON.stringify(data) })
+    return request(apiPath`/invitations` + query({ org }), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   resendInvite(org: string, id: string): Promise<{ ok: true; expiresAt: string }> {
-    return request(`/invitations/${id}/resend${query({ org })}`, { method: 'POST' })
+    return request(apiPath`/invitations/${id}/resend` + query({ org }), { method: 'POST' })
   },
 
   cancelInvite(org: string, id: string): Promise<{ ok: true }> {
-    return request(`/invitations/${id}${query({ org })}`, { method: 'DELETE' })
+    return request(apiPath`/invitations/${id}` + query({ org }), { method: 'DELETE' })
   },
 
   listOrgKeys(org: string, cursor?: string): Promise<ApiKeyPage> {
-    return request(`/api-keys${query({ org, cursor })}`)
+    return request(apiPath`/api-keys` + query({ org, cursor }))
   },
 
   listProjectKeys(slugs: ProjectSlugs): Promise<ApiProjectKeys> {
-    return request(`/api-keys${query(slugs)}`)
+    return request(apiPath`/api-keys` + query(slugs))
   },
 
   listWorkspaceKeys(slugs: WorkspaceSlugs): Promise<ApiWorkspaceKeys> {
-    return request(`/api-keys${query(slugs)}`)
+    return request(apiPath`/api-keys` + query(slugs))
   },
 
   /** The secret comes back once, as `key`. A project/workspace key may carry a scope set. */
@@ -703,43 +713,49 @@ export const dashboardApi = {
       workspaceIds?: string[]
     },
   ): Promise<ApiKeyRow & { key: string }> {
-    return request(`/api-keys${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+    return request(apiPath`/api-keys` + query(slugs), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   /** The whole-key kill-switch, from the key's home level. */
   revokeKey(slugs: KeySlugs, id: string): Promise<ApiKeyRow> {
-    return request(`/api-keys/${id}${query(slugs)}`, { method: 'DELETE' })
+    return request(apiPath`/api-keys/${id}` + query(slugs), { method: 'DELETE' })
   },
 
   /** Per-consumer revoke: the addressed project or workspace drops its own slice of a shared key. */
   revokeKeyScope(slugs: KeySlugs, id: string): Promise<ApiKeyRow> {
-    return request(`/api-keys/${id}/scope${query(slugs)}`, { method: 'DELETE' })
+    return request(apiPath`/api-keys/${id}/scope` + query(slugs), { method: 'DELETE' })
   },
 
   // Variables (B4), addressed at their level like keys: `?org=` the
   // organization's own, `&project=` a project's own, `&workspace=` a
   // workspace's own; the resolved reads give a project's or a workspace's view.
   listOrgVariables(org: string, cursor?: string): Promise<ApiOrgVariablePage> {
-    return request(`/env-vars${query({ org, cursor })}`)
+    return request(apiPath`/env-vars` + query({ org, cursor }))
   },
 
   listResolvedProjectVariables(
     slugs: ProjectSlugs,
   ): Promise<{ data: ApiResolvedProjectVariable[] }> {
-    return request(`/env-vars/resolved${query(slugs)}`)
+    return request(apiPath`/env-vars/resolved` + query(slugs))
   },
 
   listResolvedWorkspaceVariables(
     slugs: WorkspaceSlugs,
   ): Promise<{ data: ApiResolvedWorkspaceVariable[] }> {
-    return request(`/env-vars/resolved${query(slugs)}`)
+    return request(apiPath`/env-vars/resolved` + query(slugs))
   },
 
   createVariable(
     slugs: KeySlugs,
     data: { name: string; value: string; isSecret: boolean; reach?: ApiVariableReachInput },
   ): Promise<ApiVariableRow & { skipped: string[] }> {
-    return request(`/env-vars${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+    return request(apiPath`/env-vars` + query(slugs), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   /** `value` left out keeps a secret's stored value. */
@@ -748,14 +764,14 @@ export const dashboardApi = {
     id: string,
     data: { value?: string; isSecret: boolean; reach?: ApiVariableReachInput },
   ): Promise<ApiVariableRow & { skipped: string[] }> {
-    return request(`/env-vars/${id}${query(slugs)}`, {
+    return request(apiPath`/env-vars/${id}` + query(slugs), {
       method: 'PATCH',
       body: JSON.stringify(data),
     })
   },
 
   deleteVariable(slugs: KeySlugs, id: string): Promise<{ ok: true }> {
-    return request(`/env-vars/${id}${query(slugs)}`, { method: 'DELETE' })
+    return request(apiPath`/env-vars/${id}` + query(slugs), { method: 'DELETE' })
   },
 
   // Connections and the marketplace (B9): organization settings, `?org=`.
@@ -765,7 +781,7 @@ export const dashboardApi = {
     cursor?: string,
     project?: string,
   ): Promise<PaginatedResponse<ConnectionSummary>> {
-    return request(`/connections${query({ org, cursor, project })}`)
+    return request(apiPath`/connections` + query({ org, cursor, project }))
   },
 
   /** Checks the token with Cloudflare first: a refusal is a `400` on `token` or `accountId`. */
@@ -774,7 +790,7 @@ export const dashboardApi = {
     data: { name: string; accountId: string; apiToken: string } & ApiConnectionProjects,
   ): Promise<ConnectionSummary> {
     const { accountId, apiToken, ...rest } = data
-    return request(`/connections${query({ org })}`, {
+    return request(apiPath`/connections` + query({ org }), {
       method: 'POST',
       body: JSON.stringify({
         provider: 'cloudflare',
@@ -791,7 +807,7 @@ export const dashboardApi = {
     data: { name?: string; apiToken?: string } & ApiConnectionProjects,
   ): Promise<ConnectionSummary> {
     const { apiToken, ...rest } = data
-    return request(`/connections/${id}${query({ org })}`, {
+    return request(apiPath`/connections/${id}` + query({ org }), {
       method: 'PATCH',
       body: JSON.stringify({
         ...rest,
@@ -801,11 +817,11 @@ export const dashboardApi = {
   },
 
   deleteConnection(org: string, id: string): Promise<{ ok: true }> {
-    return request(`/connections/${id}${query({ org })}`, { method: 'DELETE' })
+    return request(apiPath`/connections/${id}` + query({ org }), { method: 'DELETE' })
   },
 
   listMarketplace(org: string): Promise<{ nodes: ApiMarketplaceNode[] }> {
-    return request(`/marketplace${query({ org })}`)
+    return request(apiPath`/marketplace` + query({ org }))
   },
 
   changeNode(
@@ -813,7 +829,7 @@ export const dashboardApi = {
     change: 'install' | 'uninstall' | 'update',
     nodeId: string,
   ): Promise<unknown> {
-    return request(`/marketplace/${change}${query({ org })}`, {
+    return request(apiPath`/marketplace/${change}` + query({ org }), {
       method: 'POST',
       body: JSON.stringify({ nodeId }),
     })
@@ -821,14 +837,14 @@ export const dashboardApi = {
 
   // A project's accounts (23a–23c), by the project's id.
   listProjectConnections(org: string, projectId: string): Promise<ProjectConnections> {
-    return request(`/projects/${projectId}/connections${query({ org })}`)
+    return request(apiPath`/projects/${projectId}/connections` + query({ org }))
   },
 
   listAvailableProjectConnections(
     org: string,
     projectId: string,
   ): Promise<{ data: AvailableConnection[] }> {
-    return request(`/projects/${projectId}/connections/available${query({ org })}`)
+    return request(apiPath`/projects/${projectId}/connections/available` + query({ org }))
   },
 
   addProjectConnections(
@@ -836,7 +852,7 @@ export const dashboardApi = {
     projectId: string,
     connectionIds: string[],
   ): Promise<{ added: { id: string; name: string }[]; defaultId: string | null }> {
-    return request(`/projects/${projectId}/connections${query({ org })}`, {
+    return request(apiPath`/projects/${projectId}/connections` + query({ org }), {
       method: 'POST',
       body: JSON.stringify({ connectionIds }),
     })
@@ -848,7 +864,7 @@ export const dashboardApi = {
     projectId: string,
     data: { name: string; accountId: string; token: string; makeDefault: boolean },
   ): Promise<{ id: string; name: string; scope: 'shared' | 'project'; isDefault: boolean }> {
-    return request(`/projects/${projectId}/connections/new${query({ org })}`, {
+    return request(apiPath`/projects/${projectId}/connections/new` + query({ org }), {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -860,14 +876,14 @@ export const dashboardApi = {
     connectionId: string,
     token: string,
   ): Promise<unknown> {
-    return request(`/projects/${projectId}/connections/${connectionId}${query({ org })}`, {
+    return request(apiPath`/projects/${projectId}/connections/${connectionId}` + query({ org }), {
       method: 'PATCH',
       body: JSON.stringify({ token }),
     })
   },
 
   removeProjectConnection(org: string, projectId: string, connectionId: string): Promise<unknown> {
-    return request(`/projects/${projectId}/connections/${connectionId}${query({ org })}`, {
+    return request(apiPath`/projects/${projectId}/connections/${connectionId}` + query({ org }), {
       method: 'DELETE',
     })
   },
@@ -877,7 +893,7 @@ export const dashboardApi = {
     projectId: string,
     connectionId: string,
   ): Promise<unknown> {
-    return request(`/projects/${projectId}/default-connection${query({ org })}`, {
+    return request(apiPath`/projects/${projectId}/default-connection` + query({ org }), {
       method: 'PUT',
       body: JSON.stringify({ connectionId }),
     })
@@ -889,30 +905,33 @@ export const dashboardApi = {
     workspaceId: string,
     connectionId: string | null,
   ): Promise<unknown> {
-    return request(`/projects/${projectId}/workspaces/${workspaceId}/connection${query({ org })}`, {
-      method: 'PUT',
-      body: JSON.stringify({ connectionId }),
-    })
+    return request(
+      apiPath`/projects/${projectId}/workspaces/${workspaceId}/connection` + query({ org }),
+      {
+        method: 'PUT',
+        body: JSON.stringify({ connectionId }),
+      },
+    )
   },
 
   /** The empty-project page's counts, by the project's id (B9). */
   getProjectSetup(org: string, projectId: string): Promise<ProjectSetup> {
-    return request(`/projects/${projectId}/setup${query({ org })}`)
+    return request(apiPath`/projects/${projectId}/setup` + query({ org }))
   },
 
   getInvite(token: string): Promise<ApiInviteView> {
-    return request(`/invitations/${encodeURIComponent(token)}`)
+    return request(apiPath`/invitations/${token}`)
   },
 
   acceptInvite(token: string): Promise<{ org: string; project?: string; workspace?: string }> {
-    return request(`/invitations/${encodeURIComponent(token)}/accept`, { method: 'POST' })
+    return request(apiPath`/invitations/${token}/accept`, { method: 'POST' })
   },
 
   answerInvite(
     token: string,
     action: 'decline' | 'undo-decline' | 'ask-again',
   ): Promise<{ ok: true }> {
-    return request(`/invitations/${encodeURIComponent(token)}/${action}`, { method: 'POST' })
+    return request(apiPath`/invitations/${token}/${action}`, { method: 'POST' })
   },
 
   listMyInvites(): Promise<{ data: ApiPendingInvite[] }> {
@@ -921,33 +940,36 @@ export const dashboardApi = {
 
   // A Viewer's edit-access request (session only)
   getEditRequest(workspaceId: string): Promise<ApiAccessRequest | null> {
-    return request(`/workspaces/${workspaceId}/access-request`)
+    return request(apiPath`/workspaces/${workspaceId}/access-request`)
   },
 
   requestEditAccess(workspaceId: string): Promise<ApiAccessRequest> {
-    return request(`/workspaces/${workspaceId}/access-requests`, { method: 'POST' })
+    return request(apiPath`/workspaces/${workspaceId}/access-requests`, { method: 'POST' })
   },
 
   updateWorkspace(
     id: string,
     data: { name?: string; slug?: string; description?: string | null; colour?: WorkspaceColour },
   ): Promise<ApiWorkspaceRow> {
-    return request(`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+    return request(apiPath`/workspaces/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
   },
 
   deleteWorkspace(id: string): Promise<{ ok: true }> {
-    return request(`/workspaces/${id}`, { method: 'DELETE' })
+    return request(apiPath`/workspaces/${id}`, { method: 'DELETE' })
   },
 
   setWorkspaceLock(id: string, locked: boolean): Promise<{ lock: ApiLock | null }> {
-    return request(`/workspaces/${id}/lock`, { method: 'PUT', body: JSON.stringify({ locked }) })
+    return request(apiPath`/workspaces/${id}/lock`, {
+      method: 'PUT',
+      body: JSON.stringify({ locked }),
+    })
   },
 
   moveWorkflows(
     id: string,
     data: { workflowIds: string[]; targetWorkspaceId: string },
   ): Promise<{ moved: string[] }> {
-    return request(`/workspaces/${id}/move-workflows`, {
+    return request(apiPath`/workspaces/${id}/move-workflows`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -957,7 +979,7 @@ export const dashboardApi = {
     slugs: WorkspaceSlugs,
     filter: { kind?: 'workflow' | 'script'; cursor?: string; limit?: number },
   ): Promise<PaginatedResponse<ApiWorkflowRow>> {
-    return request(`/workflows${query({ ...slugs, ...filter })}`)
+    return request(apiPath`/workflows` + query({ ...slugs, ...filter }))
   },
 
   setWorkflowShared(
@@ -965,7 +987,7 @@ export const dashboardApi = {
     id: string,
     shared: boolean,
   ): Promise<{ sharing: ApiSharing | null }> {
-    return request(`/workflows/${id}/share${query(slugs)}`, {
+    return request(apiPath`/workflows/${id}/share` + query(slugs), {
       method: 'PUT',
       body: JSON.stringify({ shared }),
     })
@@ -976,27 +998,27 @@ export const dashboardApi = {
     projectId: string,
     filter: { cursor?: string; limit?: number } = {},
   ): Promise<PaginatedResponse<ApiSharedItem>> {
-    return request(`/projects/${projectId}/shared${query({ org, ...filter })}`)
+    return request(apiPath`/projects/${projectId}/shared` + query({ org, ...filter }))
   },
 
   /** `GET /audit-events`: one page of the organization's log, newest first (B7). */
   listAuditEvents(org: string, filter: AuditFilter = {}): Promise<AuditPage> {
-    return request(`/audit-events${query({ org, ...filter })}`)
+    return request(apiPath`/audit-events` + query({ org, ...filter }))
   },
 
   /** `GET /notifications`: the person's Inbox in the org, newest first, with its counts (B8). */
   listNotifications(org: string): Promise<InboxPage> {
-    return request(`/notifications${query({ org })}`)
+    return request(apiPath`/notifications` + query({ org }))
   },
 
   markNotificationRead(org: string, id: string): Promise<{ ok: true }> {
-    return request(`/notifications/${encodeURIComponent(id)}/read${query({ org })}`, {
+    return request(apiPath`/notifications/${id}/read` + query({ org }), {
       method: 'POST',
     })
   },
 
   markAllNotificationsRead(org: string): Promise<{ updated: number }> {
-    return request(`/notifications/read-all${query({ org })}`, { method: 'POST' })
+    return request(apiPath`/notifications/read-all` + query({ org }), { method: 'POST' })
   },
 
   /** Approve or decline an edit-access request, by the request's id (B2). */
@@ -1004,7 +1026,7 @@ export const dashboardApi = {
     id: string,
     decision: 'approve' | 'decline',
   ): Promise<{ ok: true; alreadyEditing: boolean }> {
-    return request(`/access-requests/${encodeURIComponent(id)}/${decision}`, { method: 'POST' })
+    return request(apiPath`/access-requests/${id}/${decision}`, { method: 'POST' })
   },
 
   /** When the person last closed What's new (B8). */
@@ -1021,7 +1043,7 @@ export const dashboardApi = {
     workspaceId: string,
     filter: { kind?: 'workflow' | 'script'; cursor?: string; limit?: number },
   ): Promise<PaginatedResponse<ApiSharedItem>> {
-    return request(`/workspaces/${workspaceId}/shared${query(filter)}`)
+    return request(apiPath`/workspaces/${workspaceId}/shared` + query(filter))
   },
 
   /** Answers with the row as stored: none of the status fields a listing carries. */
@@ -1029,30 +1051,30 @@ export const dashboardApi = {
     slugs: WorkspaceSlugs,
     data: { name: string; description?: string; kind?: 'workflow' | 'script' },
   ): Promise<WorkflowSummary & { workspaceId: string }> {
-    return request(`/workflows${query(slugs)}`, { method: 'POST', body: JSON.stringify(data) })
+    return request(apiPath`/workflows` + query(slugs), {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
   },
 
   /** Saves `ir` as the workflow's next version, in the project the slugs name (import). */
   createVersion(slugs: ProjectSlugs, workflowId: string, ir: unknown): Promise<{ id: string }> {
     const { org, project } = slugs
-    return request(
-      `/workflows/${encodeURIComponent(workflowId)}/versions${query({ org, project })}`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ ir }),
-      },
-    )
+    return request(apiPath`/workflows/${workflowId}/versions` + query({ org, project }), {
+      method: 'POST',
+      body: JSON.stringify({ ir }),
+    })
   },
 
   deleteWorkflow(slugs: ProjectSlugs, workflowId: string): Promise<{ ok: true }> {
     const { org, project } = slugs
-    return request(`/workflows/${encodeURIComponent(workflowId)}${query({ org, project })}`, {
+    return request(apiPath`/workflows/${workflowId}` + query({ org, project }), {
       method: 'DELETE',
     })
   },
 
   listRuns(slugs: WorkspaceSlugs, filter: ApiRunFilter): Promise<ApiRunPage> {
-    return request(`/runs${query({ ...slugs, ...filter })}`)
+    return request(apiPath`/runs` + query({ ...slugs, ...filter }))
   },
 
   /** Your account (B10): the person, their orgs and their ways in — the same in every org. */
@@ -1062,7 +1084,7 @@ export const dashboardApi = {
 
   /** Their project and workspace roles there go too; the only owner gets a `409`. */
   leaveOrg(orgId: string): Promise<{ ok: true }> {
-    return request(`/account/orgs/${orgId}/leave`, { method: 'POST' })
+    return request(apiPath`/account/orgs/${orgId}/leave`, { method: 'POST' })
   },
   /** The photo as the request body (B10); answers its `/api/images/…` path. */
   uploadPhoto(image: Blob): Promise<{ image: string }> {
@@ -1077,14 +1099,14 @@ export const dashboardApi = {
   },
   /** The org's logo as the request body; owners and admins only. */
   uploadOrgLogo(orgId: string, logo: Blob): Promise<{ logo: string }> {
-    return request(`/orgs/${orgId}/logo`, {
+    return request(apiPath`/orgs/${orgId}/logo`, {
       method: 'PUT',
       body: logo,
       headers: { 'Content-Type': logo.type },
     })
   },
   removeOrgLogo(orgId: string): Promise<{ logo: null }> {
-    return request(`/orgs/${orgId}/logo`, { method: 'DELETE' })
+    return request(apiPath`/orgs/${orgId}/logo`, { method: 'DELETE' })
   },
 
   listAccountSessions(): Promise<{ data: AccountSession[] }> {
@@ -1092,7 +1114,7 @@ export const dashboardApi = {
   },
 
   revokeAccountSession(sessionId: string): Promise<{ ok: true }> {
-    return request(`/account/sessions/${sessionId}`, { method: 'DELETE' })
+    return request(apiPath`/account/sessions/${sessionId}`, { method: 'DELETE' })
   },
 
   revokeOtherAccountSessions(): Promise<{ count: number }> {

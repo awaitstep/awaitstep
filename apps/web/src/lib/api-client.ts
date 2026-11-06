@@ -7,6 +7,7 @@ import type {
   TestSessionRuntime,
 } from '@awaitstep/codegen'
 import { useOrgStore } from '../stores/org-store'
+import { pathSegment } from './api-path'
 
 const API_BASE = '/api'
 
@@ -346,7 +347,7 @@ export class ProjectFileConflictError extends Error {
 }
 
 function encodeProjectPath(path: string): string {
-  return path.split('/').map(encodeURIComponent).join('/')
+  return path.split('/').map(pathSegment).join('/')
 }
 
 async function projectFileRequest<T>(path: string, options: RequestInit): Promise<T> {
@@ -470,12 +471,12 @@ export function createApiClient(scope: () => ApiScope) {
     },
 
     getWorkflow(id: string): Promise<WorkflowSummary> {
-      return request(withProject(`/workflows/${encodeURIComponent(id)}`))
+      return request(withProject(`/workflows/${pathSegment(id)}`))
     },
 
     getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
       const params = versionId ? `?version=${encodeURIComponent(versionId)}` : ''
-      return request(withProject(`/workflows/${encodeURIComponent(id)}/full${params}`))
+      return request(withProject(`/workflows/${pathSegment(id)}/full${params}`))
     },
 
     // ── Test sessions ──
@@ -484,12 +485,12 @@ export function createApiClient(scope: () => ApiScope) {
     // that does not exist, so a 404 here needs no special handling.
 
     getTestSession(workflowId: string): Promise<{ session: TestSession | null }> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`))
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/test-sessions`))
     },
 
     /** Starts one, or returns the session this user already has. */
     startTestSession(workflowId: string): Promise<StartTestSessionResponse> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/test-sessions`), {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/test-sessions`), {
         method: 'POST',
       })
     },
@@ -504,7 +505,7 @@ export function createApiClient(scope: () => ApiScope) {
       payload: unknown,
       options?: { timeoutMs?: number },
     ): Promise<TestSessionTriggerResponse> {
-      return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}/trigger`), {
+      return request(withProject(`/test-sessions/${pathSegment(sessionId)}/trigger`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payload }),
@@ -513,28 +514,26 @@ export function createApiClient(scope: () => ApiScope) {
     },
 
     stopTestSession(sessionId: string): Promise<{ status: string }> {
-      return request(withProject(`/test-sessions/${encodeURIComponent(sessionId)}`), {
+      return request(withProject(`/test-sessions/${pathSegment(sessionId)}`), {
         method: 'DELETE',
       })
     },
 
     getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
       const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
-      return request(withProject(`/workflows/${encodeURIComponent(id)}/source${params}`))
+      return request(withProject(`/workflows/${pathSegment(id)}/source${params}`))
     },
 
     /** The stored files with their hashes (no text): what the IDE polls to notice outside changes. */
     async getProjectFiles(id: string): Promise<ProjectFileSummary[]> {
       const body = await request<{ files: ProjectFileSummary[] }>(
-        withProject(`/workflows/${encodeURIComponent(id)}/project`),
+        withProject(`/workflows/${pathSegment(id)}/project`),
       )
       return body.files
     },
 
     getProjectFile(id: string, path: string): Promise<ProjectFileContent> {
-      return request(
-        withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
-      )
+      return request(withProject(`/workflows/${pathSegment(id)}/files/${encodeProjectPath(path)}`))
     },
 
     /** Creates or replaces a file under the given precondition. */
@@ -549,7 +548,7 @@ export function createApiClient(scope: () => ApiScope) {
           ? { 'If-Match': `"${precondition.ifMatch}"` }
           : { 'If-None-Match': '*' }
       return projectFileRequest(
-        withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
+        withProject(`/workflows/${pathSegment(id)}/files/${encodeProjectPath(path)}`),
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', ...header },
@@ -560,13 +559,13 @@ export function createApiClient(scope: () => ApiScope) {
 
     /** What converting the annotation file would produce, without writing anything. */
     previewHandlerConversion(id: string): Promise<HandlerConversionPreview> {
-      return request(withProject(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`))
+      return request(withProject(`/workflows/${pathSegment(id)}/project/convert-handlers`))
     },
 
     /** Splits handlers.ts (or the legacy trigger-code setting) into handler modules, atomically on the server. */
     convertHandlers(id: string, ifMatch?: string): Promise<HandlerConversionResult> {
       return projectFileRequest(
-        withProject(`/workflows/${encodeURIComponent(id)}/project/convert-handlers`),
+        withProject(`/workflows/${pathSegment(id)}/project/convert-handlers`),
         {
           method: 'POST',
           headers: ifMatch ? { 'If-Match': `"${ifMatch}"` } : {},
@@ -577,7 +576,7 @@ export function createApiClient(scope: () => ApiScope) {
     /** Always conditional: a delete must name the version it read. */
     deleteProjectFile(id: string, path: string, ifMatch: string): Promise<void> {
       return projectFileRequest(
-        withProject(`/workflows/${encodeURIComponent(id)}/files/${encodeProjectPath(path)}`),
+        withProject(`/workflows/${pathSegment(id)}/files/${encodeProjectPath(path)}`),
         {
           method: 'DELETE',
           headers: { 'If-Match': `"${ifMatch}"` },
@@ -608,14 +607,14 @@ export function createApiClient(scope: () => ApiScope) {
         deployConfig?: DeployConfig
       },
     ): Promise<WorkflowSummary> {
-      return request(withProject(`/workflows/${encodeURIComponent(id)}`), {
+      return request(withProject(`/workflows/${pathSegment(id)}`), {
         method: 'PATCH',
         body: JSON.stringify(data),
       })
     },
 
     deleteWorkflow(id: string): Promise<void> {
-      return request(withProject(`/workflows/${encodeURIComponent(id)}`), { method: 'DELETE' })
+      return request(withProject(`/workflows/${pathSegment(id)}`), { method: 'DELETE' })
     },
 
     listVersions(
@@ -623,20 +622,18 @@ export function createApiClient(scope: () => ApiScope) {
       opts?: PaginationOptions,
     ): Promise<PaginatedResponse<WorkflowVersion>> {
       return request(
-        withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), opts),
+        withPagination(withProject(`/workflows/${pathSegment(workflowId)}/versions`), opts),
       )
     },
 
     getVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
       return request(
-        withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
-        ),
+        withProject(`/workflows/${pathSegment(workflowId)}/versions/${pathSegment(versionId)}`),
       )
     },
 
     createVersion(workflowId: string, data: { ir: unknown }): Promise<WorkflowVersion> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/versions`), {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/versions`), {
         method: 'POST',
         body: JSON.stringify(data),
       })
@@ -644,9 +641,7 @@ export function createApiClient(scope: () => ApiScope) {
 
     lockVersion(workflowId: string, versionId: string, locked: boolean): Promise<WorkflowVersion> {
       return request(
-        withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
-        ),
+        withProject(`/workflows/${pathSegment(workflowId)}/versions/${pathSegment(versionId)}`),
         {
           method: 'PATCH',
           body: JSON.stringify({ locked }),
@@ -657,7 +652,7 @@ export function createApiClient(scope: () => ApiScope) {
     revertToVersion(workflowId: string, versionId: string): Promise<WorkflowVersion> {
       return request(
         withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}/revert`,
+          `/workflows/${pathSegment(workflowId)}/versions/${pathSegment(versionId)}/revert`,
         ),
         {
           method: 'POST',
@@ -667,9 +662,7 @@ export function createApiClient(scope: () => ApiScope) {
 
     deleteVersion(workflowId: string, versionId: string): Promise<void> {
       return request(
-        withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/versions/${encodeURIComponent(versionId)}`,
-        ),
+        withProject(`/workflows/${pathSegment(workflowId)}/versions/${pathSegment(versionId)}`),
         {
           method: 'DELETE',
         },
@@ -692,7 +685,7 @@ export function createApiClient(scope: () => ApiScope) {
 
     /** The accounts Deploy offers this workflow (its project's), the one already chosen. */
     getDeployConnections(workflowId: string): Promise<DeployConnections> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-connections`))
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/deploy-connections`))
     },
 
     getDeployConfig(
@@ -721,7 +714,7 @@ export function createApiClient(scope: () => ApiScope) {
     }> {
       return request(
         withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/deploy-config/${encodeURIComponent(connectionId)}`,
+          `/workflows/${pathSegment(workflowId)}/deploy-config/${pathSegment(connectionId)}`,
         ),
       )
     },
@@ -731,13 +724,10 @@ export function createApiClient(scope: () => ApiScope) {
       connectionId: string,
       config: Record<string, unknown>,
     ): Promise<{ filename: string; content: Record<string, unknown> }> {
-      return request(
-        withProject(`/workflows/${encodeURIComponent(workflowId)}/deploy-config-preview`),
-        {
-          method: 'POST',
-          body: JSON.stringify({ connectionId, config }),
-        },
-      )
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/deploy-config-preview`), {
+        method: 'POST',
+        body: JSON.stringify({ connectionId, config }),
+      })
     },
 
     listDeployments(
@@ -745,10 +735,7 @@ export function createApiClient(scope: () => ApiScope) {
       opts?: PaginationOptions,
     ): Promise<PaginatedResponse<DeploymentSummary>> {
       return request(
-        withPagination(
-          withProject(`/workflows/${encodeURIComponent(workflowId)}/deployments`),
-          opts,
-        ),
+        withPagination(withProject(`/workflows/${pathSegment(workflowId)}/deployments`), opts),
       )
     },
 
@@ -756,32 +743,24 @@ export function createApiClient(scope: () => ApiScope) {
       return request(withPagination(withProject('/deployments'), opts))
     },
 
-    listAllRuns(opts?: PaginationOptions): Promise<PaginatedResponse<RunSummary>> {
-      return request(withPagination(withProject('/runs'), opts))
-    },
-
     listWorkflowRuns(
       workflowId: string,
       opts?: PaginationOptions,
     ): Promise<PaginatedResponse<RunSummary>> {
       return request(
-        withPagination(withProject(`/workflows/${encodeURIComponent(workflowId)}/runs`), opts),
+        withPagination(withProject(`/workflows/${pathSegment(workflowId)}/runs`), opts),
       )
     },
 
     getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
       return request(
-        withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}`,
-        ),
+        withProject(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}`),
       )
     },
 
     getWorkflowRunSteps(workflowId: string, runId: string): Promise<RunStepsResponse> {
       return request(
-        withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/steps`,
-        ),
+        withProject(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/steps`),
       )
     },
 
@@ -792,7 +771,7 @@ export function createApiClient(scope: () => ApiScope) {
     ): Promise<RunSummary> {
       return request(
         withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/${encodeURIComponent(action)}`,
+          `/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/${pathSegment(action)}`,
         ),
         {
           method: 'POST',
@@ -804,7 +783,7 @@ export function createApiClient(scope: () => ApiScope) {
       workflowId: string,
       connectionId: string,
     ): Promise<{ success: boolean; error?: string }> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/takedown`), {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/takedown`), {
         method: 'POST',
         body: JSON.stringify({ connectionId }),
       })
@@ -824,7 +803,7 @@ export function createApiClient(scope: () => ApiScope) {
       workflowId: string,
       data: { connectionId: string; params?: unknown },
     ): Promise<{ id: string; instanceId: string; status: string }> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/trigger`), {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/trigger`), {
         method: 'POST',
         body: JSON.stringify(data),
       })
@@ -834,32 +813,29 @@ export function createApiClient(scope: () => ApiScope) {
     startLocalDev(
       workflowId: string,
     ): Promise<{ status: string; port: number; url: string; pid: number }> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/start`), {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/start`), {
         method: 'POST',
         body: '{}',
       })
     },
 
     stopLocalDev(workflowId: string): Promise<{ status: string }> {
-      return request(withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/stop`), {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/stop`), {
         method: 'POST',
       })
     },
 
     triggerLocalDev(workflowId: string, params?: unknown): Promise<unknown> {
-      return request(
-        withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/trigger`),
-        {
-          method: 'POST',
-          body: JSON.stringify(params ?? {}),
-        },
-      )
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/trigger`), {
+        method: 'POST',
+        body: JSON.stringify(params ?? {}),
+      })
     },
 
     getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
       return request(
         withProject(
-          `/workflows/${encodeURIComponent(workflowId)}/local-dev/instance/${encodeURIComponent(instanceId)}`,
+          `/workflows/${pathSegment(workflowId)}/local-dev/instance/${pathSegment(instanceId)}`,
         ),
       )
     },
@@ -869,9 +845,7 @@ export function createApiClient(scope: () => ApiScope) {
       since?: number,
     ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
       const params = since ? `?since=${encodeURIComponent(since)}` : ''
-      return request(
-        withProject(`/workflows/${encodeURIComponent(workflowId)}/local-dev/logs${params}`),
-      )
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/logs${params}`))
     },
 
     listApiKeys(
@@ -893,7 +867,7 @@ export function createApiClient(scope: () => ApiScope) {
     },
 
     revokeApiKey(id: string): Promise<ApiKeySummary> {
-      return request(withOrg(`/api-keys/${encodeURIComponent(id)}`), { method: 'DELETE' })
+      return request(withOrg(`/api-keys/${pathSegment(id)}`), { method: 'DELETE' })
     },
 
     // Projects (org-scoped)
@@ -914,14 +888,14 @@ export function createApiClient(scope: () => ApiScope) {
       id: string,
       data: { name?: string; description?: string },
     ): Promise<ProjectSummary> {
-      return request(withOrg(`/projects/${encodeURIComponent(id)}`), {
+      return request(withOrg(`/projects/${pathSegment(id)}`), {
         method: 'PATCH',
         body: JSON.stringify(data),
       })
     },
 
     deleteProject(id: string): Promise<void> {
-      return request(withOrg(`/projects/${encodeURIComponent(id)}`), { method: 'DELETE' })
+      return request(withOrg(`/projects/${pathSegment(id)}`), { method: 'DELETE' })
     },
   }
 }

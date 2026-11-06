@@ -420,7 +420,8 @@ This endpoint is for `kind: "workflow"` only. Calling it on a function (`kind: "
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/workflows/:workflowId/takedown</span> <span class="api-scope">workflows:deploy</span>
 
-Remove a deployment and clear the workflow's active version.
+Take the workflow down from one connection's account: its deployments there are removed. Its
+deployments on other connections, and its saved versions, stay.
 
 **Request body:**
 

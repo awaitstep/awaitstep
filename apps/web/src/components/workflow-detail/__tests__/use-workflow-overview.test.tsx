@@ -6,6 +6,8 @@ import { useWorkflowOverview } from '../use-workflow-overview'
 
 const page = <T,>(data: T[]) => Promise.resolve({ data, nextCursor: null })
 
+const runReads = vi.hoisted(() => ({ project: vi.fn(), workflow: vi.fn() }))
+
 vi.mock('../../../lib/api-client', () => ({
   api: {
     getWorkflow: () =>
@@ -24,7 +26,15 @@ vi.mock('../../../lib/api-client', () => ({
           versionLocked: 1,
         },
       ]),
-    listAllRuns: () => page([]),
+    // The project-wide read the hook used to make (removed from the client since).
+    listAllRuns: (...args: unknown[]) => {
+      runReads.project(...args)
+      return page([])
+    },
+    listWorkflowRuns: (...args: unknown[]) => {
+      runReads.workflow(...args)
+      return page([])
+    },
   },
 }))
 
@@ -38,5 +48,12 @@ describe('useWorkflowOverview', () => {
     await waitFor(() => expect(result.current.hasActiveDeployment).toBe(true))
     expect(result.current.deployedVersion).toEqual({ id: 'v4', version: 4, locked: 1 })
     expect(result.current.deployBlocked).toBe(true)
+  })
+
+  it('reads no runs: the Overview’s run cards fetch their own', async () => {
+    const { result } = renderHook(() => useWorkflowOverview('wf_1', true), { wrapper })
+    await waitFor(() => expect(result.current.hasActiveDeployment).toBe(true))
+    expect(runReads.project).not.toHaveBeenCalled()
+    expect(runReads.workflow).not.toHaveBeenCalled()
   })
 })

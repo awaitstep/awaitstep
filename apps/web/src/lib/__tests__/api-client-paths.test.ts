@@ -35,4 +35,10 @@ describe('API paths built from ids', () => {
     await api.getWorkflowRun('../projects/p1', 'r/1')
     expect(requested()).toContain('/workflows/..%2Fprojects%2Fp1/runs/r%2F1?projectId=prj_1')
   })
+
+  it('sends nothing for an id that is a dot segment', () => {
+    expect(() => api.getWorkflowRun('..', 'r1')).toThrow()
+    expect(() => api.getWorkflowFull('wf_1', undefined)).not.toThrow()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
 })

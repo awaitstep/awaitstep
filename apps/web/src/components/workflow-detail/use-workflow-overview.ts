@@ -5,7 +5,7 @@ import { useQueries } from '../../contexts/api-client-context'
 
 /**
  * What a workflow's Overview shows and its actions need: the workflow, its
- * versions, deployments and runs, and what they add up to. `ready` holds every
+ * versions and deployments, and what they add up to. `ready` holds every
  * read until the page knows the URL's project.
  */
 export function useWorkflowOverview(workflowId: string, ready: boolean) {
@@ -25,16 +25,6 @@ export function useWorkflowOverview(workflowId: string, ready: boolean) {
     select: (data) => flatPages(data),
   })
 
-  const { data: runs } = useInfiniteQuery({
-    ...queries.runs.all(workflowId),
-    enabled: ready,
-    select: (data) => flatPages(data),
-  })
-
-  const workflowRuns = useMemo(
-    () => runs?.filter((r) => r.workflowId === workflowId) ?? [],
-    [runs, workflowId],
-  )
   const activeDeployment = useMemo(
     () => deployments?.find((d) => d.status === 'success'),
     [deployments],
@@ -64,7 +54,6 @@ export function useWorkflowOverview(workflowId: string, ready: boolean) {
     versionsHasMore: !!versionsQuery.hasNextPage,
     versionsLoadingMore: versionsQuery.isFetchingNextPage,
     loadMoreVersions: () => void versionsQuery.fetchNextPage(),
-    workflowRuns,
     currentVersion: versions[0]?.version ?? 0,
     activeDeployment,
     hasActiveDeployment,

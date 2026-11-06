@@ -1461,9 +1461,10 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
-  async deleteDeploymentsByWorkflow(workflowId) {
+  async deleteDeploymentsOnConnection(workflowId, connectionId, before) {
     for (const [id, d] of store.deployments) {
-      if (d.workflowId === workflowId) store.deployments.delete(id)
+      if (d.workflowId === workflowId && d.connectionId === connectionId && d.createdAt <= before)
+        store.deployments.delete(id)
     }
   },
 

@@ -151,12 +151,42 @@ describe('deploys in the audit log', () => {
       status: 'success',
     })
     expect((await post(app, '/takedown', { connectionId: 'conn-1' })).status).toBe(200)
-    expect(recordedAuditEvents().map((e) => [e.event, e.kind, e.action, e.target])).toEqual([
-      ['workflow.takedown', 'danger', 'took down', 'Lead enrichment'],
+    expect(
+      recordedAuditEvents().map((e) => [e.event, e.kind, e.action, e.target, e.detail]),
+    ).toEqual([
+      ['workflow.takedown', 'danger', 'took down', 'Lead enrichment', 'Production · Dashboard'],
     ])
     outcome.success = false
     await post(app, '/takedown', { connectionId: 'conn-1' })
     expect(recordedAuditEvents()).toHaveLength(1)
+  })
+
+  it('takes down on one account only, keeping the other account’s deployment and the saved version', async () => {
+    await mockDb.createConnection({
+      id: 'conn-2',
+      organizationId: TEST_ORG_ID,
+      createdBy: TEST_USER_ID,
+      provider: 'cloudflare',
+      name: 'Staging',
+      credentials: JSON.stringify({ accountId: 'acct2', apiToken: 'token2' }),
+    })
+    for (const [id, connectionId] of [
+      ['dep-1', 'conn-1'],
+      ['dep-2', 'conn-2'],
+    ]) {
+      await mockDb.createDeployment({
+        id: id!,
+        workflowId: 'wf-1',
+        versionId: 'v-1',
+        connectionId,
+        serviceName: 'svc',
+        status: 'success',
+      })
+    }
+    expect((await post(app, '/takedown', { connectionId: 'conn-1' })).status).toBe(200)
+    const { data } = await mockDb.listDeploymentsByWorkflow('wf-1')
+    expect(data.map((d) => d.id)).toEqual(['dep-2'])
+    expect((await mockDb.getWorkflowById('wf-1'))?.currentVersionId).toBe('v-1')
   })
 
   it('tells the project’s other workspaces of a shared workflow’s deploy, filed at the project', async () => {

@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { readSseStream } from '../lib/sse-stream'
 import { useApi } from '../contexts/api-client-context'
+import { pathSegment } from '../lib/api-path'
 
 interface UseRunStreamOptions {
   workflowId: string
@@ -39,9 +40,7 @@ export function useRunStream({ workflowId, runId, enabled }: UseRunStreamOptions
 
     const consume = async () => {
       const response = await fetch(
-        api.projectUrl(
-          `/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/stream`,
-        ),
+        api.projectUrl(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/stream`),
         {
           credentials: 'include',
           signal: controller.signal,

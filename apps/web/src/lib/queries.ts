@@ -70,12 +70,6 @@ export function createQueries(client: ApiClient) {
     },
 
     runs: {
-      all: (projectId: string) =>
-        infiniteQueryOptions({
-          queryKey: ['all-runs', projectId] as const,
-          queryFn: ({ pageParam }) => client.listAllRuns({ cursor: pageParam }),
-          ...infiniteDefaults,
-        }),
       byWorkflow: (workflowId: string) =>
         infiniteQueryOptions({
           queryKey: ['workflow-runs', workflowId] as const,
