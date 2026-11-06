@@ -414,6 +414,7 @@ describe('deriveDeploymentState', () => {
     const fullData: WorkflowFull = {
       workflow: baseWorkflow,
       version: null,
+      graphHash: null,
       versions: [],
       handlers: { modules: false, consumedQueues: [] },
       activeDeployment: {
@@ -436,6 +437,7 @@ describe('deriveDeploymentState', () => {
     const fullData: WorkflowFull = {
       workflow: baseWorkflow,
       version: null,
+      graphHash: null,
       versions: [],
       handlers: { modules: false, consumedQueues: [] },
       activeDeployment: null,
@@ -448,6 +450,7 @@ describe('deriveDeploymentState', () => {
     const fullData: WorkflowFull = {
       workflow: { ...baseWorkflow, currentVersionId: 'v2' },
       version: null,
+      graphHash: null,
       versions: [{ id: 'v2', version: 2, locked: 0, createdAt: '' }],
       handlers: { modules: false, consumedQueues: [] },
       activeDeployment: {
