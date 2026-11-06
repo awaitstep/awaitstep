@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Info, Lock } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { useWorkspaceItems } from '../../data/dashboard/items'
 import { cn } from '../../lib/utils'
 import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
@@ -152,11 +152,6 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
           minWidth="860px"
           linkedRows
         />
-        <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Info className="size-3.5 shrink-0" aria-hidden="true" />
-          Functions answer requests straight away. For steps that wait, retry or resume, create a
-          workflow instead.
-        </p>
       </>
     )
   }

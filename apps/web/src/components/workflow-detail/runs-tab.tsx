@@ -59,9 +59,10 @@ export function RunsTab({ workflow, versions, neverDeployed, runs24h }: RunsTabP
         </div>
         <div className="rounded-2xl border border-border bg-card">
           <CardEmpty
+            className="max-w-xs mx-auto"
             icon={<Play />}
             title="No runs yet"
-            body="A run shows up here when it’s started from AwaitStep: ▶ or the API."
+            body="A run shows up here when it’s started from AwaitStep or the API."
             action={neverDeployed ? <DeployFor workflow={workflow} /> : undefined}
           />
         </div>
