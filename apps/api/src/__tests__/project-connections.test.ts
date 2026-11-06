@@ -351,7 +351,17 @@ describe('project connections on the API', () => {
       // The trigger dialog lists it: the workflow went out with it.
       const offered = await call('u-ama', '/workflows/wf-sales/deploy-connections?projectId=p-101')
       expect(((await offered.json()) as DeployConnections).deployedWith).toEqual([
-        { id: own, name: 'Checkout staging' },
+        {
+          id: own,
+          name: 'Checkout staging',
+          deploymentId: 'd-sales',
+          serviceUrl: null,
+          versionId: 'v-sales-1',
+          version: 1,
+          versionLocked: false,
+          deployedAt: '2026-10-21T00:00:00.000Z',
+          deployedByName: null,
+        },
       ])
     })
 

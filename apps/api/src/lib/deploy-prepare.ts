@@ -46,10 +46,10 @@ export async function prepareDeploy(
 ): Promise<DeployContext | DeployPrepareError> {
   const { db, workflow, organizationId, projectId, connectionId, appName } = input
 
-  // Lock check
-  if (await db.isActiveDeploymentLocked(workflow.id)) {
+  // The version live on this account is locked: nothing replaces it there.
+  if (await db.isLiveVersionLocked(workflow.id, connectionId)) {
     return {
-      error: 'Currently deployed version is locked — unlock it before deploying',
+      error: 'The version deployed on this account is locked — unlock it before deploying',
       status: 400,
     }
   }

@@ -127,6 +127,58 @@ describe('version routes', () => {
       expect(body.version).toBe(1)
     })
 
+    describe('after a deploy (on any account)', () => {
+      const save = (ir: unknown) =>
+        app.request(url('/api/workflows/wf-1/versions'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ir }),
+        })
+      const deploy = (id: string, versionId: string, connectionId: string, status = 'success') =>
+        mockDb.createDeployment({
+          id,
+          workflowId: 'wf-1',
+          versionId,
+          versionNumber: 1,
+          connectionId,
+          serviceName: 'svc',
+          status,
+        })
+
+      it('starts a new version when the latest went out on one account and another rolled back', async () => {
+        const first = (await (await save(validIR)).json()) as { id: string }
+        await deploy('dep-a', first.id, 'conn-a')
+        // conn-b's newest deploy is older work: the save must not key off it.
+        await deploy('dep-b', 'v-older', 'conn-b')
+        const res = await save(modifiedIR)
+        expect(res.status).toBe(201)
+        expect(((await res.json()) as { version: number }).version).toBe(2)
+        expect((await mockDb.getWorkflowVersionById(first.id))?.ir).toContain('Hello')
+      })
+
+      it('starts a new version when the latest was taken down everywhere', async () => {
+        const first = (await (await save(validIR)).json()) as { id: string }
+        await deploy('dep-a', first.id, 'conn-a')
+        await mockDb.takeDownDeploymentsOnConnection(
+          'wf-1',
+          'conn-a',
+          new Date(Date.now() + 1000).toISOString(),
+          TEST_USER_ID,
+        )
+        const res = await save(modifiedIR)
+        expect(res.status).toBe(201)
+        expect(((await res.json()) as { version: number }).version).toBe(2)
+      })
+
+      it('saves over a latest version whose only deploy failed', async () => {
+        const first = (await (await save(validIR)).json()) as { id: string }
+        await deploy('dep-a', first.id, 'conn-a', 'failed')
+        const res = await save(modifiedIR)
+        expect(res.status).toBe(200)
+        expect(((await res.json()) as { id: string }).id).toBe(first.id)
+      })
+    })
+
     it('updates workflow currentVersionId', async () => {
       await app.request(url('/api/workflows/wf-1/versions'), {
         method: 'POST',
@@ -239,7 +291,7 @@ describe('version routes', () => {
       expect(await mockDb.getWorkflowVersionById('v-3')).not.toBeNull()
     })
 
-    it('deletes an older one, even one still deployed on an account', async () => {
+    it('refuses an older one still live on an account, and deletes it once that account moved on', async () => {
       await mockDb.createDeployment({
         id: 'dep-old',
         workflowId: 'wf-1',
@@ -258,8 +310,40 @@ describe('version routes', () => {
         serviceName: 'svc',
         status: 'success',
       })
+      // v-2 is older than the newest deploy, but still what conn-1 runs.
+      const refused = await remove('v-2')
+      expect(refused.status).toBe(400)
+      expect((await refused.json()).error).toBe('Cannot delete a deployed version')
+      await mockDb.createDeployment({
+        id: 'dep-replace',
+        workflowId: 'wf-1',
+        versionId: 'v-5',
+        versionNumber: 5,
+        connectionId: 'conn-1',
+        serviceName: 'svc',
+        status: 'success',
+      })
       expect((await remove('v-2')).status).toBe(200)
       expect(await mockDb.getWorkflowVersionById('v-2')).toBeNull()
+    })
+
+    it('deletes one only in history after a takedown', async () => {
+      await mockDb.createDeployment({
+        id: 'dep-old',
+        workflowId: 'wf-1',
+        versionId: 'v-2',
+        versionNumber: 2,
+        connectionId: 'conn-1',
+        serviceName: 'svc',
+        status: 'success',
+      })
+      await mockDb.takeDownDeploymentsOnConnection(
+        'wf-1',
+        'conn-1',
+        new Date(Date.now() + 1000).toISOString(),
+        TEST_USER_ID,
+      )
+      expect((await remove('v-2')).status).toBe(200)
     })
 
     it('still refuses the version the newest deploy carries', async () => {

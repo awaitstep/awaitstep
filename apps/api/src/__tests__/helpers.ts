@@ -329,6 +329,28 @@ function projectOverview(p: Project): ProjectOverview {
   }
 }
 
+/** Newest first as the adapter orders deployments: created_at, then id. */
+function newerFirst(a: Deployment, b: Deployment): number {
+  return b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)
+}
+
+/**
+ * As the adapter's live-per-account rule (`liveOnItsAccount`): each account's
+ * newest successful deploy of the workflow, newest first, then by account id.
+ */
+function liveByAccount(workflowId: string): Deployment[] {
+  const newest = new Map<string, Deployment>()
+  for (const d of store.deployments.values()) {
+    if (d.workflowId !== workflowId || d.status !== 'success' || !d.connectionId) continue
+    const seen = newest.get(d.connectionId)
+    if (!seen || newerFirst(d, seen) < 0) newest.set(d.connectionId, d)
+  }
+  return [...newest.values()].sort(
+    (a, b) =>
+      b.createdAt.localeCompare(a.createdAt) || a.connectionId!.localeCompare(b.connectionId!),
+  )
+}
+
 const mockDb: DatabaseAdapter = {
   // Membership
   async isOrgMember(userId, organizationId) {
@@ -939,7 +961,6 @@ const mockDb: DatabaseAdapter = {
   async getVersionDeleteCheck(versionId, workflowId) {
     const version = store.versions.get(versionId)
     if (!version || version.workflowId !== workflowId) return null
-    const live = await mockDb.getActiveDeployment(workflowId)
     return {
       version: version.version,
       locked: version.locked === 1,
@@ -947,7 +968,22 @@ const mockDb: DatabaseAdapter = {
         (v) => v.workflowId === workflowId && v.version > version.version,
       ).length,
       isCurrent: store.workflows.get(workflowId)?.currentVersionId === versionId,
-      isLive: live?.versionId === versionId,
+      isLive: liveByAccount(workflowId).some((d) => d.versionId === versionId),
+    }
+  },
+  async getLatestVersionForSave(workflowId) {
+    const latest = [...store.versions.values()]
+      .filter((v) => v.workflowId === workflowId)
+      .sort((a, b) => b.version - a.version)[0]
+    if (!latest) return null
+    return {
+      version: latest,
+      everDeployed: [...store.deployments.values()].some(
+        (d) =>
+          d.workflowId === workflowId &&
+          d.versionId === latest.id &&
+          (d.status === 'success' || d.status === 'taken_down'),
+      ),
     }
   },
   async deleteVersion(id) {
@@ -1075,8 +1111,27 @@ const mockDb: DatabaseAdapter = {
   async removeProjectConnection() {
     return notMocked('removeProjectConnection')
   },
-  async listConnectionsDeployedWith() {
-    return notMocked('listConnectionsDeployedWith')
+  async listLiveDeployments(workflowId) {
+    const workflow = store.workflows.get(workflowId)
+    const organizationId = workflow ? store.projects.get(workflow.projectId)?.organizationId : null
+    return liveByAccount(workflowId).flatMap((d) => {
+      const connection = d.connectionId ? store.connections.get(d.connectionId) : undefined
+      if (!connection || connection.organizationId !== organizationId) return []
+      const v = d.versionId ? store.versions.get(d.versionId) : undefined
+      return [
+        {
+          id: connection.id,
+          name: connection.name,
+          deploymentId: d.id,
+          serviceUrl: d.serviceUrl,
+          versionId: d.versionId,
+          version: v?.version ?? d.versionNumber,
+          versionLocked: v?.locked === 1,
+          deployedAt: d.createdAt,
+          deployedByName: null,
+        },
+      ]
+    })
   },
   async listDeployTargets() {
     return notMocked('listDeployTargets')
@@ -1435,41 +1490,30 @@ const mockDb: DatabaseAdapter = {
       configSnapshot: data.configSnapshot ?? null,
       createdBy: data.createdBy ?? null,
       createdAt: now(),
+      takenDownAt: null,
+      takenDownBy: null,
     }
     store.deployments.set(d.id, d)
     return d
   },
-  async getActiveDeployment(workflowId) {
-    // Newest first; the later-inserted row wins a tie in createdAt.
-    return (
-      [...store.deployments.values()]
-        .filter((d) => d.workflowId === workflowId && d.status === 'success')
-        .reverse()
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null
-    )
-  },
-  async isActiveDeploymentLocked(workflowId) {
-    // Mirrors the real query: inner join on the version (a deployment whose
-    // version is gone drops out), newest first, and the later-inserted row
-    // wins a tie in createdAt — picking the first match answered for the
-    // oldest deployment instead.
-    const candidate = [...store.deployments.values()]
-      .filter((d) => d.workflowId === workflowId && d.status === 'success')
-      .filter((d) => d.versionId !== null && store.versions.has(d.versionId))
-      .reverse()
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]
-    if (!candidate?.versionId) return false
-    return store.versions.get(candidate.versionId)?.locked === 1
+  async isLiveVersionLocked(workflowId, connectionId) {
+    // As the real query: the account's live row, then its version (gone: unlocked).
+    const live = liveByAccount(workflowId).find((d) => d.connectionId === connectionId)
+    if (!live?.versionId) return false
+    return store.versions.get(live.versionId)?.locked === 1
   },
   async listDeploymentsByWorkflow(workflowId) {
     return {
       data: [...store.deployments.values()]
         .filter((d) => d.workflowId === workflowId)
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .sort(newerFirst)
         .map((d) => {
           const v = d.versionId ? store.versions.get(d.versionId) : undefined
           return {
             ...d,
+            connectionName: d.connectionId
+              ? (store.connections.get(d.connectionId)?.name ?? null)
+              : null,
             createdByName: null,
             version: v?.version ?? d.versionNumber,
             versionLocked: v?.locked ?? null,
@@ -1489,10 +1533,18 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
-  async deleteDeploymentsOnConnection(workflowId, connectionId, before) {
-    for (const [id, d] of store.deployments) {
-      if (d.workflowId === workflowId && d.connectionId === connectionId && d.createdAt <= before)
-        store.deployments.delete(id)
+  async takeDownDeploymentsOnConnection(workflowId, connectionId, before, takenDownBy) {
+    for (const d of store.deployments.values()) {
+      if (
+        d.workflowId === workflowId &&
+        d.connectionId === connectionId &&
+        d.status === 'success' &&
+        d.createdAt <= before
+      ) {
+        d.status = 'taken_down'
+        d.takenDownAt = now()
+        d.takenDownBy = takenDownBy
+      }
     }
   },
 

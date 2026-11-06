@@ -271,7 +271,7 @@ deploy.get('/:workflowId/deploy-connections', async (c) => {
   const db = c.get('db')
   const [rows, deployedWith] = await Promise.all([
     db.listDeployTargets(workflow.projectId, workflow.workspaceId),
-    db.listConnectionsDeployedWith(workflow.id),
+    db.listLiveDeployments(workflow.id),
   ])
   return c.json(deployConnections(rows, deployedWith))
 })
@@ -438,9 +438,14 @@ deploy.post(
     })
 
     if (result.success) {
-      // Only this account's rows: the workflow may still be live on another. The
-      // latest saved version (`currentVersionId`) is the editor's, not the deploy's.
-      await db.deleteDeploymentsOnConnection(workflow.id, connectionId, startedAt)
+      // Only this account's rows, kept as its history: the workflow may still be live
+      // on another. The latest saved version (`currentVersionId`) is the editor's.
+      await db.takeDownDeploymentsOnConnection(
+        workflow.id,
+        connectionId,
+        startedAt,
+        c.get('userId'),
+      )
       await recordAudit(c, {
         event: 'workflow.takedown',
         facts: { name: workflow.name, provider: connection.name },

@@ -163,9 +163,9 @@ workflows.get('/:id/full', async (c) => {
 
   const versionId = c.req.query('version')
 
-  const [activeDeployment, versionsResult, projectFiles, handlersFile, requested] =
+  const [liveDeployments, versionsResult, projectFiles, handlersFile, requested] =
     await Promise.all([
-      db.getActiveDeployment(workflow.id),
+      db.listLiveDeployments(workflow.id),
       db.listVersionsByWorkflow(workflow.id, { limit: 100 }),
       db.listWorkflowFileSummaries(workflow.id),
       db.getWorkflowFile(workflow.id, PROJECT_HANDLERS_PATH),
@@ -200,7 +200,8 @@ workflows.get('/:id/full', async (c) => {
       locked,
       createdAt,
     })),
-    activeDeployment,
+    // What is live on each account, newest first.
+    liveDeployments,
   })
 })
 

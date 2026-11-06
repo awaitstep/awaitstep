@@ -105,13 +105,12 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }
 
-  const [existingResult, workflow, activeDeployment, storedFiles] = await Promise.all([
-    db.listVersionsByWorkflow(workflowId, { limit: 1 }),
+  const [latestForSave, workflow, storedFiles] = await Promise.all([
+    db.getLatestVersionForSave(workflowId),
     db.getWorkflowById(workflowId),
-    db.getActiveDeployment(workflowId),
     db.listWorkflowFiles(workflowId),
   ])
-  const latest = existingResult.data[0] // most recent version
+  const latest = latestForSave?.version
   if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
 
   // The project-file table is the truth. An IR that arrives carrying files
@@ -158,8 +157,9 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   )
 
   if (latest) {
-    // If latest version has NOT been deployed, overwrite it in place
-    if (latest.id !== activeDeployment?.versionId) {
+    // A version that never went out on any account is saved over in place. One that
+    // did — live there now or since taken down — is kept, and the save is a new one.
+    if (!latestForSave?.everDeployed) {
       // Check if IR actually changed
       if (irUnchanged(latest.ir, irString)) {
         return c.json(latest, 200)
@@ -174,7 +174,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       return c.json(updated, 200)
     }
 
-    // If latest version HAS been deployed and IR hasn't changed, return it
+    // It went out and the IR hasn't changed: nothing to save.
     if (irUnchanged(latest.ir, irString)) {
       return c.json(latest, 200)
     }

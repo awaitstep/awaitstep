@@ -185,6 +185,37 @@ describe('prepareDeploy', () => {
     expect(generated).toHaveLength(0)
   })
 
+  it('refuses replacing a locked version only on the account that runs it', async () => {
+    await mockDb.createVersion({ id: 'v-2', workflowId: 'wf-1', ir: JSON.stringify(validIR) })
+    await mockDb.createDeployment({
+      id: 'dep-locked',
+      workflowId: 'wf-1',
+      versionId: 'v-1',
+      versionNumber: 1,
+      connectionId: 'conn-2',
+      serviceName: 'svc',
+      status: 'success',
+    })
+    await mockDb.updateVersion('v-1', { locked: 1 })
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepare = (connectionId: string) =>
+      prepareDeploy({
+        db: mockDb,
+        workflow,
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+        connectionId,
+        versionId: 'v-2',
+      })
+    const refused = await prepare('conn-2')
+    expect(isDeployError(refused) && [refused.status, refused.error]).toEqual([
+      400,
+      'The version deployed on this account is locked — unlock it before deploying',
+    ])
+    // conn-1 runs nothing locked: v-2 goes out there.
+    expect(isDeployError(await prepare('conn-1'))).toBe(false)
+  })
+
   it('says another workflow’s version is not found, before anything about its lock', async () => {
     await mockDb.createWorkflow({
       id: 'wf-2',

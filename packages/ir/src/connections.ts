@@ -136,6 +136,25 @@ export interface AvailableConnection {
   restrictedTo: string[]
 }
 
+/**
+ * What is live on one account a workflow was deployed with: that account's
+ * newest successful deployment.
+ */
+export interface LiveDeployment {
+  /** The account (connection). */
+  id: string
+  name: string
+  deploymentId: string
+  /** The worker's URL on that account, when the deploy gave one. */
+  serviceUrl: string | null
+  /** Null once the version is deleted; `version` still says which it was. */
+  versionId: string | null
+  version: number | null
+  versionLocked: boolean
+  deployedAt: string
+  deployedByName: string | null
+}
+
 /** The accounts Deploy offers for a workflow, with the one already chosen. */
 export interface DeployConnections {
   connections: Pick<
@@ -145,10 +164,10 @@ export interface DeployConnections {
   /** The workflow's workspace's account, else the project default; null when neither is set. */
   defaultId: string | null
   /**
-   * The accounts the workflow has a successful deployment with, latest first —
-   * the only ones a trigger may name, whether or not the project still has them.
+   * What is live on each account the workflow was deployed with, latest first —
+   * the only accounts a trigger may name, whether or not the project still has them.
    */
-  deployedWith: { id: string; name: string }[]
+  deployedWith: LiveDeployment[]
 }
 
 /** Why a project's connection write was refused, as the API answers it. */

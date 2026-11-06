@@ -342,6 +342,7 @@ export {
   type AvailableConnection,
   type AvailableConnectionState,
   type DeployConnections,
+  type LiveDeployment,
   type ProjectConnection,
   type ProjectConnections,
   type ProjectConnectionScope,

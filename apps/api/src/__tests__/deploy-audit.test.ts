@@ -162,7 +162,7 @@ describe('deploys in the audit log', () => {
     expect(recordedAuditEvents()).toHaveLength(1)
   })
 
-  it('takes down on one account only, keeping the other account’s deployment and the saved version', async () => {
+  it('takes down on one account only, keeping its rows as history, the other account live and the saved version', async () => {
     await mockDb.createConnection({
       id: 'conn-2',
       organizationId: TEST_ORG_ID,
@@ -187,8 +187,13 @@ describe('deploys in the audit log', () => {
     }
     expect((await post(app, '/takedown', { connectionId: 'conn-1' })).status).toBe(200)
     const { data } = await mockDb.listDeploymentsByWorkflow('wf-1')
-    expect(data.map((d) => d.id)).toEqual(['dep-2'])
+    expect(
+      Object.fromEntries(data.map((d) => [d.id, [d.status, d.takenDownBy, d.version]])),
+    ).toEqual({ 'dep-1': ['taken_down', TEST_USER_ID, 1], 'dep-2': ['success', null, 1] })
     expect((await mockDb.getWorkflowById('wf-1'))?.currentVersionId).toBe('v-1')
+    // Only the other account is live: a trigger on the taken-down one is refused.
+    expect((await mockDb.listLiveDeployments('wf-1')).map((l) => l.id)).toEqual(['conn-2'])
+    expect((await post(app, '/trigger', { connectionId: 'conn-1', params: {} })).status).toBe(404)
   })
 
   it('tells the project’s other workspaces of a shared workflow’s deploy, filed at the project', async () => {
