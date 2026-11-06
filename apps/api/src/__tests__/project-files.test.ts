@@ -124,6 +124,16 @@ describe('project file routes', () => {
     expect((await tooBig.json()).error).toMatch(/512000 bytes/)
   })
 
+  it('refuses a write under steps/, where the code workspace shows step code', async () => {
+    const res = await putFile(app, 'steps/k3j9x_a1b2c3.ts', 'return 1')
+    expect(res.status).toBe(422)
+    expect((await res.json()).error).toBe(
+      'Invalid project file path "steps/k3j9x_a1b2c3.ts": is step code; edit the step under steps/ or on the canvas',
+    )
+    expect((await putFile(app, 'Steps/helper.ts', '')).status).toBe(422)
+    expect((await putFile(app, 'steps.ts', '')).status).toBe(201)
+  })
+
   it('refuses a file that would overwrite another after compile or on a case-insensitive disk', async () => {
     expect((await putFile(app, 'config/env.ts', '')).status).toBe(201)
     const js = await putFile(app, 'config/env.js', '')

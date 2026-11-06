@@ -95,6 +95,27 @@ describe('version routes', () => {
       expect(body.details).toContainEqual(expect.objectContaining({ path: 'awaitstep/util.ts' }))
     })
 
+    it('refuses a first save that seeds a file under steps/, the step-source folder', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ir: {
+            ...validIR,
+            runtime: { files: [{ path: 'steps/k3j9x_a1b2c3.ts', source: 'return 1' }] },
+          },
+        }),
+      })
+      expect(res.status).toBe(422)
+      const body = (await res.json()) as { details: { path: string; message: string }[] }
+      expect(body.details).toEqual([
+        {
+          path: 'steps/k3j9x_a1b2c3.ts',
+          message: 'is step code; edit the step under steps/ or on the canvas',
+        },
+      ])
+    })
+
     it('returns existing version when IR has not changed', async () => {
       await app.request(url('/api/workflows/wf-1/versions'), {
         method: 'POST',
