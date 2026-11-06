@@ -2,6 +2,7 @@ import { Handle, Position, useNodeId } from '@xyflow/react'
 import { useCallback, type ReactNode } from 'react'
 import { cn } from '../../lib/utils'
 import { useRunOverlayStore } from '../../stores/run-overlay-store'
+import { useShallow } from 'zustand/react/shallow'
 import { useWorkflowStore } from '../../stores/workflow-store'
 
 interface NodeBaseProps {
@@ -21,20 +22,23 @@ interface NodeBaseProps {
 function useNodeIssue(
   nodeId: string | null,
 ): { severity: 'error' | 'warning'; message: string } | null {
+  // A new object each read: compared by value, or the store's snapshot never settles.
   return useWorkflowStore(
-    useCallback(
-      (s) => {
-        if (!nodeId || !s.validationResult) return null
-        let warning: { severity: 'warning'; message: string } | null = null
-        for (const issue of s.validationResult.issues) {
-          if (issue.nodeId !== nodeId) continue
-          if (issue.severity === 'error')
-            return { severity: 'error' as const, message: issue.message }
-          warning ??= { severity: 'warning' as const, message: issue.message }
-        }
-        return warning
-      },
-      [nodeId],
+    useShallow(
+      useCallback(
+        (s) => {
+          if (!nodeId || !s.validationResult) return null
+          let warning: { severity: 'warning'; message: string } | null = null
+          for (const issue of s.validationResult.issues) {
+            if (issue.nodeId !== nodeId) continue
+            if (issue.severity === 'error')
+              return { severity: 'error' as const, message: issue.message }
+            warning ??= { severity: 'warning' as const, message: issue.message }
+          }
+          return warning
+        },
+        [nodeId],
+      ),
     ),
   )
 }
