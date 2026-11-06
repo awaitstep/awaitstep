@@ -42,6 +42,12 @@ describe('isCoalescible', () => {
     expect(isCoalescible(node('a', 'step', { code: 'return 1;', retryLimit: 3 }))).toBe(false)
   })
 
+  it('treats a step whose retry delay was cleared like a plain one', () => {
+    // The canvas used to write retryDelay: '' on a blur; such a step now groups with its neighbours.
+    expect(isCoalescible(node('a', 'step', { code: 'return 1;', retryDelay: '' }))).toBe(true)
+    expect(isCoalescible(node('a', 'step', { code: 'return 1;', timeout: '  ' }))).toBe(true)
+  })
+
   it('honors the coalesce: false opt-out for side-effectful steps', () => {
     expect(isCoalescible(node('a', 'step', { code: 'return 1;', coalesce: false }))).toBe(false)
   })

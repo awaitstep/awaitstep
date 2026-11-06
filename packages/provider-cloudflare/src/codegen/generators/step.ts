@@ -8,12 +8,19 @@ import { extractImports } from '../imports.js'
  * The config panel saves these to node.data via configSchema, but codegen
  * needs them as a StepConfig object.
  */
+function isDurationSet(value: unknown): boolean {
+  return typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')
+}
+
 export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   if (node.config) return node.config
 
   const { retryLimit, retryDelay, backoff, timeout } = node.data
-  const hasRetry = retryLimit !== undefined || retryDelay !== undefined
-  const hasTimeout = timeout !== undefined && timeout !== ''
+  // A blank duration is an unset one: the canvas writes '' when a field is
+  // cleared, and a whitespace string would reach the deployed step as-is.
+  const delaySet = isDurationSet(retryDelay)
+  const hasRetry = retryLimit !== undefined || delaySet
+  const hasTimeout = isDurationSet(timeout)
 
   if (!hasRetry && !hasTimeout) return undefined
 
@@ -22,7 +29,7 @@ export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   if (hasRetry) {
     config.retries = {
       limit: typeof retryLimit === 'number' ? retryLimit : 5,
-      delay: typeof retryDelay === 'string' && retryDelay ? retryDelay : '10 seconds',
+      delay: delaySet && typeof retryDelay === 'string' ? retryDelay : '10 seconds',
     }
     if (backoff && typeof backoff === 'string') {
       config.retries.backoff = backoff as RetryBackoff

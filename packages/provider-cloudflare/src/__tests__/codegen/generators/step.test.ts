@@ -82,6 +82,29 @@ describe('generateStep', () => {
     expect(code).toMatch(/flow\.step\("step-1", async/)
   })
 
+  it('treats a cleared retry delay as no retry policy, like a cleared timeout', () => {
+    const code = generateStep(
+      makeNode({ data: { code: 'return 1;', retryDelay: '', timeout: '' } }),
+    )
+    expect(code).toMatch(/flow\.step\("step-1", async/)
+    expect(code).not.toContain('retries')
+  })
+
+  it('a whitespace delay or timeout is unset too, so no blank string reaches the step', () => {
+    const code = generateStep(
+      makeNode({ data: { code: 'return 1;', retryLimit: 1, retryDelay: '  ', timeout: ' ' } }),
+    )
+    expect(code).toContain('retries: { limit: 1, delay: "10 seconds" }')
+    expect(code).not.toContain('timeout')
+  })
+
+  it('a retry limit beside a cleared delay still gets the default delay', () => {
+    const code = generateStep(
+      makeNode({ data: { code: 'return 1;', retryLimit: 2, retryDelay: '' } }),
+    )
+    expect(code).toContain('retries: { limit: 2, delay: "10 seconds" }')
+  })
+
   it('sanitizes node id for variable name', () => {
     const code = generateStep(makeNode({ id: 'process-data' }))
     expect(code).toContain('const process_data =')

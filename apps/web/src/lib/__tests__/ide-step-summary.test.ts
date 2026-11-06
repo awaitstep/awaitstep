@@ -154,6 +154,11 @@ describe('stepSettings in a function', () => {
 
   it('gives the Steps list no line for an unset policy, rather than "timeout None"', () => {
     expect(stepMeta(node(), { kind: 'script' })).toBeNull()
+    // A duration field left empty writes '' — still unset.
+    expect(stepMeta(node({ data: { retryDelay: '' } }), { kind: 'script' })).toBeNull()
+    expect(stepSettings(node({ data: { retryDelay: '' } }), { kind: 'script' }).retries).toBe(
+      'None — runs once',
+    )
     expect(stepMeta(node({ data: { retryLimit: 2 } }), { kind: 'script' })).toBe('retries 2')
     expect(stepMeta(node({ data: { timeout: '30 seconds' } }), { kind: 'script' })).toBe(
       'timeout 30s',
