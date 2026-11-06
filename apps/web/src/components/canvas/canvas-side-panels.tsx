@@ -80,7 +80,7 @@ export function CanvasSidePanels({
 
   return (
     <div className="absolute right-0 top-0 z-10 flex h-full" onKeyDown={(e) => e.stopPropagation()}>
-      <SlideIn show={showInspector} width="w-[380px]">
+      <SlideIn show={showInspector} width="w-screen-md">
         <NodeConfigPanel />
       </SlideIn>
       <SlideIn
