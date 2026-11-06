@@ -112,6 +112,18 @@ describe('validateBundle reserved filenames', () => {
     expect(() => validateBundle(bundleWith('nodes/fetch_user.ts', 'module'))).not.toThrow()
   })
 
+  it('refuses a step source: the code workspace’s view of the IR is never a bundle file', () => {
+    expect(() =>
+      validateBundle({
+        entry: 'worker.ts',
+        files: [
+          { path: 'worker.ts', source: '', role: 'entry' },
+          { path: 'steps/k3j9x_a1b2c3.ts', source: 'return 1', role: 'source' },
+        ],
+      }),
+    ).toThrow(/Step sources are a view of the IR/)
+  })
+
   it('pins the handlers role to the root handlers.ts', () => {
     expect(() => validateBundle(bundleWith('handlers.ts', 'handlers'))).not.toThrow()
     expect(() => validateBundle(bundleWith('src/handlers.ts', 'handlers'))).toThrow(

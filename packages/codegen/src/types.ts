@@ -14,19 +14,20 @@ export interface GeneratedArtifact {
 }
 
 /**
- * `entry`/`module` are transpiled and bundled; `config` (tsconfig) and
- * `meta` (package.json) steer the toolchain; `asset` files (JSON, docs,
- * styles) are written verbatim and never transpiled.
- */
-/**
+ * What a file in the workspace is for.
+ *
  * - `entry` / `module`: code the deployer compiles and bundles.
  * - `handlers`: the project's `handlers.ts` — `@fetch`/`@queue`/`@scheduled`
  *   annotations codegen compiles into the entry; never shipped as a module.
  * - `config` / `meta`: root toolchain inputs (tsconfig, package.json) the
  *   deployer reads but never writes verbatim.
  * - `asset`: written to the deploy as-is.
+ * - `source`: the code workspace's own, not a bundle role — a step node's
+ *   body shown as `steps/<id>.ts`, a view of the IR that is never stored
+ *   and never bundled.
  */
-export type GeneratedFileRole = 'entry' | 'module' | 'handlers' | 'config' | 'meta' | 'asset'
+export type GeneratedFileRole =
+  'entry' | 'module' | 'handlers' | 'config' | 'meta' | 'asset' | 'source'
 
 export interface GeneratedFile {
   /** Bundle-relative path, e.g. `worker.ts` or `src/nodes/fetch_data.ts`. */

@@ -133,6 +133,10 @@ export function validateBundle(bundle: GeneratedBundle): GeneratedBundle {
           `The handlers role belongs to ${PROJECT_HANDLERS_PATH} at the project root: "${file.path}"`,
         )
       }
+    } else if (file.role === 'source') {
+      throw new GenerateInputError(
+        `Step sources are a view of the IR, not bundle files: "${file.path}"`,
+      )
     } else if (isReservedToolchainPath(file.path)) {
       throw new GenerateInputError(
         `Reserved toolchain filename in bundle: "${file.path}" — rename the file`,
