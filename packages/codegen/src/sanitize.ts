@@ -244,6 +244,9 @@ export const RESERVED_VAR_NAMES: ReadonlySet<string> = new Set([
 export function buildVarNameMap(nodes: { id: string; name: string }[]): Map<string, string> {
   const map = new Map<string, string>()
   const used = new Set<string>()
+  // Where each base's suffix search resumes: a document with thousands of
+  // identically-named steps would otherwise rescan `_2…_n` for every one.
+  const nextSuffix = new Map<string, number>()
 
   for (const node of nodes) {
     // Drop the `EXPORT_` marker (if any) before sanitizing — the prefix is a
@@ -255,7 +258,12 @@ export function buildVarNameMap(nodes: { id: string; name: string }[]): Map<stri
     // Unique against every name handed out so far — not a per-base count,
     // which let `q`, `q`, `q_2` collide on `q_2`.
     let varName = base
-    for (let n = 2; used.has(varName); n++) varName = `${base}_${n}`
+    if (used.has(varName)) {
+      let n = nextSuffix.get(base) ?? 2
+      while (used.has(`${base}_${n}`)) n++
+      varName = `${base}_${n}`
+      nextSuffix.set(base, n + 1)
+    }
     used.add(varName)
     map.set(node.id, varName)
   }
