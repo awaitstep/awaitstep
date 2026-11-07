@@ -96,7 +96,8 @@ const defaultVisuals: NodeVisuals = {
 }
 
 export function getNodeVisuals(nodeId: string, iconUrl?: string): NodeVisuals {
-  if (iconMap[nodeId]) return iconMap[nodeId]
+  // A node type is IR-controlled; `__proto__` must not resolve to Object.prototype.
+  if (Object.hasOwn(iconMap, nodeId)) return iconMap[nodeId]!
   if (iconUrl) {
     return {
       icon: <img src={iconUrl} alt="" className="h-2.5 w-2.5 dark:invert" />,

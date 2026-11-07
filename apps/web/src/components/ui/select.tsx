@@ -27,6 +27,7 @@ export function Select({ value, onValueChange, options, className, ...triggerPro
   return (
     <SelectPrimitive.Root value={value} onValueChange={onValueChange}>
       <SelectPrimitive.Trigger
+        type="button"
         {...triggerProps}
         className={cn(
           'flex h-10 items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 [&>span:first-child]:truncate [&>span:first-child]:min-w-0',
@@ -34,13 +35,13 @@ export function Select({ value, onValueChange, options, className, ...triggerPro
         )}
       >
         <SelectPrimitive.Value>
-          {selected?.description ? (
-            <span className="flex min-w-0 items-center gap-2">
-              {selected.icon}
-              <span className="truncate">{selected.label}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {selected?.icon}
+            <span className="truncate">{selected?.label}</span>
+            {selected?.description && (
               <span className="truncate text-muted-foreground">{selected.description}</span>
-            </span>
-          ) : undefined}
+            )}
+          </span>
         </SelectPrimitive.Value>
         <SelectPrimitive.Icon>
           <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />

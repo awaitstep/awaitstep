@@ -81,7 +81,11 @@ export function FormField({
         {children}
       </Slot>
       {message && (
-        <p id={messageId} className={`text-2xs ${MESSAGE_TONE_CLASS[message.tone]}`}>
+        <p
+          id={messageId}
+          role={message.tone === 'error' ? 'alert' : undefined}
+          className={`text-2xs ${MESSAGE_TONE_CLASS[message.tone]}`}
+        >
           {message.text}
         </p>
       )}
