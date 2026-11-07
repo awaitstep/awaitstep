@@ -112,7 +112,10 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     if (!source || !loaded) return EMPTY_FILES
     const map = new Map<string, SourceFile>(source.files.map((file) => [file.path, file]))
     for (const seed of seeds) if (!map.has(seed.path)) map.set(seed.path, seed)
-    for (const step of steps.files) if (!map.has(step.path)) map.set(step.path, step)
+    // A step's module is emitted at the step's own path, so the bundle has a
+    // generated copy there: the editable source replaces it. (A stored file
+    // at that path is a collision, and `stepSources` leaves the step out.)
+    for (const step of steps.files) map.set(step.path, step)
     return map
   }, [source, loaded, seeds, steps])
   const { files, projectPaths, ghostPaths } = useDraftOverlay(baseline, drafts, savedProjectPaths)

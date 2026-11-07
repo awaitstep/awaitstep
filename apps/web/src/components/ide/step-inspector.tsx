@@ -117,6 +117,11 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
       <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-1.5 px-3 py-2.5 text-xs">
         {settings.retries !== null && <Field label="Retries">{settings.retries}</Field>}
         {settings.timeout !== null && <Field label="Timeout">{settings.timeout}</Field>}
+        {info.exportKey !== null && (
+          <Field label="Returned as">
+            <code className="font-mono">{info.exportKey}</code>
+          </Field>
+        )}
         <Field label="File">
           {info.sourcePath !== null ? (
             <>
@@ -127,7 +132,9 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
             moduleDescription
           )}
         </Field>
-        {info.sourcePath !== null && <Field label="Module">{moduleDescription}</Field>}
+        {info.sourcePath !== null && info.filePath !== info.sourcePath && (
+          <Field label="Module">{moduleDescription}</Field>
+        )}
         {info.uses.length > 0 && (
           <Field label="Uses">
             <ul className="space-y-0.5">

@@ -7,7 +7,7 @@ import {
   PROJECT_IMPORT_PREFIX,
   compiledPathKey,
 } from '@awaitstep/ir'
-import { sanitizeIdentifier } from '@awaitstep/codegen'
+import { sanitizeIdentifier, withoutComments } from '@awaitstep/codegen'
 import type { CloudflareDeploymentConfig } from '../config-schema.js'
 import { extractImports } from './generate-helpers.js'
 import { parseAnnotations, type HandlerDecl } from './parse-annotations.js'
@@ -74,44 +74,73 @@ export function handlerWiring(modules: ProjectHandlerModules): HandlerWiring {
   return wiring
 }
 
-/** The `export default` members that delegate to handler modules. */
+/**
+ * The `export default` members that delegate to handler modules. A handler
+ * is written against AwaitStep's contract (`FetchContext`, `QueueContext`,
+ * `ScheduledContext` from `#awaitstep/runtime`); these adapt what the
+ * Cloudflare runtime hands the worker into it.
+ */
 export function handlerDelegates(wiring: HandlerWiring): string[] {
   const blocks: string[] = []
-  if (wiring.fetch) blocks.push(`  fetch: ${wiring.fetch},`)
+  if (wiring.fetch) {
+    blocks.push(`  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
+    ${wiring.fetch}({ request, env, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } }),`)
+  }
   if (wiring.queues.length > 0) {
     const cases = wiring.queues
       .map(
         ({ queue, identifier }) =>
-          `      case "${queue}":\n        return ${identifier}(batch, env, ctx);`,
+          `      case "${queue}":\n        return ${identifier}({ batch: portable, env, execution });`,
       )
       .join('\n')
     blocks.push(`  async queue(batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
+    const portable = {
+      queue: batch.queue,
+      messages: batch.messages.map((message) => ({ id: message.id, body: message.body })),
+    };
+    const execution = { waitUntil: (promise: Promise<unknown>) => ctx.waitUntil(promise) };
     switch (batch.queue) {
 ${cases}
     }
   },`)
   }
-  if (wiring.scheduled) blocks.push(`  scheduled: ${wiring.scheduled},`)
+  if (wiring.scheduled) {
+    blocks.push(`  scheduled: (controller: ScheduledController, env: Env, ctx: ExecutionContext) =>
+    ${wiring.scheduled}({
+      cron: controller.cron,
+      scheduledTime: controller.scheduledTime,
+      env,
+      execution: { waitUntil: (promise) => ctx.waitUntil(promise) },
+    }),`)
+  }
   return blocks
 }
 
 export type HandlerTarget = 'workflow' | 'script'
 
-/** Exported by the generated entry for handler modules to import. */
-const ENTRY_EXPORTS: Record<HandlerTarget, string[]> = {
-  workflow: ['AWAITSTEP_RETENTION'],
+/** The generated graph module a handler imports from, per kind. */
+export const GRAPH_MODULE_IMPORT: Record<HandlerTarget, string> = {
+  workflow: '#awaitstep/workflow',
+  script: '#awaitstep/function',
+}
+
+/** Exported by the generated graph module for handler modules to import. */
+const GRAPH_EXPORTS: Record<HandlerTarget, string[]> = {
+  workflow: ['AWAITSTEP_RETENTION', 'startWorkflow', 'workflowStatus'],
   script: ['runGraph', 'AWAITSTEP_RETENTION'],
 }
 
 /**
- * The import a module needs from the generated entry for the entry-scoped
- * names its body uses (`runGraph` in a script, `AWAITSTEP_RETENTION` in
- * both), or an empty string. Those names exist only in `worker.ts`; a
- * module reaching them without the import fails at runtime.
+ * The import a module needs from the generated graph module for the names
+ * its body uses (`runGraph` in a function; `AWAITSTEP_RETENTION`,
+ * `startWorkflow`, `workflowStatus` in a workflow), or an empty string. The
+ * graph module imports nothing of the project, so no cycle forms.
  */
 export function entryImportFor(source: string, target: HandlerTarget): string {
-  const names = ENTRY_EXPORTS[target].filter((name) => new RegExp(`\\b${name}\\b`).test(source))
-  return names.length > 0 ? `import { ${names.join(', ')} } from "#app/worker";\n` : ''
+  const names = GRAPH_EXPORTS[target].filter((name) => new RegExp(`\\b${name}\\b`).test(source))
+  return names.length > 0
+    ? `import { ${names.join(', ')} } from "${GRAPH_MODULE_IMPORT[target]}";\n`
+    : ''
 }
 
 /**
@@ -130,38 +159,40 @@ export function handlerModuleScaffold(
     case 'scheduled':
       return SCHEDULED_SCAFFOLD
     case 'queue':
-      return `// Consumer for the "${entry.queue}" queue. Per-queue settings (batch size,
-// retries, dead-letter queue) live in the deployment config.
-export default async function (batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {
+      return `import type { QueueContext } from "#awaitstep/runtime";
+
+// Consumer for the "${entry.queue}" queue. Per-queue settings (batch size,
+// retries, dead-letter queue) live in the deployment config. Throw to have
+// the batch retried.
+export default async function ({ batch, env }: QueueContext<Env>): Promise<void> {
   for (const message of batch.messages) {
     // process message.body
-    message.ack();
   }
 }
 `
   }
 }
 
-const WORKFLOW_FETCH_SCAFFOLD = `import { AWAITSTEP_RETENTION } from "#app/worker";
+const WORKFLOW_FETCH_SCAFFOLD = `import { startWorkflow, workflowStatus } from "#awaitstep/workflow";
+import type { FetchContext } from "#awaitstep/runtime";
 
-// HTTP entry: POST creates a workflow instance, GET ?instanceId= reports its status.
-export default async function (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+// HTTP entry: POST starts a workflow instance, GET ?instanceId= reports its status.
+export default async function ({ request, env }: FetchContext<Env>): Promise<Response> {
   try {
     const url = new URL(request.url);
 
     if (request.method === "POST") {
       const params = await request.json().catch(() => undefined);
-      const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
-      return Response.json({ instanceId: instance.id });
+      return Response.json(await startWorkflow(env, params));
     }
 
     const instanceId = url.searchParams.get("instanceId");
     if (instanceId) {
-      const instance = await env.WORKFLOW.get(instanceId);
-      if (!instance) {
+      const status = await workflowStatus(env, instanceId);
+      if (!status) {
         return Response.json({ message: "Instance not found" }, { status: 404 });
       }
-      return Response.json(await instance.status());
+      return Response.json(status);
     }
 
     return new Response(null, { status: 200 });
@@ -171,10 +202,11 @@ export default async function (request: Request, env: Env, ctx: ExecutionContext
 }
 `
 
-const SCRIPT_FETCH_SCAFFOLD = `import { runGraph } from "#app/worker";
+const SCRIPT_FETCH_SCAFFOLD = `import { runGraph } from "#awaitstep/function";
+import type { FetchContext } from "#awaitstep/runtime";
 
 // HTTP entry: runs the graph with the request body as payload and returns its outputs.
-export default async function (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+export default async function ({ request, env }: FetchContext<Env>): Promise<Response> {
   try {
     if (request.method !== "POST") {
       return new Response(null, { status: 200 });
@@ -188,8 +220,10 @@ export default async function (request: Request, env: Env, ctx: ExecutionContext
 }
 `
 
-const SCHEDULED_SCAFFOLD = `// Runs on every cron trigger of this workflow; controller.cron tells them apart.
-export default async function (controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+const SCHEDULED_SCAFFOLD = `import type { ScheduledContext } from "#awaitstep/runtime";
+
+// Runs on every cron trigger of this workflow; \`cron\` tells them apart.
+export default async function ({ cron, scheduledTime, env }: ScheduledContext<Env>): Promise<void> {
   // ...
 }
 `
@@ -217,15 +251,76 @@ export interface HandlerConversion {
   queueNames: { name: string; queue: string }[]
 }
 
+/** The neutral handler signatures a converted module is written against. */
+const FETCH_PARAMS = '{ request, env, execution }: FetchContext<Env>'
+const QUEUE_PARAMS = '{ batch, env, execution }: QueueContext<Env>'
+const SCHEDULED_PARAMS = '{ cron, scheduledTime, env, execution }: ScheduledContext<Env>'
+/** What the neutral fetch context's fields were called positionally in the annotation model. */
+const FETCH_POSITIONAL = ['request', 'env', 'execution']
+const CONTEXT_TYPE_IMPORT: Record<'fetch' | 'queue' | 'scheduled', string> = {
+  fetch: 'import type { FetchContext } from "#awaitstep/runtime";',
+  queue: 'import type { QueueContext } from "#awaitstep/runtime";',
+  scheduled: 'import type { ScheduledContext } from "#awaitstep/runtime";',
+}
+
 /**
- * The handler signatures the annotation model actually ran with. Only the
- * `@fetch` body saw its declared parameters; `@queue` and `@scheduled`
- * bodies were inlined into handlers the generator wrote, so they always
- * saw these names whatever the declaration said. Converted modules keep
- * that, or the body would lose `batch` / `controller`.
+ * What an annotated body wrote against the Cloudflare shape still finds.
+ * Only the `@fetch` body saw its declared parameter names (`declared`); the
+ * `@queue` and `@scheduled` bodies were inlined into handlers the generator
+ * wrote, so they always saw `batch`, `controller`, `env` and `ctx`. A
+ * declared name that differs from the neutral field is aliased, `ctx`
+ * becomes the execution context, `controller` the schedule — each only when
+ * the body uses it.
  */
-const QUEUE_PARAMS = 'batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext'
-const SCHEDULED_PARAMS = 'controller: ScheduledController, env: Env, ctx: ExecutionContext'
+function contractPrelude(
+  kind: 'fetch' | 'queue' | 'scheduled',
+  body: string,
+  declared: readonly string[] = [],
+): string {
+  const plain = withoutComments(body)
+  const used = (name: string) => new RegExp(`\\b${name}\\b`).test(plain)
+  const lines: string[] = []
+  if (kind === 'fetch') {
+    declared.forEach((name, i) => {
+      const field = FETCH_POSITIONAL[i]
+      if (field && name !== field && used(name)) lines.push(`const ${name} = ${field};`)
+    })
+  }
+  if (!declared.includes('ctx') && used('ctx')) lines.push('const ctx = execution;')
+  if (kind === 'scheduled' && used('controller')) {
+    lines.push('const controller = { cron, scheduledTime };')
+  }
+  return lines.length > 0 ? lines.join('\n') + '\n' : ''
+}
+
+/**
+ * A converted body behind its prelude, with the indentation it had inside
+ * the annotation's braces removed, so the module indents it once.
+ */
+function convertedBody(
+  kind: 'fetch' | 'queue' | 'scheduled',
+  body: string,
+  declared: readonly string[] = [],
+): string {
+  return contractPrelude(kind, body, declared) + dedent(body).trim()
+}
+
+function dedent(text: string): string {
+  const lines = text.split('\n')
+  const widths = lines
+    .filter((line) => line.trim() !== '')
+    .map((line) => /^[ \t]*/.exec(line)![0].length)
+  const width = widths.length > 0 ? Math.min(...widths) : 0
+  return lines.map((line) => line.slice(Math.min(width, line.length))).join('\n')
+}
+
+/** The parameter names of an annotation header, without types or defaults. */
+function parameterNames(params: string): string[] {
+  return params
+    .split(',')
+    .map((part) => part.trim().split(/[\s:=]/)[0] ?? '')
+    .filter((name) => /^[A-Za-z_$][\w$]*$/.test(name))
+}
 
 /** Top-level declarations, which is what the shared module must export. */
 const TOP_LEVEL_DECLARATION =
@@ -255,10 +350,10 @@ export function handlerModulesFromTriggerCode(
     files.push({
       path: HANDLER_FETCH_PATH,
       source: moduleSource(
-        imports,
-        'request: Request, env: Env, ctx: ExecutionContext',
+        [CONTEXT_TYPE_IMPORT.fetch, ...imports],
+        FETCH_PARAMS,
         'Promise<Response>',
-        body,
+        convertedBody('fetch', body),
       ),
     })
   } else {
@@ -273,20 +368,25 @@ export function handlerModulesFromTriggerCode(
     // Module-level imports go to every handler that might use them (the
     // bindings they introduce are referenced directly in the bodies);
     // only the declarations move to the shared module.
-    const handlerModule = (decl: HandlerDecl, params: string, returns: string) => {
+    const handlerModule = (
+      decl: HandlerDecl,
+      kind: 'fetch' | 'queue' | 'scheduled',
+      params: string,
+      returns: string,
+    ) => {
       const { imports, body } = extractImports(decl.body)
       return moduleSource(
-        [...shared.imports, ...imports, ...fromShared(body)],
+        [CONTEXT_TYPE_IMPORT[kind], ...shared.imports, ...imports, ...fromShared(body)],
         params,
         returns,
-        body,
+        convertedBody(kind, body, kind === 'fetch' ? parameterNames(decl.params) : []),
       )
     }
 
     if (parsed.fetchHandler) {
       files.push({
         path: HANDLER_FETCH_PATH,
-        source: handlerModule(parsed.fetchHandler, parsed.fetchHandler.params, 'Promise<Response>'),
+        source: handlerModule(parsed.fetchHandler, 'fetch', FETCH_PARAMS, 'Promise<Response>'),
       })
     }
     for (const qh of parsed.queueHandlers) {
@@ -294,7 +394,7 @@ export function handlerModulesFromTriggerCode(
       queueNames.push({ name: qh.name, queue })
       files.push({
         path: `${HANDLER_QUEUE_DIR}${queue}.ts`,
-        source: handlerModule(qh, QUEUE_PARAMS, 'Promise<void>'),
+        source: handlerModule(qh, 'queue', QUEUE_PARAMS, 'Promise<void>'),
       })
       if (qh.config)
         queueConfigs.push({ queue, ...(qh.config as Omit<QueueConsumerSettings, 'queue'>) })
@@ -315,13 +415,14 @@ export function handlerModulesFromTriggerCode(
         path: HANDLER_SCHEDULED_PATH,
         source: moduleSource(
           [
+            CONTEXT_TYPE_IMPORT.scheduled,
             ...shared.imports,
             ...bodies.flatMap((b) => b.imports),
             ...fromShared(bodies.map((b) => b.body).join('\n')),
           ],
           SCHEDULED_PARAMS,
           'Promise<void>',
-          body,
+          convertedBody('scheduled', body),
         ),
       })
     }

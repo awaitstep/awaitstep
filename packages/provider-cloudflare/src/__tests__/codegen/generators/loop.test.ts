@@ -172,11 +172,20 @@ describe('generateLoop', () => {
     expect(code).toContain('return _output;')
   })
 
-  it('does not assign result when _output is not used', () => {
-    const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
+  it('does not assign a result when no body step returns a value', () => {
+    const quiet = { ...step('work', 'Do Work'), data: { code: 'console.log("tick");' } }
+    const ir = makeLoopIR({ loopType: 'times', count: 3 }, [quiet])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).not.toMatch(/^const \w+ =/)
     expect(code).toMatch(/^await flow\.step/)
+    expect(code).not.toContain('_output = ')
+  })
+
+  it('makes the last value a body step returned the loop’s value', () => {
+    const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
+    const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
+    expect(code).toMatch(/^const loop_1 = await flow\.step/)
+    expect(code).toContain('if (work !== undefined) _output = work;')
   })
 
   it('handles empty body', () => {

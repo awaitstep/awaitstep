@@ -28,6 +28,9 @@ vi.mock('../../ui/code-editor', () => ({
   ),
 }))
 
+const CHARGE_MODULE =
+  'export default async function Charge_card({ env, event, inputs, step, ctx }) {\n  return { result: "ok" };\n}\n'
+
 function step(data: Record<string, unknown> = {}) {
   return {
     id: 'k3j9x_a1b2c3',
@@ -36,7 +39,7 @@ function step(data: Record<string, unknown> = {}) {
     position: { x: 0, y: 0 },
     version: '1.0.0',
     provider: 'cloudflare',
-    data: { code: 'return { result: "ok" };', ...data } as Record<string, unknown>,
+    data: { code: CHARGE_MODULE, ...data } as Record<string, unknown>,
   }
 }
 
@@ -153,9 +156,7 @@ describe('NodeConfigPanel for a step', () => {
     const delay = screen.getByLabelText('Retry Delay')
     fireEvent.focus(delay)
     fireEvent.blur(delay)
-    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data).toEqual({
-      code: 'return { result: "ok" };',
-    })
+    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data).toEqual({ code: CHARGE_MODULE })
     expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent('No retries')
   })
 
@@ -253,9 +254,7 @@ describe('NodeConfigPanel for a step', () => {
     expect(screen.getByRole('button', { name: 'Delete node' })).toBeDisabled()
     expect(screen.getByLabelText('code')).toHaveAttribute('data-readonly', 'true')
     fireEvent.change(screen.getByLabelText('code'), { target: { value: 'return 2;' } })
-    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.code).toBe(
-      'return { result: "ok" };',
-    )
+    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.code).toBe(CHARGE_MODULE)
     expect(useWorkflowStore.getState().isDirty).toBe(false)
   })
 
@@ -265,6 +264,175 @@ describe('NodeConfigPanel for a step', () => {
     await userEvent.clear(screen.getByLabelText('code'))
     await userEvent.type(screen.getByLabelText('code'), 'return 1;')
     expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.code).toBe('return 1;')
+  })
+})
+
+describe('NodeConfigPanel: returning a value from a function', () => {
+  function selectTwo(kind: 'workflow' | 'script', secondData: Record<string, unknown> = {}) {
+    const first = {
+      ...step({ code: 'export default async function fetch_user({ env }) {\n  return 1;\n}\n' }),
+      id: 'first',
+      name: 'fetch user',
+    }
+    const second = {
+      ...step({
+        code: 'export default async function Second({ env }) {\n  return 2;\n}\n',
+        ...secondData,
+      }),
+      id: 'second',
+      name: 'Second',
+    }
+    useWorkflowStore.setState({
+      kind,
+      selectedNodeId: 'second',
+      nodes: [first, second].map((n) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        data: { irNode: n },
+      })),
+      edges: [{ id: 'e1', source: 'first', target: 'second' }],
+    } as never)
+  }
+
+  it('tells the body what it can read: the earlier steps by name, the payload, the attempt', () => {
+    selectTwo('workflow')
+    render(<NodeConfigPanel />)
+    const hint = screen.getByText(/In scope:/)
+    expect(hint).toHaveTextContent(
+      'In scope: inputs.fetch_user, event.payload, ctx.attempt. return sets this step’s value.',
+    )
+  })
+
+  it('says when there are no earlier steps, and when the graph has a cycle', () => {
+    select(step())
+    const { unmount } = render(<NodeConfigPanel />)
+    expect(screen.getByText(/In scope:/)).toHaveTextContent(
+      'No earlier steps. In scope: event.payload, ctx.attempt. return sets this step’s value.',
+    )
+    unmount()
+    selectTwo('workflow')
+    useWorkflowStore.setState((s) => ({
+      edges: [...s.edges, { id: 'back', source: 'second', target: 'first' }],
+    }))
+    render(<NodeConfigPanel />)
+    expect(
+      screen.getByText('The graph has a cycle, so nothing can be listed as in scope.'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Name')).toHaveValue('Second')
+  })
+
+  it('says a switched-on step returns nothing while its body has no return', () => {
+    selectTwo('script', { export: true, code: 'console.log(1);' })
+    render(<NodeConfigPanel />)
+    expect(screen.getByText('Returns nothing yet: the body has no return.')).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: 'Return this value' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+  })
+
+  it('offers the switch in a function only, with the key the value would come back under', async () => {
+    selectTwo('workflow')
+    const { unmount } = render(<NodeConfigPanel />)
+    expect(screen.queryByRole('switch', { name: 'Return this value' })).toBeNull()
+    unmount()
+    selectTwo('script')
+    render(<NodeConfigPanel />)
+    const toggle = screen.getByRole('switch', { name: 'Return this value' })
+    expect(screen.getByText('Would be in the response as')).toBeInTheDocument()
+    expect(screen.getByText('Second')).toBeInTheDocument()
+    await userEvent.click(toggle)
+    expect(useWorkflowStore.getState().nodes[1]!.data.irNode.data.export).toBe(true)
+    expect(screen.getByText('In the response as')).toBeInTheDocument()
+    expect(screen.getByLabelText('Response key')).toHaveAttribute('placeholder', 'Second')
+  })
+
+  it('writes the response key, and says when it is not an identifier', () => {
+    selectTwo('script', { export: true })
+    render(<NodeConfigPanel />)
+    const key = screen.getByLabelText('Response key')
+    fireEvent.change(key, { target: { value: 'User' } })
+    fireEvent.blur(key)
+    expect(useWorkflowStore.getState().nodes[1]!.data.irNode.data.exportAs).toBe('User')
+    expect(screen.getByText('User')).toBeInTheDocument()
+    fireEvent.change(key, { target: { value: '2bad' } })
+    fireEvent.blur(key)
+    expect(screen.getByText(/cannot start with a digit/)).toBeInTheDocument()
+    fireEvent.change(key, { target: { value: '' } })
+    fireEvent.blur(key)
+    expect(useWorkflowStore.getState().nodes[1]!.data.irNode.data).not.toHaveProperty('exportAs')
+  })
+
+  it('shows a legacy EXPORT_ name as returned, locked, with why', () => {
+    selectTwo('script')
+    useWorkflowStore.setState((s) => ({
+      nodes: s.nodes.map((n) =>
+        n.id === 'second'
+          ? { ...n, data: { irNode: { ...n.data.irNode, name: 'EXPORT_Result' } } }
+          : n,
+      ),
+    }))
+    render(<NodeConfigPanel />)
+    const toggle = screen.getByRole('switch', { name: 'Return this value' })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+    expect(toggle).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByText('Result')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Response key')).toBeNull()
+  })
+
+  it('hides the row for an inline step', () => {
+    selectTwo('script', { inline: true })
+    render(<NodeConfigPanel />)
+    expect(screen.queryByRole('switch', { name: 'Return this value' })).toBeNull()
+  })
+
+  it('says an http request in a function is returned without a switch', () => {
+    select(
+      {
+        ...step(),
+        id: 'req',
+        type: 'http_request',
+        name: 'Ping',
+        data: { url: 'https://example.com', method: 'GET' },
+      },
+      'script',
+    )
+    render(<NodeConfigPanel />)
+    expect(screen.getByText(/Returned in the response as/)).toBeInTheDocument()
+    expect(screen.getByText('Ping')).toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Return this value' })).toBeNull()
+  })
+})
+
+describe('NodeConfigPanel: the step module', () => {
+  it('names the function the module must export, and refuses to close until it does', async () => {
+    select(step({ code: 'export default async function other({ env }) {\n  return 1;\n}\n' }))
+    render(<NodeConfigPanel />)
+    expect(
+      screen.getByText(
+        'The function must be named `Charge_card`, the step’s name as code reads it (it is `other`).',
+      ),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Close panel' }))
+    expect(useWorkflowStore.getState().selectedNodeId).toBe('k3j9x_a1b2c3')
+  })
+
+  it('renames the module’s function when the step is renamed, so the two stay in step', () => {
+    select(step())
+    render(<NodeConfigPanel />)
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Charge now' } })
+    fireEvent.blur(screen.getByLabelText('Name'))
+    const node = useWorkflowStore.getState().nodes[0]!.data.irNode
+    expect(node.name).toBe('Charge now')
+    expect(node.data.code).toContain('export default async function Charge_now(')
+    expect(screen.queryByText(/must be named/)).toBeNull()
+  })
+
+  it('says an inline step holds statements, not a module', () => {
+    select(step({ inline: true }))
+    render(<NodeConfigPanel />)
+    expect(screen.getByText('Inline steps hold statements, not a module.')).toBeInTheDocument()
   })
 })
 
@@ -281,6 +449,14 @@ describe('StepFields', () => {
       <StepFields
         node={node as never}
         kind="workflow"
+        scope={{
+          varName: 'k3j9x_a1b2c3',
+          upstream: [],
+          bindings: [],
+          status: 'ok',
+          returned: false,
+          exportKey: 'k3j9x_a1b2c3',
+        }}
         schema={schema}
         onChange={vi.fn()}
         onEnlarge={vi.fn()}

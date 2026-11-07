@@ -1,4 +1,5 @@
 import { contentHash } from '@awaitstep/ir'
+import { normalizeStepModules } from '@awaitstep/codegen'
 import { failureLine } from '../action-toast'
 import { VersionConflictError, type SavedVersion } from '../api-client'
 import type { IdeSessionState } from '../../stores/ide-store'
@@ -6,9 +7,10 @@ import { basename } from './file-tree'
 import {
   applyStepSources,
   loadVersionDocument,
+  stepCode,
   stepSources,
-  withoutFileSnapshot,
   type LoadedVersion,
+  withoutFileSnapshot,
 } from './node-source'
 
 export interface StepSaveClient {
@@ -151,10 +153,20 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
     if (edited.length === 0) return outcomes
 
     const editedPaths = edited.map((e) => e.path)
+    // Posted in module form, as the server stores it: a body typed in place
+    // of the module is wrapped here first, so what each draft is rebased on
+    // is byte for byte what the refetch will show.
+    const patched = normalizeStepModules(applyStepSources(version.doc, edits))
+    const storedCode = new Map(
+      edited.map(({ path, code }) => {
+        const node = patched.nodes.find((n) => n.id === sources.byPath.get(path))
+        return [path, node ? stepCode(node) : code]
+      }),
+    )
     let saved: SavedVersion
     try {
       saved = await client.createVersion(workflowId, {
-        ir: withoutFileSnapshot(applyStepSources(version.doc, edits)),
+        ir: withoutFileSnapshot(patched),
         baseGraphHash: version.graphHash,
       })
     } catch (err) {
@@ -180,8 +192,13 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
     const live = liveStore()
     for (const { path, code } of edited) {
       // The draft now builds on the code the server holds, so a quick second
-      // save cannot conflict with itself; the refetch then finds it clean.
-      live?.rebaseDraft(path, contentHash(code))
+      // save cannot conflict with itself; the refetch then finds it clean. A
+      // body the server wrapped is shown wrapped, as the file now is.
+      const stored = storedCode.get(path) ?? code
+      live?.rebaseDraft(path, contentHash(stored))
+      // Only while the draft still holds what was posted: text typed since
+      // the save went out is the person's, not ours to replace.
+      if (stored !== code && live?.drafts[path]?.source === code) live.setDraft(path, stored, null)
       outcomes.set(path, 'saved')
     }
     live?.setGraphConflict(null)

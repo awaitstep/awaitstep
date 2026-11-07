@@ -110,7 +110,8 @@ describe('step billing audit', () => {
   it('the manifest claims every top-level labeled step', () => {
     for (const step of bundle.manifest!.steps) {
       if (step.stepName === undefined) continue
-      expect(labels).toContain(step.stepName)
+      // A loop body's label carries the iteration suffix in the text.
+      expect(labels.map(baseNodeId)).toContain(step.stepName)
     }
   })
 })

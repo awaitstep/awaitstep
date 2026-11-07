@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { FlaskConical, Loader2, Play, RotateCcw } from 'lucide-react'
-import { parseStepModule, quickTestRefusal, stepModuleVarName } from '../../lib/ide/quick-test'
+import { isStepModulePath, parseStepModule, quickTestRefusal } from '../../lib/ide/quick-test'
 import { quickTestFields, runStepQuickTest } from '../../lib/ide/quick-test-run'
 import { QUICK_TEST_TIMEOUT_MS } from '../../lib/ide/quick-test-runner'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
@@ -41,7 +41,7 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
   const envVars = useWorkflowStore((s) => s.workflowEnvVars)
   const runHint = formatShortcut(IDE_SHORTCUTS.run, isMacPlatform())
 
-  const isStepModule = path !== null && stepModuleVarName(path) !== null
+  const isStepModule = path !== null && isStepModulePath(path)
   const shape = useMemo(
     () => (isStepModule ? parseStepModule(source) : null),
     [isStepModule, source],
@@ -78,8 +78,8 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
 
   if (!isStepModule) {
     const noticeDescription = path
-      ? `${path} is not a step module. Open a file under nodes/ to run its body against inputs you make up.`
-      : 'Open a step module under nodes/ to run its body against inputs you make up.'
+      ? `${path} is not a step module. Open a step under steps/ to run its body against inputs you make up.`
+      : 'Open a step under steps/ to run its body against inputs you make up.'
     return (
       <PanelNotice title="Quick test runs one step" description={noticeDescription}>
         <Button size="sm" onClick={handleUseSession}>

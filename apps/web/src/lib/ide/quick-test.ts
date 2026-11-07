@@ -10,78 +10,24 @@
  * object is a stub, nothing is durable, and imports are not resolved.
  */
 import { isGlobalEnvRef } from '@awaitstep/ir'
+import { moduleInputReads } from '@awaitstep/codegen'
 import { splitSecretName } from '../env-var-parser'
 
-// The generated step module for a node, as the bundle lays them out.
-const NODE_MODULE_PATH = /^nodes\/([A-Za-z_$][\w$]*)\.(?:ts|js)$/
+// A step's own file, `steps/<id>.ts` (`stepSourcePath`), which the bundle runs as the step's module.
+const STEP_MODULE_PATH = /^steps\/[^/]+\.(?:ts|js)$/
 
-/** The node variable a generated step module belongs to, or null. */
-export function stepModuleVarName(path: string): string | null {
-  return NODE_MODULE_PATH.exec(path)?.[1] ?? null
+/** Whether a file is a step's module — the step's own file, run as it is. */
+export function isStepModulePath(path: string): boolean {
+  return STEP_MODULE_PATH.test(path)
 }
 
 export interface StepModuleShape {
-  /** Names the module destructures out of `inputs` — what the body reads. */
+  /** Names the module reads from `inputs`, in the order they appear. */
   inputNames: string[]
   hasDefaultExport: boolean
 }
 
 const DEFAULT_EXPORT = /^export\s+default\s+/m
-const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
-
-/**
- * The keys a body takes out of `inputs`.
- *
- * Brace-matched rather than captured by one regex: `{ limit = 10 }` and
- * `{ user: { id } }` are both ordinary things to write, and a regex that
- * stops at the first `}` drops the first and fails outright on the second.
- * What is wanted is the key in `inputs` — so `user`, not `id`, and `a`, not
- * the local name in `{ a: renamed }`.
- */
-function destructuredInputNames(source: string): string[] {
-  const opener = /\bconst\s*\{/g
-  let match: RegExpExecArray | null
-  while ((match = opener.exec(source)) !== null) {
-    const open = match.index + match[0].length - 1
-    let depth = 0
-    let close = -1
-    for (let i = open; i < source.length; i++) {
-      const char = source[i]
-      if (char === '{') depth++
-      else if (char === '}' && --depth === 0) {
-        close = i
-        break
-      }
-    }
-    if (close === -1) continue
-    if (!/^\s*=\s*inputs\b/.test(source.slice(close + 1))) continue
-    return topLevelKeys(source.slice(open + 1, close))
-  }
-  return []
-}
-
-/** The `a`, `b = 1`, `c: { d }` entries of one destructuring, by key. */
-function topLevelKeys(inner: string): string[] {
-  const names: string[] = []
-  let depth = 0
-  let start = 0
-  const parts: string[] = []
-  for (let i = 0; i <= inner.length; i++) {
-    const char = inner[i]
-    if (char === '{' || char === '[' || char === '(') depth++
-    else if (char === '}' || char === ']' || char === ')') depth--
-    else if ((char === ',' && depth === 0) || i === inner.length) {
-      parts.push(inner.slice(start, i))
-      start = i + 1
-    }
-  }
-  for (const part of parts) {
-    // Whatever precedes a rename (`:`) or a default (`=`) is the input key.
-    const key = part.split(':')[0]!.split('=')[0]!.trim()
-    if (IDENTIFIER.test(key)) names.push(key)
-  }
-  return names
-}
 
 /**
  * What a step module offers a quick test. Pattern-matched rather than
@@ -94,7 +40,8 @@ function topLevelKeys(inner: string): string[] {
  */
 export function parseStepModule(source: string): StepModuleShape {
   return {
-    inputNames: [...new Set(destructuredInputNames(source))],
+    // The same reading codegen binds the call with: members, indexes, destructures.
+    inputNames: [...moduleInputReads(source).names],
     hasDefaultExport: DEFAULT_EXPORT.test(source),
   }
 }

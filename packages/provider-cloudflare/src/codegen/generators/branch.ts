@@ -1,12 +1,15 @@
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
 import type { GenerateMode, GenerationContext } from '@awaitstep/codegen'
+import { CONTAINER_TYPES, collectChain, computeInDegree } from '@awaitstep/codegen'
 import { prepareContainerContext, inlineChain } from './container-utils.js'
+
+export { CONTAINER_TYPES, collectChain, computeInDegree }
 
 export function generateBranch(
   node: WorkflowNode,
   ir: WorkflowIR,
   ctx: GenerationContext,
-  generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  generateNode: (node: WorkflowNode, ir: WorkflowIR, ctx?: GenerationContext) => string,
   mode: GenerateMode = 'workflow',
 ): string {
   const branches = (node.data.branches ?? []) as BranchCondition[]
@@ -71,63 +74,4 @@ export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
   }
 
   return inlineTargets
-}
-
-export function computeInDegree(ir: WorkflowIR): Map<string, number> {
-  const inDegree = new Map<string, number>()
-  for (const edge of ir.edges) {
-    inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1)
-  }
-  return inDegree
-}
-
-export const CONTAINER_TYPES = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
-
-export function collectChain(
-  startId: string,
-  adj: Map<string, string[]>,
-  inDegree: Map<string, number>,
-  nodeMap: Map<string, WorkflowNode>,
-  edgeLabels: Map<string, Map<string, string | undefined>>,
-): WorkflowNode[] {
-  const chain: WorkflowNode[] = []
-  let currentId: string | null = startId
-
-  while (currentId) {
-    const node = nodeMap.get(currentId)
-    if (!node) break
-
-    chain.push(node)
-
-    if (CONTAINER_TYPES.has(node.type)) {
-      // Container's normal successors are emitted by the container's own
-      // generator (branches/body/etc.); the only thing that flows past it in
-      // the parent context is the `then` continuation. Follow it if present
-      // and not a join point — otherwise stop.
-      const labels = edgeLabels.get(currentId)
-      let thenTarget: string | null = null
-      if (labels) {
-        for (const [target, label] of labels) {
-          if (label === 'then') {
-            thenTarget = target
-            break
-          }
-        }
-      }
-      if (thenTarget && (inDegree.get(thenTarget) ?? 0) === 1) {
-        currentId = thenTarget
-        continue
-      }
-      break
-    }
-
-    const successors: string[] = adj.get(currentId) ?? []
-    if (successors.length === 1 && (inDegree.get(successors[0]) ?? 0) === 1) {
-      currentId = successors[0]!
-    } else {
-      currentId = null
-    }
-  }
-
-  return chain
 }

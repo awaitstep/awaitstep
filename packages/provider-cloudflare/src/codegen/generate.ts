@@ -34,6 +34,8 @@ export {
   generateScriptBundle,
 } from './generate-script.js'
 export type { GenerateScriptOptions } from './generate-script.js'
+export { exportPlan, nodeYieldsValue } from './export-plan.js'
+export type { ExportPlanEntry } from './export-plan.js'
 export { CLOUDFLARE_PRIMITIVES_SOURCE, RUNTIME_MODULE_SOURCE } from './runtime-module.js'
 export { DEFAULT_RETENTION, resolveRetention, retentionLiteral } from './retention.js'
 export type { CloudflareRetention } from './retention.js'

@@ -140,7 +140,12 @@ describe('useWorkspaceData step sources', () => {
   it('shows every step node as a project-owned steps/<id>.ts holding its code', () => {
     const { result } = setup(undefined, { ir: STEP_IR })
     const step = result.current.baseline.get('steps/validate.ts')
-    expect(step).toMatchObject({ source: 'return 1', role: 'source' })
+    // A version saved with a body opens as the module here, as on the canvas.
+    expect(step).toMatchObject({
+      source:
+        'export default async function Validate({ env, event, inputs, step, ctx }) {\n  return 1\n}\n',
+      role: 'source',
+    })
     expect(step?.hash).toBeDefined()
     expect(result.current.baseline.has('steps/nap.ts')).toBe(false)
     expect([...result.current.stepPaths]).toEqual(['steps/validate.ts'])
@@ -219,5 +224,30 @@ describe('useWorkspaceData step sources', () => {
     expect(gone.result.current.ghostPaths).toEqual(['steps/validate.ts'])
     expect(gone.result.current.ownerOf('steps/validate.ts')).toBe('step')
     expect(gone.result.current.files.get('steps/validate.ts')?.source).toBe('return 2')
+  })
+})
+
+describe('useWorkspaceData: a step source and its generated module share steps/<id>.ts', () => {
+  it('keeps the editable step source, hashed, in the baseline instead of the bundle’s copy', () => {
+    // GET /source emits each step's module at the step's own path. When the
+    // bundle's copy won, the baseline held a file with no hash: every step
+    // save was a conflict, and Compare's Overwrite rebased onto '' and failed
+    // the same way.
+    const { result } = setup(undefined, {
+      ir: STEP_IR,
+      files: [
+        { path: 'workflow.ts', source: 'export {}\n', role: 'entry', hash: 'h1' },
+        {
+          path: 'steps/validate.ts',
+          source: 'export default async function Validate() {}\n',
+          role: 'module',
+        },
+      ],
+    })
+    const step = result.current.baseline.get('steps/validate.ts')
+    expect(step?.role).toBe('source')
+    expect(step?.hash).toBeDefined()
+    expect(result.current.ownerOf('steps/validate.ts')).toBe('step')
+    expect([...result.current.stepSourceByNode]).toEqual([['validate', 'steps/validate.ts']])
   })
 })

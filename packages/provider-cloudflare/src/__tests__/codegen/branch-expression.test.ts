@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { generateWorkflow } from '../../codegen/generate.js'
+import { generateWorkflowBundle } from '../../codegen/generate.js'
+
+/** Every file of the bundle as one text. */
+function programOf(
+  ir: Parameters<typeof generateWorkflowBundle>[0],
+  options?: Parameters<typeof generateWorkflowBundle>[1],
+): string {
+  return generateWorkflowBundle(ir, options)
+    .files.map((f) => f.source)
+    .join('\n')
+}
 
 function node(id: string, type: string, data: Record<string, unknown>): WorkflowNode {
   return {
@@ -39,7 +49,7 @@ describe('branch-arm expression resolution', () => {
         { id: 'e3', source: 'gate', target: 'sad', label: 'no' },
       ],
     }
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     expect(code).not.toContain('{{check.ok}}')
     expect(code).toContain('if (check.ok)')
   })

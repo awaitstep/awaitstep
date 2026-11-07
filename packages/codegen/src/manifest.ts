@@ -23,6 +23,11 @@ export interface StepManifestEntry {
    * step record for the leader's label to every member through this link.
    */
   coalescedInto?: string
+  /**
+   * The key this node's value is returned under from a function's graph
+   * (`graph.<exportKey>`); present only for a node that is returned.
+   */
+  exportKey?: string
   varName: string
   filePath?: string
 }

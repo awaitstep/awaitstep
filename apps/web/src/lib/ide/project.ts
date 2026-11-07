@@ -37,6 +37,9 @@ export function splitWorkspaceFiles(
 ): WorkspaceFiles {
   const split: WorkspaceFiles = { project: [], generated: [] }
   for (const file of files) {
+    // A step's module is emitted at the step's own path, which the explorer
+    // already shows as the step's source; the bundle copy is not listed twice.
+    if (isStepSourcePath(file.path) && !projectPaths.has(file.path)) continue
     split[projectPaths.has(file.path) ? 'project' : 'generated'].push(file)
   }
   return split

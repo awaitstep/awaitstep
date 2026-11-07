@@ -144,6 +144,9 @@ describe('source routes', () => {
     })
 
     it('compiles a project handlers.ts into the generated entry', async () => {
+      // These tests model the legacy annotation file, which cannot sit beside
+      // the HTTP entry a fresh first save seeds: drop the seeded module first.
+      await app.request(url('/api/workflows/wf-1/files/handlers/fetch.ts'), { method: 'DELETE' })
       const put = await app.request(url('/api/workflows/wf-1/files/handlers.ts'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -237,7 +240,7 @@ describe('source routes', () => {
       // and no way to tell which file it came from; the node lets the editor
       // open the step body the module was generated from.
       const compile = body.diagnostics.find((d) => d.source === 'compile')
-      expect(compile?.path).toMatch(/^nodes\/.*\.ts$/)
+      expect(compile?.path).toMatch(/^steps\/.*\.ts$/)
       expect(compile?.nodeId).toBe('step-1')
     })
 

@@ -44,7 +44,7 @@ describe('project files in generated bundles', () => {
       'entry:worker.ts',
       'module:awaitstep/workflow.ts',
       'module:awaitstep/env.ts',
-      'module:nodes/Fetch.ts',
+      'module:steps/fetch.ts',
       'module:awaitstep/runtime.ts',
       'module:config/retry.ts',
       'asset:data/countries.json',
@@ -52,7 +52,7 @@ describe('project files in generated bundles', () => {
       'config:tsconfig.json',
       'meta:package.json',
     ])
-    expect(bundle.files.find((f) => f.path === 'nodes/Fetch.ts')?.source).toContain(
+    expect(bundle.files.find((f) => f.path === 'steps/fetch.ts')?.source).toContain(
       "from '#app/config/retry'",
     )
   })
@@ -62,7 +62,7 @@ describe('project files in generated bundles', () => {
       'worker.ts',
       'awaitstep/workflow.ts',
       'awaitstep/env.ts',
-      'nodes/Fetch.ts',
+      'steps/fetch.ts',
       'awaitstep/runtime.ts',
       'config/retry.ts',
     ])
@@ -70,7 +70,7 @@ describe('project files in generated bundles', () => {
       'worker.ts',
       'awaitstep/workflow.ts',
       'awaitstep/env.ts',
-      'nodes/Fetch.ts',
+      'steps/fetch.ts',
       'awaitstep/runtime.ts',
       'config/retry.ts',
       'data/countries.json',
@@ -93,7 +93,8 @@ describe('project files in generated bundles', () => {
     // A function's steps are modules now, and the entry imports the runtime.
     expect(scriptBundle.files.map((f) => `${f.role}:${f.path}`)).toEqual([
       'entry:worker.ts',
-      'module:nodes/Fetch.ts',
+      'module:awaitstep/function.ts',
+      'module:steps/fetch.ts',
       'module:awaitstep/runtime.ts',
       'module:config/retry.ts',
       'asset:data/countries.json',

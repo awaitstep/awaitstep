@@ -153,7 +153,10 @@ describe('CanvasView: a refused save, then Reload', () => {
     const state = useWorkflowStore.getState()
     expect(state.graphHash).toBe('g3')
     expect(state.isDirty).toBe(false)
-    expect(state.nodes[0]!.data.irNode.data.code).toBe('return 3;')
+    // The stored body opens as the step's module.
+    expect(state.nodes[0]!.data.irNode.data.code).toBe(
+      'export default async function Step_1({ env, event, inputs, step, ctx }) {\n  return 3;\n}\n',
+    )
 
     api.createVersion.mockResolvedValueOnce({ id: 'v4', graphHash: 'g4' })
     act(() => useWorkflowStore.setState({ isDirty: true }))

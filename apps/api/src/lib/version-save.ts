@@ -14,6 +14,7 @@ import {
   type WorkflowVersion,
 } from '@awaitstep/db'
 import { foldProjectFiles, stripProjectOwnedRuntime } from './runtime-fold.js'
+import { normalizeStepModules } from '@awaitstep/codegen'
 import { canonicalJson, graphHash } from './graph-hash.js'
 
 /** The 409 a save answers when the graph moved since the caller loaded it. */
@@ -42,6 +43,12 @@ export interface PersistVersionInput {
    * first keeps it.
    */
   seeds?: UpsertWorkflowFileData[]
+  /**
+   * The HTTP entry seeded for a document with no project of its own. Kept
+   * only while that is still so when the write happens: a save that lost
+   * its race to another first save, or to a legacy handlers.ts, writes none.
+   */
+  freshSeeds?: UpsertWorkflowFileData[]
 }
 
 /** What a save is judged against, read together so no write can slip between them. */
@@ -77,10 +84,24 @@ export function readForSave(db: DatabaseAdapter, workflowId: string): Promise<Sa
 export function irUnchanged(storedIr: string, newIr: string): boolean {
   if (storedIr === newIr) return true
   try {
-    return canonicalJson(migrateArtifact(JSON.parse(storedIr))) === canonicalJson(JSON.parse(newIr))
+    // A version saved before steps were modules holds bodies; the posted
+    // document arrives normalised. Compared in one shape, so re-posting the
+    // same old document is the no-op it always was.
+    return (
+      canonicalJson(inModuleForm(migrateArtifact(JSON.parse(storedIr)))) ===
+      canonicalJson(inModuleForm(JSON.parse(newIr)))
+    )
   } catch {
     return false
   }
+}
+
+/** A document with its step code in module form; anything that is not a document is left as it is. */
+function inModuleForm(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || !Array.isArray((value as ArtifactIR).nodes)) {
+    return value
+  }
+  return normalizeStepModules(value as ArtifactIR)
 }
 
 /**
@@ -126,7 +147,8 @@ async function trySave(
   // content, and a handlers.ts seed is dropped once handler modules exist —
   // the two models never coexist, and a conversion may have landed between.
   const modular = hasHandlerModules(projectHandlerModules(reads.files))
-  const seeds = (input.seeds ?? []).filter(
+  const stillFresh = latest === null && reads.files.length === 0
+  const seeds = [...(input.seeds ?? []), ...(stillFresh ? (input.freshSeeds ?? []) : [])].filter(
     (seed) => !storedPaths.has(seed.path) && !(modular && seed.path === PROJECT_HANDLERS_PATH),
   )
   const files = [...reads.files, ...seeds]

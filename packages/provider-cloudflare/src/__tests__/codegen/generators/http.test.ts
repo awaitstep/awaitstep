@@ -1,8 +1,19 @@
+import type { ScriptIR } from '@awaitstep/ir'
 import { describe, it, expect } from 'vitest'
 import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
 import { generateHttp as generateHttpImpl } from '../../../codegen/generators/http.js'
-import { generateScript, generateWorkflow } from '../../../codegen/generate.js'
+import { generateWorkflowBundle, generateScriptBundle } from '../../../codegen/generate.js'
+
+/** Every file of the bundle as one text. */
+function programOf(
+  ir: Parameters<typeof generateWorkflowBundle>[0],
+  options?: Parameters<typeof generateWorkflowBundle>[1],
+): string {
+  return generateWorkflowBundle(ir, options)
+    .files.map((f) => f.source)
+    .join('\n')
+}
 
 const generateHttp = (
   node: Parameters<typeof generateHttpImpl>[0],
@@ -264,6 +275,13 @@ describe('generateHttp', () => {
   })
 })
 
+/** Every file of a bundle as one text, so an assertion can name any of them. */
+function programOfScript(ir: ScriptIR): string {
+  return generateScriptBundle(ir)
+    .files.map((f) => f.source)
+    .join('\n')
+}
+
 describe('generateHttp object and array literal bodies', () => {
   const post = (body: string, headers?: Record<string, string>) =>
     makeNode({ data: { url: 'https://api.example.com/data', method: 'POST', body, headers } })
@@ -361,8 +379,8 @@ describe('generateHttp object and array literal bodies', () => {
       { id: 'e2', source: 'whole', target: 'literal' },
     ]
     const metadata = { name: 'Refs', version: 1, createdAt: '', updatedAt: '' }
-    const workflow = generateWorkflow({ metadata, entryNodeId: 'src', nodes, edges })
-    const script = generateScript({
+    const workflow = programOf({ metadata, entryNodeId: 'src', nodes, edges })
+    const script = programOfScript({
       kind: 'script',
       metadata,
       entryNodeId: 'src',

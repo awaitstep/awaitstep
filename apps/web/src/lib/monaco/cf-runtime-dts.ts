@@ -159,6 +159,37 @@ declare interface WorkflowInstance {
   sendEvent(event: { type: string; payload?: unknown }): Promise<void>;
 }
 
+// ── Worker handler arguments (what the generated worker.ts adapts) ──
+
+declare interface ExecutionContext {
+  /** Keeps the worker alive until the promise settles, after the response is sent. */
+  waitUntil(promise: Promise<unknown>): void;
+  /** On an uncaught exception, forwards the request to the origin instead of failing it. */
+  passThroughOnException(): void;
+}
+
+declare interface Message<Body = unknown> {
+  readonly id: string;
+  readonly timestamp: Date;
+  readonly body: Body;
+  readonly attempts: number;
+  ack(): void;
+  retry(options?: { delaySeconds?: number }): void;
+}
+
+declare interface MessageBatch<Body = unknown> {
+  readonly queue: string;
+  readonly messages: readonly Message<Body>[];
+  ackAll(): void;
+  retryAll(options?: { delaySeconds?: number }): void;
+}
+
+declare interface ScheduledController {
+  readonly scheduledTime: number;
+  readonly cron: string;
+  noRetry(): void;
+}
+
 // ── Module shims for generated imports ──
 
 declare module "cloudflare:workers" {

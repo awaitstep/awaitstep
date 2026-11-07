@@ -371,7 +371,8 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
 
       const stored = await request('/api/workflows/wf-1/project')
       const project = (await stored.json()) as { files: { path: string }[] }
-      expect(project.files).toEqual([])
+      // Only the HTTP entry the first save seeded; the candidate stored nothing.
+      expect(project.files.map((f) => f.path)).toEqual(['handlers/fetch.ts'])
     })
 
     it('judges a fix for a file that is broken in storage', async () => {
@@ -484,6 +485,9 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       // `DELETE /files` on a path with no row is a 404 and retires nothing,
       // so a candidate deleting a handlers.ts that was never stored must
       // not clear the legacy setting either.
+      // The legacy setting cannot sit beside the HTTP entry a fresh first
+      // save seeds: drop the seeded module first.
+      await request('/api/workflows/wf-1/files/handlers/fetch.ts', { method: 'DELETE' })
       await mockDb.updateWorkflow('wf-1', { triggerCode: 'return new Response("legacy")' })
       const { status, body } = await check('', [
         { path: 'handlers.ts', source: null },
@@ -506,6 +510,9 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
       // candidate that deletes it and adds a handler module is exactly the
       // sequence the real endpoints allow. Judging the module against a
       // workflow that still holds the setting refuses a valid edit.
+      // The legacy setting cannot sit beside the HTTP entry a fresh first
+      // save seeds: drop the seeded module first.
+      await request('/api/workflows/wf-1/files/handlers/fetch.ts', { method: 'DELETE' })
       await mockDb.updateWorkflow('wf-1', { triggerCode: 'return new Response("legacy")' })
       await putFile('handlers.ts', '@fetch function h() { return new Response("x") }')
 

@@ -9,7 +9,12 @@ import {
   migrateArtifact,
   type ArtifactIR,
 } from '@awaitstep/ir'
-import { legacyRuntimeSeeds, withoutStaleProjectRuntime } from '../lib/runtime-fold.js'
+import { normalizeStepModules, stepModuleProblems } from '@awaitstep/codegen'
+import {
+  defaultHandlerSeeds,
+  legacyRuntimeSeeds,
+  withoutStaleProjectRuntime,
+} from '../lib/runtime-fold.js'
 import { projectWriteRuleErrors } from '../lib/project-write-rules.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 import { graphHash } from '../lib/graph-hash.js'
@@ -97,6 +102,14 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   if (!validation.ok) {
     return c.json({ error: 'Invalid IR', details: validation.errors }, 400)
   }
+  // A step's code is a module. A body (statements) is still accepted and
+  // wrapped here, so a version is stored in module form from its next save;
+  // a module must export the function the worker imports, named after the step.
+  const savedIr = normalizeStepModules(validation.value)
+  const moduleProblems = stepModuleProblems(savedIr)
+  if (moduleProblems.length > 0) {
+    return c.json({ error: 'Invalid IR', details: moduleProblems }, 400)
+  }
 
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
@@ -111,7 +124,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   // deleted the files) must not bring them back, and the files are the way
   // to add either. A stored row that cannot be read vouches for nothing.
   const ir = withoutStaleProjectRuntime(
-    validation.value,
+    savedIr,
     reads.latest ? (storedDocument(reads.latest.ir) ?? NOTHING_STORED) : null,
   )
 
@@ -128,6 +141,26 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       [...storedFiles, ...seeds].map((f) => f.path),
     ),
   )
+  // A new workflow or function gets its HTTP entry as a file it can edit:
+  // once, on the first version of a document that brings no project of its
+  // own (an import ships what it has; a fresh canvas save has nothing). A
+  // workflow whose trigger-code setting is still in use keeps that model —
+  // a handler module beside it would be refused, and converting is a
+  // deliberate action.
+  const freshProject =
+    !reads.latest &&
+    storedFiles.length === 0 &&
+    importedFiles.length === 0 &&
+    !ir.runtime?.triggerCode &&
+    !ir.runtime?.dependencies &&
+    !workflow.triggerCode?.trim()
+  const freshSeeds = freshProject
+    ? defaultHandlerSeeds(
+        ir.kind === 'script' ? 'script' : 'workflow',
+        ir.runtime,
+        [...storedFiles, ...seeds].map((f) => f.path),
+      )
+    : []
   // Stored snapshots are grandfathered by `validateProjectFiles`, but a path
   // that is new to this save is a write and meets the same rules as a
   // `PUT /files`: generated paths (`worker.ts`, `nodes/**`, `awaitstep/**`, …)
@@ -136,7 +169,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   // second file for one entry) and the manifest contract — or a first save
   // could smuggle past the per-file write rules a project no deploy accepts.
   const storedPaths = new Set(storedFiles.map((file) => file.path))
-  const newSeeds = seeds.filter((file) => !storedPaths.has(file.path))
+  const newSeeds = [...seeds, ...freshSeeds].filter((file) => !storedPaths.has(file.path))
   const pathProblems = newSeeds.flatMap((file) => {
     const error = projectFilePathError(file.path)
     return error ? [{ path: file.path, message: error }] : []
@@ -166,6 +199,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       userId: c.get('userId'),
       baseGraphHash: body.baseGraphHash,
       seeds: toWorkflowFileRows(workflowId, seeds),
+      freshSeeds: toWorkflowFileRows(workflowId, freshSeeds),
     },
     reads,
   )

@@ -13,7 +13,8 @@ export interface NodeGeneratorArgs {
   ir: WorkflowIR
   ctx: GenerationContext
   mode: GenerateMode
-  recurse(node: WorkflowNode, ir: WorkflowIR): string
+  /** Emits a child; `ctx` lets a container pass a child context with its bindings. */
+  recurse(node: WorkflowNode, ir: WorkflowIR, ctx?: GenerationContext): string
 }
 
 /** One node type's code generator, registered in a {@link GeneratorRegistry}. */

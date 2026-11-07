@@ -17,6 +17,14 @@ export const CORE_RUNTIME_IMPORT = `${AWAITSTEP_IMPORT_PREFIX}runtime`
 /** Bundle directory the emitted runtime modules live in. */
 export const AWAITSTEP_MODULE_DIR = 'awaitstep/'
 
+/**
+ * The generated graph modules a project file may import beside the runtime:
+ * `#awaitstep/workflow` (a workflow's module, with `startWorkflow`,
+ * `workflowStatus` and `AWAITSTEP_RETENTION`) and `#awaitstep/function` (a
+ * function's `runGraph` and `Env`). Neither names a provider.
+ */
+export const GENERATED_GRAPH_MODULES: ReadonlySet<string> = new Set(['workflow', 'function'])
+
 /** Bundle path of the emitted core runtime module. */
 export const RUNTIME_MODULE_PATH = `${AWAITSTEP_MODULE_DIR}runtime.ts`
 

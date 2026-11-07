@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { collectEnvRefNames } from '../../codegen/generate-helpers.js'
-import { generateWorkflow } from '../../codegen/generate.js'
+import { generateWorkflowBundle } from '../../codegen/generate.js'
+
+/** Every file of the bundle as one text. */
+function programOf(
+  ir: Parameters<typeof generateWorkflowBundle>[0],
+  options?: Parameters<typeof generateWorkflowBundle>[1],
+): string {
+  return generateWorkflowBundle(ir, options)
+    .files.map((f) => f.source)
+    .join('\n')
+}
 
 function node(id: string, data: Record<string, unknown>): WorkflowNode {
   return {
@@ -48,7 +58,7 @@ describe('interface Env collection', () => {
       nodes: [node('s1', { code: 'return {{env.MY_KEY ?? "none"}};' })],
       edges: [],
     }
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     expect(code).toContain('MY_KEY: string;')
     // run() aliases the workflow context's env, so user code keeps using env.
     expect(code).toContain('(env.MY_KEY ?? "none")')
@@ -61,7 +71,7 @@ describe('interface Env collection', () => {
       nodes: [node('s1', { code: 'return {{env["api-key"]}};' })],
       edges: [],
     }
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     expect(code).toContain('"api-key": string;')
   })
 })

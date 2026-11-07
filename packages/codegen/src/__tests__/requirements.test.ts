@@ -34,6 +34,17 @@ const inngestTarget: RequirementTarget = {
 }
 
 describe('providerFromAwaitstepImport', () => {
+  it('reads a provider only from a provider-scoped primitive, not from the generated graph modules', () => {
+    expect(providerFromAwaitstepImport('#awaitstep/cloudflare')).toBe('cloudflare')
+    expect(providerFromAwaitstepImport('#awaitstep/cloudflare/kv')).toBe('cloudflare')
+    expect(providerFromAwaitstepImport('#awaitstep/runtime')).toBeNull()
+    expect(providerFromAwaitstepImport('#awaitstep/workflow')).toBeNull()
+    expect(providerFromAwaitstepImport('#awaitstep/function')).toBeNull()
+    expect(providerFromAwaitstepImport('zod')).toBeNull()
+  })
+})
+
+describe('providerFromAwaitstepImport', () => {
   it('reads the provider from a provider-scoped primitive import', () => {
     expect(providerFromAwaitstepImport('#awaitstep/cloudflare')).toBe('cloudflare')
     expect(providerFromAwaitstepImport('#awaitstep/inngest/anything')).toBe('inngest')

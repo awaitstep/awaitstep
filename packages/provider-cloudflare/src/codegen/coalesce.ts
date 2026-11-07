@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { inlineGenerationContext, type GenerationContext } from '@awaitstep/codegen'
+import { childContext, type GenerationContext } from '@awaitstep/codegen'
 import { computeInDegree } from './generators/branch.js'
 import { generateStepGroup, resolveStepConfig } from './generators/step.js'
 
@@ -92,11 +92,13 @@ export function emitGroupedChain(
   chain: WorkflowNode[],
   ir: WorkflowIR,
   ctx: GenerationContext,
-  generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  generateNode: (node: WorkflowNode, ir: WorkflowIR, ctx?: GenerationContext) => string,
+  /** The children's context inside a container; a group's members are children too. */
+  override?: GenerationContext,
 ): string[] {
   return groupChain(chain, ir).map((group) =>
     group.length > 1
-      ? generateStepGroup(group, inlineGenerationContext(ctx))
-      : generateNode(group[0]!, ir),
+      ? generateStepGroup(group, override ?? childContext(ctx))
+      : generateNode(group[0]!, ir, override),
   )
 }

@@ -1,6 +1,6 @@
 import type { ArtifactIR } from '@awaitstep/ir'
 import { isProjectCodePath } from '@awaitstep/ir'
-import { AWAITSTEP_IMPORT_PREFIX } from './runtime.js'
+import { AWAITSTEP_IMPORT_PREFIX, GENERATED_GRAPH_MODULES } from './runtime.js'
 
 /**
  * Something a workflow needs from its runtime beyond pure orchestration.
@@ -77,7 +77,8 @@ export function describeProvider(provider: string): string {
 export function providerFromAwaitstepImport(specifier: string): string | null {
   if (!specifier.startsWith(AWAITSTEP_IMPORT_PREFIX)) return null
   const segment = specifier.slice(AWAITSTEP_IMPORT_PREFIX.length).split('/')[0]
-  if (!segment || segment === 'runtime') return null
+  // The runtime and the generated graph modules are AwaitStep's own, not a provider's.
+  if (!segment || segment === 'runtime' || GENERATED_GRAPH_MODULES.has(segment)) return null
   return segment
 }
 

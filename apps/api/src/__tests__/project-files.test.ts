@@ -425,7 +425,9 @@ describe('project file routes', () => {
     ).json()
     // Module-level imports follow the handlers that may use them.
     expect(fetchModule.source).toContain('import { z } from "zod"')
-    expect(fetchModule.source).toContain('export default async function (request, env, ctx)')
+    expect(fetchModule.source).toContain(
+      'export default async function ({ request, env, execution }: FetchContext<Env>)',
+    )
     const full = await (await app.request(url('/api/workflows/wf-1/full'))).json()
     expect(full.handlers).toEqual({ modules: true, consumedQueues: ['orders'] })
     expect(full.workflow.triggerCode).toBeNull()

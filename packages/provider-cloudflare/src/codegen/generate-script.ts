@@ -1,6 +1,7 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
 import type {
+  StepManifestEntry,
   GeneratedBundle,
   GeneratedFile,
   GeneratorLookup,
@@ -8,6 +9,9 @@ import type {
   TemplateResolver,
 } from '@awaitstep/codegen'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
+import { boundVarNames, exportPlan } from './export-plan.js'
+import { graphModuleNames } from './graph-module-names.js'
+import { assertStepPathsFree, moduleImportLine, modulePathOf } from './module-files.js'
 import {
   CORE_RUNTIME_IMPORT,
   computeVarNames,
@@ -15,7 +19,8 @@ import {
   createGenerationContext,
   importSpecifiers,
   indent,
-  isExportedName,
+  upstreamVarNames,
+  normalizeStepModules,
   projectBundleFiles,
   stepLabel,
   topologicalSort,
@@ -43,7 +48,6 @@ import {
   detectKind,
   envFieldName,
   generateNodeCode,
-  pruneUndeclaredInputs,
   resolveNodeExpressions,
   wrapModuleCalls,
 } from './generate-helpers.js'
@@ -61,9 +65,11 @@ import { parseAnnotations } from './parse-annotations.js'
  * outputs. Users can replace this code via the script's `triggerCode` field —
  * the runGraph call and `graph.*` outputs stay stable across edits.
  */
-export const DEFAULT_SCRIPT_TRIGGER_CODE = `// import packages here
+/** The generated graph module of a function: `runGraph`, its `Env`, its classes. */
+export const FUNCTION_MODULE_PATH = 'awaitstep/function.ts'
 
-@fetch function handler(request, env, ctx) {
+export const DEFAULT_SCRIPT_TRIGGER_CODE = `
+@fetch function handler(request: Request, env: Env) {
   try {
     if (request.method !== "POST") {
       return new Response(null, { status: 200 });
@@ -73,9 +79,6 @@ export const DEFAULT_SCRIPT_TRIGGER_CODE = `// import packages here
 
     const graph = await runGraph(env, event);
 
-    // ▼ everything below is yours — change the response, add error
-    // handling, branch on request shape, etc. Available outputs are on
-    // \`graph.*\` (one entry per step that returns a value).
     return Response.json(graph);
   } catch (error) {
     return Response.json({ message: error.message }, { status: 500 });
@@ -122,6 +125,7 @@ export function generateScriptBundle(
   ir: ScriptIR,
   templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
 ): GeneratedBundle {
+  assertStepPathsFree(ir)
   const { source, files, manifest } = generateScriptInternal(ir, templateResolverOrOptions)
   const projectFiles = projectBundleFiles(ir.runtime?.files)
   // Emit a runtime module only when something shipped imports it — generated
@@ -154,6 +158,13 @@ export function generateScriptBundle(
   }
 }
 
+/** A node a function returns, and the key its value comes back under. */
+export interface ExportPlanEntry {
+  nodeId: string
+  varName: string
+  key: string
+}
+
 function generateScriptInternal(
   ir: ScriptIR,
   templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
@@ -165,6 +176,8 @@ function generateScriptInternal(
     : {}
   const { templateResolver, envVarNames, preview, triggerCode, retention, generators } = opts
 
+  // Every step's code in module form, whatever shape was stored.
+  ir = normalizeStepModules(ir)
   // Reuse the workflow-shaped helpers — the IR fields they read (nodes, edges,
   // entryNodeId, metadata) are identical between WorkflowIR and ScriptIR. The
   // only structural difference is the literal `kind`.
@@ -172,19 +185,20 @@ function generateScriptInternal(
   const sorted = topologicalSort(irAsWorkflow)
   // Steps become modules, as in a workflow: each receives the upstream vars
   // its body names as `inputs`, which the entry destructures at the call.
+  // A returned child of a container is hoisted to the top, so it reaches
+  // what follows the container; a plain child stays in its block.
   const names = computeVarNames(ir.nodes)
-  const upstream = new Map<string, string[]>()
-  const seenVars: string[] = []
-  for (const node of sorted) {
-    upstream.set(node.id, [...seenVars])
-    const name = names.get(node.id)
-    if (name) seenVars.push(name)
-  }
+  const plan = exportPlan(irAsWorkflow)
+  const upstream = upstreamVarNames(irAsWorkflow, boundVarNames(ir, names), (node) =>
+    plan.has(node.id),
+  )
   const ctx = createGenerationContext(ir.nodes, { emitModules: true, upstream })
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
   const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
 
+  // The modules were normalised above; a `{{ a.ok }}` inside one resolves
+  // to `inputs.A.ok`, which the call site then binds.
   const resolvedIR: ScriptIR = useStateTracking
     ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, (id) => ctx.varName(id))) }
     : ir
@@ -217,10 +231,14 @@ function generateScriptInternal(
     emittedNodes.push(node)
   }
 
+  // Imports the graph's own code asked for (an inline step's, a template's)
+  // go with the graph into `awaitstep/function.ts`; the trigger code's go
+  // with the handlers into `worker.ts`.
+  const graphImports: string[] = []
   const collectedImports: string[] = []
   const strippedParts = bodyParts.map((part) => {
     const { imports, body } = extractImports(part)
-    collectedImports.push(...imports)
+    graphImports.push(...imports)
     return body
   })
 
@@ -228,8 +246,10 @@ function generateScriptInternal(
   // `env` is a parameter, not a class field.
   let graphBody = strippedParts.join('\n\n')
 
-  // Opt-in graph export: a node whose display name starts with `EXPORT_`
-  // surfaces on `graph.X` (the prefix is already stripped from its varName).
+  // Opt-in graph export: a node whose data says `export: true` (the canvas's
+  // "Return this value" switch) — or, the legacy way, whose display name
+  // starts with `EXPORT_` (the prefix is already stripped from its varName) —
+  // surfaces on `graph.<key>`; the key is its `exportAs` or its var name.
   // Three cases per emitted `const X = await ...`:
   //   1. Exported, top-level: keep `const X = ...` (already in scope of return).
   //   2. Exported, nested in a container: hoist with `let X;` + rewrite the
@@ -239,14 +259,13 @@ function generateScriptInternal(
   //   4. Not exported, referenced elsewhere: keep `const X = ...` (downstream
   //      nodes need the var) but don't include in return.
   //
-  // Result-producer node types are implicitly exported (no EXPORT_ needed):
-  // their entire purpose is to surface a value (HTTP response, sub-worker
-  // output, sub-workflow handle). A bare `await fetch(...)` with the result
-  // thrown away is almost never what the user intends.
-  const AUTO_EXPORT_TYPES = new Set(['http_request', 'sub_workflow', 'sub_script'])
-  const exportedVarNames: string[] = []
+  // Which nodes are returned, and under which keys, is `exportPlan`'s call
+  // (result-producer kinds always; the canvas reads the same plan). Here the
+  // plan meets the emitted text: a node is returned only when its `const`
+  // was emitted, in emission order.
+  const exportKeys = new Map<string, string>()
   const hoistedVarNames: string[] = []
-  for (const node of resolvedIR.nodes) {
+  for (const node of resolvedSorted) {
     const v = ctx.varName(node.id)
     // Indentation means "inside a container". Horizontal whitespace only:
     // `\s*` would swallow the blank line between two top-level parts and
@@ -255,15 +274,15 @@ function generateScriptInternal(
     const m = declRe.exec(graphBody)
     if (!m) continue
 
-    const exported = isExportedName(node.name) || AUTO_EXPORT_TYPES.has(node.type)
+    const planned = plan.get(node.id)
     const isNested = m[1].length > 0
     // A reference is the bare identifier: not the step's own label in
     // `flow.step("name"`, not the `$name` module import at its call.
     const refMatches = [...graphBody.matchAll(new RegExp(`(?<![$"'])\\b${v}\\b(?!["'])`, 'g'))]
     const isReferencedElsewhere = refMatches.length > 1
 
-    if (exported) {
-      exportedVarNames.push(v)
+    if (planned) {
+      exportKeys.set(v, planned.key)
       if (isNested) {
         hoistedVarNames.push(v)
         graphBody = graphBody.replace(new RegExp(`\\bconst ${v}\\s*=`, 'g'), `${v} =`)
@@ -379,8 +398,8 @@ function generateScriptInternal(
   }
 
   // runGraph isolates node-emitted code in its own function. Only nodes
-  // marked for export (display name prefixed with `EXPORT_`) surface on
-  // `graph.X`. Hoisted vars (exported nodes living inside container blocks)
+  // marked for export (the `export` flag, or the legacy `EXPORT_` name
+  // prefix) surface on `graph.<key>`. Hoisted vars (exported nodes living inside container blocks)
   // are declared via `let` at the top so the assignment can escape the block.
   // With handler modules it is exported so handlers/fetch.ts can import it.
   const declStatement = hoistedVarNames.length > 0 ? `  let ${hoistedVarNames.join(', ')};\n` : ''
@@ -388,10 +407,6 @@ function generateScriptInternal(
   // here and now, with the node's retries and timeout, and `step` is the
   // adapter the step modules receive — the same two names a workflow's
   // `run` establishes, so a step module is the same file in both kinds.
-  // Only a bound var can travel into a module; a word match on an upstream
-  // name that nothing declares is pruned from the call. A hoisted export is
-  // bound by the `let` added below, so it counts.
-  graphBody = pruneUndeclaredInputs(graphBody, hoistedVarNames)
   graphBody = wrapModuleCalls(graphBody, 2)
   // The context is needed when a step runs here — a module, a container
   // child's inline `flow.step`, or a hand-written `step.do` — never for a
@@ -421,12 +436,12 @@ function generateScriptInternal(
   const bodyAlreadyReturns = endsWithReturn(graphBody)
   const returnStatement = bodyAlreadyReturns
     ? ''
-    : exportedVarNames.length > 0
-      ? `  return { ${exportedVarNames.join(', ')} };`
+    : exportKeys.size > 0
+      ? `  return { ${[...exportKeys].map(([v, key]) => (key === v ? v : `${key}: ${v}`)).join(', ')} };`
       : '  return {};'
   const runGraphBody =
     graphBody.trim().length > 0 ? indent(graphBody, 2) + (bodyAlreadyReturns ? '' : '\n') : ''
-  const runGraphBlock = `${wiring ? 'export ' : ''}async function runGraph(env: Env, event: { payload: unknown }) {
+  const runGraphBlock = `export async function runGraph(env: Env, event: { payload: unknown }) {
 ${contextLines}${declStatement}${runGraphBody}${returnStatement}
 }`
 
@@ -435,18 +450,15 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
   const moduleImports: string[] = []
   for (const moduleFile of ctx.files) {
     if (moduleFile.role !== 'module') continue
-    const match = /^nodes\/([A-Za-z0-9_]+)\.ts$/.exec(moduleFile.path)
-    if (!match) throw new Error(`Generated module has unexpected path: ${moduleFile.path}`)
-    moduleImports.push(`import $${match[1]} from "./nodes/${match[1]}.js";`)
+    moduleImports.push(moduleImportLine(moduleFile, '../'))
   }
-  const uniqueImports = [
-    ...new Set([
-      ...(usesFlow ? [FUNCTION_RUNTIME_IMPORT] : []),
-      ...moduleImports,
-      ...collectedImports,
-    ]),
+  // The graph module imports the runtime and the step modules; the worker
+  // imports the graph module, the handler modules and what the trigger code
+  // asked for. Nothing imports the worker.
+  const functionImports = [
+    ...new Set([...(usesFlow ? [FUNCTION_RUNTIME_IMPORT] : []), ...moduleImports, ...graphImports]),
   ]
-  const importBlock = uniqueImports.length > 0 ? '\n' + uniqueImports.join('\n') : ''
+  const importBlock = functionImports.length > 0 ? '\n' + functionImports.join('\n') : ''
   const classBlock =
     !preview && classDefinitions.size > 0
       ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n'
@@ -486,35 +498,80 @@ ${handlerBlocks.join('\n')}
   // Sub-workflow creates reference AWAITSTEP_RETENTION; only emit the const
   // when a sub_workflow node exists so plain scripts stay unchanged.
   const retentionBlock = ir.nodes.some((n) => n.type === 'sub_workflow')
-    ? `\n${wiring ? 'export ' : ''}const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};\n`
+    ? `\nexport const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};\n`
     : ''
 
-  const source = `${importBlock ? importBlock.trimStart() + '\n\n' : ''}interface Env {${envBlock}}
-${retentionBlock}${classBlock}${moduleCodeBlock}
+  // `awaitstep/function.ts`: the graph, its Env and the classes it calls.
+  const functionSource = `${importBlock ? importBlock.trimStart() + '\n\n' : ''}export interface Env {${envBlock}}
+${retentionBlock}${classBlock}
 ${runGraphBlock}
-
-${exportDefault}
+`
+  // `worker.ts`: the Cloudflare bootstrap. Nothing imports it; it imports
+  // from the graph module only what its own code calls (the inline default
+  // fetch, or legacy trigger code, runs the graph).
+  const workerBody = `${moduleCodeBlock}\n${exportDefault}`
+  const graphNames = graphModuleNames(workerBody, ['runGraph', 'AWAITSTEP_RETENTION'])
+  const workerImports = [
+    ...new Set([
+      `import { ${[...graphNames, 'type Env'].join(', ')} } from "./awaitstep/function.js";`,
+      ...collectedImports,
+    ]),
+  ]
+  const source = `${workerImports.join('\n')}
+${workerBody}
 `
 
   // One manifest entry per top-level node, as a workflow's: the step name and
   // kind when the emitted text carries the label on a primitive, the module
   // path when the step got its own file.
+  // A step inside a container is a module too, run under its own id as
+  // label inside the container's block.
+  const topLevelIds = new Set(emittedNodes.map((node) => node.id))
+  const nestedSteps: StepManifestEntry[] = resolvedSorted
+    .filter((node) => node.type === 'step' && !topLevelIds.has(node.id))
+    .flatMap((node) => {
+      const varName = ctx.varName(node.id)
+      const modulePath = modulePathOf(ctx.files, node, varName)
+      if (modulePath === null) return []
+      const exportKey = bodyAlreadyReturns ? undefined : exportKeys.get(varName)
+      // The label is claimed only when the emitted text carries it on a primitive.
+      const label = stepLabel(node)
+      const labeled = graphBody.includes(`flow.step("${label}"`)
+      return [
+        {
+          nodeId: node.id,
+          ...(labeled && { stepName: label, kind: 'do' as const }),
+          varName,
+          filePath: modulePath,
+          ...(exportKey !== undefined && { exportKey }),
+        },
+      ]
+    })
   const manifest: StepManifest = {
     irHash: contentHash(JSON.stringify(ir)),
     steps: emittedNodes.map((node, i) => {
       const varName = ctx.varName(node.id)
-      const modulePath = `nodes/${varName}.ts`
-      const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
+      const modulePath = modulePathOf(ctx.files, node, varName)
+      const hasModule = modulePath !== null
       const label = stepLabel(node)
       const kind = detectKind(bodyParts[i]!, label)
+      // Returned only when runGraph's own return is emitted: an inline body
+      // that already returns ends the graph with its own value.
+      const exportKey = bodyAlreadyReturns ? undefined : exportKeys.get(varName)
       return {
         nodeId: node.id,
         ...(kind && { stepName: label, kind }),
         varName,
         ...(hasModule && { filePath: modulePath }),
+        ...(exportKey !== undefined && { exportKey }),
       }
     }),
   }
+  manifest.steps.push(...nestedSteps)
 
-  return { source, files: ctx.files, manifest }
+  return {
+    source,
+    files: [{ path: FUNCTION_MODULE_PATH, source: functionSource, role: 'module' }, ...ctx.files],
+    manifest,
+  }
 }

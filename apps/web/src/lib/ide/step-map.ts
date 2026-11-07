@@ -12,12 +12,14 @@ export interface StepFileInfo {
   sourcePath: string | null
   /** The leader whose labelled step this node's code runs inside, when merged. */
   coalescedInto: string | null
+  /** The key a function returns this node's value under; null when it is not returned. */
+  exportKey: string | null
   /** The project files the step imports directly, read from its source when the workspace has one, else from its module. */
   uses: string[]
 }
 
 export interface StepMap {
-  /** False for a script workflow, whose source has no manifest. */
+  /** False for a version saved before sources carried a manifest. */
   hasManifest: boolean
   byNode: ReadonlyMap<string, StepFileInfo>
   /** A step's file — its source or its module — → the steps it belongs to (usually one). */
@@ -81,9 +83,10 @@ export function buildStepMap(input: BuildInput): StepMap {
       filePath,
       sourcePath,
       coalescedInto: entry?.coalescedInto ?? null,
+      exportKey: entry?.exportKey ?? null,
       uses: read === null ? [] : importsFor(read),
     })
-    for (const path of [filePath, sourcePath]) {
+    for (const path of new Set([filePath, sourcePath])) {
       if (path !== null) byFile.set(path, [...(byFile.get(path) ?? []), nodeId])
     }
   }

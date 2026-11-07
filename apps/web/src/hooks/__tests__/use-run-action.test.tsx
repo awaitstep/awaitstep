@@ -36,7 +36,7 @@ const running = {
   createdAt: '2026-11-05T14:00:00.000Z',
 } as TestSessionState['session']
 
-const STEP = { path: 'nodes/validate_order.ts', source: 'export default async function f() {}' }
+const STEP = { path: 'steps/validate-order.ts', source: 'export default async function f() {}' }
 const LIB = { path: 'lib/charge.ts', source: 'export const x = 1' }
 
 let focus: () => void

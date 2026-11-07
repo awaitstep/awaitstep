@@ -28,6 +28,32 @@ describe('computeVarNames', () => {
     expect(names.get('d')).toBe('Steps')
   })
 
+  it('keeps a node called like a JavaScript keyword from becoming `const class =`', () => {
+    const names = computeVarNames([
+      { id: 'a', name: 'class' },
+      { id: 'b', name: 'return' },
+      { id: 'c', name: 'Return' },
+    ])
+    expect(names.get('a')).toBe('class_node')
+    expect(names.get('b')).toBe('return_node')
+    // Case matters to the language: `Return` is a fine identifier.
+    expect(names.get('c')).toBe('Return')
+  })
+
+  it('keeps a node called like a runtime global from shadowing it inside its own module', () => {
+    // A module's function is named after the step: `function fetch() { await fetch() }` recurses.
+    const names = computeVarNames([
+      { id: 'a', name: 'fetch' },
+      { id: 'b', name: 'Response' },
+      { id: 'c', name: 'console' },
+      { id: 'd', name: 'response' },
+    ])
+    expect(names.get('a')).toBe('fetch_node')
+    expect(names.get('b')).toBe('Response_node')
+    expect(names.get('c')).toBe('console_node')
+    expect(names.get('d')).toBe('response')
+  })
+
   it('never hands two nodes the same name, whatever their names spell', () => {
     const names = computeVarNames([
       { id: 'a', name: 'q' },

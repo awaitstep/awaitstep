@@ -1,5 +1,6 @@
 import type { ArtifactIR, WorkflowNode } from '@awaitstep/ir'
 import { contentHash, loadArtifact, stepSourcePath } from '@awaitstep/ir'
+import { normalizeStepModules } from '@awaitstep/codegen'
 import type { SourceFile, WorkflowFull } from '../api-client'
 import type { Problem } from './problems'
 
@@ -123,7 +124,10 @@ export function loadVersionDocument(
 ): LoadedVersion | null {
   if (!full?.version || full.graphHash === null || typeof full.version.ir !== 'string') return null
   const result = loadArtifact(full.version.ir)
-  return result.ok ? { doc: result.value, graphHash: full.graphHash } : null
+  // A version saved before steps were modules opens as modules here as on
+  // the canvas: the file shown, the draft's base hash and the document a save
+  // patches all agree, and the next save stores the module form.
+  return result.ok ? { doc: normalizeStepModules(result.value), graphHash: full.graphHash } : null
 }
 
 /**

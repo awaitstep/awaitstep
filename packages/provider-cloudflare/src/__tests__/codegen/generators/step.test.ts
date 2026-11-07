@@ -19,11 +19,26 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
 }
 
 describe('generateStep', () => {
-  it('generates a basic step with return', () => {
+  it('calls the step’s module and keeps its value', () => {
     const code = generateStep(makeNode())
-    expect(code).toContain('flow.step("step-1"')
-    expect(code).toContain('return { done: true };')
-    expect(code).toContain('const step_1 =')
+    expect(code).toBe(
+      'const step_1 = await flow.step("step-1", (ctx) => $step_1({ env, event, inputs: {}, step, ctx }));',
+    )
+  })
+
+  it('adds the step’s code to the bundle as its module, verbatim once in module form', () => {
+    const moduleCtx = { ...ctx, files: [] as typeof ctx.files }
+    moduleCtx.addFile = (file) => moduleCtx.files.push(file)
+    generateStepImpl(makeNode({ data: { code: 'const x = 1;\nreturn x + 1;' } }), moduleCtx)
+    expect(moduleCtx.files).toEqual([
+      {
+        path: 'steps/step-1.ts',
+        role: 'module',
+        binding: '$step_1',
+        source:
+          'export default async function step_1({ env, event, inputs, step, ctx }) {\n  const x = 1;\n  return x + 1;\n}\n',
+      },
+    ])
   })
 
   it('omits variable assignment when no return', () => {
@@ -79,14 +94,14 @@ describe('generateStep', () => {
 
   it('omits config when not provided', () => {
     const code = generateStep(makeNode())
-    expect(code).toMatch(/flow\.step\("step-1", async/)
+    expect(code).toMatch(/flow\.step\("step-1", \(ctx\) =>/)
   })
 
   it('treats a cleared retry delay as no retry policy, like a cleared timeout', () => {
     const code = generateStep(
       makeNode({ data: { code: 'return 1;', retryDelay: '', timeout: '' } }),
     )
-    expect(code).toMatch(/flow\.step\("step-1", async/)
+    expect(code).toMatch(/flow\.step\("step-1", \(ctx\) =>/)
     expect(code).not.toContain('retries')
   })
 
@@ -116,25 +131,6 @@ describe('generateStep', () => {
     expect(code).not.toContain('fast')
   })
 
-  it('preserves multiline code', () => {
-    const code = generateStep(
-      makeNode({
-        data: { code: 'const x = 1;\nreturn x + 1;' },
-      }),
-    )
-    // The nested scope indents the body but preserves it.
-    expect(code).toMatch(/return await \(async \(\) => \{\n\s+const x = 1;\n\s+return x \+ 1;/)
-  })
-
-  it('gives the body its own scope so a declaration named ctx does not collide', () => {
-    const code = generateStep(makeNode({ data: { code: 'const ctx = 1;\nreturn ctx;' } }))
-    // The attempt is the outer callback's parameter; the body is a nested
-    // arrow, so `const ctx` shadows it instead of redeclaring it.
-    expect(code).toContain('async (ctx) => {')
-    expect(code).toContain('return await (async () => {')
-    expect(code).toContain('const ctx = 1;')
-  })
-
   describe('module inputs', () => {
     it('does not destructure an upstream name the body declares itself', () => {
       // A body that declares `const data` would otherwise redeclare the
@@ -161,8 +157,7 @@ describe('generateStep', () => {
       // A function's steps run through the in-request host, so the emitter
       // has one shape for both kinds; raw emission is the `inline` flag's.
       const code = generateStep(makeNode())
-      expect(code).toContain('flow.step("step-1"')
-      expect(code).toContain('return await (async () => {')
+      expect(code).toContain('flow.step("step-1", (ctx) => $step_1(')
       expect(generateStep(makeNode({ data: { code: 'return 1;', inline: true } }))).toBe(
         'return 1;',
       )
@@ -195,5 +190,17 @@ describe('generateStep', () => {
       const code = generateStep(makeNode({ data: { code: 'return 1;', inline: true } }), 'script')
       expect(code).toBe('return 1;')
     })
+  })
+})
+
+describe('two steps on one file', () => {
+  it('is refused with both bindings named, never a silently missing module', () => {
+    const moduleCtx = { ...ctx, files: [] as typeof ctx.files }
+    moduleCtx.addFile = (file) => moduleCtx.files.push(file)
+    generateStepImpl(makeNode({ id: 'a.b', name: 'First' }), moduleCtx)
+    expect(moduleCtx.files.map((f) => f.path)).toEqual(['steps/a_b-108bf5.ts'])
+    expect(() =>
+      generateStepImpl(makeNode({ id: 'a_b-108bf5', name: 'Second' }), moduleCtx),
+    ).toThrow('Two steps map to the same file steps/a_b-108bf5.ts ($a_b and $a_b_108bf5)')
   })
 })

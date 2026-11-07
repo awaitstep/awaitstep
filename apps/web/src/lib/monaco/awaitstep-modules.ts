@@ -20,4 +20,19 @@ ${RUNTIME_MODULE_SOURCE}
 declare module '#awaitstep/cloudflare' {
 ${CLOUDFLARE_PRIMITIVES_SOURCE}
 }
+
+declare module '#awaitstep/function' {
+  /** The function's bindings and declared env vars. */
+  export interface Env {}
+  /** Runs the node graph with the request's payload; resolves to the returned steps by key. */
+  export function runGraph(env: Env, event: { payload: unknown }): Promise<Record<string, unknown>>
+}
+
+declare module '#awaitstep/workflow' {
+  export const AWAITSTEP_RETENTION: { successRetention?: string | number; errorRetention?: string | number }
+  /** Starts an instance of this workflow with \`params\` as its event payload. */
+  export function startWorkflow(env: unknown, params: unknown): Promise<{ instanceId: string }>
+  /** The status of an instance, or null when there is none by that id. */
+  export function workflowStatus(env: unknown, instanceId: string): Promise<unknown>
+}
 `

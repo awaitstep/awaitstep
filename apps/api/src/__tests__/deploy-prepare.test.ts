@@ -128,10 +128,10 @@ describe('prepareDeploy', () => {
     if (isDeployError(prepared)) return
 
     expect(generated).toHaveLength(1)
-    const entry = prepared.bundle.files.find((f) => f.path === prepared.bundle.entry)!
-    expect(entry.source).toContain('AWAITSTEP_RETENTION')
-    expect(entry.source).toContain('1 day')
-    expect(entry.source).toContain('2 days')
+    const workflowModule = prepared.bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!
+    expect(workflowModule.source).toContain('export const AWAITSTEP_RETENTION')
+    expect(workflowModule.source).toContain('1 day')
+    expect(workflowModule.source).toContain('2 days')
     // And the config travelled with the generate, not only with the deploy.
     const options = generated[0]!.config?.options as { deploymentConfig?: unknown }
     expect(options.deploymentConfig).toMatchObject({
@@ -149,8 +149,8 @@ describe('prepareDeploy', () => {
       connectionId: 'conn-1',
     })
     if (isDeployError(prepared)) throw new Error(prepared.error)
-    const entry = prepared.bundle.files.find((f) => f.path === prepared.bundle.entry)!
-    expect(entry.source).toContain('7 days')
+    const workflowModule = prepared.bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!
+    expect(workflowModule.source).toContain('7 days')
   })
 
   it('reads the version row once when a version is named', async () => {

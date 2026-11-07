@@ -1,8 +1,8 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { resolveExpressions, scanExpressions } from '@awaitstep/ir'
+import { RESERVED_EXPRESSION_REFS, resolveExpressions, scanExpressions } from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver, StepKind } from '@awaitstep/codegen'
 import type { GenerationContext, GeneratorLookup } from '@awaitstep/codegen'
-import { GenerateInputError, inlineGenerationContext, withoutComments } from '@awaitstep/codegen'
+import { GenerateInputError, childContext } from '@awaitstep/codegen'
 import {
   generateCustomNode,
   generateCustomNodeModule,
@@ -110,11 +110,20 @@ export function generateNodeCode(
   mode: GenerateMode = 'workflow',
   generators: GeneratorLookup = builtinGenerators,
 ): string {
-  // Container children always inline (see inlineGenerationContext): their
-  // code depends on container-scope bindings and text post-processing.
-  const childCtx = CONTAINER_TYPES.has(node.type) ? inlineGenerationContext(ctx) : ctx
-  const recurse = (n: WorkflowNode, ir2: WorkflowIR) =>
-    generateNodeCode(n, ir2, childCtx, templateResolver, classDefinitions, mode, generators)
+  // A container's children are modules like any step; the child context
+  // marks the block and carries the container's bindings (a loop's item,
+  // a catch arm's error) that a generator may add through `override`.
+  const childCtx = CONTAINER_TYPES.has(node.type) ? childContext(ctx) : ctx
+  const recurse = (n: WorkflowNode, ir2: WorkflowIR, override?: GenerationContext) =>
+    generateNodeCode(
+      n,
+      ir2,
+      override ?? childCtx,
+      templateResolver,
+      classDefinitions,
+      mode,
+      generators,
+    )
 
   const builtin = generators.get(node.type)
   if (builtin) {
@@ -124,9 +133,9 @@ export function generateNodeCode(
   if (templateResolver) {
     const template = templateResolver.getTemplate(node.type, node.provider)
     if (template) {
-      // Scripts stay single-file; container children arrive with an inline
-      // ctx, so only top-level workflow custom nodes become modules.
-      if (ctx.emitModules && mode === 'workflow') {
+      // Scripts stay single-file; a container child's template code stays
+      // in its block, so only top-level workflow custom nodes become modules.
+      if (ctx.emitModules && mode === 'workflow' && !ctx.inContainer) {
         return generateCustomNodeModule(node, template, ctx)
       }
       if (classDefinitions) {
@@ -154,7 +163,13 @@ export function resolveNodeExpressions(
   node: WorkflowNode,
   varNameFor: (nodeId: string) => string,
 ): WorkflowNode {
-  const resolve = (value: string) => resolveExpressions(value, varNameFor)
+  // Inside a step module an earlier node's value arrives as `inputs.<var>`
+  // (the module reads it, the call site binds it); everywhere else — an
+  // inline step, a template's fields — it is the bare variable in scope.
+  const asModule = node.type === 'step' && node.data.inline !== true
+  const refFor = (ref: string): string =>
+    asModule && !RESERVED_EXPRESSION_REFS.has(ref) ? `inputs.${varNameFor(ref)}` : varNameFor(ref)
+  const resolve = (value: string) => resolveExpressions(value, refFor)
   const resolvedData: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(node.data)) {
     if (typeof value === 'string') {
@@ -189,44 +204,6 @@ export function detectKind(part: string, label: string): StepKind | undefined {
   }
   if (part.includes(`flow.waitForEvent("${label}"`)) return 'waitForEvent'
   return undefined
-}
-
-/**
- * The call a step module is invoked with, as `emitModuleFile` emits it. Only
- * this exact shape is rewritten below: an `inputs: { … }` inside a person's
- * own code — an inline step, a request body — is theirs.
- */
-const MODULE_CALL = /\$([A-Za-z0-9_]+)\(\{ env, event, inputs: \{ ([^}]*) \}, step, ctx \}\)/g
-
-/**
- * Drops from every generated step call's `inputs: { … }` the names nothing
- * binds in the body. A module asks for an upstream var when its code
- * mentions the word — which a string or a property name can do — but only
- * a var declared at the call site (`const X =`, a `let X`, or a name the
- * caller binds otherwise, `bound`) can be passed; an unbound one would be a
- * ReferenceError on every request. The module's own `const { X } = inputs`
- * then reads undefined, which is what a spurious match deserves. The
- * declaration scan ignores comments.
- */
-export function pruneUndeclaredInputs(body: string, bound: Iterable<string> = []): string {
-  const declared = new Set<string>(bound)
-  const code = withoutComments(body)
-  for (const match of code.matchAll(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=/g)) {
-    declared.add(match[1]!)
-  }
-  for (const match of code.matchAll(
-    /\blet\s+([A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*)\s*;/g,
-  )) {
-    for (const name of match[1]!.split(',')) declared.add(name.trim())
-  }
-  return body.replace(MODULE_CALL, (_whole, moduleVar: string, list: string) => {
-    const kept = list
-      .split(',')
-      .map((name) => name.trim())
-      .filter((name) => declared.has(name))
-    const inputs = kept.length > 0 ? `{ ${kept.join(', ')} }` : '{}'
-    return `$${moduleVar}({ env, event, inputs: ${inputs}, step, ctx })`
-  })
 }
 
 /** Columns a line of generated code may take once indented into its function. */

@@ -97,20 +97,32 @@ describe('test session routes', () => {
       const res = await start(app)
       const { session } = (await res.json()) as { session: { id: string; files: unknown } }
 
-      expect(session.files).toEqual({ 'lib/a.ts': 'hash-a', 'lib/b.ts': 'hash-b' })
+      expect(session.files).toEqual({
+        'lib/a.ts': 'hash-a',
+        'lib/b.ts': 'hash-b',
+        'handlers/fetch.ts': expect.any(String),
+      })
       const stored = await mockDb.getLiveTestSessionForWorkflow('wf-1', TEST_USER_ID, {
         ...testSessionCutoffs(LIMITS),
       })
-      expect(JSON.parse(stored!.files!)).toEqual({ 'lib/a.ts': 'hash-a', 'lib/b.ts': 'hash-b' })
+      expect(JSON.parse(stored!.files!)).toEqual({
+        'lib/a.ts': 'hash-a',
+        'lib/b.ts': 'hash-b',
+        'handlers/fetch.ts': expect.any(String),
+      })
 
       const again = await app.request(url('/api/workflows/wf-1/test-sessions'))
       const body = (await again.json()) as { session: { files: unknown } }
-      expect(body.session.files).toEqual({ 'lib/a.ts': 'hash-a', 'lib/b.ts': 'hash-b' })
+      expect(body.session.files).toEqual({
+        'lib/a.ts': 'hash-a',
+        'lib/b.ts': 'hash-b',
+        'handlers/fetch.ts': expect.any(String),
+      })
     })
 
-    it('reports an empty manifest for a project with no files', async () => {
+    it('reports only the seeded HTTP entry for a project with no files of its own', async () => {
       const { session } = (await (await start(app)).json()) as { session: { files: unknown } }
-      expect(session.files).toEqual({})
+      expect(session.files).toEqual({ 'handlers/fetch.ts': expect.any(String) })
     })
 
     it('reuses the session a user already has instead of refusing', async () => {

@@ -261,7 +261,7 @@ Scripts run inside an `async fetch(request, env)` handler with no durable runtim
 
 ### Steps in a function
 
-A function's steps are steps: each top-level `step` node becomes its own module, `nodes/<var>.ts`, with the body as a function body — exactly the file a workflow's step gets (a step inside a container runs the same way, inlined in its container's block) — and `runGraph` runs it through the AwaitStep step primitive:
+A function's steps are steps: every `step` node — top level or inside a branch, try, loop, parallel or race arm — is a module, `nodes/<var>.ts`, exactly the file a workflow's step gets, and `runGraph` runs it through the AwaitStep step primitive:
 
 ```ts
 import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";
@@ -285,13 +285,54 @@ export async function runGraph(env: Env, event: { payload: unknown }) {
 }
 ```
 
-The host is the in-request one: a step's body runs right there, in the request, with `ctx.attempt`, the node's retries (`retryLimit` counts retries after the first attempt, as on Cloudflare; delay and backoff between them) and its per-attempt timeout — but nothing is persisted, and **nothing retries or times out unless the node sets it** (a durable workflow step retries by default; a request cannot wait minutes). The host caps what a node can ask for: at most 10 attempts, and at most 30 seconds for any one backoff pause or attempt timeout. A timed-out attempt is abandoned, not aborted: with retries, the next attempt may run while it still does, so a body that is not idempotent should not combine the two. The body's `return` is the step's value; a later step that names it receives it as an input, and `EXPORT_` surfaces it on `graph.*` (below). The `step` object is in scope for parity with a workflow's modules; the canvas refuses a step written inside a step in both kinds, and the host does not police one. `step.sleep`, `step.sleepUntil` and `step.waitForEvent` throw, since a function has no durable runtime to park in. The names the generated body binds or uses — `flow`, `step`, `env`, `event`, `ctx`, `inputs`, `runGraph`, `workflow`, `crypto`, `Date`, `globalThis` and the runtime's own exports — are reserved: a node called one of them gets a `_node` suffix in generated code. A step marked `inline` is the exception: its code is pasted raw into `runGraph`, owns the surrounding scope, and has no retries or timeout.
+The host is the in-request one: a step's body runs right there, in the request, with `ctx.attempt`, the node's retries (`retryLimit` counts retries after the first attempt, as on Cloudflare; delay and backoff between them) and its per-attempt timeout — but nothing is persisted, and **nothing retries or times out unless the node sets it** (a durable workflow step retries by default; a request cannot wait minutes). The host caps what a node can ask for: at most 10 attempts, and at most 30 seconds for any one backoff pause or attempt timeout. A timed-out attempt is abandoned, not aborted: with retries, the next attempt may run while it still does, so a body that is not idempotent should not combine the two. The body's `return` is the step's value; a later step that names it receives it as an input, and the node's **Return this value** switch (`data.export`) puts it in the response (below). The `step` object is in scope for parity with a workflow's modules; the canvas refuses a step written inside a step in both kinds, and the host does not police one. `step.sleep`, `step.sleepUntil` and `step.waitForEvent` throw, since a function has no durable runtime to park in. The names the generated body binds or uses — `flow`, `step`, `env`, `event`, `ctx`, `inputs`, `runGraph`, `workflow`, `_output`, `err`, the runtime's own exports — and the runtime's globals (`fetch`, `console`, `crypto`, `Date`, `Response`, `JSON`, `URL`, …) are reserved: a node called one of them gets a `_node` suffix in generated code. A step marked `inline` is the exception: its code is pasted raw into `runGraph`, owns the surrounding scope, and has no retries or timeout.
 
-`GET /source` therefore lists a function's `nodes/*.ts` modules and `awaitstep/runtime.ts` beside `worker.ts`, and its `manifest.steps` names each top-level node, with `filePath` for the ones that got a module. Other node kinds (`http_request`, `sub_script`, custom nodes, containers) run in a function without a step boundary, as before.
+`GET /source` therefore lists a function's `nodes/*.ts` modules and `awaitstep/runtime.ts` beside `worker.ts`, and its `manifest.steps` names each top-level node and each step inside a container, with `filePath` for every step module. Other node kinds (`http_request`, `sub_script`, custom nodes, containers) run in a function without a step boundary, as before.
 
-### Fetch handler shell
+### A step is a module
 
-The compiled Worker has two parts: an auto-generated `runGraph(env, event)` function that runs the node graph, and a user-editable fetch handler body that decides what to do with its outputs. The default body is:
+A step's `data.code` is the module the worker imports, verbatim:
+
+```ts
+export default async function sample_step({ env, event, inputs, step, ctx }) {
+  // Write your business logic here
+
+  return { result: 'ok' }
+}
+```
+
+- **The function is named after the step**, as code reads the step's name: the display name as an identifier (`Sample Step` → `Sample_Step`, `sample step` → `sample_step`), a reserved name suffixed `_node` (`class` → `class_node`), a repeat suffixed `_2`. A module whose default export is a function of another name, or no function, is refused: `POST /versions` answers `400 { "error": "Invalid IR", "details": [{ "nodeId", "path": "nodes.<id>.data.code", "message": "The function must be named `sample_step`, …" }] }`, and the canvas says the same under the editor. Renaming a step on the canvas renames the function when it still carried the old name.
+- **Earlier steps are read from `inputs`**: `inputs.fetch_user.id`, `inputs?.x`, `inputs["x"]`, `const { fetch_user } = inputs;`, or a parameter `{ inputs: { fetch_user } }`. The worker passes exactly the upstream values the module reads and the call site can bind — every earlier step in the same arm or an enclosing one, and a step inside another arm only when a function returns it (it is hoisted); a join of two arms and a `then` continuation run at the top level. A module that uses `inputs` whole (`...inputs`, `helper(inputs)`, a rest element, a renamed parameter) receives every value in scope. A bare upstream name is not in scope. A `{{ step.path }}` expression inside a step's code resolves to `inputs.<var>.path`.
+- **A container binds through `inputs` too**: a loop body step reads `inputs.<itemVar>` and `inputs.index`; a catch arm step reads `inputs.error`. A container's binding wins over an earlier step of the same name. Whatever a step **directly in** a loop's body returns becomes the loop's value — the last one wins, so `return inputs.item.match ? inputs.item : undefined` yields the last match; a step nested deeper (in a branch inside the body) is scoped to its own block and gives the loop no value.
+- **A loop's item name is a plain identifier**: `itemVar` must be an identifier that is not a keyword and not `env`, `event`, `inputs`, `step`, `ctx` or `index` (it is a binding in generated code and the key a body step reads from `inputs`); `POST /versions` answers `400 Invalid IR` otherwise, naming `nodes.<id>.data.itemVar`. A step's code is capped at 250,000 characters.
+- **A step is not named after a global.** The function would shadow it inside its own body (`function fetch() { await fetch() }` calls itself), so a step called `fetch`, `Response`, `console`, `JSON`, `URL` and the other runtime globals gets `_node` (`fetch_node`), as a keyword does.
+- **A body is still accepted.** Code without `export default` (an older version, an older client, an agent writing statements) is wrapped into the module on save and on load — imports to the top, `const { … } = inputs;` for the earlier steps and the container bindings (`item`, `index: _loop_i`, `error: err`) it named bare — so the version is stored in module form from its next save and generates as it always did. A body that declares one of the module's own parameter names (`const ctx = …`) runs nested inside the function, so the declaration cannot clash. Re-posting an old body-shaped document unchanged is still a no-op save.
+- **Inline is the exception**: `inline: true` keeps raw statements pasted into the surrounding scope, no signature, no module; an inline step holding a module is refused.
+- `event.payload` is the request body and `ctx.attempt` the attempt number; `step` is the step adapter.
+
+### The HTTP entry: `handlers/fetch.ts`
+
+A function's bundle has three parts: the generated graph module `awaitstep/function.ts` (its `Env`, `runGraph(env, event)` and the classes it calls), the step modules at `steps/<id>.ts`, and the Cloudflare bootstrap `worker.ts`, which imports the graph module and the handler modules and is imported by nothing. The HTTP entry is a project file, `handlers/fetch.ts`, seeded on the function's first save (a workflow gets one too) when the document brings no handler file and no legacy trigger code — written against AwaitStep's handler contract, never Cloudflare's:
+
+```ts
+import { runGraph } from '#awaitstep/function'
+import type { FetchContext } from '#awaitstep/runtime'
+
+export default async function ({ request, env }: FetchContext<Env>): Promise<Response> {
+  try {
+    if (request.method !== 'POST') {
+      return new Response(null, { status: 200 })
+    }
+    const params = await request.json().catch(() => undefined)
+    const graph = await runGraph(env, { payload: params })
+    return Response.json(graph)
+  } catch (error) {
+    return Response.json({ message: error.message }, { status: 500 })
+  }
+}
+```
+
+`FetchContext` is `{ request, env, execution }` — `execution.waitUntil(promise)` keeps work alive after the response. A workflow's entry imports `startWorkflow(env, params)` and `workflowStatus(env, instanceId)` from `#awaitstep/workflow` instead. A version saved with no handler file still generates, with this same logic inline in `worker.ts`:
 
 ```js
 try {
@@ -303,9 +344,6 @@ try {
 
   const graph = await runGraph(env, event)
 
-  // ▼ everything below is yours — change the response, add error
-  // handling, branch on request shape, etc. Available outputs are on
-  // `graph.*` (one entry per step that returns a value).
   return Response.json(graph)
 } catch (error) {
   return Response.json({ message: error.message }, { status: 500 })
@@ -316,17 +354,23 @@ Override it by setting `triggerCode` on the workflow (`PATCH /workflows/:id`). Y
 
 `event.payload` mirrors the workflow runtime convention so node code referencing `event.payload.X` works unchanged whether deployed as a workflow or a script.
 
-### `EXPORT_` prefix — opt-in graph outputs
+### Returning values from a function
 
-By default, **no** node outputs surface on `graph.*` — `runGraph` returns an empty object. To expose a step's return value, prefix the node's display name with `EXPORT_`:
+By default **no** node's value is in the response — `runGraph` returns an empty object. A step is returned when its node says so:
 
-| Node display name   | Surfaces on graph as | Notes                                                                                                                |
-| ------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `Fetch User`        | (not exported)       | Result still flows to downstream nodes via `{{ Fetch_User.result }}` references; just absent from `graph`.           |
-| `EXPORT_FetchUser`  | `graph.FetchUser`    | Prefix is stripped — the variable name is the clean identifier.                                                      |
-| `EXPORT_DirectMail` | `graph.DirectMail`   | Works for nodes nested inside containers (`branch`, `parallel`, `try_catch`); the value is hoisted out of the block. |
+| Node data                                           | Response              | Notes                                                                                                                                      |
+| --------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `{ code: "…" }`                                     | not returned          | The value still reaches later steps that name it; a step nothing names runs as a bare `await …;`.                                          |
+| `{ code: "…", export: true }`                       | `graph.<var>`         | `<var>` is the node's variable name — its display name as an identifier (`Fetch User` → `Fetch_User`).                                     |
+| `{ code: "…", export: true, exportAs: "user" }`     | `graph.user`          | An identifier (`/^[A-Za-z_$][A-Za-z0-9_$]*$/`); anything else falls back to `<var>`. Two nodes asking for one key get `user` and `user_2`. |
+| a returned step inside a `branch`/`try_catch`/… arm | `graph.<key>`         | The value is hoisted out of the block (`let <var>;` at the top) and is in scope for the steps after the container.                         |
+| `http_request`, `sub_workflow`, `sub_script`        | `graph.<var>`, always | Their whole purpose is a value, so they need no switch.                                                                                    |
 
-A node with no `EXPORT_` prefix that isn't referenced anywhere else is dropped entirely (`await ...;` instead of `const X = await ...;`) — keeps the generated code lean. An `inline` step has no return value to export; it surfaces a value by declaring `const <var> = …` itself, where `<var>` is the node's variable name.
+On the canvas the switch is **Return this value** in a step's Execution section, with the key beside it and a **Response key** field when on; the Code view's step inspector shows **Returned as** `<key>`. The step manifest (`GET /workflows/:id/source` → `manifest.steps[].exportKey`) carries the key actually used, for the top-level nodes it lists (a returned child inside a container arm is hoisted and returned, but has no manifest entry of its own). A switched-on step whose body has no `return` is not returned — the canvas says so.
+
+The legacy form — a display name starting with `EXPORT_` — still returns the node (the prefix is stripped from the variable name and key) and the canvas shows such a node's switch as on and locked; rename the node to change it. An `inline` step has no return value to return; it surfaces a value by declaring `const <var> = …` itself, where `<var>` is the node's variable name.
+
+**What a step body can read.** `inputs.<var>` for the earlier steps that hold a value (the canvas lists them under the editor): every earlier step in the same arm or an enclosing one, and a step inside another arm only when it is returned, since that hoists it; `event.payload` (the request body); and `ctx.attempt`. A plain child of another arm is scoped to that arm, as is a sibling arm's. A join of two arms, like a `then` continuation, runs at the top level. The same rule binds a workflow's step inputs, except that a workflow hoists nothing.
 
 ### Invocation
 
@@ -1016,6 +1060,8 @@ While the latest version has never been deployed on any account, a save replaces
 (`200`); once it has gone out anywhere — live there now or since taken down — the save is a
 new version (`201`).
 
+A step's `data.code` is a module whose default-exported function is named after the step (see [A step is a module](#a-step-is-a-module)); a body (statements) is accepted and wrapped into the module before it is stored, and a module with a function of another name, or an inline step holding a module, fails validation with a 400 that names the node.
+
 Node ids (and edge `source`/`target`) must be non-empty and free of control characters (U+0000-U+001F, U+007F-U+009F, U+2028, U+2029); any other text is accepted. A violation fails validation with a 400.
 
 The same rule applies to an IR that is already stored: reading its source (`GET /workflows/:workflowId/source`), saving a version of it and deploying it all fail with a 400 until the id is renamed. The dashboard canvas still opens such a version, so the id can be fixed there.
@@ -1290,7 +1336,7 @@ paths. Nothing touches a disk until deploy, when every file is written beside
 the generated code.
 
 **Step code is not a project file.** The Code view shows every step node's
-body as `steps/<node id>.ts`, editable, but that is a view of the node's
+module as `steps/<node id>.ts`, editable, but that is a view of the node's
 `data.code` in the IR: it is never stored in the file table, never listed by
 `GET /project` or `GET /source`, and never written with `PUT /files`. Editing
 it saves a version (`POST /versions`), exactly as the canvas does. The
@@ -1314,15 +1360,13 @@ subpath-import prefix, so the same code runs under Node tooling too.
 `handlers/`, each with a default export, and the filename is the only fact
 the deploy reads from them:
 
-| File                        | Export                                     | Declares                                                  |
-| --------------------------- | ------------------------------------------ | --------------------------------------------------------- |
-| `handlers/fetch.ts`         | `(request, env, ctx) => Promise<Response>` | the HTTP entry (the default scaffold is used when absent) |
-| `handlers/queue/<queue>.ts` | `(batch, env, ctx) => Promise<void>`       | a consumer of `<queue>` (lowercase letters, digits, `-`)  |
-| `handlers/scheduled.ts`     | `(controller, env, ctx) => Promise<void>`  | the handler for every cron trigger of the workflow        |
+| File                        | Export (types from `#awaitstep/runtime`)                                            | Declares                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `handlers/fetch.ts`         | `({ request, env, execution }: FetchContext<Env>) => Promise<Response>`             | the HTTP entry (seeded on the first save; the inline default otherwise) |
+| `handlers/queue/<queue>.ts` | `({ batch, env, execution }: QueueContext<Env>) => Promise<void>`                   | a consumer of `<queue>` (lowercase letters, digits, `-`)                |
+| `handlers/scheduled.ts`     | `({ cron, scheduledTime, env, execution }: ScheduledContext<Env>) => Promise<void>` | the handler for every cron trigger of the workflow                      |
 
-The generated `worker.ts` imports whichever exist and wires them into its
-`export default`; a script also exports `runGraph` so `handlers/fetch.ts`
-can `import { runGraph } from '#app/worker'`. Nothing is parsed out of
+The contract is AwaitStep's, so a handler deploys unchanged to any provider: every context carries `execution`, whose `waitUntil(promise)` keeps work alive after the handler returns; a queue batch is `{ queue, messages: [{ id, body }] }` and a handler that throws has the batch retried; a schedule is `{ cron, scheduledTime }`. Converting an annotated `handlers.ts` keeps the names its bodies were written against: an `@fetch` declared as `(req, env, context)` gets `const req = request; const context = execution;`, a body using `ctx` gets `const ctx = execution;`, a scheduled body using `controller` gets `const controller = { cron, scheduledTime };` — each only when used. The generated `worker.ts` imports whichever modules exist and adapts what the Cloudflare runtime hands it into these contexts. A handler imports what the graph exports from the generated graph module — `runGraph` from `#awaitstep/function` in a function; `AWAITSTEP_RETENTION`, `startWorkflow` and `workflowStatus` from `#awaitstep/workflow` in a workflow — which imports nothing of the project, so no import cycle forms. `worker.ts` exports nothing but its handlers; a file still importing `#app/worker` no longer resolves and must import from the graph module. Nothing is parsed out of
 code: the queue binding, cron expressions (the workflow's cron trigger
 plus `deploymentConfig.cronTriggers`) and per-queue settings
 (`deploymentConfig.queueConsumers`) stay declared. A `handlers/scheduled.ts`

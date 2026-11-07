@@ -1,3 +1,4 @@
+import { normalizeStepModules } from '@awaitstep/codegen'
 import { loadArtifact } from '@awaitstep/ir'
 import type { WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
 import { secretDisplayName } from './env-var-parser'
@@ -130,7 +131,9 @@ export function buildWorkflowStoreState(
     if (raw !== null && typeof raw === 'object') {
       const loaded = loadArtifact(raw)
       if (loaded.ok) {
-        irNodes = loaded.value.nodes
+        // A version saved before steps were modules opens as modules, so the
+        // editor shows the function and the next save stores it.
+        irNodes = normalizeStepModules(loaded.value).nodes
         irEdges = loaded.value.edges
       } else {
         const legacy = raw as {

@@ -36,6 +36,8 @@ export interface GeneratedFile {
   /** Transpiled JavaScript, populated by the deploy pipeline before upload. */
   compiled?: string
   role: GeneratedFileRole
+  /** For a module the entry imports: the default-import binding (`$fetch_user`). */
+  binding?: string
 }
 
 /**

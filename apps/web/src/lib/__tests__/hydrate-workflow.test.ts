@@ -70,6 +70,35 @@ describe('nodeToSelectOnce', () => {
 })
 
 describe('buildWorkflowStoreState', () => {
+  it('opens a version saved with step bodies as step modules, reading earlier steps from inputs', () => {
+    const version: WorkflowVersion = {
+      ...baseVersion,
+      ir: JSON.stringify({
+        ...(JSON.parse(baseVersion.ir) as object),
+        nodes: [
+          ...(JSON.parse(baseVersion.ir) as { nodes: unknown[] }).nodes.slice(0, 1),
+          {
+            id: 'n2',
+            type: 'step',
+            name: 'Step 2',
+            version: '1.0.0',
+            provider: 'cloudflare',
+            data: { code: 'return Step_1 + 1;' },
+          },
+        ],
+      }),
+    }
+    const state = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    const nodes = state.nodes as { data: { irNode: { data: { code: string } } } }[]
+    const codes = nodes.map((n) => n.data.irNode.data.code)
+    expect(codes[0]).toBe(
+      'export default async function Step_1({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n',
+    )
+    expect(codes[1]).toBe(
+      'export default async function Step_2({ env, event, inputs, step, ctx }) {\n  const { Step_1 } = inputs;\n  return Step_1 + 1;\n}\n',
+    )
+  })
+
   it('maps server workflow fields to metadata', () => {
     const result = buildWorkflowStoreState(baseWorkflow, null, 3, false)
     expect(result.metadata).toEqual({

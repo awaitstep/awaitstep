@@ -32,6 +32,13 @@ export interface GenerationContext {
    * store, since container glue references their vars invisibly.
    */
   isOutputConsumed?(nodeId: string): boolean
+  /** True inside a container's arm: the node is emitted in a block, not at the top level. */
+  readonly inContainer?: boolean
+  /**
+   * What the enclosing container binds for its children, as `inputs` key →
+   * expression at the call site: a loop's item and index, a catch arm's error.
+   */
+  readonly blockInputs?: Readonly<Record<string, string>>
 }
 
 export interface GenerationContextOptions {
@@ -52,15 +59,21 @@ export function computeVarNames(nodes: { id: string; name: string }[]): Map<stri
 }
 
 /**
- * A view of `ctx` with module emission disabled, sharing the same var names
- * and file sink. Container generators (loop, try/catch, branch, …) use it for
- * their children: container bodies introduce lexical bindings (loop item
- * variables, `err`, `_output`) and post-process their children's emitted text
- * (step-name suffixing, output capture), none of which survive extraction
- * into a standalone module — so container children always inline.
+ * The context a container hands its children: the same var names and file
+ * sink, the container's bindings added to `inputs`, and no leaning — the
+ * container's glue (a loop's value capture, a parallel's results) reads the
+ * children's vars outside anything the consumption scan can see.
  */
-export function inlineGenerationContext(ctx: GenerationContext): GenerationContext {
-  return ctx.emitModules ? { ...ctx, emitModules: false } : ctx
+export function childContext(
+  ctx: GenerationContext,
+  blockInputs: Readonly<Record<string, string>> = {},
+): GenerationContext {
+  return {
+    ...ctx,
+    inContainer: true,
+    blockInputs: { ...ctx.blockInputs, ...blockInputs },
+    isOutputConsumed: () => true,
+  }
 }
 
 export function createGenerationContext(

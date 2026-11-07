@@ -5,10 +5,13 @@ import type {
   GeneratedFile,
   GeneratorLookup,
   StepManifest,
+  StepManifestEntry,
   TemplateResolver,
 } from '@awaitstep/codegen'
 import {
   topologicalSort,
+  upstreamVarNames,
+  normalizeStepModules,
   sanitizeIdentifier,
   computeVarNames,
   contentHash,
@@ -22,6 +25,9 @@ import {
 } from '@awaitstep/codegen'
 import { collectBranchInlineTargets } from './generators/branch.js'
 import { groupChain } from './coalesce.js'
+import { graphModuleNames } from './graph-module-names.js'
+import { assertStepPathsFree, moduleImportLine, modulePathOf } from './module-files.js'
+import { boundVarNames } from './export-plan.js'
 import { buildOutputConsumption } from './consumption.js'
 import { generateStepGroup } from './generators/step.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
@@ -38,7 +44,6 @@ import {
   generateNodeCode,
   resolveNodeExpressions,
   detectKind,
-  pruneUndeclaredInputs,
   wrapModuleCalls,
 } from './generate-helpers.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
@@ -47,7 +52,6 @@ import {
   BOOTSTRAP_RUNTIME_IMPORT,
   CLOUDFLARE_HOST_HELPER,
   CLOUDFLARE_PRIMITIVES_IMPORT,
-  FUSED_RUNTIME_IMPORT,
   WORKFLOW_RUNTIME_IMPORT,
   cloudflarePrimitivesModuleFile,
   runtimeModuleFile,
@@ -64,8 +68,7 @@ import { retentionLiteral, type CloudflareRetention } from './retention.js'
  * via `env.WORKFLOW`. Users can replace this code via the workflow's
  * `triggerCode` field.
  */
-export const DEFAULT_TRIGGER_CODE = `// import packages here
-
+export const DEFAULT_TRIGGER_CODE = `
 @fetch function handler(request, env, ctx) {
   try {
     const url = new URL(request.url);
@@ -111,17 +114,16 @@ export interface GenerateOptions {
 }
 
 /**
- * @deprecated Preview-only single-file emitter. The output imports
- * `#awaitstep/runtime` (and `#awaitstep/cloudflare` when it uses a
- * provider-only primitive), so it is **not** deployable on its own — the
- * emitted runtime modules and the worker `imports` map only exist in a
- * bundle. Use {@link generateWorkflowBundle}.
+ * The bundle's entry (`worker.ts`) as a string, for previews and tests — the
+ * bootstrap that imports `awaitstep/workflow.ts`, the step modules and the
+ * runtime. A deployable artifact is the bundle from
+ * {@link generateWorkflowBundle}.
  */
 export function generateWorkflow(
   ir: WorkflowIR,
   templateResolverOrOptions?: TemplateResolver | GenerateOptions,
 ): string {
-  return generateWorkflowInternal(ir, templateResolverOrOptions, false).source
+  return generateWorkflowInternal(ir, templateResolverOrOptions).source
 }
 
 /**
@@ -134,7 +136,8 @@ export function generateWorkflowBundle(
   ir: WorkflowIR,
   templateResolverOrOptions?: TemplateResolver | GenerateOptions,
 ): GeneratedBundle {
-  const { source, files, manifest } = generateWorkflowInternal(ir, templateResolverOrOptions, true)
+  assertStepPathsFree(ir)
+  const { source, files, manifest } = generateWorkflowInternal(ir, templateResolverOrOptions)
   return {
     ...validateBundle({
       entry: 'worker.ts',
@@ -152,7 +155,6 @@ export function generateWorkflowBundle(
 function generateWorkflowInternal(
   ir: WorkflowIR,
   templateResolverOrOptions: TemplateResolver | GenerateOptions | undefined,
-  emitModules: boolean,
 ): { source: string; files: GeneratedFile[]; manifest: StepManifest } {
   const opts: GenerateOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
@@ -171,21 +173,21 @@ function generateWorkflowInternal(
   // Mirror ctx.varName's truthiness fallback so pre-context consumers (the
   // expression resolver, the consumption index) agree with the generators.
   const varNameFor = (nodeId: string): string => names.get(nodeId) || sanitizeIdentifier(nodeId)
-  const upstream = new Map<string, string[]>()
-  if (emitModules) {
-    const acc: string[] = []
-    for (const node of sorted) {
-      upstream.set(node.id, [...acc])
-      const name = names.get(node.id)
-      if (name) acc.push(name)
-    }
-  }
+  // A workflow hoists nothing: a container child's value stays in its block.
+  const upstream = upstreamVarNames(ir, boundVarNames(ir, names), () => false)
   const inlineTargets = collectBranchInlineTargets(ir)
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
+  // Every step's code in module form first, whatever shape was stored; a
+  // `{{ fetch.ok }}` inside a module then resolves to `inputs.Fetch_data.ok`,
+  // which the call site binds.
+  const normalizedIR = normalizeStepModules(ir)
   const resolvedIR: WorkflowIR = useStateTracking
-    ? { ...ir, nodes: ir.nodes.map((n) => resolveNodeExpressions(n, varNameFor)) }
-    : ir
+    ? {
+        ...normalizedIR,
+        nodes: normalizedIR.nodes.map((n) => resolveNodeExpressions(n, varNameFor)),
+      }
+    : normalizedIR
 
   // Lean stored state (F9): a top-level step whose output nothing consumes
   // returns undefined, shrinking storage-billed state to what's used.
@@ -202,7 +204,7 @@ function generateWorkflowInternal(
     !leanCandidates.has(nodeId) || consumption.isConsumed(nodeId, exclude)
 
   const ctx = createGenerationContext(ir.nodes, {
-    emitModules,
+    emitModules: true,
     upstream,
     isOutputConsumed: (nodeId) => mustStore(nodeId),
   })
@@ -254,7 +256,7 @@ function generateWorkflowInternal(
 
   // `env` is an alias of `flow.env` inside `run`, so user code written against
   // `env.*` keeps working without a regex rewrite of its text.
-  const bodyLines = wrapModuleCalls(pruneUndeclaredInputs(strippedParts.join('\n\n')), 4)
+  const bodyLines = wrapModuleCalls(strippedParts.join('\n\n'), 4)
 
   const allEnvNames = new Set(envVarNames ?? [])
   for (const name of collectEnvRefNames(ir.nodes)) {
@@ -265,6 +267,14 @@ function generateWorkflowInternal(
   for (const classDef of classDefinitions.values()) {
     for (const m of classDef.matchAll(envVarPattern)) {
       allEnvNames.add(m[1])
+    }
+  }
+  // A custom node's module carries its template's class, and with it the
+  // template's `env.X` reads; the Env interface declares them too.
+  for (const file of ctx.files) {
+    if (file.role !== 'module') continue
+    for (const m of file.source.matchAll(envVarPattern)) {
+      allEnvNames.add(m[1]!)
     }
   }
 
@@ -369,29 +379,9 @@ function generateWorkflowInternal(
 
   for (const moduleFile of ctx.files) {
     if (moduleFile.role !== 'module') continue
-    const match = /^nodes\/([A-Za-z0-9_]+)\.ts$/.exec(moduleFile.path)
-    if (!match) {
-      throw new Error(`Generated module has unexpected path: ${moduleFile.path}`)
-    }
-    const base = match[1]!
-    // .js specifier: the deploy pipeline compiles module files to .js paths.
-    workflowImports.push(`import $${base} from "../nodes/${base}.js";`)
+    workflowImports.push(moduleImportLine(moduleFile, '../'))
   }
 
-  // The bootstrap needs the runtime plus trigger-code imports. The single-file
-  // emitter also runs the body inline, so it carries the workflow imports too;
-  // the split bundle keeps those in `awaitstep/workflow.ts`.
-  const bootstrapImportBlock = [
-    'import { WorkflowEntrypoint } from "cloudflare:workers";',
-    ...(emitModules
-      ? [
-          BOOTSTRAP_RUNTIME_IMPORT,
-          'import workflow from "./awaitstep/workflow.js";',
-          'import type { Env } from "./awaitstep/env.js";',
-        ]
-      : [FUSED_RUNTIME_IMPORT, ...new Set(workflowImports)]),
-    ...new Set(entryImports),
-  ].join('\n')
   const workflowImportBlock = [
     WORKFLOW_RUNTIME_IMPORT,
     'import type { Env } from "./env.js";',
@@ -448,13 +438,41 @@ ${cases}
 ${handlerBlocks.join('\n')}
 };${wiring && wiring.reexports.length > 0 ? `\n\n${wiring.reexports.join('\n')}` : ''}`
 
-  // Handler modules import this from `#app/worker`, so the entry exports it
-  // when one exists.
-  const retentionConst = `${wiring ? 'export ' : ''}const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};`
+  // The bootstrap needs the runtime, the workflow module and the trigger
+  // code's imports. Nothing imports the worker, so it takes from the workflow
+  // module only what its own code uses: the retention, when the inline
+  // default fetch (or legacy trigger code) creates instances itself.
+  const usesRetention =
+    graphModuleNames(`${moduleCodeBlock}\n${exportDefault}`, ['AWAITSTEP_RETENTION']).length > 0
+  const bootstrapImportBlock = [
+    'import { WorkflowEntrypoint } from "cloudflare:workers";',
+    BOOTSTRAP_RUNTIME_IMPORT,
+    `import workflow${usesRetention ? ', { AWAITSTEP_RETENTION }' : ''} from "./awaitstep/workflow.js";`,
+    'import type { Env } from "./awaitstep/env.js";',
+    ...new Set(entryImports),
+  ].join('\n')
+
+  // The workflow module owns what a handler needs: the retention, and the
+  // two calls an HTTP entry makes. A handler imports `#awaitstep/workflow`;
+  // the module imports nothing of the project, so no cycle forms.
+  const retentionConst = `export const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};`
+  const workflowHelpers = `/** Starts an instance of this workflow with \`params\` as its event payload. */
+export async function startWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
+  const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
+  return { instanceId: instance.id };
+}
+
+/** The status of an instance, or null when there is none by that id. */
+export async function workflowStatus(env: Env, instanceId: string) {
+  const instance = await env.WORKFLOW.get(instanceId).catch(() => null);
+  return instance ? instance.status() : null;
+}`
 
   const workflowSource = `${workflowImportBlock}
 
 ${retentionConst}
+
+${workflowHelpers}
 ${classBlock}
 export default defineWorkflow<Env>({
   id: "${workflowId}",
@@ -475,8 +493,6 @@ ${envFields.join('\n')}
   // workflow module, so they live there too (`classBlock`), not in the entry.
   const workerSource = `${bootstrapImportBlock}
 
-${retentionConst}
-
 ${CLOUDFLARE_HOST_HELPER}
 ${moduleCodeBlock}
 export class ${className} extends WorkflowEntrypoint<Env> {
@@ -488,29 +504,7 @@ export class ${className} extends WorkflowEntrypoint<Env> {
 
 ${exportDefault}
 `
-  const fusedSource = `${bootstrapImportBlock}
-
-interface Env {
-${envFields.join('\n')}
-}
-
-${retentionConst}
-
-${CLOUDFLARE_HOST_HELPER}
-${classBlock}${moduleCodeBlock}
-export class ${className} extends WorkflowEntrypoint<Env> {
-  async run(workflowEvent, hostStep) {
-    const flow = createWorkflowContext({ env: this.env, event: workflowEvent, host: createCloudflareHost(hostStep) });
-    const env = flow.env;
-    const event = flow.event;
-    const step = durableStep(flow);
-${indent(bodyLines, 4)}
-  }
-}
-
-${exportDefault}
-`
-  const source = emitModules ? workerSource : fusedSource
+  const source = workerSource
 
   // Emit the Cloudflare primitive module whenever any shipping source imports
   // it — generated modules, project files, trigger code, inline code. Scanning
@@ -530,14 +524,37 @@ ${exportDefault}
     ),
   )
 
+  // A step inside a container is a module too, run under its own id as
+  // label inside the container's block.
+  const bodyText = bodyParts.join('\n')
+  const nestedSteps: StepManifestEntry[] = resolvedSorted
+    .filter((node) => node.type === 'step' && inlineTargets.has(node.id))
+    .flatMap((node) => {
+      const varName = ctx.varName(node.id)
+      const modulePath = modulePathOf(ctx.files, node, varName)
+      if (modulePath === null) return []
+      // The label is claimed only when the emitted text carries it on a
+      // primitive — a coalesced member runs under its leader's label.
+      const label = stepLabel(node)
+      const labeled =
+        bodyText.includes(`flow.step("${label}"`) || bodyText.includes(`flow.step(\`${label} [`)
+      return [
+        {
+          nodeId: node.id,
+          ...(labeled && { stepName: label, kind: 'do' as const }),
+          varName,
+          filePath: modulePath,
+        },
+      ]
+    })
   const manifest: StepManifest = {
     irHash: contentHash(JSON.stringify(ir)),
     steps: emittedGroups.flatMap((group, i) => {
       const part = bodyParts[i]!
       return group.map((node, j) => {
         const varName = ctx.varName(node.id)
-        const modulePath = `nodes/${varName}.ts`
-        const hasModule = ctx.files.some((f) => f.role === 'module' && f.path === modulePath)
+        const modulePath = modulePathOf(ctx.files, node, varName)
+        const hasModule = modulePath !== null
         // stepName/kind are recorded only when this node's emitted code
         // actually carries its label on a durable primitive: sub-workflow
         // nodes emit derived labels, and drift validation must not demand a
@@ -556,16 +573,15 @@ ${exportDefault}
       })
     }),
   }
+  manifest.steps.push(...nestedSteps)
 
-  const files: GeneratedFile[] = emitModules
-    ? [
-        { path: 'awaitstep/workflow.ts', source: workflowSource, role: 'module' },
-        { path: 'awaitstep/env.ts', source: envSource, role: 'module' },
-        ...ctx.files,
-        ...(usesCloudflarePrimitives ? [cloudflarePrimitivesModuleFile()] : []),
-        runtimeModuleFile(),
-      ]
-    : []
+  const files: GeneratedFile[] = [
+    { path: 'awaitstep/workflow.ts', source: workflowSource, role: 'module' },
+    { path: 'awaitstep/env.ts', source: envSource, role: 'module' },
+    ...ctx.files,
+    ...(usesCloudflarePrimitives ? [cloudflarePrimitivesModuleFile()] : []),
+    runtimeModuleFile(),
+  ]
 
   return { source, files, manifest }
 }

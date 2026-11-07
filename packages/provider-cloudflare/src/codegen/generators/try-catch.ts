@@ -1,12 +1,18 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import type { GenerateMode, GenerationContext } from '@awaitstep/codegen'
+import {
+  CATCH_BINDINGS,
+  CATCH_ERROR_VAR,
+  childContext,
+  type GenerateMode,
+  type GenerationContext,
+} from '@awaitstep/codegen'
 import { prepareContainerContext, inlineChain } from './container-utils.js'
 
 export function generateTryCatch(
   node: WorkflowNode,
   ir: WorkflowIR,
   ctx: GenerationContext,
-  generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  generateNode: (node: WorkflowNode, ir: WorkflowIR, ctx?: GenerationContext) => string,
   mode: GenerateMode = 'workflow',
 ): string {
   const containers = prepareContainerContext(ir)
@@ -22,10 +28,13 @@ export function generateTryCatch(
   const tryTarget = findTarget('try')
   if (tryTarget) lines.push(inlineChain(tryTarget, containers, generateNode, ir, 2, ctx, mode))
 
-  // catch block
-  lines.push('} catch (err) {')
+  // catch block: a step in it reads the caught error as `inputs.error`.
+  lines.push(`} catch (${CATCH_ERROR_VAR}) {`)
   const catchTarget = findTarget('catch')
-  if (catchTarget) lines.push(inlineChain(catchTarget, containers, generateNode, ir, 2, ctx, mode))
+  if (catchTarget) {
+    const catchCtx = childContext(ctx, CATCH_BINDINGS)
+    lines.push(inlineChain(catchTarget, containers, generateNode, ir, 2, ctx, mode, catchCtx))
+  }
 
   // optional finally block
   const finallyTarget = findTarget('finally')

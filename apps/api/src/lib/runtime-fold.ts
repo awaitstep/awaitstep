@@ -1,11 +1,13 @@
 import type { ArtifactIR, EnvDeclaration, ProjectFile, WorkflowRuntime } from '@awaitstep/ir'
 import {
+  HANDLER_FETCH_PATH,
   PACKAGE_MANIFEST_PATH,
   PROJECT_HANDLERS_PATH,
   hasHandlerModules,
   projectHandlerModules,
   projectHandlersSource,
 } from '@awaitstep/ir'
+import { handlerModuleScaffold } from '@awaitstep/provider-cloudflare'
 import type { Workflow } from '@awaitstep/db'
 import { parseDependencies } from './dependencies.js'
 
@@ -51,6 +53,28 @@ export function legacyRuntimeSeeds(
     })
   }
   return seeds
+}
+
+/**
+ * A function or workflow starts with an HTTP entry it can edit: when the
+ * project has no handler module and no legacy trigger code, the first save
+ * seeds `handlers/fetch.ts` with the scaffold the Code view would create —
+ * written against AwaitStep's handler contract, importing the generated
+ * graph module. Returns nothing once any entry exists.
+ */
+export function defaultHandlerSeeds(
+  kind: 'workflow' | 'script',
+  runtime: WorkflowRuntime | undefined,
+  existing: Iterable<string>,
+): ProjectFile[] {
+  const paths = new Set(existing)
+  const modules = projectHandlerModules([...paths].map((path) => ({ path })))
+  if (hasHandlerModules(modules) || runtime?.triggerCode || paths.has(PROJECT_HANDLERS_PATH)) {
+    return []
+  }
+  return [
+    { path: HANDLER_FETCH_PATH, source: handlerModuleScaffold({ kind: 'fetch', target: kind }) },
+  ]
 }
 
 /**

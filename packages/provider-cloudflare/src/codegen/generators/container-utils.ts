@@ -36,11 +36,13 @@ export function indentCode(code: string, spaces: number): string {
 export function inlineChain(
   startId: string,
   containers: ContainerContext,
-  generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  generateNode: (node: WorkflowNode, ir: WorkflowIR, ctx?: GenerationContext) => string,
   ir: WorkflowIR,
   spaces: number,
   ctx: GenerationContext,
   mode: GenerateMode = 'workflow',
+  /** The children's context when the container binds something for them (a catch arm's error). */
+  override?: GenerationContext,
 ): string {
   const chain = collectChain(
     startId,
@@ -53,8 +55,8 @@ export function inlineChain(
   // mode has no step primitives to merge.
   const parts =
     mode === 'workflow'
-      ? emitGroupedChain(chain, ir, ctx, generateNode)
-      : chain.map((n) => generateNode(n, ir))
+      ? emitGroupedChain(chain, ir, ctx, generateNode, override)
+      : chain.map((n) => generateNode(n, ir, override))
   return parts.map((code) => indentCode(code, spaces)).join('\n')
 }
 
@@ -82,7 +84,7 @@ export function generatePromiseContainer(
   ir: WorkflowIR,
   ctx: GenerationContext,
   method: 'allSettled' | 'race',
-  generateNode: (node: WorkflowNode, ir: WorkflowIR) => string,
+  generateNode: (node: WorkflowNode, ir: WorkflowIR, ctx?: GenerationContext) => string,
   mode: GenerateMode = 'workflow',
 ): string {
   const containers = prepareContainerContext(ir)

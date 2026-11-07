@@ -47,6 +47,15 @@ const modifiedIR = {
   ],
 }
 
+/** `modifiedIR`'s step as a save stores it: the body wrapped into its module. */
+const MODIFIED_MODULE =
+  'export default async function Modified({ env, event, inputs, step, ctx }) {\n  return 2;\n}\n'
+
+/** A fresh first save seeds the HTTP entry; these tests are about the other files. */
+function withoutSeededEntry<T extends { path: string }>(files: readonly T[] | undefined): T[] {
+  return (files ?? []).filter((f) => f.path !== 'handlers/fetch.ts')
+}
+
 function url(path: string) {
   return `${path}${path.includes('?') ? '&' : '?'}projectId=${TEST_PROJECT_ID}`
 }
@@ -77,6 +86,175 @@ describe('version routes', () => {
       expect(body.version).toBe(1)
       expect(body.workflowId).toBe('wf-1')
       expect(body.ir).toBeDefined()
+    })
+
+    it('seeds handlers/fetch.ts on the first save, written against the AwaitStep handler contract', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+      expect(res.status).toBe(201)
+      const project = await app.request(url('/api/workflows/wf-1/project'))
+      expect(project.status).toBe(200)
+      const body = (await project.json()) as { files: { path: string }[] }
+      expect(body.files.map((f) => f.path)).toEqual(['handlers/fetch.ts'])
+      const file = await app.request(url('/api/workflows/wf-1/files/handlers/fetch.ts'))
+      const source = ((await file.json()) as { source: string }).source
+      expect(source).toContain(
+        'import { startWorkflow, workflowStatus } from "#awaitstep/workflow";',
+      )
+      expect(source).toContain('import type { FetchContext } from "#awaitstep/runtime";')
+      expect(source).toContain('({ request, env }: FetchContext<Env>)')
+      expect(source).not.toContain('#app/worker')
+      expect(source).not.toContain('ExecutionContext')
+    })
+
+    it('does not seed the entry when the document brings a handler file or legacy trigger code', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ir: {
+            ...validIR,
+            runtime: {
+              files: [
+                { path: 'handlers/fetch.ts', source: 'export default async () => new Response()' },
+              ],
+            },
+          },
+        }),
+      })
+      expect(res.status).toBe(201)
+      const project = await app.request(url('/api/workflows/wf-1/project'))
+      const body = (await project.json()) as { files: { path: string }[] }
+      expect(body.files.map((f) => f.path)).toEqual(['handlers/fetch.ts'])
+      const file = await app.request(url('/api/workflows/wf-1/files/handlers/fetch.ts'))
+      expect(((await file.json()) as { source: string }).source).toBe(
+        'export default async () => new Response()',
+      )
+    })
+
+    it('does not seed the entry when the first save lost its race to another first save', async () => {
+      // Security review round 1 (L6): the seed was decided against an empty
+      // read; another first save (here one with a legacy handlers.ts) landing
+      // between the read and the write must not get an entry beside it.
+      const spy = vi.spyOn(mockDb, 'createVersion').mockImplementationOnce(async () => {
+        spy.mockRestore()
+        const other = await mockDb.createVersion({
+          id: 'v-other',
+          workflowId: 'wf-1',
+          ir: JSON.stringify({
+            ...validIR,
+            runtime: { triggerCode: '@fetch function handler() {}' },
+          }),
+          version: 1,
+        })
+        await mockDb.updateWorkflow('wf-1', { currentVersionId: other.id })
+        await mockDb.upsertWorkflowFile({
+          id: 'f-legacy',
+          workflowId: 'wf-1',
+          path: 'handlers.ts',
+          source: '@fetch function handler() {}',
+          hash: 'h-legacy',
+          size: 28,
+        })
+        throw Object.assign(new Error('UNIQUE constraint failed: workflow_versions'), {
+          code: 'SQLITE_CONSTRAINT_UNIQUE',
+        })
+      })
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+      expect([200, 201]).toContain(res.status)
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual(['handlers.ts'])
+    })
+
+    it('does not seed the entry, and still saves, when the workflow keeps legacy trigger code in its setting', async () => {
+      await mockDb.updateWorkflow('wf-1', { triggerCode: 'return new Response("legacy")' })
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+      expect(res.status).toBe(201)
+      const project = await app.request(url('/api/workflows/wf-1/project'))
+      const body = (await project.json()) as { files: { path: string }[] }
+      expect(body.files.map((f) => f.path)).toEqual([])
+    })
+
+    it('treats re-posting a body-shaped document stored before steps were modules as unchanged', async () => {
+      // Review round 1 (L9): the save normalised the posted document and then
+      // compared it with the stored body form, so an idempotent retry of an
+      // old document created a version that differed only by normalisation.
+      const bodyShaped = {
+        ...validIR,
+        nodes: validIR.nodes.map((n) =>
+          n.type === 'step' ? { ...n, data: { ...n.data, code: 'return { id: 1 };' } } : n,
+        ),
+      }
+      const stored = await mockDb.createVersion({
+        id: 'v-body',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(bodyShaped),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: stored.id })
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: bodyShaped }),
+      })
+      expect(res.status).toBe(200)
+      expect(((await res.json()) as { id: string }).id).toBe('v-body')
+    })
+
+    it('stores a body-shaped step as the module the worker imports', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: validIR }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { ir: unknown }
+      const ir = (typeof body.ir === 'string' ? JSON.parse(body.ir) : body.ir) as {
+        nodes: { data: { code: string } }[]
+      }
+      expect(ir.nodes[0]!.data.code).toBe(
+        'export default async function Hello({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n',
+      )
+    })
+
+    it('refuses a step whose default function is not named after the step', async () => {
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ir: {
+            ...validIR,
+            nodes: [
+              {
+                ...validIR.nodes[0],
+                data: {
+                  code: 'export default async function other({ env, event, inputs, step, ctx }) { return 1; }',
+                },
+              },
+            ],
+          },
+        }),
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string; details: unknown[] }
+      expect(body.error).toBe('Invalid IR')
+      expect(body.details).toEqual([
+        {
+          path: 'nodes.step-1.data.code',
+          nodeId: 'step-1',
+          message:
+            'The function must be named `Hello`, the step’s name as code reads it (it is `other`).',
+        },
+      ])
     })
 
     it('refuses a first save that seeds a generated project path', async () => {
@@ -618,7 +796,10 @@ describe('version routes', () => {
       })
       expect(res.status).toBe(200)
       expect((await res.json()).id).toBe(created.id)
-      expect(await mockDb.listWorkflowFiles('wf-1')).toEqual([])
+      // Only the entry a fresh first save seeds; the stale legacy block seeds nothing.
+      expect((await mockDb.listWorkflowFiles('wf-1')).map((f) => f.path)).toEqual([
+        'handlers/fetch.ts',
+      ])
       expect(await stored(created.id)).not.toContain('ghost')
     })
 
@@ -773,8 +954,10 @@ describe('version routes', () => {
       })
       expect(res.status).toBe(200)
       const doc = JSON.parse(await stored(created.id))
-      expect(doc.nodes[0].data.code).toBe('return 2;')
-      expect(doc.runtime.files).toEqual([{ path: 'lib/x.ts', source: 'export const x = 1' }])
+      expect(doc.nodes[0].data.code).toBe(MODIFIED_MODULE)
+      expect(withoutSeededEntry(doc.runtime.files)).toEqual([
+        { path: 'lib/x.ts', source: 'export const x = 1' },
+      ])
     })
 
     it('creates the next version when the latest is deployed and the base matches', async () => {
@@ -853,8 +1036,8 @@ describe('version routes', () => {
         expect(res.status).toBe(200)
         expect(spy).toHaveBeenCalledTimes(2)
         const doc = JSON.parse(await stored(created.id))
-        expect(doc.nodes[0].data.code).toBe('return 2;')
-        expect(doc.runtime.files).toEqual([
+        expect(doc.nodes[0].data.code).toBe(MODIFIED_MODULE)
+        expect(withoutSeededEntry(doc.runtime.files)).toEqual([
           { path: 'lib/late.ts', source: 'export const late = 1' },
         ])
       } finally {
@@ -936,7 +1119,9 @@ describe('version routes', () => {
       expect(body.graphHash).toBe(created.graphHash)
       expect(body.createdBy).toBe(TEST_USER_ID)
       const doc = JSON.parse(await (await mockDb.getWorkflowVersionById(created.id))!.ir)
-      expect(doc.runtime.files).toEqual([{ path: 'lib/x.ts', source: 'export const x = 1' }])
+      expect(withoutSeededEntry(doc.runtime.files)).toEqual([
+        { path: 'lib/x.ts', source: 'export const x = 1' },
+      ])
       expect(doc.nodes).toEqual(JSON.parse(created.ir).nodes)
     })
 
@@ -962,7 +1147,7 @@ describe('version routes', () => {
       expect(next.graphHash).toBe(created.graphHash)
       expect((await mockDb.getWorkflowById('wf-1'))!.currentVersionId).toBe(next.id)
       const deployed = JSON.parse((await mockDb.getWorkflowVersionById(created.id))!.ir)
-      expect(deployed.runtime).toBeUndefined()
+      expect(withoutSeededEntry(deployed.runtime?.files)).toEqual([])
     })
 
     it('a canvas save after a commit succeeds on the base it loaded: files do not move the graph', async () => {
@@ -972,8 +1157,10 @@ describe('version routes', () => {
       const res = await save(modifiedIR, created.graphHash)
       expect(res.status).toBe(200)
       const doc = JSON.parse((await mockDb.getWorkflowVersionById(created.id))!.ir)
-      expect(doc.nodes[0].data.code).toBe('return 2;')
-      expect(doc.runtime.files).toEqual([{ path: 'lib/x.ts', source: 'export const x = 1' }])
+      expect(doc.nodes[0].data.code).toBe(MODIFIED_MODULE)
+      expect(withoutSeededEntry(doc.runtime.files)).toEqual([
+        { path: 'lib/x.ts', source: 'export const x = 1' },
+      ])
     })
 
     it('a revert answers with the new version’s graph hash', async () => {

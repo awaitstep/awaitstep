@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -96,6 +96,17 @@ describe('StepInspector', () => {
     expect(screen.getByRole('button', { name: 'lib/payments/charge.ts' })).toBeInTheDocument()
     // Timeout is empty on this step.
     expect(screen.getAllByText('Default')).toHaveLength(1)
+    await screen.findByText('No runs yet')
+  })
+
+  it('says the key a returned step’s value comes back under, and nothing for the others', async () => {
+    renderInspector('ship')
+    expect(screen.getByText('Returned as')).toBeInTheDocument()
+    expect(screen.getByText('Shipment')).toBeInTheDocument()
+    await screen.findByText('No runs yet')
+    cleanup()
+    renderInspector('charge')
+    expect(screen.queryByText('Returned as')).toBeNull()
     await screen.findByText('No runs yet')
   })
 

@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import type { TemplateResolver } from '@awaitstep/codegen'
-import { generateWorkflow, CloudflareCodeGenerator } from '../../codegen/generate.js'
+import {
+  generateWorkflow,
+  generateWorkflowBundle,
+  CloudflareCodeGenerator,
+} from '../../codegen/generate.js'
+import { workflowSource } from './bundle-source.js'
 import { recurseWithTestCtx as generateNodeCode } from './test-context.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 import parallelWorkflow from './fixtures/parallel-workflow.json'
@@ -10,98 +15,59 @@ import eventWorkflow from './fixtures/event-workflow.json'
 import branchingWorkflow from './fixtures/branching-workflow.json'
 import expressionWorkflow from './fixtures/expression-workflow.json'
 
+/** Every file of the bundle as one text: the worker, the workflow module, env, the step modules. */
+function programOf(ir: WorkflowIR, options?: Parameters<typeof generateWorkflowBundle>[1]): string {
+  return generateWorkflowBundle(ir, options)
+    .files.map((f) => f.source)
+    .join('\n')
+}
+
 describe('generateWorkflow', () => {
   it('generates a simple sequential workflow', () => {
-    const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
+    const code = workflowSource(generateWorkflowBundle(simpleWorkflow as unknown as WorkflowIR))
     expect(code).toMatchInlineSnapshot(`
-      "import { WorkflowEntrypoint } from "cloudflare:workers";
-      import { createWorkflowContext, durableStep, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";
+      "import { defineWorkflow, durableStep } from "#awaitstep/runtime";
+      import type { Env } from "./env.js";
+      import $Fetch_data from "../steps/step-1.js";
+      import $Process_data from "../steps/step-2.js";
 
-      interface Env {
-        WORKFLOW: Workflow;
+      export const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };
+
+      /** Starts an instance of this workflow with \`params\` as its event payload. */
+      export async function startWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
+        const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
+        return { instanceId: instance.id };
       }
 
-      const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };
-
-      function createCloudflareHost(step: WorkflowStep): WorkflowHost {
-        return {
-          do<T>(name: string, config: StepConfig | undefined, fn: (ctx: StepAttempt) => T | Promise<T>): Promise<T> {
-            const attempt = (ctx: { attempt: number }) => Promise.resolve(fn({ attempt: ctx.attempt }));
-            return config ? step.do(name, config, attempt) : step.do(name, attempt);
-          },
-          sleep(name: string, duration: string | number): Promise<void> {
-            return step.sleep(name, duration);
-          },
-          sleepUntil(name: string, at: Date | number): Promise<void> {
-            return step.sleepUntil(name, at);
-          },
-          waitForEvent<T>(name: string, options: WaitForEventOptions): Promise<T> {
-            return step.waitForEvent<T>(name, options);
-          },
-        };
+      /** The status of an instance, or null when there is none by that id. */
+      export async function workflowStatus(env: Env, instanceId: string) {
+        const instance = await env.WORKFLOW.get(instanceId).catch(() => null);
+        return instance ? instance.status() : null;
       }
 
-      // import packages here
-
-      // Add queue handlers below using:
-      // @queue function NAME(batch, env, ctx) { ... }
-
-      export class SimpleWorkflow extends WorkflowEntrypoint<Env> {
-        async run(workflowEvent, hostStep) {
-          const flow = createWorkflowContext({ env: this.env, event: workflowEvent, host: createCloudflareHost(hostStep) });
+      export default defineWorkflow<Env>({
+        id: "simple_workflow",
+        async run(flow) {
           const env = flow.env;
           const event = flow.event;
           const step = durableStep(flow);
           await flow.step("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
-            await (async () => {
-              const res = await fetch('https://api.example.com/data'); return res.json();
-            })();
+            await $Fetch_data({ env, event, inputs: {}, step, ctx });
           });
 
           await flow.sleep("sleep-1", "10 seconds");
 
           await flow.step("step-2", async (ctx) => {
-            await (async () => {
-              return { processed: true };
-            })();
+            await $Process_data({ env, event, inputs: {}, step, ctx });
           });
-        }
-      }
-
-      export default {
-        async fetch(request, env, ctx): Promise<Response> {
-
-            try {
-              const url = new URL(request.url);
-
-              if (request.method === "POST") {
-                const params = await request.json().catch(() => undefined);
-                const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
-                return Response.json({ instanceId: instance.id });
-              }
-
-              const instanceId = url.searchParams.get("instanceId");
-              if (instanceId) {
-                const instance = await env.WORKFLOW.get(instanceId);
-                if (!instance) {
-                  return Response.json({message: 'Instance not found'}, { status: 404 })
-                }
-                return Response.json(await instance.status());
-              }
-
-              return new Response(null, { status: 200 });
-            } catch (error) {
-              return Response.json({ message: error.message }, { status: 500 });
-            }
-
         },
-      };
+      });
       "
     `)
   })
 
   it('generates a branching workflow', () => {
-    const code = generateWorkflow(branchingWorkflow as unknown as WorkflowIR)
+    const code = programOf(branchingWorkflow as unknown as WorkflowIR)
     expect(code).toContain('if (state.shouldNotify === true)')
     expect(code).toContain('} else {')
     expect(code).toContain('fetch("https://api.example.com/notify"')
@@ -133,7 +99,7 @@ describe('generateWorkflow', () => {
       edges: [{ id: 'e0', source: 'br', target: 's1', label: 'yes' }],
       entryNodeId: 'br',
     }
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     expect(code).toContain('if (true) {')
     expect(code).not.toContain('} else {')
     expect(code).toContain('flow.step("s1"')
@@ -177,7 +143,7 @@ describe('generateWorkflow', () => {
       ],
       entryNodeId: 'br',
     }
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     // Branch body present
     expect(code).toContain('if (true) {')
     expect(code).toContain('flow.step("s1"')
@@ -195,14 +161,14 @@ describe('generateWorkflow', () => {
   })
 
   it('generates a parallel workflow', () => {
-    const code = generateWorkflow(parallelWorkflow as unknown as WorkflowIR)
+    const code = programOf(parallelWorkflow as unknown as WorkflowIR)
     expect(code).toContain('Promise.allSettled')
     expect(code).toContain('flow.step("task_a"')
     expect(code).toContain('flow.step("task_b"')
   })
 
   it('generates a wait-for-event workflow', () => {
-    const code = generateWorkflow(eventWorkflow as unknown as WorkflowIR)
+    const code = programOf(eventWorkflow as unknown as WorkflowIR)
     expect(code).toContain('step.waitForEvent')
     expect(code).toContain('"user-approval"')
     expect(code).toContain('timeout: "48 hours"')
@@ -224,7 +190,7 @@ describe('generateWorkflow', () => {
   })
 
   it('generates Env interface with WORKFLOW binding', () => {
-    const code = generateWorkflow(simpleWorkflow as unknown as WorkflowIR)
+    const code = programOf(simpleWorkflow as unknown as WorkflowIR)
     expect(code).toContain('interface Env')
     expect(code).toContain('WORKFLOW: Workflow')
   })
@@ -240,7 +206,7 @@ describe('generateWorkflow', () => {
   })
 
   it('resolves expressions to step variable references', () => {
-    const code = generateWorkflow(expressionWorkflow as unknown as WorkflowIR)
+    const code = programOf(expressionWorkflow as unknown as WorkflowIR)
     expect(code).not.toContain('_workflowState')
     expect(code).not.toContain('{{fetch_data.userId}}')
     expect(code).toContain('Fetch_Data.userId')
@@ -309,7 +275,7 @@ describe('generateWorkflow', () => {
       ],
     }
 
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     // The loop's step.do appears before update's step.do — i.e. update is
     // emitted inside the loop body, not after the loop has closed.
     const loopIdx = code.indexOf('await flow.step("loop"')
@@ -390,7 +356,7 @@ describe('generateWorkflow with custom nodes', () => {
       entryNodeId: 'step-1',
     }
 
-    const code = generateWorkflow(ir, resolver)
+    const code = programOf(ir, resolver)
 
     expect(code).toContain('class CustomWorkflow')
     // Class definition hoisted before workflow class
@@ -404,8 +370,9 @@ describe('generateWorkflow with custom nodes', () => {
     expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')
     // The template's ctx.* references are resolved. Scope the check to the
     // generated class so the bootstrap's own ctx.attempt cannot mask a leak.
-    const classStart = code.indexOf('class WebhookPostNode')
-    const classEnd = code.indexOf('export class', classStart)
+    const classStart = code.indexOf('class WebhookPostNode {')
+    const classEnd = code.indexOf('\n}\n', classStart)
+    expect(classEnd).toBeGreaterThan(classStart)
     expect(code.slice(classStart, classEnd)).not.toMatch(/\bctx\./)
     // Env vars from template are in the Env interface
     expect(code).toContain('API_KEY: string;')
@@ -445,18 +412,17 @@ export default async function(ctx) {
       entryNodeId: 'gen-1',
     }
 
-    const code = generateWorkflow(ir, resolver)
-
-    // Import should appear at the top, before the class
+    const bundle = generateWorkflowBundle(ir, resolver)
+    // The import sits at the top of the file that holds the class, before it
     const importLine =
       "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'"
-    expect(code).toContain(importLine)
-    const importIndex = code.indexOf(importLine)
-    const classIndex = code.indexOf('class NameGen')
-    expect(importIndex).toBeLessThan(classIndex)
+    const holder = bundle.files.find((f) => f.source.includes(importLine))!
+    expect(holder).toBeDefined()
+    expect(holder.source.indexOf(importLine)).toBeLessThan(holder.source.indexOf('class '))
 
     // Import should NOT appear inside the step.do body
-    const stepBody = code.slice(code.indexOf('flow.step('))
+    const workflow = workflowSource(bundle)
+    const stepBody = workflow.slice(workflow.indexOf('flow.step('))
     expect(stepBody).not.toContain('import ')
   })
 

@@ -5,8 +5,8 @@ import {
   parseStepModule,
   quickTestRefusal,
   seedEnv,
+  isStepModulePath,
   seedInputs,
-  stepModuleVarName,
   type QuickTestField,
 } from './quick-test'
 import { refusedResult, runQuickTest } from './quick-test-runner'
@@ -38,7 +38,7 @@ export function quickTestFields(
 
 /** Whether Quick test can run this file: a step module with a default export. */
 export function isRunnableStep(path: string, source: string): boolean {
-  return stepModuleVarName(path) !== null && quickTestRefusal(parseStepModule(source)) === null
+  return isStepModulePath(path) && quickTestRefusal(parseStepModule(source)) === null
 }
 
 /**

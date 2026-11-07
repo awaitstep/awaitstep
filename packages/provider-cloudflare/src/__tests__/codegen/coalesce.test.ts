@@ -135,10 +135,10 @@ describe('coalesced bundle emission', () => {
       'awaitstep/env.ts',
       'awaitstep/runtime.ts',
       'awaitstep/workflow.ts',
-      'nodes/Node_a.ts',
-      'nodes/Node_b.ts',
-      'nodes/Node_c.ts',
-      'nodes/Node_d.ts',
+      'steps/a.ts',
+      'steps/b.ts',
+      'steps/c.ts',
+      'steps/d.ts',
     ])
   })
 

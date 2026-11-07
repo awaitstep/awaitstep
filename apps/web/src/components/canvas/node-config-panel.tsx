@@ -9,6 +9,14 @@ import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
 import { StepEnlargedEditor, StepFields } from './step-fields'
+import { buildIRFromState } from '../../lib/build-ir'
+import { stepScope } from '../../lib/step-scope'
+import {
+  AUTO_EXPORT_TYPES,
+  computeVarNames,
+  stepModuleProblem,
+  stepReturnsValue,
+} from '@awaitstep/codegen'
 import { ExpressionEditor } from './expression-editor'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
@@ -22,7 +30,7 @@ import type { WorkflowNode, BranchCondition } from '@awaitstep/ir'
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 
-export function validateNode(node: WorkflowNode): string[] {
+export function validateNode(node: WorkflowNode, expectedFunctionName?: string): string[] {
   const errors: string[] = []
   if (!node.name.trim()) errors.push('Step name is required')
 
@@ -32,6 +40,9 @@ export function validateNode(node: WorkflowNode): string[] {
       if (!code.trim()) errors.push('Step code cannot be empty')
       if (NESTED_STEP_PATTERN.test(code))
         errors.push('This code calls a step inside a step. Move the inner call into its own node.')
+      const moduleProblem =
+        expectedFunctionName !== undefined ? stepModuleProblem(node, expectedFunctionName) : null
+      if (moduleProblem) errors.push(moduleProblem)
       break
     }
     case 'sleep': {
@@ -91,15 +102,16 @@ export function NodeConfigPanel() {
 }
 
 function NodeConfigBody() {
-  const { selectedNodeId, nodes, kind, readOnly } = useWorkflowStore(
+  const { selectedNodeId, nodes, edges, kind, readOnly } = useWorkflowStore(
     useShallow((s) => ({
       selectedNodeId: s.selectedNodeId,
       nodes: s.nodes,
+      edges: s.edges,
       kind: s.kind,
       readOnly: s.readOnly,
     })),
   )
-  const { updateNodeData, updateNodeField, removeNode, selectNode } = useWorkflowStore()
+  const { updateNodeField, renameNode, removeNode, selectNode } = useWorkflowStore()
   const { registry } = useNodeRegistry()
   // 'collapsed' is 'fields' after a visit to the enlarged editor, so focus returns to Enlarge.
   const [editorView, setEditorView] = useState<'fields' | 'enlarged' | 'collapsed'>('fields')
@@ -107,16 +119,50 @@ function NodeConfigBody() {
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId)
   const irNode = selectedNode?.data.irNode ?? null
+  // What this node's body can read and the names its value travels under —
+  // from the same graph codegen will read.
+  // The graph as the scope reads it: ids, kinds, names, the flags and
+  // whether a body returns — not positions, which change on every drag frame.
+  const graphSignature = useMemo(
+    () =>
+      JSON.stringify({
+        nodes: nodes.map(({ data: { irNode } }) => [
+          irNode.id,
+          irNode.type,
+          irNode.name,
+          irNode.data.inline === true,
+          irNode.data.export === true,
+          irNode.data.exportAs ?? null,
+          stepReturnsValue(String(irNode.data.code ?? '')),
+          irNode.data.loopType ?? null,
+          irNode.data.itemVar ?? null,
+        ]),
+        edges: edges.map((edge) => [edge.source, edge.target, edge.label ?? null]),
+      }),
+    [nodes, edges],
+  )
+  // What this node's body can read and the names its value travels under —
+  // from the same graph codegen will read. Keyed on the signature above:
+  // `nodes` and `edges` inside are the ones it was built from.
+  const scope = useMemo(() => {
+    if (!selectedNodeId) return null
+    const { metadata, workflowEnvVars, runtimeBindings } = useWorkflowStore.getState()
+    return stepScope(
+      buildIRFromState({ metadata, workflowEnvVars, runtimeBindings, nodes, edges, kind }),
+      selectedNodeId,
+      kind,
+    )
+  }, [graphSignature, kind, selectedNodeId])
 
   const tryClose = useCallback(() => {
     if (!selectedNodeId) return
     // The editors write a pending edit on blur, so what was just typed is
     // checked — not the node as it was when this panel last rendered.
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-    const current = useWorkflowStore.getState().nodes.find((n) => n.id === selectedNodeId)
-      ?.data.irNode
+    const irNodes = useWorkflowStore.getState().nodes.map((n) => n.data.irNode)
+    const current = irNodes.find((n) => n.id === selectedNodeId)
     if (!current) return
-    const errors = validateNode(current)
+    const errors = validateNode(current, computeVarNames(irNodes).get(selectedNodeId))
     if (errors.length > 0) {
       // The form marks no field, so the reason rides as the description (D-AT-4).
       actionToast.error('Fix this step before leaving it', { description: errors[0] })
@@ -125,7 +171,7 @@ function NodeConfigBody() {
     selectNode(null)
   }, [selectedNodeId, selectNode])
 
-  if (!selectedNode || !irNode) return null
+  if (!selectedNode || !irNode || !scope) return null
 
   const definition = registry.get(irNode.type)
   const visuals = getNodeVisuals(irNode.type, definition?.icon)
@@ -134,10 +180,6 @@ function NodeConfigBody() {
   // reload must not put this render's snapshot of the node back.
   const updateData = (fieldId: string, value: unknown) => {
     updateNodeField(selectedNode.id, fieldId, value)
-  }
-
-  const update = (data: Partial<WorkflowNode>) => {
-    updateNodeData(selectedNode.id, data)
   }
 
   function handleEnlarge() {
@@ -150,6 +192,10 @@ function NodeConfigBody() {
 
   const handleDelete = () => {
     removeNode(selectedNode.id)
+  }
+
+  const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    renameNode(selectedNode.id, event.target.value.slice(0, 256))
   }
 
   if (editorView === 'enlarged' && irNode.type === 'step') {
@@ -215,7 +261,7 @@ function NodeConfigBody() {
             <Input
               id={nameId}
               value={irNode.name}
-              onChange={(e) => update({ name: e.target.value.slice(0, 256) })}
+              onChange={handleNameChange}
               debounceMs={300}
               placeholder="My node"
               maxLength={256}
@@ -254,6 +300,7 @@ function NodeConfigBody() {
             <StepFields
               node={irNode}
               kind={kind}
+              scope={scope}
               schema={definition.configSchema}
               readOnly={readOnly}
               onChange={updateData}
@@ -272,6 +319,12 @@ function NodeConfigBody() {
               {irNode.type === 'sleep' && (
                 <Hint>
                   The run pauses durably and resumes after the delay. No code, no retries.
+                </Hint>
+              )}
+              {kind === 'script' && AUTO_EXPORT_TYPES.has(irNode.type) && (
+                <Hint>
+                  Returned in the response as{' '}
+                  <code className="font-mono text-foreground/70">{scope.exportKey}</code>.
                 </Hint>
               )}
             </>

@@ -8,7 +8,7 @@ import {
   seedEnv,
   seedInputs,
   SERIALIZER_SOURCE,
-  stepModuleVarName,
+  isStepModulePath,
   unresolvableImports,
   unrunnableReason,
 } from '../ide/quick-test'
@@ -21,22 +21,22 @@ export default async function fetchUser_step({ env, event, inputs, step }) {
 }
 `
 
-describe('stepModuleVarName', () => {
-  it('recognises a generated step module', () => {
-    expect(stepModuleVarName('nodes/fetchUser.ts')).toBe('fetchUser')
-    expect(stepModuleVarName('nodes/fetchUser.js')).toBe('fetchUser')
+describe('isStepModulePath', () => {
+  it('recognises a step’s own file, which is the module the bundle runs', () => {
+    expect(isStepModulePath('steps/fetch-user.ts')).toBe(true)
+    expect(isStepModulePath('steps/k3j9x_a1b2c3.ts')).toBe(true)
   })
 
-  it('rejects anything that is not one', () => {
+  it('rejects anything that is not one, a template node’s generated module included', () => {
     for (const path of [
       'worker.ts',
       'handlers/fetch.ts',
-      'nodes/deep/nested.ts',
-      'lib/nodes/thing.ts',
-      'nodes/not-an-identifier.ts',
-      'nodes/thing.json',
+      'nodes/fetchUser.ts',
+      'steps/deep/nested.ts',
+      'lib/steps/thing.ts',
+      'steps/thing.json',
     ]) {
-      expect(stepModuleVarName(path)).toBeNull()
+      expect(isStepModulePath(path)).toBe(false)
     }
   })
 })
@@ -49,6 +49,12 @@ describe('parseStepModule', () => {
   it('reports no inputs when the body destructures none', () => {
     const source = 'export default async function a_step({ env }) {\n  return 1;\n}\n'
     expect(parseStepModule(source).inputNames).toEqual([])
+  })
+
+  it('reads inputs.x members too — the form the step template documents', () => {
+    const source =
+      'export default async function a({ env, event, inputs, step, ctx }) {\n  return inputs.user.id + inputs["raw"];\n}\n'
+    expect(parseStepModule(source).inputNames).toEqual(['user', 'raw'])
   })
 
   it('sees the default export', () => {

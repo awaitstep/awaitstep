@@ -117,7 +117,8 @@ describe('version saves on sqlite', () => {
     const body = await committed.json()
     expect(body.id).toBe(created.id)
     expect(body.graphHash).toBe(created.graphHash)
-    expect(JSON.parse(await storedIr(created.id)).runtime.files).toEqual([
+    const files = JSON.parse(await storedIr(created.id)).runtime.files as { path: string }[]
+    expect(files.filter((f) => f.path !== 'handlers/fetch.ts')).toEqual([
       { path: 'lib/x.ts', source: 'export const x = 1' },
     ])
     const listing = await (

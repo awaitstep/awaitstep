@@ -23,6 +23,9 @@ import { fallbackPosition } from '../lib/hydrate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
 import { customAlphabet } from 'nanoid'
+import { computeVarNames, followStepFunctionNames, stepModuleTemplate } from '@awaitstep/codegen'
+import { buildIRFromState } from '../lib/build-ir'
+import { stepCodeForInline } from '../lib/step-inline'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
@@ -118,6 +121,24 @@ export interface WorkflowNodeData extends Record<string, unknown> {
 
 export type FlowNode = Node<WorkflowNodeData>
 
+/**
+ * `next` with each step's function renamed to follow its variable name once
+ * the node set or a name changed — a removal, a rename, a duplicate or a
+ * paste moves other steps' `_2` suffixes, and a clone exports its source's
+ * name. The same array when nothing changes.
+ */
+function withFollowedFunctionNames(previous: FlowNode[], next: FlowNode[]): FlowNode[] {
+  const nextIr = next.map((n) => n.data.irNode)
+  const renamed = followStepFunctionNames(
+    previous.map((n) => n.data.irNode),
+    nextIr,
+  )
+  if (renamed === nextIr) return next
+  return next.map((n, i) =>
+    renamed[i] === nextIr[i] ? n : { ...n, data: { ...n.data, irNode: renamed[i]! } },
+  )
+}
+
 export interface WorkflowEnvVar {
   name: string
   value: string
@@ -194,6 +215,8 @@ interface WorkflowState {
     registry?: NodeRegistry,
   ) => void
   updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
+  /** Renames a node; a step's module function follows when it still carried the old name. */
+  renameNode: (nodeId: string, name: string) => void
   /** Sets one `data` field, merging into the node as it is in the store at write time. */
   updateNodeField: (nodeId: string, fieldId: string, value: unknown) => void
   removeNode: (nodeId: string) => void
@@ -231,17 +254,19 @@ function configDefaults(schema?: Record<string, ConfigField>): Record<string, un
 function createDefaultNode(
   type: NodeType,
   position: { x: number; y: number },
-  registry?: NodeRegistry,
+  registry: NodeRegistry | undefined,
+  siblings: readonly WorkflowNode[],
 ): WorkflowNode {
   const id = nanoid()
   const base = { id, type, position, name: `New ${type}`, version: '1.0.0', provider: 'cloudflare' }
 
   switch (type) {
-    case 'step':
-      return {
-        ...base,
-        data: { code: '// Write your business logic here\n\nreturn { result: "ok" };' },
-      }
+    case 'step': {
+      // The module is named as the worker will import it: the name decoded,
+      // deduplicated against the nodes already there.
+      const varName = computeVarNames([...siblings, base]).get(id)!
+      return { ...base, data: { code: stepModuleTemplate(varName) } }
+    }
     case 'sleep':
       return { ...base, data: { duration: '10 seconds' } }
     case 'sleep_until':
@@ -494,8 +519,9 @@ export const useWorkflowStore = create<WorkflowState>()(
         )
         const removedIds = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
         const selectedNodeId = removedIds.has(get().selectedNodeId ?? '') ? null : undefined
+        const applied = applyNodeChanges(changes, get().nodes)
         set({
-          nodes: applyNodeChanges(changes, get().nodes),
+          nodes: removedIds.size > 0 ? withFollowedFunctionNames(get().nodes, applied) : applied,
           ...(hasDirtyChange && { isDirty: true }),
           ...(selectedNodeId === null && { selectedNodeId: null }),
         })
@@ -565,7 +591,12 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       addNode: (type, position, registry) => {
         if (get().readOnly) return
-        const irNode = createDefaultNode(type, position, registry)
+        const irNode = createDefaultNode(
+          type,
+          position,
+          registry,
+          get().nodes.map((n) => n.data.irNode),
+        )
         const flowNode: FlowNode = {
           id: irNode.id,
           type: toFlowType(irNode.type),
@@ -581,7 +612,12 @@ export const useWorkflowStore = create<WorkflowState>()(
         const edge = edges.find((e) => e.id === edgeId)
         if (!edge) return
 
-        const irNode = createDefaultNode(type, position, registry)
+        const irNode = createDefaultNode(
+          type,
+          position,
+          registry,
+          get().nodes.map((n) => n.data.irNode),
+        )
         const flowNode: FlowNode = {
           id: irNode.id,
           type: toFlowType(irNode.type),
@@ -642,18 +678,49 @@ export const useWorkflowStore = create<WorkflowState>()(
         })
       },
 
+      renameNode: (nodeId, name) => {
+        if (get().readOnly) return
+        const nodes = get().nodes
+        if (!nodes.some((n) => n.id === nodeId)) return
+        // The renamed step's function follows its new variable name, and so
+        // does any other step's whose `_2` suffix the rename moved.
+        const renamed = nodes.map((n) =>
+          n.id === nodeId ? { ...n, data: { ...n.data, irNode: { ...n.data.irNode, name } } } : n,
+        )
+        set({ nodes: withFollowedFunctionNames(nodes, renamed), isDirty: true })
+      },
+
       updateNodeField: (nodeId, fieldId, value) => {
         const currentNode = get().nodes.find((n) => n.id === nodeId)
         if (!currentNode) return
-        get().updateNodeData(nodeId, {
-          data: { ...currentNode.data.irNode.data, [fieldId]: value },
-        })
+        // `undefined` clears the field, so a cleared input leaves no key behind.
+        const { [fieldId]: _previous, ...rest } = currentNode.data.irNode.data
+        let data = value === undefined ? rest : { ...rest, [fieldId]: value }
+        // The Inline switch changes what shape the code must have: the step's
+        // code is converted with it, so the switch never leaves the step
+        // refusing to close.
+        if (fieldId === 'inline' && currentNode.data.irNode.type === 'step') {
+          const state = get()
+          const nodes = state.nodes.map((n) =>
+            n.id === nodeId ? { ...n, data: { ...n.data, irNode: { ...n.data.irNode, data } } } : n,
+          )
+          const code = stepCodeForInline(
+            buildIRFromState({ ...state, nodes }),
+            nodeId,
+            value === true,
+          )
+          data = { ...data, code }
+        }
+        get().updateNodeData(nodeId, { data })
       },
 
       removeNode: (nodeId) => {
         if (get().readOnly) return
         set({
-          nodes: get().nodes.filter((n) => n.id !== nodeId),
+          nodes: withFollowedFunctionNames(
+            get().nodes,
+            get().nodes.filter((n) => n.id !== nodeId),
+          ),
           edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
           selectedNodeId: get().selectedNodeId === nodeId ? null : get().selectedNodeId,
           isDirty: true,
@@ -676,10 +743,10 @@ export const useWorkflowStore = create<WorkflowState>()(
         const cloned = instantiateClones(payload, { x: 40, y: 40 })
         const newIds = cloned.nodes.map((n) => n.id)
         set({
-          nodes: [
+          nodes: withFollowedFunctionNames(nodes, [
             ...nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
             ...cloned.nodes.map((n) => ({ ...n, selected: true })),
-          ],
+          ]),
           edges: [...edges, ...cloned.edges],
           selectedNodeId: newIds[0] ?? null,
           selectedEdgeId: null,
@@ -736,10 +803,10 @@ export const useWorkflowStore = create<WorkflowState>()(
         const newIds = cloned.nodes.map((n) => n.id)
         const { nodes, edges } = get()
         set({
-          nodes: [
+          nodes: withFollowedFunctionNames(nodes, [
             ...nodes.map((n) => (n.selected ? { ...n, selected: false } : n)),
             ...cloned.nodes.map((n) => ({ ...n, selected: true })),
-          ],
+          ]),
           edges: [...edges, ...cloned.edges],
           selectedNodeId: newIds[0] ?? null,
           selectedEdgeId: null,

@@ -318,7 +318,7 @@ export function defineWorkflow<Env = Record<string, unknown>, Payload = unknown>
   return definition
 }
 
-/** The execution context a function handler receives. */
+/** The execution context every handler receives: work kept alive past the handler's return. */
 export interface ExecutionContextLike {
   waitUntil(promise: Promise<unknown>): void
 }
@@ -346,6 +346,7 @@ export interface QueueBatch {
 export interface QueueContext<Env = Record<string, unknown>> {
   readonly batch: QueueBatch
   readonly env: Env
+  readonly execution: ExecutionContextLike
 }
 
 /** Context for a function's `scheduled` handler. */
@@ -353,6 +354,7 @@ export interface ScheduledContext<Env = Record<string, unknown>> {
   readonly cron: string
   readonly scheduledTime: number
   readonly env: Env
+  readonly execution: ExecutionContextLike
 }
 
 export type FetchHandler<Env = Record<string, unknown>> = (

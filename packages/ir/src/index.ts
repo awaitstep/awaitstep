@@ -369,3 +369,4 @@ export {
   type SignInMethod,
   type SignInProvider,
 } from './account.js'
+export { JS_RESERVED_WORDS, isIdentifierName } from './identifiers.js'

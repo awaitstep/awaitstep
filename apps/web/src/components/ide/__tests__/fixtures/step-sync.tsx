@@ -44,7 +44,12 @@ export const MANIFEST: StepManifest = {
   steps: [
     { nodeId: 'validate', varName: 'validate_order', filePath: 'nodes/validate_order.ts' },
     { nodeId: 'charge', varName: 'charge_card', filePath: 'nodes/charge_card.ts' },
-    { nodeId: 'ship', varName: 'ship_order', filePath: 'nodes/ship_order.ts' },
+    {
+      nodeId: 'ship',
+      varName: 'ship_order',
+      filePath: 'nodes/ship_order.ts',
+      exportKey: 'Shipment',
+    },
     { nodeId: 'wait', varName: 'wait_2_days' },
   ],
 }

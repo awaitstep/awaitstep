@@ -520,7 +520,9 @@ describe('Cloudflare script bundle modules', () => {
 
   it('declares a sub-script service binding on the script Env', () => {
     const bundle = adapter.generate(scriptIr)
-    expect(bundle.files[0]!.source).toContain('MY_FUNC: Fetcher;')
+    expect(bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source).toContain(
+      'MY_FUNC: Fetcher;',
+    )
   })
 
   it('emits the provider module a project file imports', () => {

@@ -40,23 +40,20 @@ describe('generateWorkflowBundle', () => {
       'entry:worker.ts',
       'module:awaitstep/workflow.ts',
       'module:awaitstep/env.ts',
-      'module:nodes/Fetch_data.ts',
-      'module:nodes/Report.ts',
+      'module:steps/fetch.ts',
+      'module:steps/report.ts',
       'module:awaitstep/runtime.ts',
     ])
   })
 
   it('module keeps user code untouched — imports local, env as a parameter', () => {
-    const fetchModule = bundle.files.find((f) => f.path === 'nodes/Fetch_data.ts')!
+    const fetchModule = bundle.files.find((f) => f.path === 'steps/fetch.ts')!
     expect(fetchModule.source).toMatchInlineSnapshot(`
       "import { z } from 'zod'
 
-      /** Step "Fetch data" — generated from the workflow node. */
-      export default async function Fetch_data_step({ env, event, inputs, step, ctx }) {
-        return await (async () => {
-          const res = await fetch(env.API_URL);
-          return z.object({ ok: z.boolean() }).parse(await res.json());
-        })();
+      export default async function Fetch_data({ env, event, inputs, step, ctx }) {
+        const res = await fetch(env.API_URL);
+        return z.object({ ok: z.boolean() }).parse(await res.json());
       }
       "
     `)
@@ -64,14 +61,10 @@ describe('generateWorkflowBundle', () => {
   })
 
   it('downstream module receives referenced upstream vars via inputs', () => {
-    const reportModule = bundle.files.find((f) => f.path === 'nodes/Report.ts')!
+    const reportModule = bundle.files.find((f) => f.path === 'steps/report.ts')!
     expect(reportModule.source).toMatchInlineSnapshot(`
-      "/** Step "Report" — generated from the workflow node. */
-      export default async function Report_step({ env, event, inputs, step, ctx }) {
-        return await (async () => {
-          const { Fetch_data } = inputs;
-          return { ok: Fetch_data.ok, at: event.timestamp };
-        })();
+      "export default async function Report({ env, event, inputs, step, ctx }) {
+        return { ok: inputs.Fetch_data.ok, at: event.timestamp };
       }
       "
     `)
@@ -79,8 +72,8 @@ describe('generateWorkflowBundle', () => {
 
   it('entry imports modules with .js specifiers and calls them from flow.step', () => {
     const entry = workflowSource(bundle)
-    expect(entry).toContain('import $Fetch_data from "../nodes/Fetch_data.js";')
-    expect(entry).toContain('import $Report from "../nodes/Report.js";')
+    expect(entry).toContain('import $Fetch_data from "../steps/fetch.js";')
+    expect(entry).toContain('import $Report from "../steps/report.js";')
     expect(entry).toContain(
       'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data({ env, event, inputs: {}, step, ctx }),\n    );',
     )
@@ -91,11 +84,13 @@ describe('generateWorkflowBundle', () => {
     expect(entry).not.toContain('z.object')
   })
 
-  it('single-file generateWorkflow is a preview string that needs the runtime module', () => {
-    const single = generateWorkflow(ir)
-    expect(single).toContain('from "#awaitstep/runtime"')
-    expect(single).toContain('async (ctx) => {')
-    expect(single).not.toContain('$Fetch_data')
+  it('the string form is the worker entry: it imports the workflow module and the runtime', () => {
+    const entry = generateWorkflow(ir)
+    expect(entry).toBe(bundleSource(generateWorkflowBundle(ir), 'worker.ts'))
+    expect(entry).toContain(
+      'import workflow, { AWAITSTEP_RETENTION } from "./awaitstep/workflow.js";',
+    )
+    expect(entry).not.toContain('$Fetch_data')
   })
 })
 
@@ -113,28 +108,26 @@ describe('generateWorkflowBundle with containers', () => {
         provider: 'cloudflare',
         data: { loopType: 'forEach', items: '{{env.ITEMS}}', itemVar: 'item' },
       },
-      node('work', 'Process item', { code: 'return item.length;' }),
+      node('work', 'Process item', { code: 'return inputs.item.length;' }),
     ],
     edges: [{ id: 'e1', source: 'loop-1', target: 'work', label: 'body' }],
   }
 
-  it('container children stay inline — their code depends on container-scope bindings', () => {
+  it('a container child is a module too, reading the loop’s item from inputs', () => {
     const bundle = generateWorkflowBundle(loopIR)
     expect(bundle.files.map((f) => f.path)).toEqual([
       'worker.ts',
       'awaitstep/workflow.ts',
       'awaitstep/env.ts',
+      'steps/work.ts',
       'awaitstep/runtime.ts',
     ])
-    const entry = workflowSource(bundle)
-    expect(entry).toContain('return item.length;')
-    expect(entry).not.toContain('$Process_item')
-  })
-
-  it('the single-file emitter keeps the same inline container body', () => {
-    const single = generateWorkflow(loopIR)
-    expect(single).toContain('return item.length;')
-    expect(single).not.toContain('$Process_item')
+    const workflow = workflowSource(bundle)
+    expect(workflow).toContain('$Process_item({ env, event, inputs: { item }, step, ctx })')
+    expect(bundleSource(bundle, 'steps/work.ts')).toContain('return inputs.item.length;')
+    expect(bundle.manifest?.steps).toContainEqual(
+      expect.objectContaining({ nodeId: 'work', filePath: 'steps/work.ts' }),
+    )
   })
 })
 
@@ -175,7 +168,7 @@ export default async function(ctx) {
       'entry:worker.ts',
       'module:awaitstep/workflow.ts',
       'module:awaitstep/env.ts',
-      'module:nodes/Fetch_data.ts',
+      'module:steps/fetch.ts',
       'module:nodes/Post_webhook.ts',
       'module:awaitstep/runtime.ts',
     ])
@@ -220,7 +213,7 @@ describe('generateWorkflowBundle adversarial user code', () => {
 
   it('round-trips backticks, ${}, class, and env.-in-strings untouched in the module', () => {
     const bundle = generateWorkflowBundle(hostileIR)
-    const mod = bundle.files.find((f) => f.path === 'nodes/Hostile_step.ts')!
+    const mod = bundle.files.find((f) => f.path === 'steps/h.ts')!
     for (const line of hostile.split('\n')) {
       expect(mod.source).toContain(line)
     }
@@ -379,5 +372,36 @@ describe('generateWorkflowBundle provider primitive emission', () => {
     }
     const env = bundleSource(generateWorkflowBundle(ir), 'awaitstep/env.ts')
     expect(env).toContain('MY_FUNC: Fetcher;')
+  })
+})
+
+describe('generateWorkflowBundle: what a step after a container can read', () => {
+  it('does not hand a plain child of a branch arm to the step after the branch', () => {
+    const graph: WorkflowIR = {
+      metadata: { name: 'Blocks', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'gate',
+      nodes: [
+        {
+          id: 'gate',
+          type: 'branch',
+          name: 'Gate',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        node('inner', 'inner', { code: 'return 1;' }),
+        node('after', 'after', { code: 'return inner + 1;' }),
+      ],
+      edges: [
+        { id: 'e1', source: 'gate', target: 'inner', label: 'yes' },
+        { id: 'e2', source: 'gate', target: 'after', label: 'then' },
+      ],
+    }
+    const bundle = generateWorkflowBundle(graph)
+    const workflow = bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!.source
+    // `inner` is a const inside the if block; the call after it binds nothing of it.
+    expect(workflow).toContain('$after({ env, event, inputs: {}, step, ctx })')
+    expect(bundle.files.find((f) => f.path === 'steps/after.ts')!.source).not.toContain('inputs;')
   })
 })

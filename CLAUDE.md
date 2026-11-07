@@ -82,6 +82,18 @@ When review feedback is shared, work through **every** comment in it — in full
 - **Never run `registry/scripts/build-index.ts` locally.** CI (`.github/workflows/registry-index.yml`) regenerates `<version>/node.json` and `registry/index.json` on push to `main` and opens an auto-merge PR. Do NOT stage `node.json` or `index.json` — only `base.json`, `overrides.json`, and templates.
 - For step-by-step guidance when versioning a node, use the `/version-node` skill.
 
+## Page Data (HIGHEST PRIORITY)
+
+- **Every page gets the data it renders, no more.** Before a page or component fetches anything, write down what it shows; the request returns exactly that shape. Violations are treated as bugs.
+- **Never fetch a list to show a count, a sum, or "the first few".** A stat card, badge or "N items · first 2 chips" summary is served by an endpoint that computes it in SQL (`COUNT`, `SUM`, `LIMIT n`) — e.g. a page's `…/summary` or `…/stats` endpoint — not by `list.length` or `list.slice(0, 2)` on the client.
+- **One summary request per page section, not one request per source.** When a section combines several sources (members + keys + variables + shared items), one endpoint builds the whole section in one statement (subqueries / `json_object`), per "Database Queries" below.
+- **Full lists are fetched only where the full list is rendered**, and then paginated. The list endpoint stays for the list page; it is not reused as a counter elsewhere.
+- **A page that renders the list can count it.** When the same screen shows both the list and its count (a table plus "N active", filter-pill counts over the loaded rows), fetch the list once and derive the count from it; no separate stats request.
+- **A count on the page, the list behind a click → split them.** When the page shows only the count and the items appear in a modal, popover, inactive tab or sub-screen, the count comes with the page's own data (its summary endpoint), and the full list is fetched by the modal/tab/sub-screen when it opens (`enabled: open`).
+- **No app-wide fetches on mount.** Shell/layout code (top bar, sidebar, wrappers) fetches only what the shell itself renders; lists a popover or switcher shows are fetched when it opens.
+- **Responses carry only what the viewer may see.** Select explicit columns — never return whole rows (`select()` / `returning()` with no column list, spreading a db row into JSON). Secrets and secret-derived values (credential values, key hashes, encrypted blobs, secret env values) never leave the API; other people's personal data (emails, IPs, sessions) is sent only where the viewer's role allows; scope (org/project/workspace membership) is enforced in the query's joins and `WHERE`, never by filtering a wider result in JS.
+- When reviewing a page, check its network log against what it renders — a response field the page never reads is a finding.
+
 ## Database Queries (HIGHEST PRIORITY)
 
 - **NEVER chain sequential `await` calls when a single SQL query can do the same work.** If you need data from table A to query table B, use a JOIN — not two round trips. This applies to validation checks (e.g. "fetch project then check membership") — combine them into one query with `INNER JOIN`. Violations of this rule are treated as bugs.

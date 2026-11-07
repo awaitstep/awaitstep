@@ -57,6 +57,9 @@ describe('a mistake in code the user wrote', () => {
       body: JSON.stringify({ ir: validIR }),
     })
     expect(saved.status).toBe(201)
+    // These tests model the legacy annotation file, which cannot sit beside
+    // the HTTP entry a fresh first save seeds: drop the seeded module first.
+    await app.request(url('/api/workflows/wf-1/files/handlers/fetch.ts'), { method: 'DELETE' })
     const put = await app.request(url('/api/workflows/wf-1/files/handlers.ts'), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

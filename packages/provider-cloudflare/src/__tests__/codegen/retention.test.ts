@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, ScriptIR } from '@awaitstep/ir'
-import { generateWorkflow, generateScript } from '../../codegen/generate.js'
+import { generateWorkflowBundle, generateScriptBundle } from '../../codegen/generate.js'
 import { DEFAULT_RETENTION, resolveRetention, retentionLiteral } from '../../codegen/retention.js'
 import simpleWorkflow from './fixtures/simple-workflow.json'
 
@@ -33,11 +33,24 @@ describe('retentionLiteral', () => {
   })
 })
 
+/** Every file of a bundle as one text, so an assertion can name any of them. */
+function programOfScript(ir: ScriptIR): string {
+  return generateScriptBundle(ir)
+    .files.map((f) => f.source)
+    .join('\n')
+}
+
+function programOf(ir: WorkflowIR, options?: Parameters<typeof generateWorkflowBundle>[1]): string {
+  return generateWorkflowBundle(ir, options)
+    .files.map((f) => f.source)
+    .join('\n')
+}
+
 describe('generated retention wiring', () => {
   const ir = simpleWorkflow as unknown as WorkflowIR
 
   it('emits the default AWAITSTEP_RETENTION const and passes it to create()', () => {
-    const code = generateWorkflow(ir)
+    const code = programOf(ir)
     expect(code).toContain(
       'const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };',
     )
@@ -45,7 +58,7 @@ describe('generated retention wiring', () => {
   })
 
   it('bakes a configured retention into the const', () => {
-    const code = generateWorkflow(ir, {
+    const code = programOf(ir, {
       retention: { successRetention: '1 day', errorRetention: '14 days' },
     })
     expect(code).toContain(
@@ -59,7 +72,7 @@ describe('generated retention wiring', () => {
       kind: 'script',
       trigger: { type: 'http' },
     } as ScriptIR
-    const code = generateScript(scriptIr)
+    const code = programOfScript(scriptIr)
     expect(code).not.toContain('AWAITSTEP_RETENTION')
   })
 
@@ -86,7 +99,7 @@ describe('generated retention wiring', () => {
         { id: 'e-sub1', source: base.nodes[base.nodes.length - 1].id, target: 'sub1' },
       ],
     } as unknown as ScriptIR
-    const code = generateScript(scriptIr)
+    const code = programOfScript(scriptIr)
     expect(code).toContain(
       'const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };',
     )

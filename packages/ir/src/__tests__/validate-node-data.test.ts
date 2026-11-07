@@ -73,3 +73,18 @@ describe('validateNodeData', () => {
     expect(validateNodeData(makeNode('google-gemini', { anything: 1 }))).toEqual([])
   })
 })
+
+describe('validateNodeData: a loop item name is a plain identifier', () => {
+  it('accepts an identifier and refuses a pattern, a keyword and a name the step module already has', () => {
+    const loop = (itemVar: unknown) =>
+      validateNodeData(makeNode('loop', { loopType: 'forEach', collection: 'rows', itemVar }))
+    expect(loop('row')).toEqual([])
+    expect(loop(undefined)).toEqual([])
+    for (const bad of ['(?:a+)+!', '[key, value]', 'class', 'inputs', 'index', 'a b', 42]) {
+      const errors = loop(bad)
+      expect(errors, String(bad)).toHaveLength(1)
+      expect(errors[0]!.path).toBe('nodes.n1.data.itemVar')
+      expect(errors[0]!.nodeId).toBe('n1')
+    }
+  })
+})

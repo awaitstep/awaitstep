@@ -4,7 +4,17 @@ import {
   builtinGenerators,
   createBuiltinGeneratorRegistry,
 } from '../../codegen/generator-registry.js'
-import { generateWorkflow } from '../../codegen/generate.js'
+import { generateWorkflowBundle } from '../../codegen/generate.js'
+
+/** Every file of the bundle as one text. */
+function programOf(
+  ir: Parameters<typeof generateWorkflowBundle>[0],
+  options?: Parameters<typeof generateWorkflowBundle>[1],
+): string {
+  return generateWorkflowBundle(ir, options)
+    .files.map((f) => f.source)
+    .join('\n')
+}
 import type { WorkflowIR } from '@awaitstep/ir'
 
 describe('builtinGenerators', () => {
@@ -46,9 +56,9 @@ describe('options.generators threading', () => {
       ],
       edges: [],
     }
-    const code = generateWorkflow(ir, { generators })
+    const code = programOf(ir, { generators })
     expect(code).toContain('const sweep = await sweepKv(env);')
     // Without the extended registry the same IR has no generator or template.
-    expect(() => generateWorkflow(ir)).toThrow('Codegen not yet implemented')
+    expect(() => programOf(ir)).toThrow('Codegen not yet implemented')
   })
 })

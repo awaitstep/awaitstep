@@ -221,7 +221,7 @@ describe('project file actions', () => {
   it('starts a new handler entry from its scaffold rather than an empty file', async () => {
     const { client, actions } = setup()
     await actions.createFile('handlers/fetch.ts')
-    expect(client.putProjectFile.mock.calls[0]![2]).toContain('env.WORKFLOW.create')
+    expect(client.putProjectFile.mock.calls[0]![2]).toContain('await startWorkflow(env, params)')
     await actions.createFile('handlers/queue/orders.ts')
     expect(client.putProjectFile.mock.calls[1]![2]).toContain('"orders" queue')
     // Ordinary files still start empty, and an explicit source wins.

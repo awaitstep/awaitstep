@@ -11,7 +11,7 @@ import {
   scheduleProblem,
   withConversionSettings,
 } from '../../codegen/handler-modules.js'
-import { generateWorkflowBundle } from '../../codegen/generate.js'
+import { generateScriptBundle, generateWorkflowBundle } from '../../codegen/generate.js'
 import { generateScript } from '../../codegen/generate-script.js'
 import { buildCronTriggers, buildQueueConsumers, workflowCronTrigger } from '../../adapter.js'
 
@@ -53,12 +53,21 @@ describe('handlerWiring / handlerDelegates', () => {
     ])
     expect(wiring.reexports).toEqual([])
     const delegates = handlerDelegates(wiring).join('\n')
-    expect(delegates).toContain('fetch: $$fetchHandler,')
     expect(delegates).toContain(
-      'case "dead-letters":\n        return $$queue_dead_letters(batch, env, ctx);',
+      'fetch: (request: Request, env: Env, ctx: ExecutionContext) =>\n    $$fetchHandler({ request, env, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } }),',
     )
-    expect(delegates).toContain('case "orders":\n        return $$queue_orders(batch, env, ctx);')
-    expect(delegates).toContain('scheduled: $$scheduledHandler,')
+    expect(delegates).toContain(
+      'const execution = { waitUntil: (promise: Promise<unknown>) => ctx.waitUntil(promise) };',
+    )
+    expect(delegates).toContain(
+      'case "dead-letters":\n        return $$queue_dead_letters({ batch: portable, env, execution });',
+    )
+    expect(delegates).toContain(
+      'case "orders":\n        return $$queue_orders({ batch: portable, env, execution });',
+    )
+    expect(delegates).toContain(
+      'scheduled: (controller: ScheduledController, env: Env, ctx: ExecutionContext) =>\n    $$scheduledHandler({\n      cron: controller.cron,\n      scheduledTime: controller.scheduledTime,\n      env,\n      execution: { waitUntil: (promise) => ctx.waitUntil(promise) },\n    }),',
+    )
   })
 
   it('keeps import identifiers distinct for queue names that sanitize alike', () => {
@@ -106,16 +115,33 @@ describe('generated entries with handler modules', () => {
     )
     const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
     expect(worker).toContain('import $$fetchHandler from "./handlers/fetch.js";')
-    expect(worker).toContain('fetch: $$fetchHandler,')
+    expect(worker).toContain('$$fetchHandler({ request, env, execution')
     expect(worker).toContain('case "orders":')
-    expect(worker).toContain('scheduled: $$scheduledHandler,')
-    expect(worker).toContain('export const AWAITSTEP_RETENTION')
+    expect(worker).toContain(
+      'scheduled: (controller: ScheduledController, env: Env, ctx: ExecutionContext) =>',
+    )
+    // The retention lives in the workflow module. The handlers start
+    // instances there, so the worker needs none of it and exports nothing
+    // but its handlers: nothing imports the worker.
+    expect(worker).toContain('import workflow from "./awaitstep/workflow.js";')
+    expect(worker).not.toContain('AWAITSTEP_RETENTION')
+    expect(worker).not.toMatch(/^export \{/m)
     expect(worker).not.toContain('"annotation"')
     expect(worker).not.toContain('async fetch(')
     // The modules ship as ordinary modules beside the entry.
     expect(bundleDeployFiles(bundle).map((f) => f.path)).toEqual(
       expect.arrayContaining(['worker.ts', 'handlers/fetch.ts', 'handlers/queue/orders.ts']),
     )
+  })
+
+  it('imports the retention into a workflow worker only when its inline default fetch creates instances', () => {
+    const inline = generateWorkflowBundle(baseIr)
+    const worker = inline.files.find((f) => f.path === 'worker.ts')!.source
+    expect(worker).toContain(
+      'import workflow, { AWAITSTEP_RETENTION } from "./awaitstep/workflow.js";',
+    )
+    expect(worker).toContain('retention: AWAITSTEP_RETENTION')
+    expect(worker).not.toMatch(/^export \{/m)
   })
 
   it('keeps the default fetch entry when the project has only a queue module', () => {
@@ -131,12 +157,15 @@ describe('generated entries with handler modules', () => {
   })
 
   it('leaves an annotation-only workflow byte-for-byte as before', () => {
-    const worker = generateWorkflowBundle(baseIr).files.find((f) => f.path === 'worker.ts')!.source
-    expect(worker).toContain('\nconst AWAITSTEP_RETENTION')
-    expect(worker).not.toContain('export const AWAITSTEP_RETENTION')
+    const bundle = generateWorkflowBundle(baseIr)
+    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    expect(worker).not.toContain('const AWAITSTEP_RETENTION')
+    expect(bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!.source).toContain(
+      'export const AWAITSTEP_RETENTION',
+    )
   })
 
-  it('exports runGraph from a script entry so handlers/fetch.ts can import it', () => {
+  it('exports runGraph from the function module; the worker imports only what its own code calls and re-exports nothing', () => {
     const scriptIr: ScriptIR = {
       kind: 'script',
       metadata: { name: 'Fn', version: 1, createdAt: '', updatedAt: '' },
@@ -146,12 +175,31 @@ describe('generated entries with handler modules', () => {
       edges: [],
       runtime: { files: [files[0]!] },
     }
-    const source = generateScript(scriptIr)
-    expect(source).toContain('export async function runGraph(')
-    expect(source).toContain('fetch: $$fetchHandler,')
-    expect(generateScript({ ...scriptIr, runtime: {} })).not.toContain(
-      'export async function runGraph',
+    const bundle = generateScriptBundle(scriptIr)
+    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
+    expect(graph).toContain('export async function runGraph(')
+    expect(graph).not.toContain('handlers/')
+    // The handler module runs the graph, so the worker does not import it.
+    expect(worker).toContain('import { type Env } from "./awaitstep/function.js";')
+    expect(worker).not.toContain('runGraph')
+    expect(worker).toContain('$$fetchHandler({ request, env, execution')
+    expect(worker).not.toMatch(/^export \{/m)
+    // Without a handler module the default fetch is inline and calls the imported runGraph.
+    const plain = generateScript({ ...scriptIr, runtime: {} })
+    expect(plain).toContain('import { runGraph, type Env } from "./awaitstep/function.js";')
+    expect(plain).toContain('const graph = await runGraph(env, event)')
+    expect(plain).not.toContain('$$fetchHandler')
+    expect(plain).not.toMatch(/^export \{/m)
+    // A word in a comment or a string is not a use.
+    const commented = generateScript(
+      {
+        ...scriptIr,
+        runtime: {},
+      },
+      { triggerCode: '// runGraph is not called here\nreturn new Response("runGraph")' },
     )
+    expect(commented).toContain('import { type Env } from "./awaitstep/function.js";')
   })
 })
 
@@ -236,14 +284,17 @@ const schema = z.object({});
     expect(shared).toContain('export const schema = z.object({});')
 
     const fetch = byPath.get('handlers/fetch.ts')!
-    // Entry-scoped names come through the entry's exports.
-    expect(fetch.startsWith('import { AWAITSTEP_RETENTION } from "#app/worker";\n')).toBe(true)
+    // Graph-scoped names come through the workflow module, never the worker.
+    expect(fetch.startsWith('import { AWAITSTEP_RETENTION } from "#awaitstep/workflow";\n')).toBe(
+      true,
+    )
+    expect(fetch).toContain('import type { FetchContext } from "#awaitstep/runtime";')
     // The module-level import follows, the declaration does not.
     expect(fetch).toContain('import { z } from "zod"')
     expect(fetch).toContain('import { schema } from "#app/handlers/shared";')
     expect(fetch).not.toContain('z.object')
     expect(fetch).toContain(
-      'export default async function (request, env, ctx): Promise<Response> {',
+      'export default async function ({ request, env, execution }: FetchContext<Env>): Promise<Response> {',
     )
     expect(fetch).toContain('return Response.json(schema.parse({ id: instance.id }));')
 
@@ -251,7 +302,7 @@ const schema = z.object({});
     // said, so the module keeps those names.
     const queue = byPath.get('handlers/queue/order-events.ts')!
     expect(queue).toContain(
-      'export default async function (batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext): Promise<void> {',
+      'export default async function ({ batch, env, execution }: QueueContext<Env>): Promise<void> {',
     )
     expect(queue).toContain('for (const m of batch.messages) m.ack();')
     expect(queue).not.toContain('#app/worker')
@@ -261,8 +312,10 @@ const schema = z.object({});
     // workflow registers, not only the one it was declared for.
     const scheduled = byPath.get('handlers/scheduled.ts')!
     expect(scheduled).toContain(
-      'export default async function (controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {',
+      'export default async function ({ cron, scheduledTime, env, execution }: ScheduledContext<Env>): Promise<void> {',
     )
+    // A body written against the controller still finds one.
+    expect(scheduled).toContain('const controller = { cron, scheduledTime };')
     expect(scheduled).toContain('switch (controller.cron) {')
     expect(scheduled).toContain('case "0 * * * *":')
 
@@ -277,9 +330,39 @@ const schema = z.object({});
       'workflow',
     )
     expect(result.files[0]!.source).toContain(
-      'export default async function (batch: MessageBatch<unknown>, env: Env, ctx: ExecutionContext)',
+      'export default async function ({ batch, env, execution }: QueueContext<Env>)',
     )
     expect(result.files[0]!.source).toContain('batch.ackAll();')
+  })
+
+  it('keeps the names an @fetch body was written against, and ctx for every kind', () => {
+    const result = handlerModulesFromTriggerCode(
+      [
+        '@fetch function handler(req, env, context) {\n  context.waitUntil(log(req.url));\n  return new Response(req.method);\n}',
+        '@queue function orders(batch, env, ctx) {\n  ctx.waitUntil(flush(batch));\n}',
+        '@scheduled function hourly(controller, env, ctx) {\n  @crons ["0 * * * *"]\n  ctx.waitUntil(tick(controller.cron));\n}',
+      ].join('\n\n'),
+      'workflow',
+    )
+    const byPath = new Map(result.files.map((f) => [f.path, f.source]))
+    const fetch = byPath.get('handlers/fetch.ts')!
+    expect(fetch).toContain('({ request, env, execution }: FetchContext<Env>)')
+    expect(fetch).toContain(
+      '  const req = request;\n  const context = execution;\n  context.waitUntil(log(req.url));',
+    )
+    expect(fetch).not.toContain('const env = env')
+    expect(byPath.get('handlers/queue/orders.ts')).toContain(
+      '  const ctx = execution;\n  ctx.waitUntil(flush(batch));',
+    )
+    const scheduled = byPath.get('handlers/scheduled.ts')!
+    expect(scheduled).toContain('const ctx = execution;')
+    expect(scheduled).toContain('const controller = { cron, scheduledTime };')
+    // A body that uses none of them gets no prelude.
+    const plain = handlerModulesFromTriggerCode(
+      '@fetch function handler(request, env) {\n  return new Response("x");\n}',
+      'workflow',
+    )
+    expect(plain.files[0]!.source).not.toContain('const ')
   })
 
   it('turns legacy trigger code into a fetch module, with the entry imports its body needs', () => {
@@ -288,29 +371,46 @@ const schema = z.object({});
       {
         path: 'handlers/fetch.ts',
         source:
-          'export default async function (request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {\n  return new Response("legacy")\n}\n',
+          'import type { FetchContext } from "#awaitstep/runtime";\n\nexport default async function ({ request, env, execution }: FetchContext<Env>): Promise<Response> {\n  return new Response("legacy")\n}\n',
       },
     ])
     const script = handlerModulesFromTriggerCode(
       'const graph = await runGraph(env, { payload: 1 }); return Response.json(graph)',
       'script',
     )
-    expect(script.files[0]!.source.startsWith('import { runGraph } from "#app/worker";')).toBe(true)
+    expect(
+      script.files[0]!.source.startsWith('import { runGraph } from "#awaitstep/function";'),
+    ).toBe(true)
     expect(entryImportFor('runGraph(env) + AWAITSTEP_RETENTION', 'script')).toBe(
-      'import { runGraph, AWAITSTEP_RETENTION } from "#app/worker";\n',
+      'import { runGraph, AWAITSTEP_RETENTION } from "#awaitstep/function";\n',
     )
     expect(entryImportFor('runGraph(env)', 'workflow')).toBe('')
   })
 
   it('scaffolds each kind of module with the entry imports they rely on', () => {
     const fetch = handlerModuleScaffold({ kind: 'fetch', target: 'workflow' })
-    expect(fetch).toContain('import { AWAITSTEP_RETENTION } from "#app/worker"')
-    expect(fetch).toContain('retention: AWAITSTEP_RETENTION')
-    expect(handlerModuleScaffold({ kind: 'fetch', target: 'script' })).toContain('runGraph(env')
-    expect(handlerModuleScaffold({ kind: 'queue', queue: 'orders' })).toContain('"orders" queue')
-    expect(handlerModuleScaffold({ kind: 'scheduled' })).toContain(
-      'controller: ScheduledController',
+    expect(fetch).toContain('import { startWorkflow, workflowStatus } from "#awaitstep/workflow"')
+    expect(fetch).toContain('await startWorkflow(env, params)')
+    expect(fetch).toContain('({ request, env }: FetchContext<Env>)')
+    expect(fetch).not.toContain('ExecutionContext')
+    const script = handlerModuleScaffold({ kind: 'fetch', target: 'script' })
+    expect(script).toContain('import { runGraph } from "#awaitstep/function"')
+    expect(script).toContain('runGraph(env')
+    expect(handlerModuleScaffold({ kind: 'queue', queue: 'orders' })).toContain(
+      '({ batch, env }: QueueContext<Env>)',
     )
+    expect(handlerModuleScaffold({ kind: 'scheduled' })).toContain(
+      '({ cron, scheduledTime, env }: ScheduledContext<Env>)',
+    )
+    for (const kind of ['fetch', 'queue', 'scheduled'] as const) {
+      const scaffold =
+        kind === 'fetch'
+          ? handlerModuleScaffold({ kind, target: 'script' })
+          : kind === 'queue'
+            ? handlerModuleScaffold({ kind, queue: 'q' })
+            : handlerModuleScaffold({ kind })
+      expect(scaffold).not.toMatch(/ExecutionContext|ScheduledController|MessageBatch|#app\/worker/)
+    }
   })
 })
 

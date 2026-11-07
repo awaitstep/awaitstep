@@ -6,10 +6,14 @@ import type {
   WorkflowIR,
   WorkflowNode,
 } from './types.js'
+import { isIdentifierName } from './identifiers.js'
 import { isBuiltinNodeType } from './types.js'
 import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './schema.js'
 import { validateDependencySpecs } from './dependencies.js'
 import { validateProjectFiles } from './project-files.js'
+
+/** Names a loop item cannot take: the step module's own parameters and the loop's other binding. */
+const LOOP_ITEM_TAKEN = new Set(['env', 'event', 'inputs', 'step', 'ctx', 'index'])
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)
@@ -220,6 +224,21 @@ export function validateNodeData(
       errors.push({
         path: `nodes.${node.id}.data.collection`,
         message: `forEach loop "${node.name}" requires a collection expression`,
+        nodeId: node.id,
+      })
+    }
+
+    // The item name is a binding in generated code and a key a body step reads
+    // from `inputs`: a plain identifier, not a keyword, not a name the step
+    // module already has.
+    const itemVar = node.data.itemVar
+    if (
+      itemVar !== undefined &&
+      (typeof itemVar !== 'string' || !isIdentifierName(itemVar) || LOOP_ITEM_TAKEN.has(itemVar))
+    ) {
+      errors.push({
+        path: `nodes.${node.id}.data.itemVar`,
+        message: `Loop "${node.name}" item name must be a plain identifier that is not a keyword or one of env, event, inputs, step, ctx, index`,
         nodeId: node.id,
       })
     }
