@@ -6,6 +6,7 @@ import { CanvasSidePanels } from '../canvas-side-panels'
 
 vi.mock('../node-config-panel', () => ({ NodeConfigPanel: () => <div>inspector panel</div> }))
 vi.mock('../local-test-panel', () => ({ LocalTestPanel: () => <div>local test panel</div> }))
+vi.mock('../code-preview', () => ({ CodePreview: () => <div>code preview panel</div> }))
 
 function renderPanels() {
   return render(
@@ -14,7 +15,7 @@ function renderPanels() {
 }
 
 beforeEach(() => {
-  useCanvasLayoutStore.setState({ inspectorOpen: true })
+  useCanvasLayoutStore.setState({ inspectorOpen: true, codePreviewOpen: false })
   useWorkflowStore.setState({ selectedNodeId: 'n1' })
 })
 
@@ -30,5 +31,14 @@ describe('CanvasSidePanels inspector toggle', () => {
     expect(screen.queryByText('inspector panel')).toBeNull()
     act(() => useCanvasLayoutStore.setState({ inspectorOpen: true }))
     expect(screen.getByText('inspector panel')).toBeInTheDocument()
+  })
+})
+
+describe('CanvasSidePanels code preview', () => {
+  it('takes the inspector space while the preview is open', () => {
+    useCanvasLayoutStore.setState({ codePreviewOpen: true })
+    renderPanels()
+    expect(screen.getByText('code preview panel')).toBeInTheDocument()
+    expect(screen.queryByText('inspector panel')).toBeNull()
   })
 })

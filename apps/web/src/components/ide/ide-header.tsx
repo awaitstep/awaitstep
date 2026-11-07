@@ -136,7 +136,7 @@ export function IdeHeader({
     // what?" is not answerable from an icon.
     {
       id: 'preview',
-      label: 'Preview',
+      label: 'Preview Canvas',
       icon: PanelRight,
       pressed: previewOpen,
       title: `${previewOpen ? 'Hide' : 'Show'} canvas preview (${hint('togglePreview')})`,

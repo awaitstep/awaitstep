@@ -9,21 +9,29 @@ interface CanvasLayoutState {
    * clicking steps and seeing nothing, with no hint why.
    */
   inspectorOpen: boolean
+  /** The read-only preview of the code this graph generates. */
+  codePreviewOpen: boolean
   togglePalette: () => void
   setPaletteOpen: (open: boolean) => void
   closePalette: () => void
   setInspectorOpen: (open: boolean) => void
+  toggleCodePreview: () => void
+  setCodePreviewOpen: (open: boolean) => void
 }
 
 /**
  * Canvas panel visibility, the counterpart of the IDE layout store for the
- * two toggles the unified top bar shows on the canvas (⌘B, ⌘J).
+ * toggles the unified top bar shows on the canvas (⌘B, ⌘J, and the code
+ * preview).
  */
 export const useCanvasLayoutStore = create<CanvasLayoutState>()((set, get) => ({
   paletteOpen: false,
   inspectorOpen: true,
+  codePreviewOpen: false,
   togglePalette: () => set({ paletteOpen: !get().paletteOpen }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   closePalette: () => set({ paletteOpen: false }),
   setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
+  toggleCodePreview: () => set({ codePreviewOpen: !get().codePreviewOpen }),
+  setCodePreviewOpen: (codePreviewOpen) => set({ codePreviewOpen }),
 }))

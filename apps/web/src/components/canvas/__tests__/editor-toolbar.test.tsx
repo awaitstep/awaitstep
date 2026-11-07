@@ -56,7 +56,7 @@ beforeEach(() => {
   switchView.mockReset()
   follow.mockReset()
   mac = false
-  useCanvasLayoutStore.setState({ paletteOpen: false, inspectorOpen: true })
+  useCanvasLayoutStore.setState({ paletteOpen: false, inspectorOpen: true, codePreviewOpen: false })
   useWorkflowStore.setState({ selectedNodeId: null })
 })
 
@@ -79,10 +79,10 @@ describe('EditorToolbar code control', () => {
 })
 
 describe('EditorToolbar actions', () => {
-  it('has no Test button and no Preview toggle', () => {
+  it('has no Test button, and offers the generated code preview', () => {
     render(<EditorToolbar {...props()} />)
     expect(screen.queryByRole('button', { name: /^Test/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: /preview/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /generated code preview/ })).toBeInTheDocument()
   })
 
   it('keeps every other action reachable: Deploy on the bar, the rest in the menu', async () => {
@@ -213,6 +213,28 @@ describe('EditorToolbar view toggles', () => {
   it('arms the inspector, without hiding anything, when asked with no step selected', async () => {
     render(<EditorToolbar {...props()} />)
     await userEvent.click(screen.getByRole('button', { name: /^Inspector/ }))
+    expect(useCanvasLayoutStore.getState().inspectorOpen).toBe(true)
+  })
+
+  it('toggles the generated code preview and reports it pressed', async () => {
+    render(<EditorToolbar {...props()} />)
+    const preview = screen.getByRole('button', { name: /generated code preview/ })
+    expect(preview).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(preview)
+    expect(useCanvasLayoutStore.getState().codePreviewOpen).toBe(true)
+    expect(preview).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(preview)
+    expect(useCanvasLayoutStore.getState().codePreviewOpen).toBe(false)
+  })
+
+  it('closes the code preview when the inspector is asked for, bringing the inspector back', async () => {
+    useCanvasLayoutStore.setState({ codePreviewOpen: true })
+    useWorkflowStore.setState({ selectedNodeId: 'n1' })
+    render(<EditorToolbar {...props()} />)
+    const inspector = screen.getByRole('button', { name: /^Inspector/ })
+    expect(inspector).toHaveAttribute('aria-pressed', 'false')
+    await userEvent.click(inspector)
+    expect(useCanvasLayoutStore.getState().codePreviewOpen).toBe(false)
     expect(useCanvasLayoutStore.getState().inspectorOpen).toBe(true)
   })
 

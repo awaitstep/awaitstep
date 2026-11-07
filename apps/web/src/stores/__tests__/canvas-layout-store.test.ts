@@ -4,7 +4,7 @@ import { useCanvasLayoutStore } from '../canvas-layout-store'
 
 beforeEach(() => {
   localStorage.clear()
-  useCanvasLayoutStore.setState({ paletteOpen: false, inspectorOpen: true })
+  useCanvasLayoutStore.setState({ paletteOpen: false, inspectorOpen: true, codePreviewOpen: false })
 })
 
 describe('canvas layout store', () => {
@@ -21,6 +21,14 @@ describe('canvas layout store', () => {
     expect(useCanvasLayoutStore.getState().inspectorOpen).toBe(false)
     useCanvasLayoutStore.getState().setInspectorOpen(true)
     useCanvasLayoutStore.getState().setInspectorOpen(true)
+    expect(useCanvasLayoutStore.getState().inspectorOpen).toBe(true)
+  })
+
+  it('opens and closes the generated code preview explicitly', () => {
+    useCanvasLayoutStore.getState().toggleCodePreview()
+    expect(useCanvasLayoutStore.getState().codePreviewOpen).toBe(true)
+    useCanvasLayoutStore.getState().setCodePreviewOpen(false)
+    expect(useCanvasLayoutStore.getState().codePreviewOpen).toBe(false)
     expect(useCanvasLayoutStore.getState().inspectorOpen).toBe(true)
   })
 

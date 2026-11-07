@@ -3,6 +3,7 @@ import { useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { NodeConfigPanel } from './node-config-panel'
 import { LocalTestPanel } from './local-test-panel'
+import { CodePreview } from './code-preview'
 import { cn } from '../../lib/utils'
 import { focusMoreActions } from '../workflows/top-bar-focus'
 
@@ -73,9 +74,17 @@ export function CanvasSidePanels({
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
 
   const inspectorOpen = useCanvasLayoutStore((s) => s.inspectorOpen)
-  const showInspector = !!selectedNodeId && inspectorOpen
+  const codePreviewOpen = useCanvasLayoutStore((s) => s.codePreviewOpen)
+  // The preview replaces the inspector's space; the local test panel, when it
+  // is running, stays where it is so a preview does not end the session.
+  const showInspector = !!selectedNodeId && inspectorOpen && !codePreviewOpen
 
-  const hasPanel = showInspector || showLocalTest
+  function handleCloseCodePreview() {
+    useCanvasLayoutStore.getState().setCodePreviewOpen(false)
+    focusMoreActions()
+  }
+
+  const hasPanel = showInspector || showLocalTest || codePreviewOpen
   if (!hasPanel) return null
 
   return (
@@ -91,6 +100,15 @@ export function CanvasSidePanels({
         onEscape={onCloseLocalTest}
       >
         <LocalTestPanel workflowId={workflowId} onClose={onCloseLocalTest} />
+      </SlideIn>
+      <SlideIn
+        show={codePreviewOpen}
+        width="w-[min(760px,100vw)]"
+        panel="code-preview"
+        label="Code preview"
+        onEscape={handleCloseCodePreview}
+      >
+        <CodePreview onClose={handleCloseCodePreview} />
       </SlideIn>
     </div>
   )

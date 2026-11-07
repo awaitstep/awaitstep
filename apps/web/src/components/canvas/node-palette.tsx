@@ -119,7 +119,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
       </Tooltip.Provider>
 
       {open && (
-        <div className="w-72 rounded-xl border border-border bg-card shadow-lg">
+        <div className="w-xs rounded-xl border border-border bg-card shadow-lg">
           <div className="border-b border-border px-3 py-2">
             <div className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -192,7 +192,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
           </div>
 
           {/* Educational hint */}
-          <div className="border-t border-border px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+          <div className="border-t text-center border-border px-3 py-2 text-xs leading-relaxed text-muted-foreground">
             Drag a node onto the canvas or click to add it.
           </div>
 

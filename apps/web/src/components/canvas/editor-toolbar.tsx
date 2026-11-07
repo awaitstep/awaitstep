@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Undo2, Redo2, PanelLeft, PanelRight } from 'lucide-react'
+import { Code2, Undo2, Redo2, PanelLeft, PanelRight } from 'lucide-react'
 import { EnvVarsDialog } from '../workflows/env-vars-dialog'
 import { Button } from '../ui/button'
 import { useTemporalStore, useWorkflowStore } from '../../stores/workflow-store'
@@ -88,7 +88,9 @@ export function EditorToolbar({
   const links = useWorkflowLinks(workflowId)
   const paletteOpen = useCanvasLayoutStore((s) => s.paletteOpen)
   const inspectorOpen = useCanvasLayoutStore((s) => s.inspectorOpen)
+  const codePreviewOpen = useCanvasLayoutStore((s) => s.codePreviewOpen)
   const togglePalette = useCanvasLayoutStore((s) => s.togglePalette)
+  const toggleCodePreview = useCanvasLayoutStore((s) => s.toggleCodePreview)
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
   const [envOpen, setEnvOpen] = useState(false)
   const canUndo = useTemporalStore((t) => t.pastStates.length > 0)
@@ -98,12 +100,19 @@ export function EditorToolbar({
   const saveHint = isMac ? '⌘↵' : 'Ctrl+↵'
   const viewOnly = !!readOnly && !!viewOnlyReason
   // Pressed means the inspector is on screen, not merely allowed: with no
-  // step selected nothing is showing.
-  const inspectorVisible = inspectorOpen && !!selectedNodeId
+  // step selected nothing is showing, and the code preview takes the space.
+  const inspectorVisible = inspectorOpen && !!selectedNodeId && !codePreviewOpen
 
   // Asking for the inspector brings it back; asking again hides it. With
   // nothing selected there is nothing to hide, so it only arms the panel.
+  // While the code preview is up, the inspector is behind it: this closes the
+  // preview and brings the selected step's settings back into view.
   function handleToggleInspector() {
+    if (codePreviewOpen) {
+      useCanvasLayoutStore.getState().setCodePreviewOpen(false)
+      useCanvasLayoutStore.getState().setInspectorOpen(true)
+      return
+    }
     if (inspectorVisible) {
       useCanvasLayoutStore.getState().setInspectorOpen(false)
       return
@@ -156,6 +165,16 @@ export function EditorToolbar({
       pressed: inspectorVisible,
       title: `Inspector (${hint('toggleDock')})`,
       onClick: handleToggleInspector,
+    },
+    // The preview takes the side panel while it is open; the graph, and the
+    // code it generates, are the two things worth seeing here.
+    {
+      id: 'code-preview',
+      label: 'Preview Code',
+      icon: Code2,
+      pressed: codePreviewOpen,
+      title: `${codePreviewOpen ? 'Hide' : 'Show'} generated code preview`,
+      onClick: toggleCodePreview,
     },
   ]
 

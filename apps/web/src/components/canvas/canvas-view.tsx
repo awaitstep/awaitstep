@@ -81,6 +81,8 @@ export function CanvasView({
     return () => {
       resetWorkflowStore()
       useCanvasLayoutStore.getState().closePalette()
+      // A preview belongs to the graph it was opened on, not the next one.
+      useCanvasLayoutStore.getState().setCodePreviewOpen(false)
     }
   }, [resetWorkflowStore])
 
@@ -257,6 +259,8 @@ export function CanvasView({
   }
 
   function handleOpenLocalTest() {
+    // Both live in the right-hand slot: testing the graph wins over reading it.
+    useCanvasLayoutStore.getState().setCodePreviewOpen(false)
     setShowLocalTest(true)
   }
 

@@ -104,13 +104,14 @@ describe('the bar on both surfaces', () => {
     expect(screen.getAllByText('deployed v3').length).toBeGreaterThan(0)
   })
 
-  it('gives the canvas no Preview toggle and Code no Deploy', () => {
+  it('gives the canvas the code preview and Code the canvas preview, and Code no Deploy', () => {
     const canvas = canvasBar()
-    expect(screen.queryByRole('button', { name: /preview/i })).toBeNull()
+    expect(screen.getByRole('button', { name: /generated code preview/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Deploy' })).toBeInTheDocument()
     canvas.unmount()
     const code = codeBar()
     expect(screen.getByRole('button', { name: /canvas preview/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /generated code preview/ })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Deploy' })).toBeNull()
     // The slot stays, empty, so ⋯ does not move.
     expect(code.container.querySelector('[data-zone=deploy]')?.children).toHaveLength(0)
