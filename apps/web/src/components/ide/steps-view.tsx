@@ -1,35 +1,53 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
+import type { StepPlacement } from '@awaitstep/codegen'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
-import { cn } from '../../lib/utils'
 import { highlightFor } from '../../lib/ide/step-map'
 import { markedFileOf } from '../../lib/ide/tabs'
-import { visibleRows, type StepRow } from '../../lib/ide/step-order'
+import { visibleRows } from '../../lib/ide/step-order'
 import { selectStep } from '../../lib/ide/step-actions'
 import { stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
 import { stepsKeyIntent } from '../../lib/ide/steps-keys'
 import { escapeCss } from '../../lib/ide/css-escape'
+import type { CreateStepOutcome } from '../../lib/ide/step-create'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { useIdeStepsStore } from '../../stores/ide-steps-store'
 import { SaveVersionFirst } from './save-version-first'
-import { useStepSync } from './step-sync-context'
+import { StepCreateRow } from './step-create-row'
+import { StepRowItem } from './step-row'
+import type { StepOutgoingEdge } from './step-row-menu'
+import { useStepSync, type StepSyncValue } from './step-sync-context'
 
 interface StepsViewProps {
   /** The side bar's view switch. */
   tabs: ReactNode
   /** Esc: focus goes back to the editor. */
   onEscape: () => void
+  /** The workspace accepts edits; the create controls stay, disabled, otherwise. */
+  canEdit: boolean
+  /** Why editing is refused right now (a read-only version, a Viewer), or null. */
+  readOnlyMessage: string | null
+  /** Adds the step and opens its file, or says why it was refused. */
+  onCreateStep: (placement: StepPlacement, name: string) => Promise<CreateStepOutcome>
 }
 
 /**
  * The side bar's Steps view: the workflow's steps in the order the canvas
  * reads them, containers nested. Picking one opens its file and selects it in
- * the preview; the step whose file is in the editor is marked.
+ * the preview; the step whose file is in the editor is marked. A row's menu
+ * (or the header's +) places a new step and opens its name row.
  */
-export function StepsView({ tabs, onEscape }: StepsViewProps) {
-  const { workflowId, map, rows, nodes, kind, workflowFile, hasVersion } = useStepSync()
+export function StepsView({
+  tabs,
+  onEscape,
+  canEdit,
+  readOnlyMessage,
+  onCreateStep,
+}: StepsViewProps) {
+  const { workflowId, map, rows, nodes, edges, kind, workflowFile, hasVersion } = useStepSync()
   const { registry } = useNodeRegistry()
   const { activePath, selectedNodeId, focusRequested } = useIdeStore(
     useShallow((s) => ({
@@ -39,6 +57,9 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
     })),
   )
   const showing = useIdeLayoutStore((s) => s.sideBarTab === 'steps')
+  const create = useIdeStepsStore((s) => s.create)
+  const beginCreate = useIdeStepsStore((s) => s.beginCreate)
+  const endCreate = useIdeStepsStore((s) => s.endCreate)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [focusedId, setFocusedId] = useState<string | null>(null)
 
@@ -47,6 +68,19 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
     () => new Set(highlightFor(map, markedFileOf(activePath)).primary),
     [map, activePath],
   )
+  const outgoingByNode = useMemo(() => {
+    const byNode = new Map<string, StepOutgoingEdge[]>()
+    for (const edge of edges) {
+      const list = byNode.get(edge.source) ?? []
+      list.push({
+        id: edge.id,
+        ...(edge.label !== undefined && { label: edge.label }),
+        targetName: nodes.get(edge.target)?.name ?? 'the next step',
+      })
+      byNode.set(edge.source, list)
+    }
+    return byNode
+  }, [edges, nodes])
   // One row stays in the tab order: the one with focus, else the picked step, else the first.
   const shownIds = new Set(shown.map((r) => r.nodeId))
   const tabbableId =
@@ -57,11 +91,16 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
         : (shown[0]?.nodeId ?? null)
 
   // Focus is a DOM side effect, so it waits for the list to be on screen.
+  // A new step's name row is the one thing that owns the keyboard instead.
   useEffect(() => {
     if (!focusRequested || !showing) return
-    document.querySelector<HTMLElement>('[role="tree"][aria-label="Steps"] [tabindex="0"]')?.focus()
+    if (!create) {
+      document
+        .querySelector<HTMLElement>('[role="tree"][aria-label="Steps"] [tabindex="0"]')
+        ?.focus()
+    }
     useIdeStore.getState().consumeStepsFocus()
-  }, [focusRequested, showing])
+  }, [focusRequested, showing, create])
 
   function focusRow(nodeId: string) {
     setFocusedId(nodeId)
@@ -107,9 +146,67 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
     }
   }
 
+  // The header's + appends after the last step of the main chain. A row with
+  // several outgoing connections (a branch, a fan-out, a container's arms)
+  // has no single "after" to append to, so the last plain row with at most
+  // one connection is the anchor — the person picks an arm from that row's
+  // own menu instead.
+  function handleHeaderCreate() {
+    const anchor = [...rows]
+      .reverse()
+      .find((row) => !row.container && (outgoingByNode.get(row.nodeId)?.length ?? 0) <= 1)
+    if (!anchor) {
+      beginCreate({ first: true })
+      return
+    }
+    beginCreate({ after: anchor.nodeId })
+  }
+
+  async function handleCreate(name: string): Promise<string | null> {
+    const placement = create
+    if (!placement) return 'No place to put the step.'
+    const outcome = await onCreateStep(placement, name)
+    if (outcome.status === 'created' || outcome.status === 'graph-conflict') {
+      // A conflict keeps nothing to retry here: the workspace notice explains.
+      endCreate()
+      // The new file is open (the create opened it); put the keyboard in it.
+      if (outcome.status === 'created' && outcome.opened) {
+        useIdeStore.getState().requestEditorFocus()
+      }
+      return null
+    }
+    return outcome.reason
+  }
+
   return (
     <div className="flex h-full flex-col bg-card">
-      <div className="flex h-9 shrink-0 items-center border-b border-border px-3">{tabs}</div>
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
+        {tabs}
+        {hasVersion && (
+          <button
+            type="button"
+            onClick={handleHeaderCreate}
+            disabled={!canEdit}
+            aria-label="New step"
+            title={
+              canEdit
+                ? 'New step'
+                : (readOnlyMessage ?? 'You can view this workflow but not edit it.')
+            }
+            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      {create && (
+        <StepCreateRow
+          key={placementKey(create)}
+          hint={placementHint(create, nodes, edges)}
+          onSubmit={handleCreate}
+          onCancel={endCreate}
+        />
+      )}
       {!map.hasManifest && rows.length > 0 && (
         <p className="border-b border-border px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
           No step files for this version, so steps here don’t open code.
@@ -119,7 +216,7 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
         <SaveVersionFirst workflowId={workflowId} reason="Steps come from a saved version." />
       ) : rows.length === 0 ? (
         <p className="px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
-          No steps in this version. Add them on the canvas.
+          No steps in this version. {canEdit ? 'Add one with + above.' : 'Add them on the canvas.'}
         </p>
       ) : (
         <div
@@ -134,7 +231,7 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
             const summary: SummaryNode = node
             const info = map.byNode.get(row.nodeId)
             return (
-              <StepItem
+              <StepRowItem
                 key={row.nodeId}
                 row={row}
                 name={node.name}
@@ -150,9 +247,13 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
                 tabbable={row.nodeId === tabbableId}
                 active={activeIds.has(row.nodeId)}
                 selected={row.nodeId === selectedNodeId}
+                outgoing={outgoingByNode.get(row.nodeId) ?? []}
+                canCreate={canEdit}
+                readOnlyMessage={readOnlyMessage}
                 onPick={handlePick}
                 onFold={handleFold}
                 onFocusRow={setFocusedId}
+                onCreate={beginCreate}
               />
             )
           })}
@@ -160,6 +261,28 @@ export function StepsView({ tabs, onEscape }: StepsViewProps) {
       )}
     </div>
   )
+}
+
+/** A stable identity for the open name row: a different placement starts a fresh one. */
+function placementKey(placement: StepPlacement): string {
+  return 'first' in placement ? 'first' : `${placement.after}:${placement.edgeId ?? ''}`
+}
+
+/** What the name row says about where the step goes. */
+function placementHint(
+  placement: StepPlacement,
+  nodes: StepSyncValue['nodes'],
+  edges: StepSyncValue['edges'],
+): string {
+  if ('first' in placement) return 'First step'
+  const source = nodes.get(placement.after)
+  if (placement.edgeId !== undefined) {
+    const edge = edges.find((e) => e.id === placement.edgeId)
+    if (edge?.label) return `Into ${edge.label}`
+    const target = edge ? nodes.get(edge.target) : undefined
+    if (target) return `Before ${target.name}`
+  }
+  return source ? `After ${source.name}` : 'After this step'
 }
 
 function metaLine(
@@ -175,96 +298,4 @@ function metaLine(
   if (settings) parts.push(settings)
   if (uses > 0) parts.push(uses === 1 ? 'uses 1 file' : `uses ${uses} files`)
   return parts.length > 0 ? parts.join(' · ') : null
-}
-
-interface StepItemProps {
-  row: StepRow
-  name: string
-  icon: ReactNode
-  meta: string | null
-  folded: boolean
-  tabbable: boolean
-  active: boolean
-  selected: boolean
-  onPick: (nodeId: string) => void
-  onFold: (nodeId: string) => void
-  onFocusRow: (nodeId: string) => void
-}
-
-function StepItem({
-  row,
-  name,
-  icon,
-  meta,
-  folded,
-  tabbable,
-  active,
-  selected,
-  onPick,
-  onFold,
-  onFocusRow,
-}: StepItemProps) {
-  const Chevron = folded ? ChevronRight : ChevronDown
-
-  function handleClick() {
-    onPick(row.nodeId)
-  }
-
-  function handleFocus(event: React.FocusEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) onFocusRow(row.nodeId)
-  }
-
-  function handleChevronClick(event: React.MouseEvent) {
-    event.stopPropagation()
-    onFold(row.nodeId)
-  }
-
-  return (
-    <div
-      role="treeitem"
-      tabIndex={tabbable ? 0 : -1}
-      data-step-id={row.nodeId}
-      aria-level={row.depth + 1}
-      aria-expanded={row.container ? !folded : undefined}
-      aria-selected={selected}
-      aria-current={active ? 'true' : undefined}
-      onClick={handleClick}
-      onFocus={handleFocus}
-      className={cn(
-        'flex min-h-8 w-full cursor-pointer items-center gap-1.5 pr-2 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary',
-        selected
-          ? 'bg-primary/10 text-foreground shadow-[inset_2px_0_0_var(--color-primary)]'
-          : active
-            ? 'bg-muted/70 text-foreground'
-            : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-      )}
-      style={{ paddingLeft: `${8 + row.depth * 14}px` }}
-    >
-      {row.container ? (
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={folded ? `Expand ${name}` : `Collapse ${name}`}
-          onClick={handleChevronClick}
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded hover:bg-muted"
-        >
-          <Chevron className="h-3 w-3" />
-        </button>
-      ) : (
-        <span className="w-4 shrink-0" aria-hidden />
-      )}
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden>
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1 py-1">
-        <span className="block truncate text-xs">
-          {row.arm && (
-            <span className="mr-1.5 text-[10px] uppercase tracking-wider">{row.arm}</span>
-          )}
-          {name}
-        </span>
-        {meta && <span className="block truncate text-[11px] text-muted-foreground">{meta}</span>}
-      </span>
-    </div>
-  )
 }

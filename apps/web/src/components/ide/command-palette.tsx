@@ -18,6 +18,12 @@ import { cn } from '../../lib/utils'
 interface CommandPaletteProps {
   actions: IdeCommandActions
   canEdit: boolean
+  /** Why edits are refused right now, for the commands that need it. */
+  editBlockedReason: string | null
+  /** The step whose source is the active file, or null. */
+  activeStepId: string | null
+  /** That step has several outgoing connections. */
+  activeStepBranches: boolean
   activeIsStoredFile: boolean
   activeIsHandlersFile: boolean
   activeDirty: boolean
@@ -36,6 +42,9 @@ const GROUP_ORDER: IdeCommandGroup[] = ['file', 'navigate', 'view', 'run']
 export function CommandPalette({
   actions,
   canEdit,
+  editBlockedReason,
+  activeStepId,
+  activeStepBranches,
   activeIsStoredFile,
   activeIsHandlersFile,
   activeDirty,
@@ -75,6 +84,9 @@ export function CommandPalette({
       dirtyCount,
       openCount,
       canEdit,
+      editBlockedReason,
+      activeStepId,
+      activeStepBranches,
       explorerOpen,
       dockOpen,
       previewOpen,
@@ -99,6 +111,9 @@ export function CommandPalette({
     dirtyCount,
     openCount,
     canEdit,
+    editBlockedReason,
+    activeStepId,
+    activeStepBranches,
     explorerOpen,
     dockOpen,
     previewOpen,

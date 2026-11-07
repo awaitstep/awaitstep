@@ -13,6 +13,9 @@ function renderPalette(runBlockedReason: string | null) {
     <CommandPalette
       actions={actions()}
       canEdit
+      editBlockedReason={null}
+      activeStepId={null}
+      activeStepBranches={false}
       activeIsStoredFile={false}
       activeIsHandlersFile={false}
       activeDirty={false}

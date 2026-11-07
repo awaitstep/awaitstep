@@ -3,9 +3,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
 import { actionToast, failureLine } from '../lib/action-toast'
 import type { SourceFile, WorkflowFull } from '../lib/api-client'
+import type { StepPlacement } from '@awaitstep/codegen'
 import { loadVersionDocument } from '../lib/ide/node-source'
 import type { FileOwner } from '../lib/ide/project'
 import { createProjectFileActions, type ProjectFileActions } from '../lib/ide/project-actions'
+import { createStepCreator, type CreateStepOutcome } from '../lib/ide/step-create'
 import { createStepSaver } from '../lib/ide/step-save'
 import { useIdeStore } from '../stores/ide-store'
 import { useApi, useQueries } from '../contexts/api-client-context'
@@ -25,6 +27,8 @@ interface ProjectFilesInput {
   hasVersion: boolean
   /** The workspace accepts edits; read when an action starts, so a view gone read-only writes nothing. */
   canEdit: boolean
+  /** Why it does not, worded for the person; the create action says it when it refuses. */
+  readOnlyMessage: string | null
   /** Opens Search on the old import path after a rename that left importers behind. */
   onShowImporters?: (specifier: string) => void
 }
@@ -34,6 +38,8 @@ export interface ProjectFilesController extends ProjectFileActions {
   busy: boolean
   /** Refetches the workspace's files and settings. */
   refresh: () => Promise<void>
+  /** Adds a step to the loaded version and saves it as one new version. */
+  createStep: (placement: StepPlacement, name: string) => Promise<CreateStepOutcome>
 }
 
 /**
@@ -51,6 +57,7 @@ export function useProjectFiles({
   ownerOf,
   hasVersion,
   canEdit,
+  readOnlyMessage,
   onShowImporters,
 }: ProjectFilesInput): ProjectFilesController {
   const api = useApi()
@@ -70,8 +77,8 @@ export function useProjectFiles({
   }, [workflowId])
 
   // What a write in flight reads when it lands, as the workspace has it then.
-  const latest = useRef({ hasVersion, canEdit })
-  latest.current = { hasVersion, canEdit }
+  const latest = useRef({ hasVersion, canEdit, readOnlyMessage })
+  latest.current = { hasVersion, canEdit, readOnlyMessage }
 
   const refresh = useCallback(async () => {
     await Promise.all([
@@ -112,6 +119,36 @@ export function useProjectFiles({
         refresh,
       }),
     [api, queries, queryClient, workflowId, versionParam, refresh],
+  )
+
+  // The create shares the saver's queue and its memory of the last version,
+  // so a save and a create can never post two versions on one base.
+  const stepCreator = useMemo(
+    () =>
+      createStepCreator({
+        workflowId,
+        client: api,
+        notify: actionToast,
+        getStore: useIdeStore.getState,
+        isCurrent: () => liveWorkflow.current === workflowId,
+        getVersion: stepSaver.currentVersion,
+        // The raw cache, not the saver's remembered response: it answers
+        // whether the refetch after the create actually landed.
+        getCachedVersion: () =>
+          loadVersionDocument(
+            queryClient.getQueryData<WorkflowFull>(
+              queries.workflows.full(workflowId, versionParam).queryKey,
+            ),
+          ),
+        exclusive: stepSaver.exclusive,
+        remember: stepSaver.remember,
+        forget: stepSaver.forget,
+        refresh,
+        canEdit: () => latest.current.canEdit,
+        readOnlyReason: () =>
+          latest.current.readOnlyMessage ?? 'You can view this workflow but not edit it.',
+      }),
+    [api, queries, queryClient, workflowId, versionParam, stepSaver, refresh],
   )
 
   const actions = useMemo(
@@ -167,6 +204,8 @@ export function useProjectFiles({
       renameFile: (from: string, to: string) => track(() => actions.renameFile(from, to)),
       deleteFile: (path: string) => track(() => actions.deleteFile(path)),
       deleteFolder: (dir: string) => track(() => actions.deleteFolder(dir)),
+      createStep: (placement: StepPlacement, name: string) =>
+        track(() => stepCreator.create(placement, name)),
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()
@@ -180,5 +219,5 @@ export function useProjectFiles({
       busy,
       refresh,
     }
-  }, [actions, busy, queryClient, workflowId, refresh])
+  }, [actions, stepCreator, busy, queryClient, workflowId, refresh])
 }

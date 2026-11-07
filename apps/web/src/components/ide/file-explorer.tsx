@@ -22,11 +22,13 @@ import {
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { useIdeStepsStore } from '../../stores/ide-steps-store'
 import { RenameRow } from './file-explorer-rename'
 import { CreateRow } from './file-explorer-create'
 import { LimitsFooter } from './file-explorer-footer'
 import { UnsavedSection } from './file-explorer-unsaved'
 import { ExplorerHeader } from './file-explorer-header'
+import { useStepSyncOptional } from './step-sync-context'
 import {
   ExplorerRow,
   GeneratedEmptyState,
@@ -107,13 +109,34 @@ export function FileExplorer({
 
   const existing = useMemo(() => treeFilePaths(project), [project])
   const projectPaths = useMemo(() => new Set(existing), [existing])
+  // The steps folder's menu places a new step after an existing one; the
+  // prompt itself lives in the Steps view, which the choice opens.
+  const sync = useStepSyncOptional()
+  const stepChoices = useMemo(() => {
+    if (!sync || !canEdit) return []
+    const choices: { id: string; name: string }[] = []
+    for (const row of sync.rows) {
+      const node = sync.nodes.get(row.nodeId)
+      if (node?.type === 'step') choices.push({ id: row.nodeId, name: node.name })
+    }
+    return choices
+  }, [sync, canEdit])
+  // A step file's row opens the same name row, for that step.
+  const stepNodeByPath = useMemo(() => {
+    const byPath = new Map<string, string>()
+    if (!sync || !canEdit) return byPath
+    for (const [nodeId, info] of sync.map.byNode) {
+      if (info.sourcePath !== null) byPath.set(info.sourcePath, nodeId)
+    }
+    return byPath
+  }, [sync, canEdit])
   const limits = usageStatus(usage)
   const target = resolveTargetFolder({ selected, activePath, projectPaths })
 
   const rows = useMemo(() => {
     const forceOpen = create ? new Set([sectionKey('project'), ...ancestorKeys(target)]) : undefined
     // The steps folder and its files take no file menu: step code belongs to
-    // its node, and only the canvas adds, renames or removes steps.
+    // its node, and the folder's own menu adds a step (never a file).
     const isStep = (node: TreeNode) =>
       node.kind === 'dir' ? node.path === STEP_SOURCE_DIR : stepPaths.has(node.path)
     return flattenTreeRows(
@@ -298,7 +321,9 @@ export function FileExplorer({
     if (open) return
     const explorer = useIdeExplorerStore.getState()
     if (explorer.create || explorer.renaming) focusNameField()
-    else focusRow(key)
+    // A step's name row lives in the Steps view; focusing this folder's row
+    // would take the keyboard from it.
+    else if (useIdeStepsStore.getState().create === null) focusRow(key)
   }
 
   function handleFocusRow(key: string) {
@@ -324,6 +349,23 @@ export function FileExplorer({
 
   function handleNewFile() {
     useIdeExplorerStore.getState().beginCreate({ mode: 'file' })
+  }
+
+  // A step is not a file: the folder's menu opens the Steps view's name row.
+  function stepNodeForRow(
+    row: TreeRow,
+    byPath: ReadonlyMap<string, string>,
+    sync: ReturnType<typeof useStepSyncOptional>,
+  ): { id: string; name: string } | null {
+    if (row.kind !== 'file') return null
+    const id = byPath.get(row.path)
+    if (id === undefined) return null
+    return { id, name: sync?.nodes.get(id)?.name ?? row.name }
+  }
+
+  function handleNewStepAfter(nodeId: string) {
+    useIdeLayoutStore.getState().showSideBar('steps')
+    useIdeStepsStore.getState().beginCreate({ after: nodeId })
   }
 
   function handleNewFolder() {
@@ -441,6 +483,9 @@ export function FileExplorer({
                 }
                 actions={rowActions}
                 newMenu={newMenu}
+                stepChoices={stepChoices}
+                onNewStepAfter={handleNewStepAfter}
+                stepNode={stepNodeForRow(row, stepNodeByPath, sync)}
                 menuOpen={menuKey === row.key}
                 onMenuOpenChange={handleMenuOpenChange}
                 onActivate={handleActivate}

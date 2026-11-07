@@ -56,6 +56,24 @@ export interface StepSaver {
    * on the same base.
    */
   save(paths: readonly string[]): Promise<StepSaveOutcomes>
+  /**
+   * The document a write now would patch, including the last save's own
+   * response while the refetch after it lags (or failed).
+   */
+  currentVersion(): LoadedVersion | null
+  /**
+   * Runs `work` after every save already asked for, with no save starting
+   * until it settles — the gate a create shares with the saver, so a create
+   * and a save can never post two versions on one base.
+   */
+  exclusive<T>(work: () => Promise<T>): Promise<T>
+  /**
+   * Records a version this workspace wrote outside `save` (a create), so the
+   * next save builds on it while the cache still shows the base.
+   */
+  remember(baseGraphHash: string, version: LoadedVersion): void
+  /** Drops the remembered version: the server has moved past the base it named. */
+  forget(): void
 }
 
 function names(paths: readonly string[]): string {
@@ -80,20 +98,58 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
     return isCurrent() ? getStore() : null
   }
 
-  // The version the last save produced, remembered against the base it was
-  // built on. The refetch after a save may lag or fail; while the workspace
-  // still shows that base, the save's own response is the newer document.
-  // Dropped as soon as the workspace shows anything else: the hash is of the
-  // content, so a later version can carry the base's hash again (a revert, a
-  // canvas save of the old graph) and must then be read as what it is.
-  let lastSaved: { baseGraphHash: string; version: LoadedVersion } | null = null
+  // What this workspace wrote while the refetch after it lagged or failed:
+  // the hash the cache still showed when the chain started, and the newest
+  // document cut since. Every write in the chain is built on the one before
+  // it, so while the cache still shows that first hash, the newest document
+  // is the right base for the next write — not the cache's older copy. The
+  // chain is dropped as soon as the cache shows anything else: the hash is
+  // of the content, so a revert or a canvas save of an older graph can bring
+  // a hash back, and it must then be read as the version it is.
+  let lastSaved: {
+    /** The hash the cache still showed when the chain started. */
+    staleGraphHash: string
+    /** The base of the most recent write: a late refetch can land on it. */
+    lastBaseGraphHash: string
+    version: LoadedVersion
+  } | null = null
 
   function currentVersion(): LoadedVersion | null {
     const loaded = getVersion()
     if (!lastSaved) return loaded
-    if (loaded?.graphHash === lastSaved.baseGraphHash) return lastSaved.version
+    if (
+      loaded?.graphHash === lastSaved.staleGraphHash ||
+      loaded?.graphHash === lastSaved.lastBaseGraphHash
+    ) {
+      return lastSaved.version
+    }
     lastSaved = null
     return loaded
+  }
+
+  /**
+   * Records a version written on `baseGraphHash`. A write built on the
+   * remembered document (or on the stale hash itself) extends the chain;
+   * anything else starts a new one, since it was built on some other version.
+   */
+  function remember(baseGraphHash: string, version: LoadedVersion): void {
+    if (lastSaved === null) {
+      lastSaved = { staleGraphHash: baseGraphHash, lastBaseGraphHash: baseGraphHash, version }
+      return
+    }
+    const extendsChain =
+      lastSaved.version.graphHash === baseGraphHash ||
+      lastSaved.staleGraphHash === baseGraphHash ||
+      lastSaved.lastBaseGraphHash === baseGraphHash
+    lastSaved = {
+      staleGraphHash: extendsChain ? lastSaved.staleGraphHash : baseGraphHash,
+      lastBaseGraphHash: baseGraphHash,
+      version,
+    }
+  }
+
+  function forget(): void {
+    lastSaved = null
   }
 
   async function run(paths: readonly string[]): Promise<Map<string, StepSaveOutcome>> {
@@ -179,7 +235,7 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
           paths: editedPaths,
         })
         // Whatever the base was read from, the server has moved past it.
-        lastSaved = null
+        forget()
         await refresh()
         for (const path of editedPaths) outcomes.set(path, 'graph-conflict')
         return outcomes
@@ -203,10 +259,21 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
     }
     live?.setGraphConflict(null)
     const next = loadVersionDocument({ version: saved, graphHash: saved.graphHash })
-    lastSaved = next ? { baseGraphHash: version.graphHash, version: next } : null
+    if (next) remember(version.graphHash, next)
+    else forget()
     await refresh()
-    // The refetch landed: the workspace reads its own version from now on.
-    if (getVersion()?.graphHash !== version.graphHash) lastSaved = null
+    // A refetch that moved the workspace anywhere the chain does not explain
+    // landed: the cache is the version to read from now on. The stale hash
+    // (nothing answered) and the last write's base (an older refetch landed
+    // late) both keep it.
+    const cached = getVersion()?.graphHash
+    if (
+      lastSaved !== null &&
+      cached !== lastSaved.staleGraphHash &&
+      cached !== lastSaved.lastBaseGraphHash
+    ) {
+      forget()
+    }
     return outcomes
   }
 
@@ -221,33 +288,90 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
     })
   }
 
-  let inFlight: Promise<void> | null = null
-  let queued: { paths: Set<string>; result: Promise<StepSaveOutcomes> } | null = null
+  // One queue for every write this workspace makes to the version: saves
+  // (merged while they wait) and the create's exclusive work. Tasks run one
+  // at a time, in the order they were asked for.
+  interface SaveTask {
+    kind: 'save'
+    paths: Set<string>
+    result: Promise<StepSaveOutcomes>
+    resolve: (outcomes: StepSaveOutcomes) => void
+  }
 
-  function launch(paths: Iterable<string>): Promise<StepSaveOutcomes> {
-    const result = guarded([...paths])
-    const settled: Promise<void> = result.then(() => undefined)
-    inFlight = settled
-    void settled.then(() => {
-      if (inFlight === settled) inFlight = null
+  interface ExclusiveTask {
+    kind: 'exclusive'
+    work: () => Promise<unknown>
+    resolve: (value: unknown) => void
+    reject: (err: unknown) => void
+  }
+
+  type Task = SaveTask | ExclusiveTask
+
+  const tasks: Task[] = []
+  let draining = false
+
+  async function drain(): Promise<void> {
+    if (draining) return
+    draining = true
+    try {
+      while (tasks.length > 0) {
+        const task = tasks.shift()!
+        if (task.kind === 'save') {
+          // `guarded` reports its own failures; a save task always resolves.
+          task.resolve(await guarded([...task.paths]))
+          continue
+        }
+        try {
+          task.resolve(await task.work())
+        } catch (err) {
+          task.reject(err)
+        }
+      }
+    } finally {
+      draining = false
+    }
+  }
+
+  function enqueueSave(paths: readonly string[]): Promise<StepSaveOutcomes> {
+    // Two quick saves become one following write; a task after them (a
+    // create) is a barrier, so a save asked for later is not merged back
+    // across it.
+    const last = tasks[tasks.length - 1]
+    if (last?.kind === 'save') {
+      for (const path of paths) last.paths.add(path)
+      return last.result
+    }
+    let resolve!: (outcomes: StepSaveOutcomes) => void
+    const result = new Promise<StepSaveOutcomes>((res) => {
+      resolve = res
     })
+    tasks.push({ kind: 'save', paths: new Set(paths), result, resolve })
+    void drain()
+    return result
+  }
+
+  function enqueueExclusive<T>(work: () => Promise<T>): Promise<T> {
+    let resolve!: (value: T) => void
+    let reject!: (err: unknown) => void
+    const result = new Promise<T>((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    tasks.push({
+      kind: 'exclusive',
+      work,
+      resolve: resolve as (value: unknown) => void,
+      reject,
+    })
+    void drain()
     return result
   }
 
   return {
-    save(paths) {
-      if (!inFlight) return launch(paths)
-      if (!queued) {
-        const merged = new Set(paths)
-        const result = inFlight.then(() => {
-          queued = null
-          return launch(merged)
-        })
-        queued = { paths: merged, result }
-        return result
-      }
-      for (const path of paths) queued.paths.add(path)
-      return queued.result
-    },
+    save: enqueueSave,
+    currentVersion,
+    exclusive: enqueueExclusive,
+    remember,
+    forget,
   }
 }

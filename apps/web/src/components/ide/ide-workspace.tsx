@@ -94,6 +94,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     ownerOf: data.ownerOf,
     hasVersion: data.hasVersion,
     canEdit: data.canEdit,
+    readOnlyMessage: data.workspace?.message ?? null,
     onShowImporters: searchActions.showImporters,
   })
 

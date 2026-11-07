@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -9,15 +9,19 @@ import {
   Lock,
   MoreHorizontal,
   Pencil,
+  Plus,
   Trash2,
 } from 'lucide-react'
-import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
+import { PROJECT_HANDLERS_PATH, STEP_SOURCE_DIR } from '@awaitstep/ir'
 import { dirname, rowKey, type TreeRow } from '../../lib/ide/file-tree'
 import { cn } from '../../lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { FileIcon, roleTitle } from './file-icon'
@@ -52,6 +56,11 @@ interface ExplorerRowProps {
   actions?: RowActions
   /** Set when the project can be added to; the Project row opens it on right-click. */
   newMenu?: ProjectNewMenu
+  /** The steps the `steps/` folder's menu can place a new one after, in list order. */
+  stepChoices?: readonly { id: string; name: string }[]
+  /** A step file's own node, for "New step after this step". */
+  stepNode?: { id: string; name: string } | null
+  onNewStepAfter?: (nodeId: string) => void
   menuOpen: boolean
   onMenuOpenChange: (key: string, open: boolean) => void
   onActivate: (row: TreeRow) => void
@@ -90,8 +99,18 @@ export function ExplorerRow(props: ExplorerRowProps) {
 
   const isFile = row.kind === 'file'
   const hasProjectMenu = row.kind === 'section' && row.section === 'project' && !!props.newMenu
+  // The steps folder is the one folder whose menu adds a step, not a file.
+  const hasStepMenu =
+    !isFile &&
+    row.section === 'project' &&
+    row.path === STEP_SOURCE_DIR &&
+    (props.stepChoices?.length ?? 0) > 0 &&
+    !!props.onNewStepAfter
+  const hasStepFileMenu = isFile && step && !!props.stepNode && !!props.onNewStepAfter
   const hasMenu =
     hasProjectMenu ||
+    hasStepMenu ||
+    hasStepFileMenu ||
     (!!actions &&
       row.section === 'project' &&
       !step &&
@@ -110,7 +129,9 @@ export function ExplorerRow(props: ExplorerRowProps) {
         .filter(Boolean)
         .join(' · ')
     : step
-      ? 'Step code belongs to its node. Add, rename or remove steps on the canvas.'
+      ? row.kind === 'dir'
+        ? 'New step after any step here; rename or remove steps on the canvas.'
+        : 'Step code belongs to its node. Edit it here; add a step after it, or rename/remove it on the canvas.'
       : undefined
 
   return (
@@ -169,16 +190,28 @@ export function ExplorerRow(props: ExplorerRowProps) {
               className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning"
             />
           )}
-          {hasMenu && actions && (
-            <RowMenu
-              path={row.path}
-              actions={actions}
-              virtual={virtual}
+          {hasStepFileMenu && props.stepNode && props.onNewStepAfter ? (
+            <StepFileMenu
+              step={props.stepNode}
               open={props.menuOpen}
               point={point}
-              onOpenChange={handleMenuOpenChange}
               rowKey={row.key}
+              onOpenChange={handleMenuOpenChange}
+              onChoose={props.onNewStepAfter}
             />
+          ) : (
+            hasMenu &&
+            actions && (
+              <RowMenu
+                path={row.path}
+                actions={actions}
+                virtual={virtual}
+                open={props.menuOpen}
+                point={point}
+                onOpenChange={handleMenuOpenChange}
+                rowKey={row.key}
+              />
+            )
           )}
         </>
       ) : (
@@ -186,15 +219,27 @@ export function ExplorerRow(props: ExplorerRowProps) {
           <Chevron className="h-3 w-3 shrink-0 text-muted-foreground" />
           <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
           <span className="min-w-0 flex-1 truncate">{row.name}</span>
-          {hasMenu && actions && (
-            <FolderMenu
-              path={row.path}
-              actions={actions}
+          {hasStepMenu && props.stepChoices && props.onNewStepAfter ? (
+            <StepFolderMenu
+              choices={props.stepChoices}
               open={props.menuOpen}
               point={point}
-              onOpenChange={handleMenuOpenChange}
               rowKey={row.key}
+              onOpenChange={handleMenuOpenChange}
+              onChoose={props.onNewStepAfter}
             />
+          ) : (
+            hasMenu &&
+            actions && (
+              <FolderMenu
+                path={row.path}
+                actions={actions}
+                open={props.menuOpen}
+                point={point}
+                onOpenChange={handleMenuOpenChange}
+                rowKey={row.key}
+              />
+            )
           )}
         </>
       )}
@@ -345,6 +390,130 @@ function RowMenu({
             </DropdownMenuItem>
           </>
         )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
+ * A step file's menu: one choice, "New step after this step", which opens the
+ * name row in the Steps view. A step file is never renamed or deleted here.
+ */
+function StepFileMenu({
+  step,
+  rowKey,
+  open,
+  point,
+  onOpenChange,
+  onChoose,
+}: {
+  step: { id: string; name: string }
+  rowKey: string
+  open: boolean
+  point: Point | null
+  onOpenChange: (key: string, open: boolean) => void
+  onChoose: (nodeId: string) => void
+}) {
+  const chosen = useRef(false)
+
+  function handleOpenChange(next: boolean) {
+    if (next) chosen.current = false
+    onOpenChange(rowKey, next)
+  }
+
+  function handleCloseAutoFocus(event: Event) {
+    if (!chosen.current) return
+    chosen.current = false
+    event.preventDefault()
+  }
+
+  function handleChoose() {
+    chosen.current = true
+    onChoose(step.id)
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+      <MenuAnchor path={step.id} point={point} />
+      <DropdownMenuContent
+        align={point ? 'start' : 'end'}
+        className="min-w-[190px]"
+        onCloseAutoFocus={handleCloseAutoFocus}
+      >
+        <DropdownMenuItem onSelect={handleChoose} className="text-xs">
+          <Plus className="h-3.5 w-3.5" />
+          New step after this step
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/**
+ * The `steps/` folder's menu: a step is added by choosing the step it goes
+ * after, and the name row opens in the Steps view. It is not a file menu —
+ * `steps/` is never written as files.
+ */
+function StepFolderMenu({
+  choices,
+  rowKey,
+  open,
+  point,
+  onOpenChange,
+  onChoose,
+}: {
+  choices: readonly { id: string; name: string }[]
+  rowKey: string
+  open: boolean
+  point: Point | null
+  onOpenChange: (key: string, open: boolean) => void
+  onChoose: (nodeId: string) => void
+}) {
+  // The chosen item opens the Steps view's name row: Radix must not take
+  // focus back to the folder's ⋯ button. A dismissal still returns it.
+  const chosen = useRef(false)
+
+  function handleOpenChange(next: boolean) {
+    if (next) chosen.current = false
+    onOpenChange(rowKey, next)
+  }
+
+  function handleCloseAutoFocus(event: Event) {
+    if (!chosen.current) return
+    chosen.current = false
+    event.preventDefault()
+  }
+
+  function handleChoose(nodeId: string) {
+    chosen.current = true
+    onChoose(nodeId)
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={handleOpenChange}>
+      <MenuAnchor path={STEP_SOURCE_DIR} point={point} />
+      <DropdownMenuContent
+        align={point ? 'start' : 'end'}
+        className="min-w-[190px]"
+        onCloseAutoFocus={handleCloseAutoFocus}
+      >
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="text-xs">
+            <Plus className="h-3.5 w-3.5" />
+            New step after…
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {choices.map((choice) => (
+              <DropdownMenuItem
+                key={choice.id}
+                onSelect={() => handleChoose(choice.id)}
+                className="text-xs"
+              >
+                {choice.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
       </DropdownMenuContent>
     </DropdownMenu>
   )

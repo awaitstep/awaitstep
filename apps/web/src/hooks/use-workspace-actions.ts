@@ -5,7 +5,7 @@ import { actionToast } from '../lib/action-toast'
 import type { SourceFile } from '../lib/api-client'
 import type { IdeCommandActions } from '../lib/ide/commands'
 import type { DraftUndo } from '../lib/ide/draft-undo'
-import type { Editability } from '../lib/ide/editability'
+import { VIEW_ONLY_MESSAGE, type Editability } from '../lib/ide/editability'
 import type { FileOwner } from '../lib/ide/project'
 import { runShortcut } from '../lib/ide/key-ownership'
 import { filePathOfTab } from '../lib/ide/tabs'
@@ -13,6 +13,7 @@ import { showStepsView } from '../lib/ide/step-actions'
 import { copyToClipboard } from '../lib/utils'
 import { useIdeExplorerStore } from '../stores/ide-explorer-store'
 import { useIdeLayoutStore } from '../stores/ide-layout-store'
+import { useIdeStepsStore } from '../stores/ide-steps-store'
 import { useIdeStore } from '../stores/ide-store'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import type { ProjectFilesController } from './use-project-files'
@@ -136,6 +137,15 @@ export function useWorkspaceActions({
         useIdeLayoutStore.getState().showSideBar('explorer')
         useIdeExplorerStore.getState().beginCreate()
       },
+      newStep: (nodeId) => {
+        if (!canEdit) {
+          actionToast.error(readOnlyMessage ?? VIEW_ONLY_MESSAGE)
+          return
+        }
+        // The name row lives in the Steps view; the row takes the keyboard.
+        useIdeLayoutStore.getState().showSideBar('steps')
+        useIdeStepsStore.getState().beginCreate({ after: nodeId })
+      },
       renameFile: () => {
         const path = useIdeStore.getState().activePath
         if (!path || !storedPaths.has(path)) return
@@ -189,6 +199,7 @@ export function useWorkspaceActions({
     [
       reviewCommands,
       canEdit,
+      readOnlyMessage,
       projectFiles,
       storedPaths,
       searchActions,

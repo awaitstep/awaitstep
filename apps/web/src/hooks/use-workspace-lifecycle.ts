@@ -7,6 +7,7 @@ import type { SourceFile, WorkflowFull, WorkflowSource } from '../lib/api-client
 import { useIdeSearchStore } from '../stores/ide-search-store'
 import { useIdeExplorerStore } from '../stores/ide-explorer-store'
 import { useIdeStore } from '../stores/ide-store'
+import { useIdeStepsStore } from '../stores/ide-steps-store'
 import { useQuickTestStore } from '../stores/quick-test-store'
 import { clearWorkflowHistory, useWorkflowStore } from '../stores/workflow-store'
 import { useCompareCache } from './use-compare-cache'
@@ -127,6 +128,7 @@ export function useWorkspaceLifecycle({
       useWorkflowStore.getState().reset()
       useIdeStore.getState().resetSession()
       useIdeExplorerStore.getState().reset()
+      useIdeStepsStore.getState().reset()
       useIdeSearchStore.getState().reset()
       useQuickTestStore.getState().reset()
     }

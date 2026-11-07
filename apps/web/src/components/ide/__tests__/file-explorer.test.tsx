@@ -3,8 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildFileTree } from '../../../lib/ide/file-tree'
 import { useIdeExplorerStore } from '../../../stores/ide-explorer-store'
+import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
+import { useIdeStepsStore } from '../../../stores/ide-steps-store'
 import { useIdeStore } from '../../../stores/ide-store'
 import { FileExplorer } from '../file-explorer'
+import { FILES, loadGraph, SyncHarness } from './fixtures/step-sync'
 
 const project = buildFileTree([
   { path: 'lib/a.ts', role: 'module' },
@@ -13,8 +16,8 @@ const project = buildFileTree([
 ])
 const generated = buildFileTree([{ path: 'worker.ts', role: 'entry' }])
 
-function setup(overrides: Partial<React.ComponentProps<typeof FileExplorer>> = {}) {
-  const props = {
+function makeProps(overrides: Partial<React.ComponentProps<typeof FileExplorer>> = {}) {
+  return {
     project,
     generated,
     dirty: new Set<string>(),
@@ -32,6 +35,10 @@ function setup(overrides: Partial<React.ComponentProps<typeof FileExplorer>> = {
     onEscape: vi.fn(),
     ...overrides,
   }
+}
+
+function setup(overrides: Partial<React.ComponentProps<typeof FileExplorer>> = {}) {
+  const props = makeProps(overrides)
   const view = render(<FileExplorer {...props} />)
   return {
     ...props,
@@ -44,6 +51,8 @@ const item = (name: string) => screen.getByRole('treeitem', { name: new RegExp(n
 beforeEach(() => {
   useIdeStore.getState().resetSession()
   useIdeExplorerStore.getState().reset()
+  useIdeStepsStore.getState().reset()
+  useIdeLayoutStore.setState({ sideBarTab: 'explorer' })
 })
 
 describe('explorer keyboard', () => {
@@ -393,6 +402,12 @@ describe('step sources', () => {
     { path: 'steps/k3j9x_a1b2c3.ts', role: 'source' },
   ])
   const stepPaths = new Set(['steps/k3j9x_a1b2c3.ts'])
+  // The SyncHarness graph's own source paths, so a step file maps to its node.
+  const withSourceSteps = buildFileTree([
+    { path: 'lib/a.ts', role: 'module' },
+    { path: 'steps/validate.ts', role: 'source' },
+  ])
+  const sourceStepPaths = new Set(['steps/validate.ts'])
 
   it('lists a step’s source under Project, opens it, and shows it as unsaved like any file', async () => {
     const user = userEvent.setup()
@@ -405,13 +420,11 @@ describe('step sources', () => {
     expect(useIdeStore.getState().activePath).toBe('steps/k3j9x_a1b2c3.ts')
   })
 
-  it('gives neither the steps folder nor its files a menu, a Delete key or an F2', async () => {
+  it('gives neither the steps folder nor its files a file menu, a Delete key or an F2', async () => {
     const user = userEvent.setup()
     const { onDelete, onDeleteFolder } = setup({ project: withSteps, stepPaths })
     const folder = screen.getByRole('treeitem', { name: /^steps$/ })
-    expect(folder.title).toBe(
-      'Step code belongs to its node. Add, rename or remove steps on the canvas.',
-    )
+    expect(folder.title).toBe('New step after any step here; rename or remove steps on the canvas.')
     await user.pointer({ keys: '[MouseRight]', target: folder })
     expect(screen.queryByRole('menu')).toBeNull()
     await user.pointer({ keys: '[MouseRight]', target: item('k3j9x_a1b2c3\\.ts') })
@@ -426,6 +439,58 @@ describe('step sources', () => {
     expect(useIdeExplorerStore.getState().renaming).toBeNull()
     expect(onDelete).not.toHaveBeenCalled()
     expect(onDeleteFolder).not.toHaveBeenCalled()
+  })
+
+  it('adds a step from the steps folder menu by choosing the step it follows', async () => {
+    const user = userEvent.setup()
+    loadGraph()
+    const props = makeProps({ project: withSteps, stepPaths })
+    render(
+      <SyncHarness>
+        <FileExplorer {...props} />
+      </SyncHarness>,
+    )
+    const folder = screen.getByRole('treeitem', { name: /^steps$/ })
+    await user.pointer({ keys: '[MouseRight]', target: folder })
+    await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Validate order' }))
+    expect(useIdeLayoutStore.getState().sideBarTab).toBe('steps')
+    expect(useIdeStepsStore.getState().create).toEqual({ after: 'validate' })
+  })
+
+  it('adds a step from a step file’s own menu', async () => {
+    const user = userEvent.setup()
+    loadGraph()
+    const props = makeProps({ project: withSourceSteps, stepPaths: sourceStepPaths })
+    const files = new Map([...FILES, ['steps/validate.ts', { source: '' }]])
+    render(
+      <SyncHarness files={files}>
+        <FileExplorer {...props} />
+      </SyncHarness>,
+    )
+    const row = item('validate\\.ts')
+    await user.pointer({ keys: '[MouseRight]', target: row })
+    await user.click(await screen.findByRole('menuitem', { name: 'New step after this step' }))
+    expect(useIdeLayoutStore.getState().sideBarTab).toBe('steps')
+    expect(useIdeStepsStore.getState().create).toEqual({ after: 'validate' })
+  })
+
+  it('gives a step file no create menu on a read-only workspace', async () => {
+    const user = userEvent.setup()
+    loadGraph()
+    const props = makeProps({
+      project: withSourceSteps,
+      stepPaths: sourceStepPaths,
+      canEdit: false,
+    })
+    const files = new Map([...FILES, ['steps/validate.ts', { source: '' }]])
+    render(
+      <SyncHarness files={files}>
+        <FileExplorer {...props} />
+      </SyncHarness>,
+    )
+    await user.pointer({ keys: '[MouseRight]', target: item('validate\\.ts') })
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('a new file from a selected step lands at the project root, not under steps/', async () => {

@@ -24,6 +24,15 @@ export function GraphConflictBanner({ bindings }: { bindings: GraphConflictBindi
   const openFile = useIdeStore((s) => s.openFile)
 
   if (!conflict || !bindings.canEdit) return null
+  // A create refused by the conflict names no drafts: nothing was written,
+  // and trying again after the refetch is the whole recovery.
+  if (conflict.paths.length === 0) {
+    return (
+      <EditorBanner tone="warn" onDismiss={handleDismiss}>
+        The canvas changed this workflow. Nothing was created. Try again.
+      </EditorBanner>
+    )
+  }
   const refused = conflict.paths.filter((path) => path in drafts)
   if (refused.length === 0) return null
   // Of those, the ones the refetch has marked: a refused save, or a node

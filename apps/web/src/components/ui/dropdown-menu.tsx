@@ -57,3 +57,32 @@ export const DropdownMenuLabel = forwardRef<
   />
 ))
 DropdownMenuLabel.displayName = 'DropdownMenuLabel'
+
+export const DropdownMenuSub = DropdownMenuPrimitive.Sub
+
+export const DropdownMenuSubTrigger = forwardRef<
+  HTMLDivElement,
+  DropdownMenuPrimitive.DropdownMenuSubTriggerProps
+>(({ className = '', ...props }, ref) => (
+  <DropdownMenuPrimitive.SubTrigger
+    ref={ref}
+    className={`flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-foreground/70 outline-none transition-colors hover:bg-muted/60 hover:text-foreground focus:bg-muted/60 focus:text-foreground data-[state=open]:bg-muted/60 ${className}`}
+    {...props}
+  />
+))
+DropdownMenuSubTrigger.displayName = 'DropdownMenuSubTrigger'
+
+export const DropdownMenuSubContent = forwardRef<
+  HTMLDivElement,
+  DropdownMenuPrimitive.DropdownMenuSubContentProps
+>(({ className = '', ...props }, ref) => (
+  <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.SubContent
+      ref={ref}
+      sideOffset={4}
+      className={`z-50 min-w-[180px] rounded-md border border-border bg-card p-1 shadow-lg ${className}`}
+      {...props}
+    />
+  </DropdownMenuPrimitive.Portal>
+))
+DropdownMenuSubContent.displayName = 'DropdownMenuSubContent'

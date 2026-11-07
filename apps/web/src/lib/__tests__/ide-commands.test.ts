@@ -10,6 +10,7 @@ function actions(): IdeCommandActions {
     reviewChanges: vi.fn(),
     compareFile: vi.fn(),
     newFile: vi.fn(),
+    newStep: vi.fn(),
     renameFile: vi.fn(),
     deleteFile: vi.fn(),
     convertHandlers: vi.fn(),
@@ -45,6 +46,9 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
     dirtyCount: 1,
     openCount: 2,
     canEdit: true,
+    editBlockedReason: null,
+    activeStepId: null,
+    activeStepBranches: false,
     explorerOpen: true,
     dockOpen: false,
     previewOpen: true,
@@ -238,5 +242,42 @@ describe('run and test session commands', () => {
     const commands = buildIdeCommands(context())
     expect(commands.some((c) => c.disabledReason !== undefined)).toBe(false)
     expect(commands.find((c) => c.id === 'run.start')?.enabled).toBe(true)
+  })
+
+  it('offers New Step only for an editable workspace with a step file active', () => {
+    expect(enabledById(context())['file.newStep']).toBe(false)
+    expect(enabledById(context({ activeStepId: 'fetch' }))['file.newStep']).toBe(true)
+    expect(enabledById(context({ activeStepId: 'fetch', canEdit: false }))['file.newStep']).toBe(
+      false,
+    )
+  })
+
+  it('says why New Step cannot run on a branching step', () => {
+    const command = buildIdeCommands(
+      context({ activeStepId: 'gate', activeStepBranches: true }),
+    ).find((c) => c.id === 'file.newStep')
+    expect(command?.enabled).toBe(false)
+    expect(command?.disabledReason).toBe(
+      'This step branches. Choose the connection in the Steps view.',
+    )
+  })
+
+  it('says why New Step cannot run on a read-only version', () => {
+    const command = buildIdeCommands(
+      context({
+        activeStepId: 'fetch',
+        canEdit: false,
+        editBlockedReason: 'Older versions are read-only.',
+      }),
+    ).find((c) => c.id === 'file.newStep')
+    expect(command?.enabled).toBe(false)
+    expect(command?.disabledReason).toBe('Older versions are read-only.')
+  })
+
+  it('new step runs against the active step', () => {
+    const ctx = context({ activeStepId: 'fetch' })
+    const command = buildIdeCommands(ctx).find((c) => c.id === 'file.newStep')!
+    command.run()
+    expect(ctx.actions.newStep).toHaveBeenCalledWith('fetch')
   })
 })

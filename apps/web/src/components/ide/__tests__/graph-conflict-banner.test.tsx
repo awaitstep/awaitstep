@@ -85,6 +85,16 @@ describe('GraphConflictBanner', () => {
     expect(screen.getByRole('button', { name: 'Save again' })).toBeDisabled()
   })
 
+  it('says nothing was created when the refusal was about a create', async () => {
+    refused()
+    setup()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The canvas changed this workflow. Nothing was created. Try again.',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+    expect(useIdeStore.getState().graphConflict).toBeNull()
+  })
+
   it('goes once none of the refused drafts is left, and when dismissed', async () => {
     refused(step)
     useIdeStore.getState().setDraft('lib/a.ts', 'mine', 'ha2')

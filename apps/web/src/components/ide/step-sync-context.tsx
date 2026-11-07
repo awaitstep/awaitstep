@@ -17,6 +17,8 @@ export interface StepSyncValue {
   rows: readonly StepRow[]
   /** The graph's nodes by id. */
   nodes: ReadonlyMap<string, WorkflowNode>
+  /** The graph's edges, for the create action's placement choices. */
+  edges: readonly StepSyncEdge[]
   versions: readonly VersionSummary[]
   /** The file that holds the run body, where steps with no file of their own are written. */
   workflowFile: string | null
@@ -26,6 +28,13 @@ export interface StepSyncValue {
   codeVersionId: string | null
   /** False for a workflow nobody has saved on the canvas: there is no graph to show yet. */
   hasVersion: boolean
+}
+
+export interface StepSyncEdge {
+  id: string
+  source: string
+  target: string
+  label?: string
 }
 
 const StepSyncContext = createContext<StepSyncValue | null>(null)
@@ -80,17 +89,23 @@ export function StepSyncProvider({
     () => new Map(flowNodes.map((n) => [n.id, n.data.irNode as WorkflowNode])),
     [flowNodes],
   )
+  const graphEdges = useMemo<readonly StepSyncEdge[]>(
+    () =>
+      edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        ...(typeof e.label === 'string' && { label: e.label }),
+      })),
+    [edges],
+  )
   const rows = useMemo(
     () =>
       orderSteps(
         flowNodes.map((n) => ({ id: n.id, type: n.data.irNode.type, position: n.position })),
-        edges.map((e) => ({
-          source: e.source,
-          target: e.target,
-          ...(typeof e.label === 'string' && { label: e.label }),
-        })),
+        graphEdges,
       ),
-    [flowNodes, edges],
+    [flowNodes, graphEdges],
   )
   const map = useMemo(
     () =>
@@ -112,6 +127,7 @@ export function StepSyncProvider({
       map,
       rows,
       nodes,
+      edges: graphEdges,
       workflowFile,
       versions,
       graphVersionId,
@@ -125,6 +141,7 @@ export function StepSyncProvider({
       map,
       rows,
       nodes,
+      graphEdges,
       workflowFile,
       versions,
       graphVersionId,
@@ -135,7 +152,12 @@ export function StepSyncProvider({
 }
 
 export function useStepSync(): StepSyncValue {
-  const value = useContext(StepSyncContext)
+  const value = useStepSyncOptional()
   if (!value) throw new Error('useStepSync must be used inside a StepSyncProvider')
   return value
+}
+
+/** The graph/files link, or null where a component is used outside the workspace (tests, stories). */
+export function useStepSyncOptional(): StepSyncValue | null {
+  return useContext(StepSyncContext)
 }

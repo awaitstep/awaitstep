@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
 import { useShallow } from 'zustand/react/shallow'
@@ -16,6 +16,7 @@ import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { useWorkflowStore } from '../../stores/workflow-store'
 import { BottomDock } from './bottom-dock'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
@@ -123,6 +124,20 @@ export function WorkspaceLayout({
     handleShowProblems,
   } = handlers
   const activePath = useIdeStore((s) => s.activePath)
+  // The step whose editable source is the active file: the palette offers
+  // "New Step After Current Step" only where there is one to place it after.
+  const activeStepId = useMemo(() => {
+    if (activePath === null) return null
+    for (const [nodeId, path] of stepSourceByNode) {
+      if (path === activePath) return nodeId
+    }
+    return null
+  }, [activePath, stepSourceByNode])
+  const graphEdges = useWorkflowStore((s) => s.edges)
+  const activeStepBranches = useMemo(
+    () => activeStepId !== null && graphEdges.filter((e) => e.source === activeStepId).length > 1,
+    [activeStepId, graphEdges],
+  )
   const { explorerOpen, dockOpen, previewOpen, setLayout } = useIdeLayoutStore(
     useShallow((s) => ({
       explorerOpen: s.explorerOpen,
@@ -192,7 +207,13 @@ export function WorkspaceLayout({
                   files={files}
                   onEscape={handleFocusEditor}
                   steps={
-                    <StepsView tabs={<SideBarTabs view="steps" />} onEscape={handleFocusEditor} />
+                    <StepsView
+                      tabs={<SideBarTabs view="steps" />}
+                      onEscape={handleFocusEditor}
+                      canEdit={canEdit}
+                      readOnlyMessage={data.workspace?.message ?? null}
+                      onCreateStep={projectFiles.createStep}
+                    />
                   }
                   explorer={
                     <FileExplorer
@@ -305,6 +326,9 @@ export function WorkspaceLayout({
       <CommandPalette
         actions={actions}
         canEdit={canEdit}
+        editBlockedReason={data.workspace?.message ?? null}
+        activeStepId={activeStepId}
+        activeStepBranches={activeStepBranches}
         activeIsStoredFile={activeIsStoredFile}
         activeIsHandlersFile={activeIsHandlersFile}
         activeDirty={activeDirty}
