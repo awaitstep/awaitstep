@@ -30,6 +30,7 @@ export {
 export type { GenerateOptions } from './generate-workflow.js'
 export {
   DEFAULT_SCRIPT_TRIGGER_CODE,
+  FUNCTION_MODULE_PATH,
   generateScript,
   generateScriptBundle,
 } from './generate-script.js'

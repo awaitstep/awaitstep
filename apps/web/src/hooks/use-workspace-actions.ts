@@ -142,9 +142,10 @@ export function useWorkspaceActions({
           actionToast.error(readOnlyMessage ?? VIEW_ONLY_MESSAGE)
           return
         }
-        // The name row lives in the Steps view; the row takes the keyboard.
+        // The add dialog lives in the Steps view: make sure it is mounted, then
+        // lead with this step's own connections.
         useIdeLayoutStore.getState().showSideBar('steps')
-        useIdeStepsStore.getState().beginCreate({ after: nodeId })
+        useIdeStepsStore.getState().openPicker(nodeId)
       },
       renameFile: () => {
         const path = useIdeStore.getState().activePath

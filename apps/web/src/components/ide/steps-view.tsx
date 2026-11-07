@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Plus } from 'lucide-react'
+import { Map as MapIcon, Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import type { StepPlacement } from '@awaitstep/codegen'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
@@ -7,8 +7,10 @@ import { getNodeVisuals } from '../../lib/node-icon-map'
 import { highlightFor } from '../../lib/ide/step-map'
 import { markedFileOf } from '../../lib/ide/tabs'
 import { visibleRows } from '../../lib/ide/step-order'
+import { railRows } from '../../lib/ide/step-rail-layout'
+import { isArmEdge } from '../../lib/ide/step-placements'
 import { selectStep } from '../../lib/ide/step-actions'
-import { stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
+import { nodeMeta, stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
 import { stepsKeyIntent } from '../../lib/ide/steps-keys'
 import { escapeCss } from '../../lib/ide/css-escape'
 import type { CreateStepOutcome } from '../../lib/ide/step-create'
@@ -16,10 +18,10 @@ import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { useIdeStepsStore } from '../../stores/ide-steps-store'
 import { SaveVersionFirst } from './save-version-first'
-import { StepCreateRow } from './step-create-row'
+import { StepFlowDialog } from './step-flow-dialog'
 import { StepRowItem } from './step-row'
 import type { StepOutgoingEdge } from './step-row-menu'
-import { useStepSync, type StepSyncValue } from './step-sync-context'
+import { useStepSync } from './step-sync-context'
 
 interface StepsViewProps {
   /** The side bar's view switch. */
@@ -31,14 +33,18 @@ interface StepsViewProps {
   /** Why editing is refused right now (a read-only version, a Viewer), or null. */
   readOnlyMessage: string | null
   /** Adds the step and opens its file, or says why it was refused. */
-  onCreateStep: (placement: StepPlacement, name: string) => Promise<CreateStepOutcome>
+  onCreateStep: (
+    placement: StepPlacement,
+    name: string,
+    nodeId?: string,
+  ) => Promise<CreateStepOutcome>
 }
 
 /**
  * The side bar's Steps view: the workflow's steps in the order the canvas
  * reads them, containers nested. Picking one opens its file and selects it in
  * the preview; the step whose file is in the editor is marked. A row's menu
- * (or the header's +) places a new step and opens its name row.
+ * (or the header's +) opens the add-step dialog.
  */
 export function StepsView({
   tabs,
@@ -47,7 +53,19 @@ export function StepsView({
   readOnlyMessage,
   onCreateStep,
 }: StepsViewProps) {
-  const { workflowId, map, rows, nodes, edges, kind, workflowFile, hasVersion } = useStepSync()
+  const {
+    workflowId,
+    map,
+    rows,
+    nodes,
+    edges,
+    kind,
+    workflowFile,
+    hasVersion,
+    entryNodeId,
+    reachable,
+    takenStepIds,
+  } = useStepSync()
   const { registry } = useNodeRegistry()
   const { activePath, selectedNodeId, focusRequested } = useIdeStore(
     useShallow((s) => ({
@@ -57,25 +75,35 @@ export function StepsView({
     })),
   )
   const showing = useIdeLayoutStore((s) => s.sideBarTab === 'steps')
-  const create = useIdeStepsStore((s) => s.create)
-  const beginCreate = useIdeStepsStore((s) => s.beginCreate)
-  const endCreate = useIdeStepsStore((s) => s.endCreate)
+  const previewOpen = useIdeLayoutStore((s) => s.previewOpen)
+  const picker = useIdeStepsStore((s) => s.picker)
+  const openPicker = useIdeStepsStore((s) => s.openPicker)
+  const closePicker = useIdeStepsStore((s) => s.closePicker)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [focusedId, setFocusedId] = useState<string | null>(null)
 
   const shown = useMemo(() => visibleRows(rows, collapsed), [rows, collapsed])
+  // The panel stays mounted while the Explorer is open, so the rail is laid
+  // out only while it is actually the visible tab.
+  const rail = useMemo(() => (showing ? railRows(shown) : []), [showing, shown])
   const activeIds = useMemo(
     () => new Set(highlightFor(map, markedFileOf(activePath)).primary),
     [map, activePath],
   )
   const outgoingByNode = useMemo(() => {
+    const idCounts = new Map<string, number>()
+    for (const edge of edges) idCounts.set(edge.id, (idCounts.get(edge.id) ?? 0) + 1)
     const byNode = new Map<string, StepOutgoingEdge[]>()
     for (const edge of edges) {
+      const node = nodes.get(edge.source)
+      if (!node) continue
       const list = byNode.get(edge.source) ?? []
       list.push({
         id: edge.id,
         ...(edge.label !== undefined && { label: edge.label }),
         targetName: nodes.get(edge.target)?.name ?? 'the next step',
+        arm: isArmEdge(node, edge),
+        uniqueId: idCounts.get(edge.id) === 1,
       })
       byNode.set(edge.source, list)
     }
@@ -94,13 +122,17 @@ export function StepsView({
   // A new step's name row is the one thing that owns the keyboard instead.
   useEffect(() => {
     if (!focusRequested || !showing) return
-    if (!create) {
-      document
-        .querySelector<HTMLElement>('[role="tree"][aria-label="Steps"] [tabindex="0"]')
-        ?.focus()
-    }
+    document.querySelector<HTMLElement>('[role="tree"][aria-label="Steps"] [tabindex="0"]')?.focus()
     useIdeStore.getState().consumeStepsFocus()
-  }, [focusRequested, showing, create])
+  }, [focusRequested, showing])
+
+  // A version can become read-only under an open dialog (the editor navigates
+  // to a historical version). Drop it rather than leave a live-looking create
+  // affordance over a workspace that refuses it.
+  useEffect(() => {
+    if (canEdit) return
+    closePicker()
+  }, [canEdit, closePicker])
 
   function focusRow(nodeId: string) {
     setFocusedId(nodeId)
@@ -146,36 +178,32 @@ export function StepsView({
     }
   }
 
-  // The header's + appends after the last step of the main chain. A row with
-  // several outgoing connections (a branch, a fan-out, a container's arms)
-  // has no single "after" to append to, so the last plain row with at most
-  // one connection is the anchor — the person picks an arm from that row's
-  // own menu instead.
-  function handleHeaderCreate() {
-    const anchor = [...rows]
-      .reverse()
-      .find((row) => !row.container && (outgoingByNode.get(row.nodeId)?.length ?? 0) <= 1)
-    if (!anchor) {
-      beginCreate({ first: true })
-      return
-    }
-    beginCreate({ after: anchor.nodeId })
+  function handleOpenPicker() {
+    if (!canEdit) return
+    openPicker()
   }
 
-  async function handleCreate(name: string): Promise<string | null> {
-    const placement = create
-    if (!placement) return 'No place to put the step.'
-    const outcome = await onCreateStep(placement, name)
-    if (outcome.status === 'created' || outcome.status === 'graph-conflict') {
-      // A conflict keeps nothing to retry here: the workspace notice explains.
-      endCreate()
-      // The new file is open (the create opened it); put the keyboard in it.
-      if (outcome.status === 'created' && outcome.opened) {
-        useIdeStore.getState().requestEditorFocus()
-      }
-      return null
+  // A row menu already picked a connection: open the dialog on it.
+  function handlePlacement(placement: StepPlacement) {
+    if (!canEdit) return
+    useIdeLayoutStore.getState().showSideBar('steps')
+    openPicker('after' in placement ? placement.after : null, placement)
+  }
+
+  function handleToggleMap() {
+    useIdeLayoutStore.getState().togglePreview()
+  }
+
+  async function handleDialogCreate(
+    placement: StepPlacement,
+    name: string,
+    nodeId: string,
+  ): Promise<CreateStepOutcome> {
+    const outcome = await onCreateStep(placement, name, nodeId)
+    if (outcome.status === 'created' && outcome.opened) {
+      useIdeStore.getState().requestEditorFocus()
     }
-    return outcome.reason
+    return outcome
   }
 
   return (
@@ -183,30 +211,34 @@ export function StepsView({
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
         {tabs}
         {hasVersion && (
-          <button
-            type="button"
-            onClick={handleHeaderCreate}
-            disabled={!canEdit}
-            aria-label="New step"
-            title={
-              canEdit
-                ? 'New step'
-                : (readOnlyMessage ?? 'You can view this workflow but not edit it.')
-            }
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex items-center">
+            <button
+              type="button"
+              onClick={handleToggleMap}
+              aria-label={previewOpen ? 'Hide map' : 'Show map'}
+              aria-pressed={previewOpen}
+              title={previewOpen ? 'Hide map' : 'Show map'}
+              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            >
+              <MapIcon className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOpenPicker()}
+              disabled={!canEdit}
+              aria-label="New step"
+              title={
+                canEdit
+                  ? 'New step'
+                  : (readOnlyMessage ?? 'You can view this workflow but not edit it.')
+              }
+              className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
       </div>
-      {create && (
-        <StepCreateRow
-          key={placementKey(create)}
-          hint={placementHint(create, nodes, edges)}
-          onSubmit={handleCreate}
-          onCancel={endCreate}
-        />
-      )}
       {!map.hasManifest && rows.length > 0 && (
         <p className="border-b border-border px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
           No step files for this version, so steps here don’t open code.
@@ -218,71 +250,74 @@ export function StepsView({
         <p className="px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
           No steps in this version. {canEdit ? 'Add one with + above.' : 'Add them on the canvas.'}
         </p>
-      ) : (
+      ) : showing ? (
         <div
           role="tree"
           aria-label="Steps"
           onKeyDown={handleKeyDown}
           className="min-h-0 flex-1 overflow-auto py-1"
         >
-          {shown.map((row) => {
+          {shown.map((row, at) => {
             const node = nodes.get(row.nodeId)
             if (!node) return null
             const summary: SummaryNode = node
             const info = map.byNode.get(row.nodeId)
+            const outgoing = outgoingByNode.get(row.nodeId) ?? []
+            const meta =
+              node.type === 'step'
+                ? metaLine(
+                    stepMeta(summary, { kind }),
+                    info?.uses.length ?? 0,
+                    info?.filePath ?? null,
+                    map.hasManifest,
+                    workflowFile,
+                  )
+                : nodeMeta(summary, {
+                    kind,
+                    arms: outgoing.filter((edge) => edge.label !== 'then').length,
+                  })
             return (
               <StepRowItem
                 key={row.nodeId}
                 row={row}
                 name={node.name}
                 icon={getNodeVisuals(node.type, registry.get(node.type)?.icon).icon}
-                meta={metaLine(
-                  stepMeta(summary, { kind }),
-                  info?.uses.length ?? 0,
-                  info?.filePath ?? null,
-                  map.hasManifest,
-                  workflowFile,
-                )}
+                meta={meta}
+                entry={entryNodeId !== null && row.nodeId === entryNodeId}
+                unreachable={entryNodeId !== null && !reachable.has(row.nodeId)}
+                rail={rail[at]!}
                 folded={collapsed.has(row.nodeId)}
                 tabbable={row.nodeId === tabbableId}
                 active={activeIds.has(row.nodeId)}
                 selected={row.nodeId === selectedNodeId}
-                outgoing={outgoingByNode.get(row.nodeId) ?? []}
+                outgoing={outgoing}
                 canCreate={canEdit}
                 readOnlyMessage={readOnlyMessage}
                 onPick={handlePick}
                 onFold={handleFold}
                 onFocusRow={setFocusedId}
-                onCreate={beginCreate}
+                onCreate={handlePlacement}
               />
             )
           })}
         </div>
-      )}
+      ) : null}
+      <StepFlowDialog
+        open={canEdit && picker !== null}
+        preferredNodeId={picker?.preferredNodeId ?? null}
+        initialPlacement={picker?.placement ?? null}
+        rows={rows}
+        nodes={nodes}
+        edges={edges}
+        entryNodeId={entryNodeId}
+        reachable={reachable}
+        takenStepIds={takenStepIds}
+        kind={kind}
+        onCreate={handleDialogCreate}
+        onClose={closePicker}
+      />
     </div>
   )
-}
-
-/** A stable identity for the open name row: a different placement starts a fresh one. */
-function placementKey(placement: StepPlacement): string {
-  return 'first' in placement ? 'first' : `${placement.after}:${placement.edgeId ?? ''}`
-}
-
-/** What the name row says about where the step goes. */
-function placementHint(
-  placement: StepPlacement,
-  nodes: StepSyncValue['nodes'],
-  edges: StepSyncValue['edges'],
-): string {
-  if ('first' in placement) return 'First step'
-  const source = nodes.get(placement.after)
-  if (placement.edgeId !== undefined) {
-    const edge = edges.find((e) => e.id === placement.edgeId)
-    if (edge?.label) return `Into ${edge.label}`
-    const target = edge ? nodes.get(edge.target) : undefined
-    if (target) return `Before ${target.name}`
-  }
-  return source ? `After ${source.name}` : 'After this step'
 }
 
 function metaLine(

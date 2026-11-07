@@ -476,3 +476,27 @@ describe('createStepCreator — one write at a time with the saver', () => {
     expect(posted(h.createVersion, 2).baseGraphHash).toBe('g-after-g-after-g-3')
   })
 })
+
+describe('createStepCreator with a caller-chosen id', () => {
+  it('refuses an id an existing node already has without writing', async () => {
+    const h = harness()
+    const outcome = await createStepCreator(h.deps).create({ after: 'mail' }, 'Another', 'fetch')
+    expect(outcome.status).toBe('refused')
+    expect(h.createVersion).not.toHaveBeenCalled()
+  })
+
+  it('uses the id for the node and its steps/<id>.ts path', async () => {
+    const h = harness(doc)
+    const outcome = await createStepCreator(h.deps).create(
+      { after: 'fetch' },
+      'Notify ops',
+      'notify_ops',
+    )
+    expect(outcome).toEqual({
+      status: 'created',
+      nodeId: 'notify_ops',
+      path: 'steps/notify_ops.ts',
+      opened: true,
+    })
+  })
+})

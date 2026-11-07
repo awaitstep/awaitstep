@@ -39,7 +39,11 @@ export interface ProjectFilesController extends ProjectFileActions {
   /** Refetches the workspace's files and settings. */
   refresh: () => Promise<void>
   /** Adds a step to the loaded version and saves it as one new version. */
-  createStep: (placement: StepPlacement, name: string) => Promise<CreateStepOutcome>
+  createStep: (
+    placement: StepPlacement,
+    name: string,
+    nodeId?: string,
+  ) => Promise<CreateStepOutcome>
 }
 
 /**
@@ -204,8 +208,8 @@ export function useProjectFiles({
       renameFile: (from: string, to: string) => track(() => actions.renameFile(from, to)),
       deleteFile: (path: string) => track(() => actions.deleteFile(path)),
       deleteFolder: (dir: string) => track(() => actions.deleteFolder(dir)),
-      createStep: (placement: StepPlacement, name: string) =>
-        track(() => stepCreator.create(placement, name)),
+      createStep: (placement: StepPlacement, name: string, nodeId?: string) =>
+        track(() => stepCreator.create(placement, name, nodeId)),
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()

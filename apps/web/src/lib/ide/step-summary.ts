@@ -100,6 +100,63 @@ function hasTimeout(config: StepConfig | undefined): boolean {
   return (typeof value === 'string' && value.trim() !== '') || typeof value === 'number'
 }
 
+/**
+ * A short line for a node that is not a step, as the Steps list shows it:
+ * "try/catch", "http GET", "sleep 10s", "branch · 2 arms". Non-steps have no
+ * file of their own, so the list must not imply one.
+ */
+export function nodeMeta(node: SummaryNode, options: NodeMetaOptions = {}): string | null {
+  if (node.type === 'step') return stepMeta(node, options.kind ? { kind: options.kind } : undefined)
+  const arms = options.arms ?? 0
+  const armLine = arms > 0 ? `${arms} ${arms === 1 ? 'arm' : 'arms'}` : null
+  switch (node.type) {
+    case 'try_catch':
+      return 'try/catch'
+    case 'branch':
+      return armLine === null ? 'branch' : `branch · ${armLine}`
+    case 'parallel':
+      return armLine === null ? 'parallel' : `parallel · ${armLine}`
+    case 'race':
+      return armLine === null ? 'race' : `race · ${armLine}`
+    case 'loop':
+      return `loop ${text(node.data.loopType, 'forEach')}`
+    case 'http_request':
+      return `http ${text(node.data.method, 'GET')}`
+    case 'sleep': {
+      const duration = node.data.duration
+      if (typeof duration === 'string') {
+        return duration.trim() === '' ? 'sleep' : `sleep ${formatDelay(duration)}`
+      }
+      return typeof duration === 'number' ? `sleep ${formatDelay(duration)}` : 'sleep'
+    }
+    case 'sleep_until':
+      return 'sleep until a time'
+    case 'wait_for_event':
+      return `wait for ${text(node.data.eventType, 'an event')}`
+    case 'sub_workflow':
+      return 'sub-workflow'
+    case 'sub_script':
+      return 'sub-script'
+    case 'break':
+      return 'break'
+    default:
+      return node.type
+  }
+}
+
+/** A non-blank string, trimmed; blank and non-string values fall back. */
+function text(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback
+  const trimmed = value.trim()
+  return trimmed === '' ? fallback : trimmed
+}
+
+export interface NodeMetaOptions {
+  kind?: 'workflow' | 'script'
+  /** Connections leaving the node, excluding a container's `then` continuation. */
+  arms?: number
+}
+
 /** A short line for the Steps list: "retries 3", or "timeout 30s", or nothing. */
 export function stepMeta(node: SummaryNode, options?: StepSettingsOptions): string | null {
   const settings = stepSettings(node, options)

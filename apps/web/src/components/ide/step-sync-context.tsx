@@ -3,6 +3,7 @@ import type { StepManifest } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
 import { useShallow } from 'zustand/react/shallow'
 import type { VersionSummary } from '../../lib/api-client'
+import { findEntryNodeId } from '../../lib/build-ir'
 import { buildStepMap, type StepMap } from '../../lib/ide/step-map'
 import { orderSteps, type StepRow } from '../../lib/ide/step-order'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -19,6 +20,12 @@ export interface StepSyncValue {
   nodes: ReadonlyMap<string, WorkflowNode>
   /** The graph's edges, for the create action's placement choices. */
   edges: readonly StepSyncEdge[]
+  /** The node the saved IR starts at, or null for an empty graph. */
+  entryNodeId: string | null
+  /** The nodes reachable from the entry; the rest are listed with "Not connected". */
+  reachable: ReadonlySet<string>
+  /** Step ids whose `steps/<id>.ts` is already a project or draft file (lowercase). */
+  takenStepIds: ReadonlySet<string>
   versions: readonly VersionSummary[]
   /** The file that holds the run body, where steps with no file of their own are written. */
   workflowFile: string | null
@@ -99,6 +106,43 @@ export function StepSyncProvider({
       })),
     [edges],
   )
+  const entryNodeId = useMemo(() => {
+    const id = findEntryNodeId(
+      flowNodes.map((node) => ({ id: node.id })),
+      graphEdges,
+    )
+    return id === '' ? null : id
+  }, [flowNodes, graphEdges])
+  const takenStepIds = useMemo(() => {
+    const ids = new Set<string>()
+    const add = (path: string) => {
+      const lower = path.toLowerCase()
+      if (lower.startsWith('steps/') && lower.endsWith('.ts')) {
+        ids.add(lower.slice('steps/'.length, -'.ts'.length))
+      }
+    }
+    for (const path of projectPaths) add(path)
+    for (const path of deferredFiles.keys()) add(path)
+    return ids
+  }, [projectPaths, deferredFiles])
+  const reachable = useMemo(() => {
+    const seen = new Set<string>()
+    if (entryNodeId === null) return seen
+    const outgoing = new Map<string, string[]>()
+    for (const edge of graphEdges) {
+      const targets = outgoing.get(edge.source)
+      if (targets) targets.push(edge.target)
+      else outgoing.set(edge.source, [edge.target])
+    }
+    const queue = [entryNodeId]
+    while (queue.length > 0) {
+      const id = queue.shift()!
+      if (seen.has(id)) continue
+      seen.add(id)
+      queue.push(...(outgoing.get(id) ?? []))
+    }
+    return seen
+  }, [entryNodeId, graphEdges])
   const rows = useMemo(
     () =>
       orderSteps(
@@ -128,6 +172,9 @@ export function StepSyncProvider({
       rows,
       nodes,
       edges: graphEdges,
+      entryNodeId,
+      reachable,
+      takenStepIds,
       workflowFile,
       versions,
       graphVersionId,
@@ -142,6 +189,9 @@ export function StepSyncProvider({
       rows,
       nodes,
       graphEdges,
+      entryNodeId,
+      reachable,
+      takenStepIds,
       workflowFile,
       versions,
       graphVersionId,

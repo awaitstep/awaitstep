@@ -39,7 +39,7 @@ export interface StepCreateDeps {
   canEdit: () => boolean
   /** Why it does not, worded for the person. */
   readOnlyReason: () => string
-  /** The 12-character id the canvas uses; injected in tests. */
+  /** The fallback id when the caller does not pass one; injected in tests. */
   newId?: () => string
 }
 
@@ -55,7 +55,12 @@ export interface StepCreator {
    * never a file write. On success the new `steps/<id>.ts` is opened; a
    * refusal (an unknown node, a branch without a chosen arm) writes nothing.
    */
-  create(placement: StepPlacement, name: string): Promise<CreateStepOutcome>
+  create(
+    placement: StepPlacement,
+    name: string,
+    /** A caller-chosen id, used to make the file name match the typed name. */
+    nodeId?: string,
+  ): Promise<CreateStepOutcome>
 }
 
 const newNodeId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
@@ -74,10 +79,10 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
   const newId = deps.newId ?? newNodeId
 
   return {
-    async create(placement, name) {
+    async create(placement, name, providedId) {
       return deps.exclusive(async (): Promise<CreateStepOutcome> => {
         try {
-          return await createOnce(placement, name)
+          return await createOnce(placement, name, providedId)
         } catch {
           // A bug's own message is no reason a person can act on.
           return { status: 'failed', reason: 'Couldn’t create the step.' }
@@ -86,7 +91,11 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
     },
   }
 
-  async function createOnce(placement: StepPlacement, name: string): Promise<CreateStepOutcome> {
+  async function createOnce(
+    placement: StepPlacement,
+    name: string,
+    providedId?: string,
+  ): Promise<CreateStepOutcome> {
     // Queued work starts later than its call: by then the person may have
     // left for another workflow, whose session the shared store now holds.
     if (!isCurrent()) return { status: 'failed', reason: 'This workspace is no longer open.' }
@@ -100,7 +109,7 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
       }
     }
 
-    const nodeId = newId()
+    const nodeId = providedId ?? newId()
     const inserted = insertStep(version.doc, placement, { id: nodeId, name })
     if (!inserted.ok) return { status: 'refused', reason: inserted.reason }
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RunStep } from '../api-client'
 import {
+  nodeMeta,
   previewSyncLabel,
   stepMeta,
   stepSettings,
@@ -32,6 +33,45 @@ function runStep(overrides: Partial<RunStep> = {}): RunStep {
     ...overrides,
   }
 }
+
+describe('nodeMeta', () => {
+  it('describes a non-step node by kind and settings', () => {
+    expect(nodeMeta(node({ type: 'try_catch' }))).toBe('try/catch')
+    expect(nodeMeta(node({ type: 'branch' }), { arms: 2 })).toBe('branch · 2 arms')
+    expect(nodeMeta(node({ type: 'parallel' }), { arms: 1 })).toBe('parallel · 1 arm')
+    expect(nodeMeta(node({ type: 'http_request', data: { method: 'POST' } }))).toBe('http POST')
+    expect(nodeMeta(node({ type: 'sleep', data: { duration: '10 seconds' } }))).toBe('sleep 10s')
+    expect(nodeMeta(node({ type: 'sleep' }))).toBe('sleep')
+    expect(nodeMeta(node({ type: 'loop', data: { loopType: 'while' } }))).toBe('loop while')
+    expect(nodeMeta(node({ type: 'wait_for_event', data: { eventType: 'order.paid' } }))).toBe(
+      'wait for order.paid',
+    )
+    expect(nodeMeta(node({ type: 'sub_workflow' }))).toBe('sub-workflow')
+  })
+
+  it('covers the kinds that carry no settings', () => {
+    expect(nodeMeta(node({ type: 'race' }), { arms: 2 })).toBe('race · 2 arms')
+    expect(nodeMeta(node({ type: 'sleep_until' }))).toBe('sleep until a time')
+    expect(nodeMeta(node({ type: 'break' }))).toBe('break')
+    expect(nodeMeta(node({ type: 'sub_script' }))).toBe('sub-script')
+    expect(nodeMeta(node({ type: 'ollama' }))).toBe('ollama')
+    expect(nodeMeta(node({ type: 'sleep', data: { duration: 90_000 } }))).toBe('sleep 1m 30s')
+  })
+
+  it('falls back when a setting is blank instead of printing a dangling label', () => {
+    expect(nodeMeta(node({ type: 'loop', data: { loopType: '   ' } }))).toBe('loop forEach')
+    expect(nodeMeta(node({ type: 'http_request', data: { method: '' } }))).toBe('http GET')
+    expect(nodeMeta(node({ type: 'wait_for_event', data: { eventType: '  ' } }))).toBe(
+      'wait for an event',
+    )
+    expect(nodeMeta(node({ type: 'sleep', data: { duration: '   ' } }))).toBe('sleep')
+  })
+
+  it('lets a step keep the step summary', () => {
+    expect(nodeMeta(node())).toBeNull()
+    expect(nodeMeta(node({ data: { retryLimit: 2 } }))).toBe('retries 2')
+  })
+})
 
 describe('stepSettings', () => {
   it('says Default for an unset retry policy and timeout on a step', () => {

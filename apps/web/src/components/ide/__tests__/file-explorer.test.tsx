@@ -7,7 +7,8 @@ import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStepsStore } from '../../../stores/ide-steps-store'
 import { useIdeStore } from '../../../stores/ide-store'
 import { FileExplorer } from '../file-explorer'
-import { FILES, loadGraph, SyncHarness } from './fixtures/step-sync'
+import { StepsView } from '../steps-view'
+import { FILES, irNode, loadGraph, SyncHarness } from './fixtures/step-sync'
 
 const project = buildFileTree([
   { path: 'lib/a.ts', role: 'module' },
@@ -408,6 +409,8 @@ describe('step sources', () => {
     { path: 'steps/validate.ts', role: 'source' },
   ])
   const sourceStepPaths = new Set(['steps/validate.ts'])
+  const branchingProject = buildFileTree([{ path: 'steps/a.ts', role: 'source' }])
+  const branchingPaths = new Set(['steps/a.ts'])
 
   it('lists a step’s source under Project, opens it, and shows it as unsaved like any file', async () => {
     const user = userEvent.setup()
@@ -424,12 +427,12 @@ describe('step sources', () => {
     const user = userEvent.setup()
     const { onDelete, onDeleteFolder } = setup({ project: withSteps, stepPaths })
     const folder = screen.getByRole('treeitem', { name: /^steps$/ })
-    expect(folder.title).toBe('New step after any step here; rename or remove steps on the canvas.')
-    await user.pointer({ keys: '[MouseRight]', target: folder })
-    expect(screen.queryByRole('menu')).toBeNull()
+    expect(folder.title).toBe(
+      'New step anywhere in this workflow; rename or remove steps on the canvas.',
+    )
+    // A step file has no file menu (the folder's own step menu is tested below).
     await user.pointer({ keys: '[MouseRight]', target: item('k3j9x_a1b2c3\\.ts') })
     expect(screen.queryByRole('menu')).toBeNull()
-    expect(screen.queryByRole('button', { name: /Actions for steps/, hidden: true })).toBeNull()
 
     item('k3j9x_a1b2c3\\.ts').focus()
     await user.keyboard('{F2}')
@@ -441,21 +444,16 @@ describe('step sources', () => {
     expect(onDeleteFolder).not.toHaveBeenCalled()
   })
 
-  it('adds a step from the steps folder menu by choosing the step it follows', async () => {
+  it('opens the placement picker from the steps folder menu', async () => {
     const user = userEvent.setup()
-    loadGraph()
-    const props = makeProps({ project: withSteps, stepPaths })
-    render(
-      <SyncHarness>
-        <FileExplorer {...props} />
-      </SyncHarness>,
-    )
+    setup({ project: withSteps, stepPaths })
     const folder = screen.getByRole('treeitem', { name: /^steps$/ })
     await user.pointer({ keys: '[MouseRight]', target: folder })
-    await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Validate order' }))
-    expect(useIdeLayoutStore.getState().sideBarTab).toBe('steps')
-    expect(useIdeStepsStore.getState().create).toEqual({ after: 'validate' })
+    await user.click(await screen.findByRole('menuitem', { name: 'New step…' }))
+    expect(useIdeStepsStore.getState().picker).toEqual({
+      preferredNodeId: null,
+      placement: null,
+    })
   })
 
   it('adds a step from a step file’s own menu', async () => {
@@ -472,7 +470,93 @@ describe('step sources', () => {
     await user.pointer({ keys: '[MouseRight]', target: row })
     await user.click(await screen.findByRole('menuitem', { name: 'New step after this step' }))
     expect(useIdeLayoutStore.getState().sideBarTab).toBe('steps')
-    expect(useIdeStepsStore.getState().create).toEqual({ after: 'validate' })
+    expect(useIdeStepsStore.getState().picker).toEqual({
+      preferredNodeId: 'validate',
+      placement: { after: 'validate' },
+    })
+  })
+
+  it('opens the placement picker for a branching step file', async () => {
+    const user = userEvent.setup()
+    loadGraph(
+      [irNode('a', 'A'), irNode('b', 'B'), irNode('c', 'C')],
+      [
+        { id: 'e1', source: 'a', target: 'b' },
+        { id: 'e2', source: 'a', target: 'c' },
+      ],
+    )
+    const props = makeProps({ project: branchingProject, stepPaths: branchingPaths })
+    const files = new Map([...FILES, ['steps/a.ts', { source: '' }]])
+    render(
+      <SyncHarness files={files} sourcePaths={new Map([['a', 'steps/a.ts']])}>
+        <FileExplorer {...props} />
+      </SyncHarness>,
+    )
+    await user.pointer({ keys: '[MouseRight]', target: item('a\\.ts') })
+    await user.click(await screen.findByRole('menuitem', { name: 'New step after this step' }))
+    expect(useIdeStepsStore.getState().picker).toEqual({
+      preferredNodeId: 'a',
+      placement: null,
+    })
+    expect(useIdeLayoutStore.getState().sideBarTab).toBe('steps')
+  })
+
+  it('opens the picker from a step file in the Steps panel’s portal', async () => {
+    const user = userEvent.setup()
+    loadGraph(
+      [irNode('a', 'A'), irNode('b', 'B'), irNode('c', 'C')],
+      [
+        { id: 'e1', source: 'a', target: 'b' },
+        { id: 'e2', source: 'a', target: 'c' },
+      ],
+    )
+    const props = makeProps({ project: branchingProject, stepPaths: branchingPaths })
+    const files = new Map([...FILES, ['steps/a.ts', { source: '' }]])
+    render(
+      <SyncHarness files={files} sourcePaths={new Map([['a', 'steps/a.ts']])}>
+        <FileExplorer {...props} />
+        <StepsView
+          tabs={null}
+          onEscape={vi.fn()}
+          canEdit
+          readOnlyMessage={null}
+          onCreateStep={vi.fn(async () => ({
+            status: 'created' as const,
+            nodeId: 'new',
+            path: 'steps/new.ts',
+            opened: false,
+          }))}
+        />
+      </SyncHarness>,
+    )
+    await user.pointer({ keys: '[MouseRight]', target: item('a\\.ts') })
+    await user.click(await screen.findByRole('menuitem', { name: 'New step after this step' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText('Where should it go?')).toBeInTheDocument()
+    expect(screen.getByText('Before B')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Before C' })).toBeInTheDocument()
+  })
+
+  it('disables the step file menu when its only connection id is shared', async () => {
+    const user = userEvent.setup()
+    loadGraph(
+      [irNode('a', 'A'), irNode('b', 'B'), irNode('c', 'C')],
+      [
+        { id: 'dup', source: 'a', target: 'b' },
+        { id: 'dup', source: 'b', target: 'c' },
+      ],
+    )
+    const props = makeProps({ project: branchingProject, stepPaths: branchingPaths })
+    const files = new Map([...FILES, ['steps/a.ts', { source: '' }]])
+    render(
+      <SyncHarness files={files} sourcePaths={new Map([['a', 'steps/a.ts']])}>
+        <FileExplorer {...props} />
+      </SyncHarness>,
+    )
+    await user.pointer({ keys: '[MouseRight]', target: item('a\\.ts') })
+    const menuItem = await screen.findByRole('menuitem', { name: 'New step after this step' })
+    expect(menuItem).toHaveAttribute('aria-disabled', 'true')
+    expect(menuItem.getAttribute('title')).toContain('shares its id')
   })
 
   it('gives a step file no create menu on a read-only workspace', async () => {
@@ -490,6 +574,11 @@ describe('step sources', () => {
       </SyncHarness>,
     )
     await user.pointer({ keys: '[MouseRight]', target: item('validate\\.ts') })
+    expect(screen.queryByRole('menu')).toBeNull()
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('treeitem', { name: /^steps$/ }),
+    })
     expect(screen.queryByRole('menu')).toBeNull()
   })
 

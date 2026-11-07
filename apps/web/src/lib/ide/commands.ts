@@ -75,8 +75,6 @@ export interface IdeCommandContext {
   editBlockedReason: string | null
   /** The step whose `steps/<id>.ts` is the active file, or null. */
   activeStepId: string | null
-  /** That step has several outgoing connections, so "after it" has no single meaning. */
-  activeStepBranches: boolean
   explorerOpen: boolean
   dockOpen: boolean
   previewOpen: boolean
@@ -106,11 +104,7 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
   const { actions } = ctx
   const blocked = ctx.runBlockedReason
   const reason = blocked === null ? {} : { disabledReason: blocked }
-  const newStepReason = !ctx.canEdit
-    ? ctx.editBlockedReason
-    : ctx.activeStepBranches
-      ? 'This step branches. Choose the connection in the Steps view.'
-      : null
+  const newStepReason = ctx.canEdit ? null : ctx.editBlockedReason
   return [
     {
       id: 'file.save',
@@ -168,7 +162,7 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       id: 'file.newStep',
       label: 'New Step After Current Step…',
       group: 'file',
-      enabled: ctx.canEdit && ctx.activeStepId !== null && !ctx.activeStepBranches,
+      enabled: ctx.canEdit && ctx.activeStepId !== null,
       ...(newStepReason === null ? {} : { disabledReason: newStepReason }),
       run: () => {
         if (ctx.activeStepId !== null) actions.newStep(ctx.activeStepId)

@@ -22,8 +22,6 @@ interface CommandPaletteProps {
   editBlockedReason: string | null
   /** The step whose source is the active file, or null. */
   activeStepId: string | null
-  /** That step has several outgoing connections. */
-  activeStepBranches: boolean
   activeIsStoredFile: boolean
   activeIsHandlersFile: boolean
   activeDirty: boolean
@@ -44,7 +42,6 @@ export function CommandPalette({
   canEdit,
   editBlockedReason,
   activeStepId,
-  activeStepBranches,
   activeIsStoredFile,
   activeIsHandlersFile,
   activeDirty,
@@ -86,7 +83,6 @@ export function CommandPalette({
       canEdit,
       editBlockedReason,
       activeStepId,
-      activeStepBranches,
       explorerOpen,
       dockOpen,
       previewOpen,
@@ -113,7 +109,6 @@ export function CommandPalette({
     canEdit,
     editBlockedReason,
     activeStepId,
-    activeStepBranches,
     explorerOpen,
     dockOpen,
     previewOpen,

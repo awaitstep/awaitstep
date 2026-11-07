@@ -23,12 +23,13 @@ import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeExplorerStore } from '../../stores/ide-explorer-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { useIdeStepsStore } from '../../stores/ide-steps-store'
+import { appendsAfter } from '../../lib/ide/step-placements'
 import { RenameRow } from './file-explorer-rename'
 import { CreateRow } from './file-explorer-create'
 import { LimitsFooter } from './file-explorer-footer'
 import { UnsavedSection } from './file-explorer-unsaved'
 import { ExplorerHeader } from './file-explorer-header'
-import { useStepSyncOptional } from './step-sync-context'
+import { useStepSyncOptional, type StepSyncEdge } from './step-sync-context'
 import {
   ExplorerRow,
   GeneratedEmptyState,
@@ -109,18 +110,26 @@ export function FileExplorer({
 
   const existing = useMemo(() => treeFilePaths(project), [project])
   const projectPaths = useMemo(() => new Set(existing), [existing])
-  // The steps folder's menu places a new step after an existing one; the
-  // prompt itself lives in the Steps view, which the choice opens.
+  // The steps folder's menu opens the placement picker; the prompt itself
+  // lives in the Steps view, which the chosen connection opens.
   const sync = useStepSyncOptional()
-  const stepChoices = useMemo(() => {
-    if (!sync || !canEdit) return []
-    const choices: { id: string; name: string }[] = []
-    for (const row of sync.rows) {
-      const node = sync.nodes.get(row.nodeId)
-      if (node?.type === 'step') choices.push({ id: row.nodeId, name: node.name })
+  // One index for the whole tree: the menu is built for every step-file row,
+  // so filtering the edge list there would be quadratic on a large graph.
+  const syncEdges = sync?.edges
+  const edgesBySource = useMemo(() => {
+    const bySource = new Map<string, StepSyncEdge[]>()
+    for (const edge of syncEdges ?? []) {
+      const list = bySource.get(edge.source)
+      if (list) list.push(edge)
+      else bySource.set(edge.source, [edge])
     }
-    return choices
-  }, [sync, canEdit])
+    return bySource
+  }, [syncEdges])
+  const edgeCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const edge of syncEdges ?? []) counts.set(edge.id, (counts.get(edge.id) ?? 0) + 1)
+    return counts
+  }, [syncEdges])
   // A step file's row opens the same name row, for that step.
   const stepNodeByPath = useMemo(() => {
     const byPath = new Map<string, string>()
@@ -323,7 +332,7 @@ export function FileExplorer({
     if (explorer.create || explorer.renaming) focusNameField()
     // A step's name row lives in the Steps view; focusing this folder's row
     // would take the keyboard from it.
-    else if (useIdeStepsStore.getState().create === null) focusRow(key)
+    else if (useIdeStepsStore.getState().picker === null) focusRow(key)
   }
 
   function handleFocusRow(key: string) {
@@ -351,21 +360,56 @@ export function FileExplorer({
     useIdeExplorerStore.getState().beginCreate({ mode: 'file' })
   }
 
-  // A step is not a file: the folder's menu opens the Steps view's name row.
+  // A step is not a file: the folder's menu opens the add dialog, and so does
+  // a step whose connection cannot be spliced blindly (it branches, or its one
+  // connection is an arm). The file menu never dead-ends on a placement
+  // `insertStep` can only refuse.
   function stepNodeForRow(
     row: TreeRow,
     byPath: ReadonlyMap<string, string>,
     sync: ReturnType<typeof useStepSyncOptional>,
-  ): { id: string; name: string } | null {
+  ): { id: string; name: string; direct: boolean; reason: string | null } | null {
     if (row.kind !== 'file') return null
     const id = byPath.get(row.path)
     if (id === undefined) return null
-    return { id, name: sync?.nodes.get(id)?.name ?? row.name }
+    const node = sync?.nodes.get(id)
+    if (!sync || !node) return { id, name: row.name, direct: true, reason: null }
+    const outgoing = edgesBySource.get(id) ?? []
+    const direct = appendsAfter(node, outgoing, edgeCounts)
+    const hasChoice = outgoing.some((edge) => edgeCounts.get(edge.id) === 1)
+    return {
+      id,
+      name: node.name,
+      direct,
+      reason:
+        !direct && !hasChoice
+          ? 'This step’s only connection shares its id with another edge. Rename one on the canvas.'
+          : null,
+    }
   }
 
   function handleNewStepAfter(nodeId: string) {
+    if (!canEdit) return
     useIdeLayoutStore.getState().showSideBar('steps')
-    useIdeStepsStore.getState().beginCreate({ after: nodeId })
+    const node = sync?.nodes.get(nodeId)
+    if (!sync || !node) {
+      useIdeStepsStore.getState().openPicker()
+      return
+    }
+    const outgoing = edgesBySource.get(nodeId) ?? []
+    if (appendsAfter(node, outgoing, edgeCounts)) {
+      useIdeStepsStore.getState().openPicker(nodeId, { after: nodeId })
+      return
+    }
+    if (outgoing.some((edge) => edgeCounts.get(edge.id) === 1)) {
+      useIdeStepsStore.getState().openPicker(nodeId)
+    }
+  }
+
+  function handleOpenStepPicker() {
+    if (!canEdit) return
+    useIdeLayoutStore.getState().showSideBar('steps')
+    useIdeStepsStore.getState().openPicker()
   }
 
   function handleNewFolder() {
@@ -483,8 +527,8 @@ export function FileExplorer({
                 }
                 actions={rowActions}
                 newMenu={newMenu}
-                stepChoices={stepChoices}
                 onNewStepAfter={handleNewStepAfter}
+                onOpenStepPicker={canEdit ? handleOpenStepPicker : undefined}
                 stepNode={stepNodeForRow(row, stepNodeByPath, sync)}
                 menuOpen={menuKey === row.key}
                 onMenuOpenChange={handleMenuOpenChange}

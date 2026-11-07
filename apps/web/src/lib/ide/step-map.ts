@@ -87,7 +87,11 @@ export function buildStepMap(input: BuildInput): StepMap {
       uses: read === null ? [] : importsFor(read),
     })
     for (const path of new Set([filePath, sourcePath])) {
-      if (path !== null) byFile.set(path, [...(byFile.get(path) ?? []), nodeId])
+      if (path !== null) {
+        const list = byFile.get(path)
+        if (list) list.push(nodeId)
+        else byFile.set(path, [nodeId])
+      }
     }
   }
 
@@ -104,7 +108,11 @@ export function buildStepMap(input: BuildInput): StepMap {
       seen.add(path)
       pending.push(...importsFor(path))
     }
-    for (const path of seen) usedBy.set(path, [...(usedBy.get(path) ?? []), info.nodeId])
+    for (const path of seen) {
+      const list = usedBy.get(path)
+      if (list) list.push(info.nodeId)
+      else usedBy.set(path, [info.nodeId])
+    }
   }
 
   return { hasManifest: manifest !== null, byNode, byFile, usedBy }

@@ -36,6 +36,26 @@ describe('orderSteps', () => {
       arm: 'approved',
     })
     expect(rows.find((r) => r.nodeId === 'join')).toMatchObject({ parentId: null, depth: 0 })
+    // The rail reads the walk's continuity, not just the depth.
+    expect(rows.find((r) => r.nodeId === 'check')).toMatchObject({ continuesAbove: true })
+    expect(rows.find((r) => r.nodeId === 'yes')).toMatchObject({
+      arm: 'approved',
+      armStart: true,
+      continuesAbove: false,
+    })
+    expect(rows.find((r) => r.nodeId === 'join')).toMatchObject({ continuesAbove: true })
+  })
+
+  it('marks an unlabelled arm’s first row even though it has no chip label', () => {
+    const rows = orderSteps([n('p', 'parallel'), n('a'), n('b')], [e('p', 'a'), e('p', 'b')])
+    expect(rows.map((r) => r.nodeId)).toEqual(['p', 'a', 'b'])
+    expect(rows[1]).toMatchObject({ arm: null, armStart: true })
+    expect(rows[2]).toMatchObject({ arm: null, armStart: true })
+  })
+
+  it('marks a single-arm loop body as an arm start', () => {
+    const rows = orderSteps([n('loop', 'loop'), n('body')], [e('loop', 'body', 'body')])
+    expect(rows[1]).toMatchObject({ parentId: 'loop', arm: 'body', armStart: true })
   })
 
   it('keeps a branch whose arms never rejoin nested to the end of each arm', () => {

@@ -19,9 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { FileIcon, roleTitle } from './file-icon'
@@ -56,11 +53,11 @@ interface ExplorerRowProps {
   actions?: RowActions
   /** Set when the project can be added to; the Project row opens it on right-click. */
   newMenu?: ProjectNewMenu
-  /** The steps the `steps/` folder's menu can place a new one after, in list order. */
-  stepChoices?: readonly { id: string; name: string }[]
   /** A step file's own node, for "New step after this step". */
-  stepNode?: { id: string; name: string } | null
+  stepNode?: { id: string; name: string; direct: boolean; reason: string | null } | null
   onNewStepAfter?: (nodeId: string) => void
+  /** The `steps/` folder's menu opens the placement picker. */
+  onOpenStepPicker?: () => void
   menuOpen: boolean
   onMenuOpenChange: (key: string, open: boolean) => void
   onActivate: (row: TreeRow) => void
@@ -101,11 +98,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
   const hasProjectMenu = row.kind === 'section' && row.section === 'project' && !!props.newMenu
   // The steps folder is the one folder whose menu adds a step, not a file.
   const hasStepMenu =
-    !isFile &&
-    row.section === 'project' &&
-    row.path === STEP_SOURCE_DIR &&
-    (props.stepChoices?.length ?? 0) > 0 &&
-    !!props.onNewStepAfter
+    !isFile && row.section === 'project' && row.path === STEP_SOURCE_DIR && !!props.onOpenStepPicker
   const hasStepFileMenu = isFile && step && !!props.stepNode && !!props.onNewStepAfter
   const hasMenu =
     hasProjectMenu ||
@@ -130,7 +123,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
         .join(' · ')
     : step
       ? row.kind === 'dir'
-        ? 'New step after any step here; rename or remove steps on the canvas.'
+        ? 'New step anywhere in this workflow; rename or remove steps on the canvas.'
         : 'Step code belongs to its node. Edit it here; add a step after it, or rename/remove it on the canvas.'
       : undefined
 
@@ -219,14 +212,13 @@ export function ExplorerRow(props: ExplorerRowProps) {
           <Chevron className="h-3 w-3 shrink-0 text-muted-foreground" />
           <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
           <span className="min-w-0 flex-1 truncate">{row.name}</span>
-          {hasStepMenu && props.stepChoices && props.onNewStepAfter ? (
+          {hasStepMenu && props.onOpenStepPicker ? (
             <StepFolderMenu
-              choices={props.stepChoices}
               open={props.menuOpen}
               point={point}
               rowKey={row.key}
               onOpenChange={handleMenuOpenChange}
-              onChoose={props.onNewStepAfter}
+              onOpenPicker={props.onOpenStepPicker}
             />
           ) : (
             hasMenu &&
@@ -407,7 +399,7 @@ function StepFileMenu({
   onOpenChange,
   onChoose,
 }: {
-  step: { id: string; name: string }
+  step: { id: string; name: string; reason: string | null }
   rowKey: string
   open: boolean
   point: Point | null
@@ -440,7 +432,12 @@ function StepFileMenu({
         className="min-w-[190px]"
         onCloseAutoFocus={handleCloseAutoFocus}
       >
-        <DropdownMenuItem onSelect={handleChoose} className="text-xs">
+        <DropdownMenuItem
+          disabled={step.reason !== null}
+          title={step.reason ?? undefined}
+          onSelect={handleChoose}
+          className="text-xs"
+        >
           <Plus className="h-3.5 w-3.5" />
           New step after this step
         </DropdownMenuItem>
@@ -450,27 +447,26 @@ function StepFileMenu({
 }
 
 /**
- * The `steps/` folder's menu: a step is added by choosing the step it goes
- * after, and the name row opens in the Steps view. It is not a file menu —
- * `steps/` is never written as files.
+ * The `steps/` folder's menu: one "New step…" that opens the placement picker,
+ * which lists every connection (a step's outgoing edge, a branch's arms). The
+ * name row then opens in the Steps view. It is not a file menu — `steps/` is
+ * never written as files.
  */
 function StepFolderMenu({
-  choices,
   rowKey,
   open,
   point,
   onOpenChange,
-  onChoose,
+  onOpenPicker,
 }: {
-  choices: readonly { id: string; name: string }[]
   rowKey: string
   open: boolean
   point: Point | null
   onOpenChange: (key: string, open: boolean) => void
-  onChoose: (nodeId: string) => void
+  onOpenPicker: () => void
 }) {
-  // The chosen item opens the Steps view's name row: Radix must not take
-  // focus back to the folder's ⋯ button. A dismissal still returns it.
+  // The chosen item opens the picker (and then the name row), which take
+  // focus themselves: Radix must not take it back to the folder's trigger.
   const chosen = useRef(false)
 
   function handleOpenChange(next: boolean) {
@@ -484,9 +480,9 @@ function StepFolderMenu({
     event.preventDefault()
   }
 
-  function handleChoose(nodeId: string) {
+  function handleChoose() {
     chosen.current = true
-    onChoose(nodeId)
+    onOpenPicker()
   }
 
   return (
@@ -497,23 +493,10 @@ function StepFolderMenu({
         className="min-w-[190px]"
         onCloseAutoFocus={handleCloseAutoFocus}
       >
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="text-xs">
-            <Plus className="h-3.5 w-3.5" />
-            New step after…
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {choices.map((choice) => (
-              <DropdownMenuItem
-                key={choice.id}
-                onSelect={() => handleChoose(choice.id)}
-                className="text-xs"
-              >
-                {choice.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={handleChoose} className="text-xs">
+          <Plus className="h-3.5 w-3.5" />
+          New step…
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

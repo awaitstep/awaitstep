@@ -17,6 +17,10 @@ export interface StepOutgoingEdge {
   label?: string
   /** The node the connection leads to, named when it has no label. */
   targetName: string
+  /** The edge leaves through one of the node's arms, not as its way on. */
+  arm: boolean
+  /** The id names one edge. A shared id has no safe splice, so the item is disabled. */
+  uniqueId: boolean
 }
 
 interface StepRowMenuProps {
@@ -64,6 +68,12 @@ export function StepRowMenu({
     onChoose(placement)
   }
 
+  // `{ after }` is only truthful for a node with no connection or one plain
+  // connection; an arm is spliced before its target, so it needs its own item.
+  const only = outgoing.length === 1 ? outgoing[0]! : undefined
+  const append = outgoing.length === 0 || (only !== undefined && !only.arm && only.uniqueId)
+  const sharedReason = 'This connection shares its id with another edge. Rename one on the canvas.'
+
   return (
     <DropdownMenu onOpenChange={handleOpenChange}>
       <DropdownMenuTrigger asChild>
@@ -89,10 +99,20 @@ export function StepRowMenu({
         className="min-w-[190px]"
         onCloseAutoFocus={handleCloseAutoFocus}
       >
-        {outgoing.length <= 1 ? (
+        {append ? (
           <DropdownMenuItem onSelect={() => choose({ after: nodeId })} className="text-xs">
             <Plus className="h-3.5 w-3.5" />
             New step after…
+          </DropdownMenuItem>
+        ) : outgoing.length === 1 ? (
+          <DropdownMenuItem
+            disabled={!only || !only.uniqueId}
+            title={only?.uniqueId ? undefined : sharedReason}
+            onSelect={() => only && choose({ after: nodeId, edgeId: only.id })}
+            className="text-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {only ? edgeLabel(only) : 'New step after…'}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuSub>
@@ -101,13 +121,15 @@ export function StepRowMenu({
               New step after…
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {outgoing.map((edge) => (
+              {outgoing.map((edge, at) => (
                 <DropdownMenuItem
-                  key={`${edge.id}:${edge.targetName}`}
+                  key={`${at}:${edge.id}`}
+                  disabled={!edge.uniqueId}
+                  title={edge.uniqueId ? undefined : sharedReason}
                   onSelect={() => choose({ after: nodeId, edgeId: edge.id })}
                   className="text-xs"
                 >
-                  {edge.label ? `Into ${edge.label}` : `Before ${edge.targetName}`}
+                  {edgeLabel(edge)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
@@ -116,6 +138,11 @@ export function StepRowMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   )
+}
+
+/** "Into body" for a labelled arm; "Before <target>" for anything else. */
+function edgeLabel(edge: StepOutgoingEdge): string {
+  return edge.arm && edge.label ? `Into ${edge.label}` : `Before ${edge.targetName}`
 }
 
 /** Clicking ⋯ must not also pick the row. */

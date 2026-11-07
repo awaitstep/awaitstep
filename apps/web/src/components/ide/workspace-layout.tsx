@@ -3,6 +3,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
 import { useShallow } from 'zustand/react/shallow'
 import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
+import { FUNCTION_MODULE_PATH } from '@awaitstep/provider-cloudflare/codegen'
 import type { WorkflowFull, WorkflowSource } from '../../lib/api-client'
 import { reviewOrder } from '../../lib/ide/review'
 import { deriveDeploymentState } from '../../lib/hydrate-workflow'
@@ -16,7 +17,6 @@ import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
-import { useWorkflowStore } from '../../stores/workflow-store'
 import { BottomDock } from './bottom-dock'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
@@ -133,11 +133,6 @@ export function WorkspaceLayout({
     }
     return null
   }, [activePath, stepSourceByNode])
-  const graphEdges = useWorkflowStore((s) => s.edges)
-  const activeStepBranches = useMemo(
-    () => activeStepId !== null && graphEdges.filter((e) => e.source === activeStepId).length > 1,
-    [activeStepId, graphEdges],
-  )
   const { explorerOpen, dockOpen, previewOpen, setLayout } = useIdeLayoutStore(
     useShallow((s) => ({
       explorerOpen: s.explorerOpen,
@@ -328,7 +323,6 @@ export function WorkspaceLayout({
         canEdit={canEdit}
         editBlockedReason={data.workspace?.message ?? null}
         activeStepId={activeStepId}
-        activeStepBranches={activeStepBranches}
         activeIsStoredFile={activeIsStoredFile}
         activeIsHandlersFile={activeIsHandlersFile}
         activeDirty={activeDirty}
@@ -356,7 +350,13 @@ export function WorkspaceLayout({
       files={files}
       projectPaths={projectPaths}
       sourcePaths={stepSourceByNode}
-      workflowFile={source.primary ?? null}
+      workflowFile={
+        source.versionId === null
+          ? null
+          : fullData.workflow.kind === 'script'
+            ? FUNCTION_MODULE_PATH
+            : (source.primary ?? null)
+      }
       versions={fullData.versions}
       graphVersionId={version?.id ?? null}
       codeVersionId={source.versionId ?? null}

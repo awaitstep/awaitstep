@@ -2,7 +2,9 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { StepPlacement } from '@awaitstep/codegen'
 import type { StepRow } from '../../lib/ide/step-order'
+import type { RailRow } from '../../lib/ide/step-rail-layout'
 import { cn } from '../../lib/utils'
+import { StepRail } from './step-rail'
 import { StepRowMenu, type StepOutgoingEdge } from './step-row-menu'
 
 interface StepRowItemProps {
@@ -11,6 +13,12 @@ interface StepRowItemProps {
   icon: ReactNode
   meta: string | null
   folded: boolean
+  /** The graph's entry node gets the entry marker. */
+  entry: boolean
+  /** The walk never reaches this node from the entry. */
+  unreachable: boolean
+  /** The vertical lines this row draws. */
+  rail: RailRow
   tabbable: boolean
   active: boolean
   selected: boolean
@@ -33,6 +41,9 @@ export function StepRowItem({
   icon,
   meta,
   folded,
+  entry,
+  unreachable,
+  rail,
   tabbable,
   active,
   selected,
@@ -78,8 +89,8 @@ export function StepRowItem({
             ? 'bg-muted/70 text-foreground'
             : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
       )}
-      style={{ paddingLeft: `${8 + row.depth * 14}px` }}
     >
+      <StepRail layout={rail} entry={entry} container={row.container} />
       {row.container ? (
         <button
           type="button"
@@ -99,9 +110,21 @@ export function StepRowItem({
       <span className="min-w-0 flex-1 py-1">
         <span className="block truncate text-xs">
           {row.arm && (
-            <span className="mr-1.5 text-[10px] uppercase tracking-wider">{row.arm}</span>
+            <span className="mr-1.5 rounded border border-border bg-muted/40 px-1 py-px text-[9px] uppercase tracking-wider">
+              {row.arm}
+            </span>
           )}
           {name}
+          {entry && (
+            <span className="ml-1.5 rounded bg-primary/10 px-1 py-px text-[9px] uppercase tracking-wider text-primary">
+              Entry
+            </span>
+          )}
+          {unreachable && (
+            <span className="ml-1.5 rounded bg-muted px-1 py-px text-[9px] uppercase tracking-wider text-muted-foreground">
+              Not connected
+            </span>
+          )}
         </span>
         {meta && <span className="block truncate text-[11px] text-muted-foreground">{meta}</span>}
       </span>

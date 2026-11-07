@@ -3,7 +3,7 @@ import { stepsKeyIntent } from '../ide/steps-keys'
 import type { StepRow } from '../ide/step-order'
 
 function row(nodeId: string, depth: number, parentId: string | null, container = false): StepRow {
-  return { nodeId, depth, parentId, arm: null, container }
+  return { nodeId, depth, parentId, arm: null, armStart: false, continuesAbove: false, container }
 }
 
 // a / b (container) / b1 / b2 / c

@@ -48,7 +48,6 @@ function context(overrides: Partial<IdeCommandContext> = {}): IdeCommandContext 
     canEdit: true,
     editBlockedReason: null,
     activeStepId: null,
-    activeStepBranches: false,
     explorerOpen: true,
     dockOpen: false,
     previewOpen: true,
@@ -252,16 +251,6 @@ describe('run and test session commands', () => {
     )
   })
 
-  it('says why New Step cannot run on a branching step', () => {
-    const command = buildIdeCommands(
-      context({ activeStepId: 'gate', activeStepBranches: true }),
-    ).find((c) => c.id === 'file.newStep')
-    expect(command?.enabled).toBe(false)
-    expect(command?.disabledReason).toBe(
-      'This step branches. Choose the connection in the Steps view.',
-    )
-  })
-
   it('says why New Step cannot run on a read-only version', () => {
     const command = buildIdeCommands(
       context({
@@ -272,6 +261,10 @@ describe('run and test session commands', () => {
     ).find((c) => c.id === 'file.newStep')
     expect(command?.enabled).toBe(false)
     expect(command?.disabledReason).toBe('Older versions are read-only.')
+  })
+
+  it('offers New Step for a branching step too: the picker lists its arms', () => {
+    expect(enabledById(context({ activeStepId: 'gate' }))['file.newStep']).toBe(true)
   })
 
   it('new step runs against the active step', () => {

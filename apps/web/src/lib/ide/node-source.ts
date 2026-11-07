@@ -61,7 +61,9 @@ export function stepSources(
   for (const node of ir.nodes) {
     if (!isStepNode(node)) continue
     const path = stepSourcePath(node.id)
-    claims.set(path, [...(claims.get(path) ?? []), node])
+    const claimsForPath = claims.get(path)
+    if (claimsForPath) claimsForPath.push(node)
+    else claims.set(path, [node])
   }
 
   const files: SourceFile[] = []

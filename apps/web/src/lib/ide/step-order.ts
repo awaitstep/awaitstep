@@ -19,6 +19,10 @@ export interface StepRow {
   parentId: string | null
   /** The label of the edge that leads into an arm (`body`, `catch`, a branch name). */
   arm: string | null
+  /** The first row of an arm, labelled or not: a tick joins its dot to the parent's lane. */
+  armStart: boolean
+  /** The lane above continues into this row (a chain step, or a rejoin after arms). */
+  continuesAbove: boolean
   /** The step opens arms of its own, which can be folded away. */
   container: boolean
 }
@@ -40,6 +44,24 @@ const ARM_LABELS: Readonly<Record<string, ReadonlySet<string>>> = {
 }
 
 /**
+ * Whether an edge leaves its node as one of its arms. Mirrors the arm rule in
+ * `orderSteps`: a fan-out's non-`then` edges, a loop's `body`, a try/catch's
+ * `try`/`catch`/`finally`, and every non-`then` edge of a plain node with more
+ * than one outgoing edge (which is drawn as a fan-out).
+ */
+export function edgeIsArm(
+  node: { type: string },
+  edge: { label?: string },
+  outgoingCount: number,
+): boolean {
+  if (edge.label === CONTINUE_LABEL) return false
+  if (FAN_OUT.has(node.type)) return true
+  const labelled = Object.hasOwn(ARM_LABELS, node.type) ? ARM_LABELS[node.type] : undefined
+  if (labelled !== undefined) return labelled.has(edge.label ?? '')
+  return outgoingCount > 1
+}
+
+/**
  * The nodes in the order the canvas reads: from the trigger, following the
  * edges, with each container's arms nested under it.
  *
@@ -56,8 +78,12 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
   const incoming = new Map<string, string[]>()
   for (const edge of edges) {
     if (!byId.has(edge.source) || !byId.has(edge.target)) continue
-    outgoing.set(edge.source, [...(outgoing.get(edge.source) ?? []), edge])
-    incoming.set(edge.target, [...(incoming.get(edge.target) ?? []), edge.source])
+    const from = outgoing.get(edge.source)
+    if (from) from.push(edge)
+    else outgoing.set(edge.source, [edge])
+    const fromTargets = incoming.get(edge.target)
+    if (fromTargets) fromTargets.push(edge.source)
+    else incoming.set(edge.target, [edge.source])
   }
 
   const rows: StepRow[] = []
@@ -76,10 +102,16 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
     parentId: string | null,
     arm: string | null,
     stopAtUnready: boolean,
+    /** The first row is an arm, even when its edge has no label to show. */
+    firstIsArm = false,
   ): string | null {
     if (depth > MAX_DEPTH) return null
     let id: string | null = startId
     let entryArm = arm
+    let isArmStart = firstIsArm
+    // The row above this one on the same lane connects into it (a chain, or
+    // the rejoin a container continues to after its arms).
+    let fromAbove = false
     // A rejoin point was chosen by its container, so it is not stopped at again.
     let rejoined = false
     while (id !== null) {
@@ -91,11 +123,7 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
       const outs: OrderEdge[] = outgoing.get(id) ?? []
       const labelled = Object.hasOwn(ARM_LABELS, node.type) ? ARM_LABELS[node.type] : undefined
       const isFanOut: boolean = FAN_OUT.has(node.type) || (!labelled && outs.length > 1)
-      const arms = isFanOut
-        ? outs.filter((e) => e.label !== CONTINUE_LABEL)
-        : labelled
-          ? outs.filter((e) => labelled.has(e.label ?? ''))
-          : []
+      const arms = outs.filter((edge) => edgeIsArm(node, edge, outs.length))
       const onward: OrderEdge[] = outs.filter((e) => !arms.includes(e))
 
       const row: StepRow = {
@@ -103,15 +131,19 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
         depth,
         parentId,
         arm: entryArm,
+        armStart: isArmStart,
+        continuesAbove: fromAbove,
         container: arms.length > 0,
       }
       rows.push(row)
       entryArm = null
+      isArmStart = false
+      fromAbove = false
 
       const rejoin: string[] = []
       const firstArmRow = rows.length
       for (const edge of arms) {
-        const stoppedAt = walk(edge.target, depth + 1, id, edge.label ?? null, true)
+        const stoppedAt = walk(edge.target, depth + 1, id, edge.label ?? null, true, true)
         if (stoppedAt !== null && !rejoin.includes(stoppedAt)) rejoin.push(stoppedAt)
       }
 
@@ -130,14 +162,16 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
         if (next === undefined) return candidates.find((c) => !visited.has(c)) ?? null
         id = next
         rejoined = true
+        fromAbove = true
         continue
       }
       // A plain node, or a container's way on: the first edge continues the
       // chain, and any more are treated as arms of their own.
       const first: OrderEdge | undefined = onward[0]
       const rest = onward.slice(1)
-      for (const edge of rest) walk(edge.target, depth + 1, id, edge.label ?? null, true)
+      for (const edge of rest) walk(edge.target, depth + 1, id, edge.label ?? null, true, true)
       id = first ? first.target : null
+      if (first) fromAbove = true
       if (rest.length > 0) row.container = true
     }
     return null
