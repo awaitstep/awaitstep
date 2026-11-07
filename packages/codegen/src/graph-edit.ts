@@ -114,14 +114,15 @@ export function insertStep(
     const chosen =
       placement.edgeId === undefined ? (outgoing.length > 1 ? undefined : outgoing[0]) : matching[0]
 
+    // The API does not require edge ids to be unique; splicing by an id
+    // that names two connections would drop one of them. This applies to the
+    // auto-chosen single edge too, not only to an explicitly named one.
+    if (chosen !== undefined && ir.edges.filter((edge) => edge.id === chosen.id).length !== 1) {
+      return refuse('That connection is not unique in this version.')
+    }
     if (placement.edgeId !== undefined) {
-      if (matching.length === 0) return refuse('That connection is not in this version any more.')
-      // The API does not require edge ids to be unique; splicing by an id
-      // that names two connections would drop one of them.
-      if (matching.length > 1) {
-        return refuse('That connection is not unique in this version.')
-      }
-      if (chosen!.source !== anchor!.id) {
+      if (!chosen) return refuse('That connection is not in this version any more.')
+      if (chosen.source !== anchor!.id) {
         return refuse('That connection does not leave this step.')
       }
     } else if (outgoing.length > 1) {

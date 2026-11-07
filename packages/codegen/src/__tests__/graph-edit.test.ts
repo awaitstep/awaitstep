@@ -164,6 +164,20 @@ describe('insertStep — refusals', () => {
     expect(result).toEqual({ ok: false, reason: 'That connection is not unique in this version.' })
   })
 
+  it('refuses an automatic splice onto an edge id that names two edges', () => {
+    // `after` with one outgoing edge picks that edge without an explicit id;
+    // its id can still be shared with an edge elsewhere.
+    const duplicated = graph(
+      [node('a', 'A'), node('b', 'B'), node('c', 'C'), node('d', 'D')],
+      [
+        { id: 'dup', source: 'a', target: 'b' },
+        { id: 'dup', source: 'c', target: 'd' },
+      ],
+    )
+    const result = insertStep(duplicated, { after: 'a' }, NEW)
+    expect(result).toEqual({ ok: false, reason: 'That connection is not unique in this version.' })
+  })
+
   it('refuses an empty name', () => {
     const result = insertStep(ir, { after: 'a' }, { id: 'x', name: '   ' })
     expect(result).toEqual({ ok: false, reason: 'Give the step a name.' })
