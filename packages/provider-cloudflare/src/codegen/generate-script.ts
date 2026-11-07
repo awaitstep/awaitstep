@@ -165,6 +165,17 @@ export interface ExportPlanEntry {
   key: string
 }
 
+/**
+ * Container results that always bind, whether or not anything reads them.
+ * A plain step's or custom node's unused value may be dropped, but a
+ * container's awaited value is the node's output — the combined `allSettled`
+ * array, the winning race value, the loop's last body return — and the
+ * generated graph should show it on the node's variable. Dropping the const
+ * leaves the `await` with no handle in the code a person reads; a downstream
+ * reference would keep it anyway, so this only changes what the preview shows.
+ */
+const RESULT_CONTAINERS: ReadonlySet<string> = new Set(['parallel', 'race', 'loop'])
+
 function generateScriptInternal(
   ir: ScriptIR,
   templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
@@ -250,12 +261,13 @@ function generateScriptInternal(
   // "Return this value" switch) — or, the legacy way, whose display name
   // starts with `EXPORT_` (the prefix is already stripped from its varName) —
   // surfaces on `graph.<key>`; the key is its `exportAs` or its var name.
-  // Three cases per emitted `const X = await ...`:
+  // Four cases per emitted `const X = await ...`:
   //   1. Exported, top-level: keep `const X = ...` (already in scope of return).
   //   2. Exported, nested in a container: hoist with `let X;` + rewrite the
   //      decl to `X = ...` so the value escapes the block.
   //   3. Not exported, not referenced anywhere else: drop the assignment so
-  //      the call becomes a bare `await ...;`.
+  //      the call becomes a bare `await ...;` — except a result container
+  //      (parallel/race/loop), whose bound value is the node's output.
   //   4. Not exported, referenced elsewhere: keep `const X = ...` (downstream
   //      nodes need the var) but don't include in return.
   //
@@ -287,7 +299,7 @@ function generateScriptInternal(
         hoistedVarNames.push(v)
         graphBody = graphBody.replace(new RegExp(`\\bconst ${v}\\s*=`, 'g'), `${v} =`)
       }
-    } else if (!isReferencedElsewhere) {
+    } else if (!isReferencedElsewhere && !RESULT_CONTAINERS.has(node.type)) {
       // Drop the `const X = ` prefix only when the RHS starts with `await ` —
       // the resulting bare `await ...;` is a valid statement. For non-await
       // RHS (e.g. an object literal), leave the const as-is rather than

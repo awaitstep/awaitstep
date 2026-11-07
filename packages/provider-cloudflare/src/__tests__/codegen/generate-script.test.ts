@@ -975,6 +975,82 @@ describe('generateScript', () => {
     expect(code).toMatch(/const Fan = await Promise\.allSettled\(\[/)
   })
 
+  it('keeps a parallel result bound when nothing reads it yet', () => {
+    // Regression: the export pass dropped the `const` of a container value
+    // no later code named, which left `await Promise.allSettled(...)` with no
+    // handle in the graph people read. The container's value is its output,
+    // so the generated graph should name it; an unused plain step's value is
+    // still dropped.
+    const ir = makeScript([
+      {
+        id: 'fan',
+        type: 'parallel',
+        name: 'Fan',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
+      },
+      stepNode('a', 'return 1;'),
+      stepNode('b', 'return 2;'),
+      stepNode('after', 'return {};', 'after'),
+    ])
+    ir.edges = [
+      { id: 'e1', source: 'fan', target: 'a' },
+      { id: 'e2', source: 'fan', target: 'b' },
+      { id: 'e3', source: 'fan', target: 'after', label: 'then' },
+    ]
+    const { source: code } = workerOf(ir)
+
+    expect(code).toMatch(/const Fan = await Promise\.allSettled\(\[/)
+    expect(code).not.toMatch(/^\s*await Promise\.allSettled\(/m)
+    // Not returned to the caller: only an explicit export does that.
+    expect(code).not.toMatch(/return \{[^}]*Fan[^}]*\}/)
+  })
+
+  it('keeps a race result bound when nothing reads it yet', () => {
+    const ir = makeScript([
+      {
+        id: 'winner',
+        type: 'race',
+        name: 'Winner',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
+      },
+      stepNode('a', 'return 1;'),
+      stepNode('b', 'return 2;'),
+    ])
+    ir.edges = [
+      { id: 'e1', source: 'winner', target: 'a' },
+      { id: 'e2', source: 'winner', target: 'b' },
+    ]
+    const { source: code } = workerOf(ir)
+
+    expect(code).toMatch(/const Winner = await Promise\.race\(\[/)
+    expect(code).not.toMatch(/^\s*await Promise\.race\(/m)
+  })
+
+  it('keeps a yielding loop result bound when nothing reads it yet', () => {
+    const ir = makeScript([
+      {
+        id: 'find',
+        type: 'loop',
+        name: 'Find',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { loopType: 'forEach', collection: 'event.payload.items', itemVar: 'item' },
+      },
+      stepNode('check', 'return inputs.item;'),
+    ])
+    ir.edges = [{ id: 'e1', source: 'find', target: 'check', label: 'body' }]
+    const { source: code } = workerOf(ir)
+
+    expect(code).toMatch(/const Find = await \(async \(\) => \{/)
+  })
+
   it('integrates a custom node template (hoists class, IIFE call, env param)', () => {
     const template = `export default async function(ctx) {
   return { url: ctx.config.url, key: ctx.env.API_KEY };
