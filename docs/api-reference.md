@@ -1346,6 +1346,45 @@ under steps/ or on the canvas`). A version stored before the folder was
 reserved keeps whatever it holds there (read and deployed as before; writes
 to it still refuse).
 
+**Adding a step from Code.** A step is created by the Steps list, never by
+writing a file: a row's menu places a new step after it (one entry per
+outgoing connection when it branches — "into try", "before Send mail"), and
+the header's `+` appends after the last step (or makes the first step when
+the version has none). The create is one `POST /versions` carrying the loaded
+document with the new `step` node, its edges and its module code, on the
+`baseGraphHash` the workspace loaded — the same save a canvas edit makes, so
+a graph that moved meanwhile is the usual `409` and nothing is written. The
+display name becomes the function name by the rules in [A step is a
+module](#a-step-is-a-module) (`Charge card` → `Charge_card`, a repeat →
+`Charge_card_2`, a reserved word → `fetch_node`), and the node id is the
+12-character lowercase id the canvas uses, so the path is `steps/<id>.ts`.
+
+**An agent adds a step the same way, by posting a version.** There is no
+step endpoint. Read the current document and its `graphHash` (`GET
+/workflows/:workflowId/full`), add the new `step` node and its edges to the
+graph, and post it as above:
+
+```json
+POST /workflows/:workflowId/versions
+{
+  "baseGraphHash": "<graphHash from /full>",
+  "ir": { "…": "the loaded document with the node and edges added" }
+}
+```
+
+The placement rules are the canvas's: into `X → Y`, the edges become
+`X → new` (keeping the old edge's label, if any) and `new → Y`; after a node
+with no outgoing edge, `X → new`; no nodes yet is the exceptional empty
+document, where the new node is `entryNodeId` (a saved version needs at least
+one node, so a real graph always takes one of the first two). The node's
+`data.code` is the module whose default export is named after the step; a
+body is wrapped, but a module whose function is named differently is refused
+with `400` and nothing is written. A `409` means the graph moved: re-read
+`/full` and apply the change to the newer document. Strip `runtime.files` from
+the document you post (the web client's `withoutFileSnapshot` does): a stale
+snapshot can re-seed deleted project files on a save the server treats as an
+import.
+
 **Imports.** Use plain relative paths, or the `#app/` alias for the project
 root from anywhere: `import { region } from '#app/config/env'` reaches
 `config/env.ts` from the entry, a generated step module, or another project
