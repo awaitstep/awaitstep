@@ -1,7 +1,7 @@
 import { render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EditorAccessProvider } from '../../../contexts/editor-scope-context'
+import { EditorAccessProvider, EditorScopeProvider } from '../../../contexts/editor-scope-context'
 import { useCanvasLayoutStore } from '../../../stores/canvas-layout-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { CanvasView } from '../canvas-view'
@@ -10,6 +10,8 @@ const full = vi.hoisted(() => ({ get: vi.fn() }))
 
 vi.mock('@tanstack/react-router', () => ({
   useBlocker: () => ({ proceed: vi.fn(), reset: vi.fn(), status: 'idle', current: {}, next: {} }),
+  useLocation: () => ({ href: '/workflows/wf_1' }),
+  useNavigate: () => vi.fn(),
 }))
 vi.mock('../../../contexts/api-client-context', () => ({
   useApi: () => ({ getWorkflowFull: full.get }),
@@ -90,11 +92,18 @@ function response() {
 function view(client: QueryClient, props: Partial<React.ComponentProps<typeof CanvasView>> = {}) {
   return (
     <QueryClientProvider client={client}>
-      <EditorAccessProvider
-        value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
-      >
-        <CanvasView workflowId="wf_1" localDevEnabled={false} {...props} />
-      </EditorAccessProvider>
+      <EditorScopeProvider value={{ org: 'acme', project: 'p', workspace: 'w' }}>
+        <EditorAccessProvider
+          value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
+        >
+          <CanvasView
+            workflowId="wf_1"
+            marketplaceOpen={false}
+            localDevEnabled={false}
+            {...props}
+          />
+        </EditorAccessProvider>
+      </EditorScopeProvider>
     </QueryClientProvider>
   )
 }

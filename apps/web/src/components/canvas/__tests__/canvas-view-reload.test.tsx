@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { EditorAccessProvider } from '../../../contexts/editor-scope-context'
+import { EditorAccessProvider, EditorScopeProvider } from '../../../contexts/editor-scope-context'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import type { EditorToolbarProps } from '../editor-toolbar'
 import { CanvasView } from '../canvas-view'
@@ -19,6 +19,8 @@ const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn(
 
 vi.mock('@tanstack/react-router', () => ({
   useBlocker: () => ({ proceed: vi.fn(), reset: vi.fn(), status: 'idle', current: {}, next: {} }),
+  useLocation: () => ({ href: '/workflows/wf_1' }),
+  useNavigate: () => vi.fn(),
 }))
 vi.mock('../../../contexts/api-client-context', () => ({
   useApi: () => api,
@@ -107,11 +109,13 @@ async function mount() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={client}>
-      <EditorAccessProvider
-        value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
-      >
-        <CanvasView workflowId="wf_1" localDevEnabled={false} />
-      </EditorAccessProvider>
+      <EditorScopeProvider value={{ org: 'acme', project: 'p', workspace: 'w' }}>
+        <EditorAccessProvider
+          value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
+        >
+          <CanvasView workflowId="wf_1" marketplaceOpen={false} localDevEnabled={false} />
+        </EditorAccessProvider>
+      </EditorScopeProvider>
     </QueryClientProvider>,
   )
   await waitFor(() => expect(useWorkflowStore.getState().graphHash).toBe('g2'))

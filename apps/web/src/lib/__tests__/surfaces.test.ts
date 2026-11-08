@@ -115,6 +115,13 @@ describe('editorSearch with a node', () => {
     expect(parseEditorSearch({ node: 7 }).node).toBeUndefined()
     expect(parseEditorSearch({}).node).toBeUndefined()
   })
+
+  it('keeps the marketplace overlay but no other ?open= value', () => {
+    expect(parseEditorSearch({ open: 'marketplace' }).open).toBe('marketplace')
+    for (const open of ['inbox', 'whats-new', 'nope', 1, undefined]) {
+      expect(parseEditorSearch({ open }).open).toBeUndefined()
+    }
+  })
 })
 
 describe('editorSearch', () => {

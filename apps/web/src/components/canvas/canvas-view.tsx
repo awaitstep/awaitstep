@@ -1,4 +1,4 @@
-import { useBlocker } from '@tanstack/react-router'
+import { useBlocker, useLocation, useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { actionToast } from '../../lib/action-toast'
@@ -24,12 +24,14 @@ import {
   deriveDeploymentState,
 } from '../../lib/hydrate-workflow'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
+import { isOverlayToggle, withOverlay } from '../../lib/dashboard-paths'
+import { MarketplaceDialog } from '../resources/marketplace-dialog'
 import { offersTemplates } from '../../lib/workflows/template-offer'
 import { useWorkflowPersistence } from '../../hooks/use-workflow-persistence'
 import { useAutoSave } from '../../hooks/use-auto-save'
 import { exportWorkflowFile } from '../../lib/export-workflow'
 import { useApi, useApiReady } from '../../contexts/api-client-context'
-import { useEditorAccess } from '../../contexts/editor-scope-context'
+import { useEditorAccess, useItemSlugs } from '../../contexts/editor-scope-context'
 
 const LazyReactFlowProvider = lazy(() =>
   import('@xyflow/react').then((m) => ({ default: m.ReactFlowProvider })),
@@ -46,6 +48,8 @@ interface CanvasViewProps {
   kindParam?: 'workflow' | 'script'
   /** The editor URL's `?node=`: opens with this node selected and centred, if the version has it. */
   nodeParam?: string
+  /** The editor URL's `?open=marketplace`: the marketplace over the graph. */
+  marketplaceOpen: boolean
   localDevEnabled: boolean
 }
 
@@ -55,6 +59,7 @@ export function CanvasView({
   template,
   kindParam,
   nodeParam,
+  marketplaceOpen,
   localDevEnabled,
 }: CanvasViewProps) {
   const api = useApi()
@@ -89,7 +94,9 @@ export function CanvasView({
   // Navigation blocker
   const hasUnsavedChanges = isDirty || (isNew && nodeCount > 0)
   const { proceed, reset, status, current, next } = useBlocker({
-    shouldBlockFn: () => hasUnsavedChanges,
+    // Opening the marketplace overlay stays on this graph; only a real
+    // departure (or a view switch) asks about unsaved work.
+    shouldBlockFn: ({ current: from, next: to }) => hasUnsavedChanges && !isOverlayToggle(from, to),
     enableBeforeUnload: () => hasUnsavedChanges,
     withResolver: true,
   })
@@ -118,6 +125,9 @@ export function CanvasView({
   )
   // A Viewer sees the latest version as it is, with nothing to change or save.
   const access = useEditorAccess()
+  const slugs = useItemSlugs()
+  const location = useLocation()
+  const navigate = useNavigate()
   const isReadOnly = isOlderVersion || !access.canEdit
   const { hasActiveDeployment, currentVersion, deployedVersion, hasUndeployedChanges } =
     deriveDeploymentState(fullData)
@@ -274,6 +284,16 @@ export function CanvasView({
     else setShowTemplatePicker(true)
   }
 
+  // The marketplace is a routed overlay, so the URL says it is open and the
+  // canvas (and its unsaved graph) stays mounted underneath.
+  function handleBrowseMarketplace() {
+    void navigate({ href: withOverlay(location.href, 'marketplace'), replace: true })
+  }
+
+  function handleCloseMarketplace() {
+    void navigate({ href: withOverlay(location.href, null), replace: true })
+  }
+
   // Show skeleton while waiting for workflow data (skip for new workflows)
   const showSkeleton = !isNew && !workflowError && (isLoadingWorkflow || !fullData)
 
@@ -320,7 +340,10 @@ export function CanvasView({
                 />
                 {!isReadOnly && (
                   <div className="absolute left-4 top-4 z-10">
-                    <NodePalette onAddNode={handleAddNode} />
+                    <NodePalette
+                      onAddNode={handleAddNode}
+                      onBrowseMarketplace={handleBrowseMarketplace}
+                    />
                   </div>
                 )}
                 {canPickTemplate && !isReadOnly && showTemplatePicker && (
@@ -350,6 +373,9 @@ export function CanvasView({
               onSaveAndSwitch={handleSaveAndSwitch}
               isSaving={isSaving}
             />
+            {marketplaceOpen && (
+              <MarketplaceDialog org={slugs.org} onClose={handleCloseMarketplace} />
+            )}
           </LazyReactFlowProvider>
         </LoadingView>
       </Suspense>

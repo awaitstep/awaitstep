@@ -142,6 +142,11 @@ export function unsavedDialogCopy(args: {
 export interface EditorRouteSearch extends EditorSearch {
   template?: boolean
   kind?: 'workflow' | 'script'
+  /**
+   * `?open=marketplace`: the marketplace dialog over the canvas. The canvas
+   * only opens this overlay, so other `?open=` values are dropped here.
+   */
+  open?: 'marketplace'
 }
 
 export function parseEditorSearch(search: Record<string, unknown>): EditorRouteSearch {
@@ -155,5 +160,6 @@ export function parseEditorSearch(search: Record<string, unknown>): EditorRouteS
         ? true
         : undefined,
     kind: search.kind === 'script' || search.kind === 'workflow' ? search.kind : undefined,
+    open: search.open === 'marketplace' ? 'marketplace' : undefined,
   }
 }

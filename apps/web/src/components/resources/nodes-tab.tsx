@@ -15,6 +15,7 @@ import {
   type NodeCategory,
   type NodeShow,
 } from './node-filter'
+import { cn } from '../../lib/utils'
 
 interface NodesTabProps {
   org: { slug: string; name: string }
@@ -23,10 +24,11 @@ interface NodesTabProps {
   canManage: boolean
   /** Why someone can't, for the notice. */
   reason?: string
+  asDialog?: boolean
 }
 
 /** Resources → Nodes (`OrgResources`): filters, then Installed and Available cards. */
-export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
+export function NodesTab({ org, nodes, canManage, reason, asDialog }: NodesTabProps) {
   const install = useInstallNode(org.slug)
   const uninstall = useUninstallNode(org.slug)
   const update = useUpdateNode(org.slug)
@@ -97,7 +99,12 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
       return <p className="text-sm text-muted-foreground">{filtered ?? emptyText}</p>
     }
     return (
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div
+        className={cn(
+          'grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3',
+          asDialog ? 'xl:grid-cols-3' : 'xl:grid-cols-4',
+        )}
+      >
         {list.map((node) => (
           <CatalogNodeCard
             key={node.id}
@@ -124,14 +131,21 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
           {failed.message}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div
+        className={cn(
+          'flex flex-wrap items-center gap-2.5',
+          asDialog && 'sticky top-0 bg-card z-2 flex-nowrap',
+        )}
+      >
         <SearchField
           label="Search nodes"
           placeholder="Search nodes"
           value={search}
           onChange={setSearch}
         />
-        <SegmentedFilter label="Show" options={showOptions} value={show} onChange={setShow} />
+        <div className="shrink-0">
+          <SegmentedFilter label="Show" options={showOptions} value={show} onChange={setShow} />
+        </div>
 
         <SearchableSelect
           label="Category"
@@ -140,7 +154,7 @@ export function NodesTab({ org, nodes, canManage, reason }: NodesTabProps) {
           options={categories}
           searchPlaceholder="Search categories"
           emptyText="No category matches."
-          className="flex-1 sm:flex-none ml-auto"
+          className="flex-1 shrink-0 sm:flex-none ml-auto"
         />
       </div>
       {installed && (

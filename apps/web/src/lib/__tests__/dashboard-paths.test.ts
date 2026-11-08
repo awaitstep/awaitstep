@@ -6,6 +6,7 @@ import {
   invitePath,
   itemPagePath,
   itemPath,
+  isOverlayToggle,
   isReservedSlug,
   newItemPath,
   runPath,
@@ -206,5 +207,53 @@ describe('itemPath', () => {
     expect(withOverlay('/acme/resources?tab=variables#x', 'inbox')).toBe(
       '/acme/resources?tab=variables&open=inbox#x',
     )
+    expect(withOverlay('/acme/resources?tab=nodes', 'marketplace')).toBe(
+      '/acme/resources?tab=nodes&open=marketplace',
+    )
+  })
+})
+
+describe('isOverlayToggle', () => {
+  const PAGE = '/acme/project/p/sales/workflows/wf_1'
+  const at = (pathname: string, search: Record<string, unknown> = {}) => ({ pathname, search })
+
+  it('recognises opening and closing an overlay on the same page', () => {
+    expect(
+      isOverlayToggle(
+        at(PAGE, { view: 'canvas' }),
+        at(PAGE, { view: 'canvas', open: 'marketplace' }),
+      ),
+    ).toBe(true)
+    expect(
+      isOverlayToggle(
+        at(PAGE, { open: 'marketplace', view: 'canvas' }),
+        at(PAGE, { view: 'canvas' }),
+      ),
+    ).toBe(true)
+    // A different overlay is still the same page underneath.
+    expect(
+      isOverlayToggle(
+        at(PAGE, { view: 'canvas', open: 'inbox' }),
+        at(PAGE, { view: 'canvas', open: 'marketplace' }),
+      ),
+    ).toBe(true)
+  })
+
+  it('does not mistake a page, view or version change for an overlay', () => {
+    expect(
+      isOverlayToggle(
+        at(PAGE, { view: 'canvas' }),
+        at('/acme/project/p/sales/workflows/wf_2', { view: 'canvas', open: 'marketplace' }),
+      ),
+    ).toBe(false)
+    expect(
+      isOverlayToggle(at(PAGE, { view: 'canvas' }), at(PAGE, { view: 'ide', open: 'marketplace' })),
+    ).toBe(false)
+    expect(
+      isOverlayToggle(
+        at(PAGE, { view: 'canvas', version: 'v1' }),
+        at(PAGE, { view: 'canvas', version: 'v2', open: 'marketplace' }),
+      ),
+    ).toBe(false)
   })
 })

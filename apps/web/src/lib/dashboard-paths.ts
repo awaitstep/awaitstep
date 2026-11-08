@@ -173,12 +173,13 @@ export function variableDialogPath(
   return `${orgPath(slugs.org, 'resources')}?${new URLSearchParams({ tab: 'variables', ...query })}`
 }
 
-export const DASHBOARD_OVERLAYS = ['inbox', 'whats-new'] as const
+export const DASHBOARD_OVERLAYS = ['inbox', 'whats-new', 'marketplace'] as const
 export type DashboardOverlay = (typeof DASHBOARD_OVERLAYS)[number]
 
 /**
- * The page you're on (path and query) with the Inbox or What's new open over
- * it (`?open=`), or with neither for `null`.
+ * The page you're on (path and query) with an overlay open over it (`?open=`),
+ * or with none for `null`. Inbox and What's new are the rail's; the canvas
+ * opens the marketplace this way so its graph stays mounted.
  */
 export function withOverlay(here: string, overlay: DashboardOverlay | null): string {
   // Parsed as a URL so a #fragment stays a fragment, after the query.
@@ -186,6 +187,30 @@ export function withOverlay(here: string, overlay: DashboardOverlay | null): str
   if (overlay) url.searchParams.set('open', overlay)
   else url.searchParams.delete('open')
   return `${url.pathname}${url.search}${url.hash}`
+}
+
+function comparableSearch(search: unknown): string {
+  if (!search || typeof search !== 'object') return ''
+  return JSON.stringify(
+    Object.entries(search as Record<string, unknown>)
+      .filter(([key]) => key !== 'open')
+      .sort(([a], [b]) => a.localeCompare(b)),
+  )
+}
+
+/**
+ * Whether two locations differ only by `?open=`. Opening or closing an overlay
+ * stays on the page, so the editor's unsaved-changes blocker lets it through:
+ * the graph is still there when the overlay closes.
+ */
+export function isOverlayToggle(
+  current: { pathname: string; search: unknown },
+  next: { pathname: string; search: unknown },
+): boolean {
+  return (
+    current.pathname === next.pathname &&
+    comparableSearch(current.search) === comparableSearch(next.search)
+  )
 }
 
 /** A dashboard page with its "New …" dialog open (`?new=`): the page owning the dialog reads it. */

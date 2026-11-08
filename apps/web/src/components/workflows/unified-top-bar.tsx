@@ -116,7 +116,14 @@ export function UnifiedTopBar({
   const barRef = useRef<HTMLElement>(null)
 
   function handleBack() {
-    router.history.back()
+    if (router.history.canGoBack()) {
+      router.history.back()
+    } else {
+      router.navigate({
+        href: router.history.location.pathname.concat('/overview'),
+        replace: true,
+      })
+    }
   }
 
   // Below the width the toggles fit, they are choices in ⋯ instead.

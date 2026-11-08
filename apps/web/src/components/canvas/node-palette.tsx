@@ -5,8 +5,6 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
-import { orgPath } from '../../lib/dashboard-paths'
-import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { groupByCategory, filterNodes, getSuperCategoryMeta } from '../../lib/node-categories'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
@@ -34,17 +32,19 @@ const BUILTIN_IDS = new Set([
 
 interface NodePaletteProps {
   onAddNode: (type: NodeType) => void
+  /** Opens the marketplace over the canvas, keeping the graph mounted. */
+  onBrowseMarketplace: () => void
 }
 
-export function NodePalette({ onAddNode }: NodePaletteProps) {
+export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps) {
   const open = useCanvasLayoutStore((s) => s.paletteOpen)
   const setOpen = useCanvasLayoutStore((s) => s.setPaletteOpen)
   const [searchTerm, setSearchTerm] = useState('')
   const { registry } = useNodeRegistry()
   const definitions = registry.getAll()
   const kind = useWorkflowStore((s) => s.kind)
-  // Nodes are installed on Resources › Nodes (B9); the palette picks them up when this tab regains focus.
-  const orgSlug = useItemSlugs().org
+  // Installs from the marketplace dialog refresh the registry on close; the
+  // registry's window-focus refresh covers installs made in another tab.
 
   const filteredGrouped = useMemo(() => {
     const compatibleDefs =
@@ -196,19 +196,16 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
             Drag a node onto the canvas or click to add it.
           </div>
 
-          {orgSlug && (
-            <div className="border-t border-border px-1.5 py-1.5">
-              <a
-                href={`${orgPath(orgSlug, 'resources')}?tab=nodes`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
-              >
-                <Store className="h-3.5 w-3.5" aria-hidden="true" />
-                Browse Marketplace
-              </a>
-            </div>
-          )}
+          <div className="border-t border-border px-1.5 py-1.5">
+            <button
+              type="button"
+              onClick={onBrowseMarketplace}
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            >
+              <Store className="h-3.5 w-3.5" aria-hidden="true" />
+              Browse Marketplace
+            </button>
+          </div>
         </div>
       )}
     </div>
