@@ -1,8 +1,5 @@
 import { Braces, Plus, Share2, Users } from 'lucide-react'
-import { useProjectShared } from '../../data/dashboard/items'
-import { useProjectMembers } from '../../data/dashboard/members'
-import { useProjectSetup } from '../../data/dashboard/setup'
-import { useProjectVariables } from '../../data/dashboard/variables'
+import { useProjectSummary } from '../../data/dashboard/projects'
 import { useScope, useWorkspaces } from '../../data/dashboard/workspaces'
 import { projectPagePath, workspacePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { plural, pluralNoun } from '../../lib/plural'
@@ -24,10 +21,7 @@ import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { WorkspaceCard } from '../workspaces/parts/workspace-card'
 import { NewWorkspaceDialog } from './new-workspace-dialog'
 import { ProjectPoolCard } from './parts/project-pool-card'
-import { projectAdmins } from './project-pool'
 import { useProjectScope } from './use-project-scope'
-
-const CHIPS_SHOWN = 2
 
 interface WorkspacesPageProps {
   slugs: ProjectSlugs
@@ -75,16 +69,13 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
     runsProject && workspaces.data && isNewProject(workspaces.data) ? workspaces.data[0]! : null
   // The welcome's buttons work in that workspace, as its viewer may.
   const welcomeScope = useScope({ ...slugs, workspace: only?.slug }).data
-  const members = useProjectMembers(slugs.org, slugs.project)
-  const setup = useProjectSetup(slugs.org, slugs.project)
-  const variables = useProjectVariables(slugs.org, slugs.project)
-  const shared = useProjectShared(slugs.org, slugs.project)
+  const summary = useProjectSummary(slugs.org, slugs.project)
 
   if (!scope) return null
   const project = scope.project.project
   const org = { slug: slugs.org, name: scope.org.org.name }
   const canCreate = scope.project.viewerCan.createWorkspace
-  const pool = [members, setup, variables, shared]
+  const pool = [summary]
   const recent = recentWorkspaces(slugs.org, slugs.project)
   const landing = pickWorkspace(
     (workspaces.data ?? []).map((w) => w.slug),
@@ -164,13 +155,12 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
         retrying={pool.some((query) => query.isFetching)}
       />
     )
-  } else if (!members.data || !setup.data || !variables.data || !shared.data) {
+  } else if (!summary.data) {
     poolBody = <PoolSkeleton />
   } else {
-    const admins = projectAdmins(members.data)
-    const own = variables.data.filter((v) => v.setAt.level === 'project').length
+    const { admins, variables, shared, projectKeys } = summary.data
     // The count is the big number; the caption carries only its noun.
-    const sharedCaption = `${pluralNoun(shared.data.length, 'item')} any workspace can use`
+    const sharedCaption = `${pluralNoun(shared.count, 'item')} any workspace can use`
     poolBody = (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <ProjectPoolCard
@@ -178,12 +168,12 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           icon={Users}
           tone="info"
           title="Members & keys"
-          count={admins.length}
+          count={admins.count}
           caption="admins can open every workspace"
         >
           <span className="flex items-center gap-2.5">
-            <AvatarStack people={admins} />
-            <Badge className="font-normal">{plural(setup.data.projectKeys, 'project key')}</Badge>
+            <AvatarStack people={admins.people} />
+            <Badge className="font-normal">{plural(projectKeys, 'project key')}</Badge>
           </span>
         </ProjectPoolCard>
         <ProjectPoolCard
@@ -191,16 +181,16 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           icon={Braces}
           tone="warn"
           title="Variables"
-          count={variables.data.length}
-          caption={`${own} project · ${variables.data.length - own} from ${org.name}`}
+          count={variables.total}
+          caption={`${variables.own} project · ${variables.inherited} from ${org.name}`}
         >
           <span className="flex flex-wrap gap-1.5">
-            {variables.data.slice(0, CHIPS_SHOWN).map((v) => (
-              <Badge key={v.name} className="rounded-md font-mono font-normal">
-                {v.name}
+            {variables.first.map((name) => (
+              <Badge key={name} className="rounded-md font-mono font-normal">
+                {name}
               </Badge>
             ))}
-            <MoreChip count={variables.data.length - CHIPS_SHOWN} />
+            <MoreChip count={variables.total - variables.first.length} />
           </span>
         </ProjectPoolCard>
         <ProjectPoolCard
@@ -208,16 +198,16 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           icon={Share2}
           tone="ok"
           title="Shared library"
-          count={shared.data.length}
+          count={shared.count}
           caption={sharedCaption}
         >
           <span className="flex flex-wrap gap-1.5">
-            {shared.data.slice(0, CHIPS_SHOWN).map((item) => (
+            {shared.first.map((item) => (
               <ScopeChip key={item.id} colour={item.from.colour}>
                 {item.name} · {item.from.name}
               </ScopeChip>
             ))}
-            <MoreChip count={shared.data.length - CHIPS_SHOWN} />
+            <MoreChip count={shared.count - shared.first.length} />
           </span>
         </ProjectPoolCard>
       </div>

@@ -34,7 +34,9 @@ interface OrgConnectionsPageProps {
 export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgConnectionsPageProps) {
   const scope = useOrgScope(org)
   const connections = useConnections(org)
-  const projects = useProjects(org)
+  // The picker's list is fetched when a card's project picker opens.
+  const [projectsOpen, setProjectsOpen] = useState(false)
+  const projects = useProjects(org, { enabled: projectsOpen })
   const update = useUpdateConnection(org)
   const replace = useReplaceToken(org)
   const remove = useRemoveConnection(org)
@@ -154,6 +156,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
         key={connection.id}
         connection={connection}
         addable={addableFor(connection)}
+        onAddingChange={setProjectsOpen}
         actions={actionsFor(connection)}
       />
     ))

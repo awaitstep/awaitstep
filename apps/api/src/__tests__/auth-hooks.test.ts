@@ -110,7 +110,11 @@ describe('better-auth organization hooks', () => {
       expect((await res.json()).message, path).toMatch(/AwaitStep API/)
     }
     // The reads that would hand every member the organization's invitations (their ids are the links).
-    for (const path of ['/organization/get-full-organization', '/organization/list-invitations']) {
+    for (const path of [
+      '/organization/get-full-organization',
+      '/organization/list-invitations',
+      '/organization/list-members',
+    ]) {
       const res = await auth.handler(
         new Request(`${BASE}/api/auth${path}?organizationId=org-1`, { headers: { cookie } }),
       )
@@ -407,6 +411,7 @@ describe('your account (B10)', () => {
       const body = await res.json()
       expect(body.session.id).toEqual(expect.any(String))
       expect(body.session).not.toHaveProperty('token')
+      expect(body.session).not.toHaveProperty('ipAddress')
       expect(body.user.email).toBe('ama@acme.test')
       const info = await auth.handler(
         new Request(`${BASE}/api/auth/account-info?accountId=x`, { headers: { cookie } }),

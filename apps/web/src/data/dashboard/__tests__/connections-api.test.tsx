@@ -33,11 +33,8 @@ const fetchMock = vi.fn()
 
 const ROW: ConnectionSummary = {
   id: 'conn_1',
-  organizationId: 'org-acme',
   provider: 'cloudflare',
   name: 'Acme production',
-  credentials: { accountId: 'a'.repeat(28) + '7f2a', apiToken: '***' },
-  createdBy: 'usr_ama',
   createdByName: 'Ama Mensah',
   accountSuffix: '7f2a',
   allProjects: false,

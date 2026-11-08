@@ -38,7 +38,17 @@ marketplace.get('/installed', zValidator('query', paginationQuerySchema), async 
   const db = c.get('db')
   const { cursor, limit } = c.req.valid('query')
   const result = await db.listInstalledNodes(organizationId, { cursor, limit })
-  return c.json(result)
+  return c.json({
+    ...result,
+    data: result.data.map((node) => ({
+      id: node.id,
+      nodeId: node.nodeId,
+      version: node.version,
+      installedBy: node.installedBy,
+      installedAt: node.installedAt,
+      updatedAt: node.updatedAt,
+    })),
+  })
 })
 
 marketplace.get('/', async (c) => {

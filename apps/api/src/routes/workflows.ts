@@ -29,6 +29,13 @@ import { stopWorkflowTestSessions } from '../lib/test-sessions.js'
 import { shareBodySchema, shareResponse, sharingRecord } from '../lib/sharing.js'
 import { CHANGED_MEANWHILE } from '../lib/locks.js'
 import { recordAudit } from '../lib/audit.js'
+import { workflowListRecord } from '../lib/list-records.js'
+import {
+  isSecretEnvVar,
+  maskedWorkflowEnvVars,
+  SECRET_MASK,
+  workflowRecord,
+} from '../lib/workflow-records.js'
 
 const createSchema = z.object({
   name: z.string().min(1).max(255),
@@ -113,23 +120,6 @@ const updateSchema = z.object({
   deployConfig: deployConfigSchema,
 })
 
-const SECRET_MASK = '••••••••'
-
-function maskWorkflowSecrets<T extends { envVars?: string | null }>(workflow: T): T {
-  if (!workflow.envVars) return workflow
-  try {
-    const vars = JSON.parse(workflow.envVars) as {
-      name: string
-      value: string
-      isSecret?: boolean
-    }[]
-    const masked = vars.map((v) => (v.isSecret ? { ...v, value: SECRET_MASK } : v))
-    return { ...workflow, envVars: JSON.stringify(masked) }
-  } catch {
-    return workflow
-  }
-}
-
 export const workflows = new Hono<AppEnv>()
 
 workflows.get('/', zValidator('query', listQuerySchema), async (c) => {
@@ -144,17 +134,35 @@ workflows.get('/', zValidator('query', listQuerySchema), async (c) => {
   )
   return c.json({
     ...result,
-    data: result.data.map(({ sharedByName, ...row }) => ({
-      ...maskWorkflowSecrets(row),
-      sharing: sharingRecord({ sharedBy: row.sharedBy, sharedAt: row.sharedAt, sharedByName }),
-    })),
+    data: result.data.map((row) => {
+      const { sharedByName, sharedBy, sharedAt } = row
+      return {
+        ...workflowListRecord(row),
+        deployedVersion: row.deployedVersion,
+        recentRunStatuses: row.recentRunStatuses,
+        deployStatus: row.deployStatus,
+        deployVersionId: row.deployVersionId,
+        lastRunStatus: row.lastRunStatus,
+        lastRunAt: row.lastRunAt,
+        sharing: sharingRecord({ sharedBy, sharedAt, sharedByName }),
+      }
+    }),
   })
 })
 
 workflows.get('/:id', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  return c.json(maskWorkflowSecrets(workflow))
+  return c.json(workflowRecord(workflow))
+})
+
+/** The item page's one read: current version, deploys and runs, in one statement. */
+workflows.get('/:id/summary', async (c) => {
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const summary = await c.get('db').workflowPageSummary(workflow.id, new Date())
+  if (!summary) return c.json({ error: 'Not found' }, 404)
+  return c.json(summary)
 })
 
 workflows.get('/:id/full', async (c) => {
@@ -192,7 +200,7 @@ workflows.get('/:id/full', async (c) => {
     : (handlersFile?.source ?? workflow.triggerCode)
 
   return c.json({
-    workflow: { ...maskWorkflowSecrets(workflow), triggerCode },
+    workflow: { ...workflowRecord(workflow), triggerCode },
     handlers: {
       modules: hasHandlerModules(handlers),
       consumedQueues: handlers.queues.map((q) => q.queue),
@@ -272,7 +280,10 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
   if (envVars !== undefined) {
     const current = c.get('workflow')
     if (!current) return c.json({ error: 'Not found' }, 404)
-    if (envVarsBase !== undefined && envVarsBase !== (maskWorkflowSecrets(current).envVars ?? '')) {
+    if (
+      envVarsBase !== undefined &&
+      envVarsBase !== (maskedWorkflowEnvVars(current.envVars) ?? '')
+    ) {
       return c.json({ error: CHANGED_MEANWHILE }, 409)
     }
     // Merge masked secrets with existing decrypted values
@@ -282,9 +293,11 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
     // secret. Anything else (a renamed secret, one never stored, or the mask
     // sent as a plain value) would save the mask itself as the value, so it is
     // refused instead.
+    const secretByName = new Map(existing.map((v) => [v.name, isSecretEnvVar(v)]))
     const orphan = envVars.find(
       (v) =>
-        v.value === SECRET_MASK && !(v.isSecret === true && existingByName.get(v.name)?.isSecret),
+        v.value === SECRET_MASK &&
+        !(secretByName.get(v.name) && (v.isSecret === true || v.name.startsWith('SECRET_'))),
     )
     if (orphan) {
       return c.json(
@@ -295,7 +308,7 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
       )
     }
     const merged = envVars.map((v) => {
-      if (v.isSecret && v.value === SECRET_MASK) {
+      if (v.value === SECRET_MASK) {
         const prev = existingByName.get(v.name)
         if (prev) return { name: v.name, value: prev.value, isSecret: true }
       }
@@ -313,7 +326,7 @@ workflows.patch('/:id', zValidator('json', updateSchema), async (c) => {
     dbData.deployConfig = JSON.stringify(deployConfig)
   }
   const updated = await db.updateWorkflow(workflowId, dbData)
-  return c.json(maskWorkflowSecrets(updated))
+  return c.json(workflowRecord(updated))
 })
 
 /**
@@ -393,7 +406,7 @@ workflows.patch(
     })
 
     return c.json({
-      workflow: maskWorkflowSecrets(updated),
+      workflow: workflowRecord(updated),
       warnings:
         warnings.length > 0 ? `Missing env vars in target project: ${warnings.join(', ')}` : null,
     })

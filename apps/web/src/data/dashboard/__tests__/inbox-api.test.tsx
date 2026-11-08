@@ -154,7 +154,7 @@ describe('useReleases', () => {
 
   it('records the visit and the notes it showed on the API when What’s new closes', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(json({ lastVisit: null, seen: [] })))
-    const view = renderHook(({ shown }) => useRecordReleasesVisit(shown), {
+    const view = renderHook(({ shown }) => useRecordReleasesVisit('acme', shown), {
       wrapper: wrapperFor('api'),
       initialProps: { shown: ['rel_inbox', 'rel_audit'] as string[] | undefined },
     })
@@ -165,7 +165,9 @@ describe('useReleases', () => {
   })
 
   it('records nothing for notes that never loaded', () => {
-    const view = renderHook(() => useRecordReleasesVisit(undefined), { wrapper: wrapperFor('api') })
+    const view = renderHook(() => useRecordReleasesVisit('acme', undefined), {
+      wrapper: wrapperFor('api'),
+    })
     view.unmount()
     expect(fetchMock).not.toHaveBeenCalled()
   })

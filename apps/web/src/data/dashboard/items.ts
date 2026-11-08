@@ -11,6 +11,7 @@ import type {
   WorkspaceItem,
 } from '../../types/dashboard/items'
 import type { Allowed, ScopeSlugs } from '../../types/dashboard/scope'
+import { useApi } from '../../contexts/api-client-context'
 import { toWorkspaceItem } from './api/runs'
 import { toSharedItem } from './api/sharing'
 import { collectPages } from './export-pages'
@@ -55,6 +56,18 @@ export function useWorkspaceItems(slugs: WorkspaceSlugs, kind: ItemKind) {
       source === 'api'
         ? (items: WorkspaceItem[]) => items.map((item) => ({ ...item, shareToggle: share }))
         : undefined,
+  })
+}
+
+/** A workflow page's current version, deploys and runs, in one request. */
+export function useWorkflowPageSummary(workflowId: string, ready: boolean) {
+  const key = useDashKey()
+  const api = useApi()
+  return useQuery({
+    queryKey: key(dashKeys.workflowSummary(workflowId)),
+    queryFn: () => api.getWorkflowPageSummary(workflowId),
+    enabled: ready,
+    staleTime: 30_000,
   })
 }
 
@@ -104,6 +117,8 @@ function itemKeys(slugs: WorkspaceSlugs) {
     dashKeys.projects(slugs.org),
     dashKeys.failing(slugs.org),
     dashKeys.activity(slugs.org),
+    dashKeys.setup(slugs.org, slugs.project),
+    dashKeys.workspaceOverview(slugs),
     dashKeys.scope(),
   ]
 }

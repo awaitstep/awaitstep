@@ -51,7 +51,7 @@ vi.mock('../../../data/dashboard/projects', () => ({
   useProjects: () => state.projects,
   useCreateProject: () => createProject,
 }))
-vi.mock('../../../data/dashboard/runs', () => ({ useFailingNow: () => state.failing }))
+vi.mock('../../../data/dashboard/runs', () => ({ useOrgHomeSummary: () => state.failing }))
 vi.mock('../../../data/dashboard/activity', () => ({ useOrgActivity: () => state.activity }))
 
 const FAILING = {
@@ -63,7 +63,7 @@ const FAILING = {
 
 function settle(projects: Project[] = [PROJECT_101, MARKETING_SITE]) {
   state.projects = ok(projects)
-  state.failing = ok([FAILING])
+  state.failing = ok({ count: 1, first: FAILING })
   state.activity = ok([])
 }
 

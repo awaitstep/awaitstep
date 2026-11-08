@@ -8,6 +8,7 @@ import { coalescedMembers, parseStepManifest } from '../lib/step-manifest.js'
 import { syncRunById } from '../lib/run-sync.js'
 import { diffRunDetail } from '../lib/run-events.js'
 import type { WorkflowRunDetail } from '@awaitstep/codegen'
+import { runPageRecord } from '../lib/run-records.js'
 
 export const runs = new Hono<AppEnv>()
 
@@ -18,7 +19,7 @@ runs.get('/:workflowId/runs', zValidator('query', paginationQuerySchema), async 
 
   const { cursor, limit } = c.req.valid('query')
   const result = await db.listRunsByWorkflow(workflow.id, { cursor, limit })
-  return c.json(result)
+  return c.json(runPageRecord(result))
 })
 
 // Pure DB read — the background run-sync loop (lib/run-sync.ts) reconciles

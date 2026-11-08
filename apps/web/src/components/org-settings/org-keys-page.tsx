@@ -36,7 +36,8 @@ export function OrgKeysPage({ org, createOpen, onCloseCreate }: OrgKeysPageProps
   const canSee = scope?.viewerCan.manageSettings.allowed ?? false
   const keys = useOrgKeys(org, { enabled: canSee })
   const members = useOrgMembers(org, { enabled: scope !== null && !canSee })
-  const projects = useProjects(org)
+  // Only the Create dialog needs the project list: it loads when that opens.
+  const projects = useProjects(org, { enabled: createOpen })
   const revoke = useRevokeOrgKey(org)
   const [revoking, setRevoking] = useState<ApiKey | null>(null)
 

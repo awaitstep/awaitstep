@@ -6,7 +6,6 @@ import type { ConnectionListOptions, ConnectionListRow, ConnectionTokenCheck } f
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
-import { createLogger } from '../lib/logger.js'
 import { apiKeyLevel, apiKeyProjectHome, apiKeyProjectScopes } from '../middleware/auth.js'
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
@@ -224,20 +223,14 @@ export function createConnectionRoutes() {
   return connections
 }
 
-/** The list's row with its secrets redacted and its account named by suffix. */
+/** The list's row: the account by its suffix, never the credentials. */
 function connectionSummary(row: ConnectionListRow): ConnectionSummary {
-  const redacted = redactCredentials(row)
-  const accountId =
-    typeof redacted.credentials === 'object' ? redacted.credentials.accountId : undefined
   return {
     id: row.id,
-    organizationId: row.organizationId,
     provider: row.provider,
     name: row.name,
-    credentials: redacted.credentials,
-    createdBy: row.createdBy,
     createdByName: row.createdByName,
-    accountSuffix: accountId ? accountId.slice(-4) : null,
+    accountSuffix: accountSuffixOf(row.credentials),
     allProjects: row.allProjects,
     projects: row.projects,
     hiddenProjects: row.hiddenProjects,
@@ -250,27 +243,14 @@ function connectionSummary(row: ConnectionListRow): ConnectionSummary {
   }
 }
 
-const SAFE_CREDENTIAL_FIELDS = new Set([
-  'accountId',
-  'accountName',
-  'name',
-  'provider',
-  'region',
-  'email',
-])
-
-function redactCredentials<T extends { credentials: string }>(
-  conn: T,
-): Omit<T, 'credentials'> & { credentials: Record<string, string> | string } {
+/** The account id's last four characters; null when the stored value cannot be read. */
+function accountSuffixOf(credentials: string): string | null {
   try {
-    const creds = JSON.parse(conn.credentials) as Record<string, string>
-    const redacted: Record<string, string> = {}
-    for (const [key, value] of Object.entries(creds)) {
-      redacted[key] = SAFE_CREDENTIAL_FIELDS.has(key) ? value : '***'
-    }
-    return { ...conn, credentials: redacted }
-  } catch (error) {
-    createLogger('redactCredentials').error('failed', error)
-    return { ...conn, credentials: '****' }
+    const parsed: unknown = JSON.parse(credentials)
+    if (typeof parsed !== 'object' || parsed === null) return null
+    const accountId = (parsed as { accountId?: unknown }).accountId
+    return typeof accountId === 'string' && accountId.length > 0 ? accountId.slice(-4) : null
+  } catch {
+    return null
   }
 }

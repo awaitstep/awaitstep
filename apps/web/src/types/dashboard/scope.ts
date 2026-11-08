@@ -1,6 +1,6 @@
 import type { Project, ProjectRole } from './projects'
 import type { OrgRole, OrgSummary } from './session'
-import type { Workspace, WorkspaceRole } from './workspaces'
+import type { Workspace, WorkspacePerson, WorkspaceRole } from './workspaces'
 
 // The capability vocabulary is @awaitstep/ir's, shared with the API and the dummy server.
 export type {
@@ -32,6 +32,8 @@ export interface ProjectScope {
 
 export interface WorkspaceScope {
   workspace: Workspace
+  /** Everyone who can open it, with their effective role; the same rows `/scope` carries. */
+  people: WorkspacePerson[]
   /** Effective role, after the org and project roles that cover it. */
   viewerRole: WorkspaceRole
   viewerCan: Capabilities<WorkspaceCapability>

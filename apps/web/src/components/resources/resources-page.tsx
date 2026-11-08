@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
-import { useOrgNodes } from '../../data/dashboard/resources'
+import { useOrgNodes, useResourceCounts } from '../../data/dashboard/resources'
 import { useOrgVariables } from '../../data/dashboard/variables'
 import { variableDialogPath } from '../../lib/dashboard-paths'
 import { Button, buttonVariants } from '../ui/button'
@@ -43,8 +43,9 @@ export function ResourcesPage({
   onCloseDialog,
 }: ResourcesPageProps) {
   const scope = useOrgScope(org)
-  const nodes = useOrgNodes(org)
-  const variables = useOrgVariables(org)
+  const counts = useResourceCounts(org)
+  const nodes = useOrgNodes(org, { enabled: tab === 'nodes' })
+  const variables = useOrgVariables(org, { enabled: tab === 'variables' })
   const [explaining, setExplaining] = useState(false)
 
   if (!scope) return null
@@ -62,8 +63,6 @@ export function ResourcesPage({
   function handleCloseExplainer() {
     setExplaining(false)
   }
-
-  const installedCount = nodes.data?.filter((n) => n.installed).length
 
   return (
     <>
@@ -92,10 +91,10 @@ export function ResourcesPage({
             description="Nodes and variables available to every project."
             aside={
               <PillTabsList>
-                <PillTab value="nodes" count={installedCount}>
+                <PillTab value="nodes" count={counts.data?.installedNodes}>
                   Nodes
                 </PillTab>
-                <PillTab value="variables" count={variables.data?.length}>
+                <PillTab value="variables" count={counts.data?.variables}>
                   Variables
                 </PillTab>
               </PillTabsList>

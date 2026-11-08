@@ -30,12 +30,13 @@ import type { WorkspacePerson } from '../../../types/dashboard/workspaces'
 // invite pages render. The API already resolved every role; this adds what
 // the pages derive (initials, nesting) and nothing else.
 
-function person(row: { id: string; name: string; email: string; image: string | null }): Person {
+function person(row: { id: string; name: string; email?: string; image: string | null }): Person {
+  const email = row.email ?? ''
   return {
     id: row.id,
     name: row.name,
-    email: row.email,
-    initials: initialsOf(row.name, row.email),
+    email,
+    initials: initialsOf(row.name, email),
     image: row.image,
   }
 }

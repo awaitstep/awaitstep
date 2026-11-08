@@ -5,7 +5,6 @@ import {
   useRevokeProjectKey,
   useRevokeProjectKeyScope,
 } from '../../data/dashboard/api-keys'
-import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgPath,
   projectPagePath,
@@ -56,7 +55,6 @@ function revokeText(revoking: Revoking): string {
 export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
   const scope = useProjectScope(slugs)
   const keys = useProjectKeys(slugs.org, slugs.project)
-  const workspaces = useWorkspaces(slugs.org, slugs.project)
   const revoke = useRevokeProjectKey(slugs.org, slugs.project)
   const revokeScope = useRevokeProjectKeyScope(slugs.org, slugs.project)
   const [revoking, setRevoking] = useState<Revoking | null>(null)
@@ -64,8 +62,10 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
   if (!scope) return null
   const project = scope.project.project
   const canManage = scope.project.viewerCan.manageKeys.allowed
+  // The scope already names the workspaces the viewer can open: one slug is
+  // enough for the key-level link, so no separate workspace list is fetched.
   const lastWorkspace = pickWorkspace(
-    (workspaces.data ?? []).map((w) => w.slug),
+    project.workspaces.map((w) => w.slug),
     recentWorkspaces(slugs.org, slugs.project),
   )
 

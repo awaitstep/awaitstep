@@ -1,5 +1,7 @@
 import type { WorkspaceColour } from '../../components/ui/workspace-colour'
 import type { LockState } from './locks'
+import type { SharedItem } from './items'
+import type { WorkspaceRun } from './runs'
 import type { Person } from './session'
 
 import type { RunHour, WorkspaceRole } from '@awaitstep/ir'
@@ -21,6 +23,22 @@ export interface WorkspacePerson {
   projectRole: WorkspaceRole | null
   /** Org owners and admins open every workspace through the org, not the project. */
   orgRole: 'owner' | 'admin' | null
+}
+
+/** One failing item on the overview: no whole item record is needed. */
+export interface WorkspaceAttention {
+  item: { id: string; name: string; kind: 'workflow' | 'script' }
+  run: WorkspaceRun | null
+  failures: number
+  total: number
+}
+
+/** Everything a workspace's Overview renders, in one answer. */
+export interface WorkspaceOverviewData {
+  counts: WorkspaceCounts
+  needsAttention: WorkspaceAttention[]
+  recent: WorkspaceRun[]
+  shared: { out: { id: string; name: string }[]; in: SharedItem[] }
 }
 
 export interface Workspace {

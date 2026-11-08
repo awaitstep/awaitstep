@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { Plus, Settings } from 'lucide-react'
 import { useOrgs, useSwitchOrg } from '../../data/dashboard/session'
 import { dashboardPath, orgPath, orgSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
@@ -15,7 +15,9 @@ interface OrgSwitcherProps {
 
 /** Switches organization; also New organization and the current org's settings. */
 export function OrgSwitcher({ trigger, current, side = 'right' }: OrgSwitcherProps) {
-  const orgs = useOrgs()
+  const [open, setOpen] = useState(false)
+  // Asked for when the switcher opens: the frame shows its trigger on every page.
+  const orgs = useOrgs({ enabled: open })
   const switchOrg = useSwitchOrg()
   const goTo = useGoTo()
 
@@ -60,6 +62,8 @@ export function OrgSwitcher({ trigger, current, side = 'right' }: OrgSwitcherPro
       onSelect={handleSelect}
       actions={actions}
       onAction={handleAction}
+      open={open}
+      onOpenChange={setOpen}
     />
   )
 }

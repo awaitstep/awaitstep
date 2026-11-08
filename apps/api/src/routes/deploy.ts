@@ -8,6 +8,7 @@ import { workerName } from '@awaitstep/provider-cloudflare'
 import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/codegen'
 import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
+import { deploymentPageRecord } from '../lib/list-records.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError, CONNECTION_NOT_SERVING } from '../lib/deploy-prepare.js'
 import { deployConnections } from '../lib/connection-fields.js'
@@ -336,7 +337,7 @@ deploy.get('/:workflowId/deployments', zValidator('query', paginationQuerySchema
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const { cursor, limit } = c.req.valid('query')
   const result = await db.listDeploymentsByWorkflow(workflow.id, { cursor, limit })
-  return c.json(result)
+  return c.json(deploymentPageRecord(result))
 })
 
 deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c) => {

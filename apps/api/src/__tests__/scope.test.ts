@@ -56,9 +56,8 @@ describe('GET /api/scope', () => {
       memberCount: 1,
     })
     expect(body.org.viewerCan.manageSettings.allowed).toBe(true)
-    expect(body.org.members).toEqual([
-      { id: TEST_USER_ID, name: 'Test', email: 'test@example.com', image: null, role: 'owner' },
-    ])
+    // The org roster is the People read's, not every page's.
+    expect(body.org).not.toHaveProperty('members')
     expect(body.project).toBeUndefined()
   })
 

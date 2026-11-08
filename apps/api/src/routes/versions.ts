@@ -28,6 +28,7 @@ import {
 } from '../lib/version-save.js'
 import { recordAudit, type AuditRecord } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
+import { versionDetailRecord, versionPageRecord } from '../lib/list-records.js'
 
 /** The newest versions can't be deleted: a bad deploy always has something to roll back to. */
 const KEPT_VERSIONS = 3
@@ -78,7 +79,7 @@ versions.get('/:workflowId/versions', zValidator('query', paginationQuerySchema)
   const db = c.get('db')
   const { cursor, limit } = c.req.valid('query')
   const result = await db.listVersionsByWorkflow(c.req.param('workflowId'), { cursor, limit })
-  return c.json(result)
+  return c.json(versionPageRecord(result))
 })
 
 versions.get('/:workflowId/versions/:versionId', async (c) => {
@@ -87,7 +88,7 @@ versions.get('/:workflowId/versions/:versionId', async (c) => {
   if (!version || version.workflowId !== c.req.param('workflowId')) {
     return c.json({ error: 'Not found' }, 404)
   }
-  return c.json(version)
+  return c.json(versionDetailRecord(version))
 })
 
 versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), async (c) => {

@@ -24,14 +24,15 @@ import { toWorkspacePerson } from './access'
 export function toPerson(member: {
   id: string
   name: string
-  email: string
+  email?: string
   image: string | null
 }): Person {
+  const email = member.email ?? ''
   return {
     id: member.id,
     name: member.name,
-    email: member.email,
-    initials: initialsOf(member.name, member.email),
+    email,
+    initials: initialsOf(member.name, email),
     image: member.image,
   }
 }
@@ -125,6 +126,7 @@ export function toScopeLookup(scope: ApiScope): ScopeLookup {
     project,
     workspace: {
       workspace: toWorkspace(scope.workspace),
+      people: scope.workspace.members.map(toWorkspacePerson),
       viewerRole: scope.workspace.viewerRole,
       viewerCan: scope.workspace.viewerCan,
     },

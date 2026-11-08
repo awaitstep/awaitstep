@@ -272,11 +272,14 @@ export class EnvVarsAdapter {
     organizationId: string,
     pagination?: PaginationParams,
     visibleTo?: string,
+    options?: { seeAll?: boolean },
   ): Promise<PaginatedResult<OrgEnvVar>> {
     const limit = clampLimit(pagination?.limit)
     const v = aliasedTable(this.table, 'v')
     const op = aliasedTable(this.t.projects, 'op')
     const ov = aliasedTable(this.table, 'ov')
+    const ep = aliasedTable(this.t.projects, 'ep')
+    const epv = aliasedTable(this.t.envVarProjects, 'epv')
     // A project counts when the viewer can open it and the override is the
     // project's own or in a workspace they can open — what the project's
     // page would show them as chips, no more.
@@ -294,6 +297,13 @@ export class EnvVarsAdapter {
     const overriddenIn = fieldOf(
       sql<number>`(select count(*) from ${aliasedFrom(op)} where ${op.organizationId} = ${v.organizationId} and ${visible} and exists (select 1 from ${aliasedFrom(ov)} where ${ov.projectId} = ${op.id} and ${ov.name} = ${v.name} and ${overrideVisible}))`,
     )
+    // Org variables reach a project the viewer can open, or apply everywhere.
+    // Owners and admins see every row (seeAll); anyone else does not get a
+    // variable whose reach excludes every project they can open.
+    const reachFilter =
+      options?.seeAll || visibleTo === undefined || !this.roles
+        ? sql`1 = 1`
+        : sql`exists (select 1 from ${aliasedFrom(ep)} where ${ep.organizationId} = ${v.organizationId} and ${this.roles.projectVisible(visibleTo, { organizationId: ep.organizationId, projectId: ep.id })} and (${v.allPlaces} = ${sqlTrue(this.dialect)} or exists (select 1 from ${aliasedFrom(epv)} where ${epv.envVarId} = ${v.id} and ${epv.projectId} = ${ep.id})))`
     const reach = this.orgReachFields(v, visibleTo)
     const rows: {
       row: EnvVar
@@ -312,6 +322,7 @@ export class EnvVarsAdapter {
         and(
           eq(v.organizationId, organizationId),
           isNull(v.projectId),
+          reachFilter,
           this.cursorOf(v, pagination),
         ),
       )

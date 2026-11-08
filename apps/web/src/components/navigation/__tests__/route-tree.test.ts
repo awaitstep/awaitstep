@@ -8,6 +8,7 @@ import {
   ORG_SETTINGS_PAGES,
   PROJECT_PAGES,
   RESERVED_SLUGS,
+  isReservedSlug,
   WORKSPACE_PAGES,
   accountPath,
   dashboardPath,
@@ -73,15 +74,30 @@ describe('dashboard route tree', () => {
 
   // `api` has no web route: the same origin proxies /api to the API server.
   // `invite` has no page of its own, only /invite/$token (below).
-  const routedOrgSlugs = RESERVED_SLUGS.org.filter((slug) => slug !== 'api' && slug !== 'invite')
+  // The old top-level pages are retired but stay reserved: `/$org` still
+  // matches them, and its beforeLoad sends a reserved slug to not-found.
+  const retiredOrgSlugs = ['connections', 'runs', 'settings', 'workflows']
+  const routedOrgSlugs = RESERVED_SLUGS.org.filter(
+    (slug) => slug !== 'api' && slug !== 'invite' && !retiredOrgSlugs.includes(slug),
+  )
 
   it.each(routedOrgSlugs)('lets no org be called "%s": another route owns its URL', (slug) => {
     expect(leafRoute(`/${slug}`)).not.toBe('/_authed/$org/')
   })
 
-  it('sends an org’s pages to old routes when they have children', () => {
-    expect(leafRoute('/workflows/projects')).toBe('/_authed/workflows/$workflowId/')
-    expect(leafRoute('/runs/projects')).toBe('/_authed/runs/$runId')
+  it('keeps the retired top-level pages out of the org namespace', () => {
+    for (const slug of retiredOrgSlugs) {
+      expect(isReservedSlug('org', slug), slug).toBe(true)
+      expect(leafRoute(`/${slug}`), slug).toBe('/_authed/$org/')
+    }
+  })
+
+  it('has no legacy workflow or run redirect routes', () => {
+    for (const path of ['/workflows/wf_1', '/workflows/wf_1/editor', '/runs/run_1']) {
+      for (const match of router.matchRoutes(path)) {
+        expect(match.routeId).not.toMatch(/^\/_authed\/(workflows|runs)/)
+      }
+    }
     expect(leafRoute('/invite/projects')).toBe('/invite/$token')
   })
 

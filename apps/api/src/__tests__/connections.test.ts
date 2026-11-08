@@ -20,7 +20,7 @@ describe('connection routes', () => {
   })
 
   describe('POST /api/connections', () => {
-    it('creates a connection with redacted credentials', async () => {
+    it('creates a connection without its credentials', async () => {
       const res = await app.request(url('/api/connections'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -37,8 +37,8 @@ describe('connection routes', () => {
       const body = await res.json()
       expect(body.name).toBe('My CF Account')
       expect(body.provider).toBe('cloudflare')
-      expect(body.credentials.accountId).toBe('0123456789abcdef0123456789abcdef')
-      expect(body.credentials.apiToken).toBe('***')
+      expect(body.accountSuffix).toBe('cdef')
+      expect(body).not.toHaveProperty('credentials')
     })
 
     it('returns 422 for missing fields', async () => {
@@ -52,7 +52,7 @@ describe('connection routes', () => {
   })
 
   describe('GET /api/connections', () => {
-    it('lists connections with redacted credentials', async () => {
+    it('lists connections with the account suffix, not their credentials', async () => {
       await mockDb.createConnection({
         id: 'conn-1',
         organizationId: TEST_ORG_ID,
@@ -74,8 +74,8 @@ describe('connection routes', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data).toHaveLength(1)
-      expect(body.data[0].credentials.apiToken).toBe('***')
-      expect(body.data[0].credentials.accountId).toBe('cf-1')
+      expect(body.data[0].accountSuffix).toBe('cf-1')
+      expect(body.data[0]).not.toHaveProperty('credentials')
     })
   })
 

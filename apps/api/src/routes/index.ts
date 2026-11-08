@@ -54,6 +54,8 @@ import { accessRequests, workspaceAccessRequests } from './access-requests.js'
 import { runsQuerySchema, workspaceRunFilter } from './runs-query.js'
 import { account } from './account.js'
 import { orgLogo } from './org-logo.js'
+import { runPageRecord, workspaceRunPageRecord } from '../lib/run-records.js'
+import { deploymentPageRecord } from '../lib/list-records.js'
 
 export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean }) {
   const router = new Hono<AppEnv>()
@@ -82,6 +84,8 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   )
   router.use('/projects', requireOrganization)
   router.use('/marketplace/*', requireOrganization)
+  router.use('/resources/*', requireSessionAuth)
+  router.use('/resources/*', requireOrganization)
   router.use('/audit-events', requireOrganization)
   router.use('/failing', requireOrganization)
   // Failing runs across the organization answer for a person; a key is pinned narrower.
@@ -211,6 +215,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // Ownership — workflow routes
   router.use('/workflows/:id', requireWorkflowAccess)
   router.use('/workflows/:id/full', requireWorkflowAccess)
+  router.use('/workflows/:id/summary', requireWorkflowAccess)
   router.use('/workflows/:id/move', requireWorkflowAccess)
   router.use('/workflows/:id/share', requireWorkflowAccess)
   router.use('/workflows/:workflowId/versions/*', requireWorkflowAccess)
@@ -358,6 +363,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     '/workflows',
     '/workflows/:id',
     '/workflows/:id/full',
+    '/workflows/:workflowId/summary',
     '/workflows/:workflowId/versions',
     '/workflows/:workflowId/versions/:versionId',
     '/workflows/:workflowId/source',
@@ -574,7 +580,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
       c.get('userId'),
       c.get('workspaceId'),
     )
-    return c.json(result)
+    return c.json(deploymentPageRecord(result))
   })
 
   // Global runs list: across the project's workflows, or — with a workspace
@@ -586,7 +592,11 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
     if (workspaceId) {
       // One instant for the period and the hourly bars, so the bars add up to the count.
       const now = new Date()
-      return c.json(await db.listWorkspaceRuns(workspaceId, workspaceRunFilter(query, now), now))
+      return c.json(
+        workspaceRunPageRecord(
+          await db.listWorkspaceRuns(workspaceId, workspaceRunFilter(query, now), now),
+        ),
+      )
     }
     if (query.result || query.period || query.search || query.workflowId) {
       return c.json({ error: 'Filtering runs needs a workspace' }, 400)
@@ -596,7 +606,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
       { cursor: query.cursor, limit: query.limit },
       c.get('userId'),
     )
-    return c.json(result)
+    return c.json(runPageRecord(result))
   })
 
   return router

@@ -1,6 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
-import { ACCESS_REASONS, grantCounts, inheritedWorkspaceRole } from '@awaitstep/ir'
+import { ACCESS_REASONS, grantCounts, inheritedWorkspaceRole, isOrgAdmin } from '@awaitstep/ir'
 import type { GrantRows } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { parseOrgRole } from '../lib/org-role.js'
@@ -34,12 +34,14 @@ members.get('/', async (c) => {
   const db = c.get('db')
   const userId = c.get('userId')
   const projectId = c.get('projectId') as string | undefined
+  const orgRole = c.get('orgRole')
+  const withEmail = orgRole !== null && isOrgAdmin(orgRole)
   if (projectId) {
     const rows = await db.listProjectMembers(projectId, userId)
-    return c.json(projectMembersRecord(rows))
+    return c.json(projectMembersRecord(rows, withEmail, userId))
   }
-  const rows = await db.listOrgMembers(c.get('organizationId'), userId)
-  return c.json({ data: rows.map(orgMemberRecord) })
+  const rows = await db.listOrgMembers(c.get('organizationId'), userId, { seeAll: withEmail })
+  return c.json({ data: rows.map((row) => orgMemberRecord(row, withEmail, userId)) })
 })
 
 members.get('/:userId/access', async (c) => {
@@ -154,7 +156,13 @@ export const workspaceMembers = new Hono<AppEnv>()
 
 workspaceMembers.get('/', async (c) => {
   const rows = await c.get('db').listWorkspacePeople(c.get('workspaceId')!)
-  return c.json({ data: rows.map(workspacePersonRecord) })
+  const orgRole = c.get('orgRole')
+  const audience = {
+    withMembers: true,
+    withEmails: orgRole !== null && isOrgAdmin(orgRole),
+    viewerId: c.get('userId'),
+  }
+  return c.json({ data: rows.map((row) => workspacePersonRecord(row, audience)) })
 })
 
 /** Why a grant was refused, from the rows: not in the org, already in, or not above the project's. */

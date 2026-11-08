@@ -3,12 +3,10 @@ import { createServerFn } from '@tanstack/react-start'
 import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
 import { safeRedirectPath } from '../lib/auth-redirect'
 import { apiFetch } from '../lib/cf-context'
-import { isChromelessRoute, sendsToDashboard } from '../lib/shell-routes'
+import { sendsToDashboard } from '../lib/shell-routes'
 import { useAuthStore, type SessionData } from '../stores/auth-store'
 import { type Organization, useOrgStore } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
-import { AppSidebar } from '../components/nav/app-sidebar'
-import { MobileSidebar } from '../components/nav/mobile-sidebar'
 
 interface LoaderData {
   sessionData: SessionData
@@ -74,28 +72,10 @@ function AuthedLayout() {
     return <Navigate to="/dashboard" replace />
   }
 
-  if (isChromelessRoute(matches)) {
-    return (
-      <>
-        <OrgWrapper organizations={loaderData.organizations} />
-
-        <Outlet />
-      </>
-    )
-  }
-
   return (
     <>
       <OrgWrapper organizations={loaderData.organizations} />
-      <div className="flex min-h-svh">
-        <AppSidebar />
-        <div className="@container flex min-w-0 flex-1 flex-col">
-          <MobileSidebar />
-          <main className="mx-auto w-full max-w-screen-xl flex-1 px-6 pb-8 md:px-8">
-            <Outlet />
-          </main>
-        </div>
-      </div>
+      <Outlet />
     </>
   )
 }

@@ -4,7 +4,6 @@ import { ArrowRight, Trash2 } from 'lucide-react'
 import { useDeleteProject, useUpdateProject } from '../../data/dashboard/projects'
 import { errorFieldOf } from '../../data/dashboard/errors'
 import { useSetLock } from '../../data/dashboard/locks'
-import { useWorkspaces } from '../../data/dashboard/workspaces'
 import { orgPath, projectPagePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { listNames } from '../../lib/name-list'
 import { plural } from '../../lib/plural'
@@ -65,7 +64,6 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
   const update = useUpdateProject(slugs.org, slugs.project)
   const remove = useDeleteProject(slugs.org, slugs.project)
   const setLock = useSetLock({ level: 'project', ...slugs })
-  const workspaces = useWorkspaces(slugs.org, slugs.project)
   const goTo = useGoTo()
   const [values, setValues] = useState(valuesOf(project))
   const [dialog, setDialog] = useState<'move' | 'delete' | null>(null)
@@ -83,8 +81,9 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
     trimmed.description !== saved.description
   const readOnly = !can.manageSettings.allowed
   const lock = project.lock.own
-  const names = (workspaces.data ?? []).map((w) => w.name)
-  const workflows = (workspaces.data ?? []).reduce((n, w) => n + w.counts.workflows, 0)
+  // Both are already in the project scope: no separate workspace list is fetched.
+  const names = project.workspaces.map((w) => w.name)
+  const workflows = project.health.workflows
 
   function handleChange(field: keyof FormValues, value: string) {
     setValues((v) => ({ ...v, [field]: value }))
@@ -142,11 +141,7 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
     ? { name: lock.setBy.name, date: format(new Date(lock.setAt), 'd MMM') }
     : undefined
   // The summary and the confirm quote these counts, so Delete waits for them.
-  const deleteReason = !can.delete.allowed
-    ? can.delete.reason
-    : workspaces.data
-      ? undefined
-      : 'Counting what would be deleted…'
+  const deleteReason = !can.delete.allowed ? can.delete.reason : undefined
   const moveReason = can.move.allowed ? undefined : can.move.reason
   // A change in flight holds the switch; a refused one says why where the state is described.
   const lockReason = setLock.isPending

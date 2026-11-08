@@ -10,7 +10,7 @@ export function toConnection(row: ConnectionSummary): Connection {
     id: row.id,
     name: row.name,
     accountSuffix: row.accountSuffix ?? '',
-    addedBy: { id: row.createdBy, name: row.createdByName ?? 'a former member' },
+    addedBy: { id: '', name: row.createdByName ?? 'a former member' },
     tokenStatus: row.tokenStatus,
     tokenExpiresAt: row.tokenExpiresAt,
     projects: row.allProjects ? 'all' : row.projects.map(({ id, name }) => ({ id, name })),

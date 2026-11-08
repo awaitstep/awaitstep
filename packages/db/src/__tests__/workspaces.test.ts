@@ -46,10 +46,8 @@ describe.each([
         projectCount: 2,
         memberCount: 2,
       })
-      expect(scope!.org.members.map((m) => [m.name, m.role])).toEqual([
-        ['Ama Mensah', 'owner'],
-        ['Ben Okoro', 'admin'],
-      ])
+      // The roster left the scope read: it is `/members?org=`'s answer.
+      expect(scope!.org).not.toHaveProperty('members')
       expect(scope!.project).toBeNull()
       expect(scope!.workspace).toBeNull()
     })

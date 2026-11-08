@@ -8,11 +8,13 @@ import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type {
   NewWorkspaceInput,
   Workspace,
+  WorkspaceOverviewData,
   WorkspacePerson,
   WorkspaceUpdate,
 } from '../../types/dashboard/workspaces'
 import { toWorkspacePerson } from './api/access'
 import { toScopeLookup, toWorkspace, workspaceFromRow } from './api/records'
+import { toWorkspaceRun } from './api/runs'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
@@ -48,7 +50,10 @@ export function useScope(slugs: ScopeSlugs) {
 }
 
 /** Everyone who can open the workspace, with their effective role there. */
-export function useWorkspacePeople(slugs: Required<ScopeSlugs>) {
+export function useWorkspacePeople(
+  slugs: Required<ScopeSlugs>,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
@@ -62,7 +67,157 @@ export function useWorkspacePeople(slugs: Required<ScopeSlugs>) {
             .then((res) => res.data.map(toWorkspacePerson))
         : mockServer.workspaces.listWorkspacePeople(ctx, slugs),
     // On the API people are read by the workspace's id, which the scope read gives.
-    enabled: source !== 'api' || workspaceId !== null,
+    enabled: enabled && (source !== 'api' || workspaceId !== null),
+  })
+}
+
+/** Workspace Settings' three tab pills, without opening a tab. */
+export function useWorkspaceSettingsCounts(
+  slugs: Required<ScopeSlugs>,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  const workspaceId = useWorkspaceId(slugs)
+  return useQuery({
+    queryKey: key(dashKeys.workspaceSettingsCounts(slugs)),
+    queryFn: async (): Promise<{ members: number; keys: number; variables: number }> => {
+      if (source === 'api') {
+        if (!workspaceId) throw new Error('The workspace has not loaded yet')
+        return dashboardApi.getWorkspaceSettingsCounts(workspaceId)
+      }
+      const [people, keys, variables] = await Promise.all([
+        mockServer.workspaces.listWorkspacePeople(ctx, slugs),
+        mockServer.keys.listWorkspaceKeys(ctx, slugs),
+        mockServer.variables.listWorkspaceVariables(ctx, slugs),
+      ])
+      return {
+        members: people.length,
+        keys: keys.own.length + keys.reaching.length,
+        variables: variables.length,
+      }
+    },
+    enabled: enabled && (source !== 'api' || workspaceId !== null),
+  })
+}
+
+/**
+ * A workspace's Overview in one request: counts, the failing items, the latest
+ * run of each item, and what is shared in and out. People come from `/scope`.
+ */
+export function useWorkspaceOverview(
+  slugs: Required<ScopeSlugs>,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  const workspaceId = useWorkspaceId(slugs)
+  return useQuery({
+    queryKey: key(dashKeys.workspaceOverview(slugs)),
+    queryFn: async (): Promise<WorkspaceOverviewData> => {
+      if (source === 'api') {
+        if (!workspaceId) throw new Error('The workspace has not loaded yet')
+        const overview = await dashboardApi.getWorkspaceOverview(workspaceId)
+        return {
+          counts: overview.counts,
+          needsAttention: overview.needsAttention.map((entry) => ({
+            item: entry.item,
+            run: entry.run
+              ? toWorkspaceRun(
+                  {
+                    id: entry.run.id,
+                    workflowId: entry.run.workflowId,
+                    versionId: null,
+                    versionNumber: null,
+                    connectionId: null,
+                    instanceId: '',
+                    status: entry.run.status,
+                    output: null,
+                    error: entry.run.error,
+                    createdAt: entry.run.createdAt,
+                    updatedAt: entry.run.createdAt,
+                  },
+                  entry.item,
+                )
+              : null,
+            failures: entry.failures,
+            total: entry.total,
+          })),
+          recent: overview.recent.map((run) =>
+            toWorkspaceRun(
+              {
+                id: run.id,
+                workflowId: run.workflowId,
+                versionId: null,
+                versionNumber: null,
+                connectionId: null,
+                instanceId: '',
+                status: run.status,
+                output: null,
+                error: null,
+                createdAt: run.createdAt,
+                updatedAt: run.createdAt,
+              },
+              { name: run.workflowName, kind: run.kind },
+            ),
+          ),
+          shared: {
+            out: overview.shared.out,
+            in: overview.shared.in.map((item) => ({
+              id: item.id,
+              name: item.name,
+              kind: item.kind,
+              version: null,
+              from: { ...item.from },
+              usedBy: [],
+              canOpen: false,
+              unshare: { allowed: false },
+              sharedAt: '',
+              sharedBy: { id: '', name: '' },
+            })),
+          },
+        }
+      }
+      const workspace = (
+        await mockServer.workspaces.listWorkspaces(ctx, slugs.org, slugs.project)
+      ).find((row) => row.slug === slugs.workspace)
+      if (!workspace) throw new Error('The workspace has not loaded yet')
+      const [workflows, functions, page, sharedIn] = await Promise.all([
+        mockServer.items.listItems(ctx, slugs, 'workflow'),
+        mockServer.items.listItems(ctx, slugs, 'script'),
+        mockServer.runs.listRuns(ctx, slugs, { period: '24h', limit: 50 }),
+        mockServer.items.listSharedWith(ctx, slugs),
+      ])
+      const items = [...workflows, ...functions]
+      const failed = page.data.filter((run) => run.result === 'failed')
+      const recent: WorkspaceOverviewData['recent'] = []
+      const seen = new Set<string>()
+      for (const run of page.data) {
+        if (run.result === 'running' || seen.has(run.workflowId)) continue
+        seen.add(run.workflowId)
+        recent.push(run)
+        if (recent.length === 4) break
+      }
+      return {
+        counts: workspace.counts,
+        needsAttention: items
+          .filter((item) => item.lastRun?.result === 'failed')
+          .map((item) => ({
+            item: { id: item.id, name: item.name, kind: item.kind },
+            run: failed.find((run) => run.workflowId === item.id) ?? null,
+            failures: item.recentRuns.filter((result) => result === 'failed').length,
+            total: item.recentRuns.length,
+          })),
+        recent,
+        shared: {
+          out: items.filter((item) => item.sharing).map(({ id, name }) => ({ id, name })),
+          in: sharedIn,
+        },
+      }
+    },
+    enabled: enabled && (source !== 'api' || workspaceId !== null),
   })
 }
 

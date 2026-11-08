@@ -75,8 +75,10 @@ describe('connections on the API', () => {
         tokenStatus: 'active',
         tokenExpiresAt: '2026-12-01T00:00:00.000Z',
         deployments: { count: 0, lastAt: null },
-        credentials: { accountId: ACCOUNT, apiToken: '***' },
       })
+      expect(created).not.toHaveProperty('credentials')
+      expect(created).not.toHaveProperty('createdBy')
+      expect(created).not.toHaveProperty('organizationId')
       expect(created.tokenCheckedAt).not.toBeNull()
       expect(JSON.stringify(created)).not.toContain('tok-1')
     })
@@ -245,7 +247,7 @@ describe('connections on the API', () => {
       )
       expect(res.status).toBe(200)
       expect(await res.json()).toMatchObject({
-        credentials: { accountId: ACCOUNT, apiToken: '***' },
+        accountSuffix: 'aaaa',
         tokenExpiresAt: '2027-01-01T00:00:00.000Z',
       })
       const stored = await h.adapter.getProviderConnectionById(id)

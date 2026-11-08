@@ -203,9 +203,9 @@ describe('project keys never manage organization resources', () => {
     })
     const res = await app.request(url, init)
     expect(res.status).toBe(200)
-    const body = (await res.json()) as { name: string; credentials: { apiToken: string } }
+    const body = (await res.json()) as { name: string; accountSuffix: string | null }
     expect(body.name).toBe('Renamed CF')
-    expect(body.credentials.apiToken).not.toContain('token')
+    expect(body).not.toHaveProperty('credentials')
   })
 })
 
@@ -661,12 +661,11 @@ describe('organization-level API keys', () => {
       key: string
       level: string
       permissions: KeyPermissions
-      organizationId: string
       keyHash?: string
     }
     expect(body.level).toBe('organization')
     expect(body.permissions).toEqual({ projects: ['read'] })
-    expect(body.organizationId).toBe(TEST_ORG_ID)
+    expect(body).not.toHaveProperty('organizationId')
     expect(body.key).toMatch(/^ask_/)
     expect(body.keyHash).toBeUndefined()
     const revoked = await app.request(

@@ -55,6 +55,12 @@ import type {
   ApiKeyTarget,
   CreateApiKeyData,
   WorkspaceKeyCount,
+  OrgHomeSummary,
+  ProjectSummary,
+  WorkspaceSettingsCounts,
+  ResourceCounts,
+  WorkflowPageSummary,
+  WorkspacePageOverview,
   EnvVar,
   OrgEnvVar,
   ResolvedProjectVariable,
@@ -144,6 +150,7 @@ import {
 import { TERMINAL_RUN_STATUSES, type OverviewTables } from './overview-fields.js'
 import { RoleFields } from './role-fields.js'
 import { ScopeAdapter } from './scope.js'
+import { SummaryAdapter } from './summaries.js'
 import { AccessAdapter } from './access.js'
 import { InvitationsAdapter } from './invitations.js'
 import { AccessRequestsAdapter } from './access-requests.js'
@@ -245,6 +252,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _account?: AccountAdapter
   private _images: ImagesAdapter
   private _scope: ScopeAdapter
+  private _summaries: SummaryAdapter
   private _access: AccessAdapter
   private _invitations: InvitationsAdapter
   private _accessRequests: AccessRequestsAdapter
@@ -281,6 +289,21 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     const roles =
       schema.projectMembers && schema.workspaceMembers ? new RoleFields(tables) : undefined
     this._scope = new ScopeAdapter(db, tables, this._dialect)
+    this._summaries = new SummaryAdapter(
+      db,
+      {
+        ...tables,
+        apiKeys: schema.apiKeys,
+        apiKeyProjects: schema.apiKeyProjects,
+        apiKeyWorkspaces: schema.apiKeyWorkspaces,
+        envVars: schema.envVars,
+        envVarProjects: schema.envVarProjects,
+        envVarWorkspaces: schema.envVarWorkspaces,
+        installedNodes: schema.installedNodes,
+        connections: schema.connections,
+      },
+      this._dialect,
+    )
     this._access = new AccessAdapter(
       db,
       {
@@ -614,10 +637,39 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listFailingWorkflows(organizationId: string, viewerId: string): Promise<FailingWorkflow[]> {
     return this._workspaceRuns.listFailing(organizationId, viewerId)
   }
+  orgHomeSummary(organizationId: string, viewerId: string): Promise<OrgHomeSummary | null> {
+    return this._summaries.orgHome(organizationId, viewerId)
+  }
+  projectSummary(
+    organizationId: string,
+    projectId: string,
+    now: string,
+  ): Promise<ProjectSummary | null> {
+    return this._summaries.projectSummary(organizationId, projectId, now)
+  }
+  workspaceSettingsCounts(
+    workspaceId: string,
+    now: string,
+  ): Promise<WorkspaceSettingsCounts | null> {
+    return this._summaries.workspaceSettingsCounts(workspaceId, now)
+  }
+  workflowPageSummary(workflowId: string, now: Date): Promise<WorkflowPageSummary | null> {
+    return this._summaries.workflowSummary(workflowId, now)
+  }
+  workspacePageOverview(workspaceId: string, now: Date): Promise<WorkspacePageOverview | null> {
+    return this._summaries.workspaceOverview(workspaceId, now)
+  }
+  resourceCounts(organizationId: string): Promise<ResourceCounts> {
+    return this._summaries.resourceCounts(organizationId)
+  }
 
   // Access: people, grants, the access editor
-  listOrgMembers(organizationId: string, viewerId: string): Promise<OrgMemberRow[]> {
-    return this._access.listOrgMembers(organizationId, viewerId)
+  listOrgMembers(
+    organizationId: string,
+    viewerId: string,
+    options?: { seeAll?: boolean },
+  ): Promise<OrgMemberRow[]> {
+    return this._access.listOrgMembers(organizationId, viewerId, options)
   }
   getPersonAccess(organizationId: string, userId: string): Promise<PersonAccessRows | null> {
     return this._access.getPersonAccess(organizationId, userId)
@@ -1014,6 +1066,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     limit: number,
   ): Promise<NotificationList> {
     return this._notifications.list(organizationId, userId, limit)
+  }
+  countUnreadNotifications(organizationId: string, userId: string): Promise<number> {
+    return this._notifications.countUnread(organizationId, userId)
   }
   markNotificationRead(
     organizationId: string,
@@ -1592,8 +1647,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     organizationId: string,
     pagination?: PaginationParams,
     visibleTo?: string,
+    options?: { seeAll?: boolean },
   ): Promise<PaginatedResult<OrgEnvVar>> {
-    return this._envVars.listByOrganization(organizationId, pagination, visibleTo)
+    return this._envVars.listByOrganization(organizationId, pagination, visibleTo, options)
   }
   listEnvVarsByProject(
     organizationId: string,

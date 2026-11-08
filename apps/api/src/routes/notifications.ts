@@ -19,6 +19,14 @@ notifications.get('/', async (c) => {
   return c.json(page)
 })
 
+/** The shell's badge: one count, not the list. */
+notifications.get('/count', async (c) => {
+  const unread = await c
+    .get('db')
+    .countUnreadNotifications(c.get('organizationId'), c.get('userId'))
+  return c.json({ unread })
+})
+
 notifications.post('/read-all', async (c) => {
   const updated = await c
     .get('db')

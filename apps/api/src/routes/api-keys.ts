@@ -63,12 +63,24 @@ function targetOf(c: Context<AppEnv>, level: KeyLevel): ApiKeyTarget {
   return { level, organizationId: c.get('organizationId') }
 }
 
-/** A key as the keys pages read it: no hash, the grid as an object, and its scope set. */
-function keyRecord(key: ApiKey | ApiKeyListItem) {
-  const { keyHash: _hash, scopes: _scopes, permissions, ...rest } = key
+/**
+ * A key as the keys pages read it: no hash, no parent, the grid as an object,
+ * and its scope set. The secret's last four characters go only to someone who
+ * can manage keys at the addressed level; everyone else sees the prefix.
+ */
+function keyRecord(key: ApiKey | ApiKeyListItem, { withSuffix }: { withSuffix: boolean }) {
   return {
-    ...rest,
-    permissions: parseKeyPermissions(permissions) ?? {},
+    id: key.id,
+    level: key.level,
+    name: key.name,
+    keyPrefix: key.keyPrefix,
+    ...(withSuffix && key.keySuffix ? { keySuffix: key.keySuffix } : {}),
+    permissions: parseKeyPermissions(key.permissions) ?? {},
+    expiresAt: key.expiresAt,
+    lastUsedAt: key.lastUsedAt,
+    revokedAt: key.revokedAt,
+    createdAt: key.createdAt,
+    createdByName: 'createdByName' in key ? key.createdByName : null,
     projects: 'projects' in key ? key.projects : [],
     workspaces: 'workspaces' in key ? key.workspaces : [],
   }
@@ -102,7 +114,10 @@ apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
     const can = levelCan(c, 'manageKeys')
     if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
     const result = await db.listApiKeysByOrganization(c.get('organizationId'), { cursor, limit })
-    return c.json({ data: result.data.map(keyRecord), nextCursor: result.nextCursor })
+    return c.json({
+      data: result.data.map((key) => keyRecord(key, { withSuffix: true })),
+      nextCursor: result.nextCursor,
+    })
   }
   // An organization admin sees a reaching bundle's whole scope set; a mere
   // project/workspace admin sees only the slice reaching the place they manage.
@@ -110,19 +125,35 @@ apiKeys.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const fullReach = !!orgRole && orgCapabilities(orgRole).manageSettings.allowed
   const now = new Date().toISOString()
   if (level === 'project') {
+    // Viewers do not see a key list: the project's members (and the org's
+    // owners and admins, who are project admins everywhere) do.
+    const projectRole = c.get('projectRole')
+    if (!projectRole) {
+      return c.json({ error: 'Only project members can list API keys' }, 403)
+    }
+    const withSuffix = projectRole === 'admin'
     const projectId = c.get('projectId')
     const [rows, workspaceCounts] = await Promise.all([
       db.listApiKeysByProject(c.get('organizationId'), projectId, c.get('userId'), fullReach, now),
       db.countApiKeysByWorkspace(projectId, c.get('userId')),
     ])
     return c.json({
-      own: rows.own.map(keyRecord),
-      reaching: rows.reaching.map(keyRecord),
+      own: rows.own.map((key) => keyRecord(key, { withSuffix })),
+      reaching: rows.reaching.map((key) => keyRecord(key, { withSuffix })),
       workspaceCounts,
     })
   }
+  // A workspace Viewer does not see the list; its Editors and Admins do.
+  const workspaceRole = c.get('workspaceRole')
+  if (!workspaceRole || workspaceRole === 'viewer') {
+    return c.json({ error: 'Only workspace editors can list API keys' }, 403)
+  }
+  const withSuffix = workspaceRole === 'admin'
   const rows = await db.listApiKeysByWorkspace(c.get('workspaceId')!, now, fullReach)
-  return c.json({ own: rows.own.map(keyRecord), reaching: rows.reaching.map(keyRecord) })
+  return c.json({
+    own: rows.own.map((key) => keyRecord(key, { withSuffix })),
+    reaching: rows.reaching.map((key) => keyRecord(key, { withSuffix })),
+  })
 })
 
 /**
@@ -227,7 +258,7 @@ apiKeys.post('/', zValidator('json', createApiKeySchema), async (c) => {
           }))
         : [],
   }
-  return c.json({ ...keyRecord(listed), key: rawKey }, 201)
+  return c.json({ ...keyRecord(listed, { withSuffix: true }), key: rawKey }, 201)
 })
 
 /**
@@ -247,7 +278,7 @@ apiKeys.delete('/:id', async (c) => {
     facts: { name: revoked.name },
     ...auditPlace(c, level),
   })
-  return c.json(keyRecord(revoked))
+  return c.json(keyRecord(revoked, { withSuffix: true }))
 })
 
 /**
@@ -274,5 +305,5 @@ apiKeys.delete('/:id/scope', async (c) => {
     facts: { name: revoked.name },
     ...auditPlace(c, level),
   })
-  return c.json(keyRecord(revoked))
+  return c.json(keyRecord(revoked, { withSuffix: true }))
 })

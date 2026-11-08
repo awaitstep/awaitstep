@@ -170,11 +170,7 @@ export function DeleteItemDialog({
     >
       <div className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
-          {deleteLine(
-            workflow.kind,
-            { count: overview.versions.length, more: overview.versionsHasMore },
-            runCount,
-          )}
+          {deleteLine(workflow.kind, { count: overview.versionCount, more: false }, runCount)}
         </p>
         <FailureLine error={remove.error} general={`Couldn’t delete the ${word}`} />
       </div>

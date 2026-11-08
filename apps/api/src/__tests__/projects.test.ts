@@ -54,7 +54,8 @@ describe('POST /api/projects', () => {
       lock: null,
       viewerRole: 'admin',
     })
-    expect(data[0].members[0]).toMatchObject({ role: 'owner' })
+    // The member roster is not a project card's data (B8).
+    expect(data[0].members).toEqual([])
     expect(data[0].viewerCan.createWorkspace.allowed).toBe(true)
   })
 

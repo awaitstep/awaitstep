@@ -50,6 +50,7 @@ export function useRevokeProjectKey(org: string, project: string) {
       invalidateAll(client, [
         dashKeys.inProject('keys', org, project),
         dashKeys.setup(org, project),
+        dashKeys.inOrg('settings-counts', org),
       ]),
   })
 }
@@ -73,13 +74,17 @@ export function useRevokeProjectKeyScope(org: string, project: string) {
       invalidateAll(client, [
         dashKeys.inProject('keys', org, project),
         dashKeys.setup(org, project),
+        dashKeys.inOrg('settings-counts', org),
         dashKeys.orgKeys(org),
       ]),
   })
 }
 
 /** Workspace settings → API keys: its own keys and the project keys that reach it. */
-export function useWorkspaceKeys(slugs: Required<ScopeSlugs>) {
+export function useWorkspaceKeys(
+  slugs: Required<ScopeSlugs>,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
@@ -89,6 +94,7 @@ export function useWorkspaceKeys(slugs: Required<ScopeSlugs>) {
       source === 'api'
         ? dashboardApi.listWorkspaceKeys(slugs).then(toWorkspaceKeys)
         : mockServer.keys.listWorkspaceKeys(ctx, slugs),
+    enabled,
   })
 }
 
@@ -103,7 +109,11 @@ export function useRevokeWorkspaceKey(slugs: Required<ScopeSlugs>) {
       if (source !== 'api') return mockServer.keys.revokeWorkspaceKey(ctx, slugs, keyId)
       await dashboardApi.revokeKey(slugs, keyId)
     },
-    onSuccess: () => invalidateAll(client, [dashKeys.inProject('keys', slugs.org, slugs.project)]),
+    onSuccess: () =>
+      invalidateAll(client, [
+        dashKeys.inProject('keys', slugs.org, slugs.project),
+        dashKeys.inOrg('settings-counts', slugs.org),
+      ]),
   })
 }
 
@@ -120,7 +130,11 @@ export function useRevokeWorkspaceKeyScope(slugs: Required<ScopeSlugs>) {
       if (source !== 'api') return mockServer.keys.revokeWorkspaceKeyScope(ctx, slugs, keyId)
       await dashboardApi.revokeKeyScope(slugs, keyId)
     },
-    onSuccess: () => invalidateAll(client, [dashKeys.inProject('keys', slugs.org, slugs.project)]),
+    onSuccess: () =>
+      invalidateAll(client, [
+        dashKeys.inProject('keys', slugs.org, slugs.project),
+        dashKeys.inOrg('settings-counts', slugs.org),
+      ]),
   })
 }
 
@@ -159,6 +173,7 @@ export function useRevokeOrgKey(org: string) {
         dashKeys.orgKeys(org),
         dashKeys.inOrg('keys', org),
         dashKeys.inOrg('setup', org),
+        dashKeys.inOrg('settings-counts', org),
       ]),
   })
 }
@@ -180,6 +195,7 @@ export function useCreateKey(org: string) {
         dashKeys.inOrg('keys', org),
         dashKeys.inOrg('setup', org),
         dashKeys.orgKeys(org),
+        dashKeys.inOrg('settings-counts', org),
       ]),
   })
 }

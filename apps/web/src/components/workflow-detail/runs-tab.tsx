@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { useActiveRunSync } from '../../hooks/use-active-run-sync'
 import { Play } from 'lucide-react'
-import type { RunSummary, VersionSummary, WorkflowSummary } from '../../lib/api-client'
+import type { RunSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
 import { DeployFor } from './deploy-for'
 import { flatPages } from '../../lib/queries'
@@ -19,7 +19,6 @@ import { useQueries } from '../../contexts/api-client-context'
 
 interface RunsTabProps {
   workflow: WorkflowSummary
-  versions: VersionSummary[]
   /** Never deployed: the empty state offers Deploy (24f). */
   neverDeployed: boolean
   /** Runs in the last 24 hours, by result, when known. */
@@ -27,12 +26,15 @@ interface RunsTabProps {
 }
 
 /** A workflow's Runs tab (`WorkflowDetail`): Result · Run · Version · Took · Started, newest first. */
-export function RunsTab({ workflow, versions, neverDeployed, runs24h }: RunsTabProps) {
+export function RunsTab({ workflow, neverDeployed, runs24h }: RunsTabProps) {
   const queries = useQueries()
   const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
   const query = useInfiniteQuery(queries.runs.byWorkflow(workflowId))
   const runs = flatPages(query.data)
+  // The tab names each run's version; the list is this tab's own read.
+  const versionsQuery = useInfiniteQuery(queries.versions.byWorkflow(workflowId))
+  const versions = flatPages(versionsQuery.data)
   const versionNumbers = useMemo(() => new Map(versions.map((v) => [v.id, v.version])), [versions])
   const columns = useMemo(() => runColumns(links.run, versionNumbers), [links, versionNumbers])
 

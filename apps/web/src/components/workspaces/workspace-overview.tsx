@@ -9,9 +9,12 @@ import {
 import { cn } from '../../lib/utils'
 import { timeAgoOrDay } from '../../lib/time'
 import { plural } from '../../lib/plural'
-import type { SharedItem, WorkspaceItem } from '../../types/dashboard/items'
 import type { WorkspaceRun } from '../../types/dashboard/runs'
-import type { Workspace, WorkspacePerson } from '../../types/dashboard/workspaces'
+import type {
+  Workspace,
+  WorkspaceOverviewData,
+  WorkspacePerson,
+} from '../../types/dashboard/workspaces'
 import { ITEM_KIND_LABEL } from '../items/item-kind'
 import { Avatar } from '../ui/avatar'
 import { Badge } from '../ui/badge'
@@ -21,13 +24,7 @@ import { StatusPill } from '../ui/status-pill'
 import { StatTile, Tile } from '../ui/tile'
 import { ScopeChip } from '../ui/workspace-dot'
 import { RESULT_DOT_CLASS, resultLabel, tookLabel, triggerLabel } from '../runs/run-format'
-import {
-  attentionDetail,
-  attentionTitle,
-  needsAttention,
-  sharedOutLabel,
-  sharedSummary,
-} from './overview-summary'
+import { attentionDetail, attentionTitle, sharedOutLabel } from './overview-summary'
 import { OverviewCard } from './parts/overview-card'
 import { OverviewEmpty } from './parts/overview-empty'
 import { RunsTile } from './parts/runs-tile'
@@ -95,11 +92,8 @@ function recentColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
 interface WorkspaceOverviewProps {
   slugs: WorkspaceSlugs
   workspace: Workspace
-  items: WorkspaceItem[]
-  recentRuns: WorkspaceRun[]
-  failedRuns: WorkspaceRun[]
+  overview: WorkspaceOverviewData
   people: WorkspacePerson[]
-  sharedIn: SharedItem[]
   projectName: string
   /** Built, but nothing has run yet (`WsOverview`, Built no runs): the runs tiles become a nudge to deploy. */
   quiet?: boolean
@@ -109,11 +103,8 @@ interface WorkspaceOverviewProps {
 export function WorkspaceOverview({
   slugs,
   workspace,
-  items,
-  recentRuns,
-  failedRuns,
+  overview,
   people,
-  sharedIn,
   projectName,
   quiet = false,
 }: WorkspaceOverviewProps) {
@@ -124,9 +115,10 @@ export function WorkspaceOverview({
     () => recentColumns({ org: orgSlug, project: projectSlug, workspace: workspaceSlug }),
     [orgSlug, projectSlug, workspaceSlug],
   )
-  const attention = needsAttention(items, failedRuns)
-  const shared = sharedSummary(items, sharedIn)
-  const workflows = items.filter((item) => item.kind === 'workflow').length
+  const attention = overview.needsAttention
+  const shared = overview.shared
+  const recentRuns = overview.recent
+  const workflows = overview.counts.workflows
   const failingTone = attention.length > 0 ? 'danger' : undefined
   const workflowsHref = workspacePath(slugs, 'workflows')
   const libraryHref = workspacePath(slugs, 'library')
@@ -142,7 +134,7 @@ export function WorkspaceOverview({
       >
         <StatTile value={workflows} label="Workflows" href={workflowsHref} />
         <StatTile
-          value={items.length - workflows}
+          value={overview.counts.functions}
           label="Functions"
           href={workspacePath(slugs, 'functions')}
         />
@@ -168,11 +160,7 @@ export function WorkspaceOverview({
           </div>
         ) : (
           <>
-            <RunsTile
-              runs={workspace.counts.runs24h}
-              hours={workspace.runsByHour}
-              href={runsHref}
-            />
+            <RunsTile runs={overview.counts.runs24h} hours={workspace.runsByHour} href={runsHref} />
             <StatTile
               value={attention.length}
               label="Failing now"
@@ -208,9 +196,9 @@ export function WorkspaceOverview({
                     <span className="text-2xs text-muted-foreground">{attentionDetail(entry)}</span>
                   </span>
                   <StatusPill status="failed" />
-                  {entry.item.lastRun && (
+                  {entry.run && (
                     <span className="text-2xs text-muted-foreground">
-                      {timeAgoOrDay(entry.item.lastRun.at)}
+                      {timeAgoOrDay(entry.run.createdAt)}
                     </span>
                   )}
                 </ShellLink>

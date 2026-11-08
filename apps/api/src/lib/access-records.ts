@@ -18,8 +18,21 @@ import { parseOrgRole } from './org-role.js'
 export interface PersonRecord {
   id: string
   name: string
-  email: string
+  /** Left out for a viewer who is not an org owner or admin. */
+  email?: string
   image: string | null
+}
+
+function personRecord(
+  row: { id: string; name: string; email: string; image: string | null },
+  withEmail: boolean,
+): PersonRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    ...(withEmail ? { email: row.email } : {}),
+    image: row.image,
+  }
 }
 
 /** One place an org member can work: a project-wide role, or a role in one workspace. */
@@ -36,13 +49,14 @@ export interface OrgMemberRecord extends PersonRecord {
   places: AccessPlaceRecord[]
 }
 
-export function orgMemberRecord(row: OrgMemberRow): OrgMemberRecord {
+export function orgMemberRecord(
+  row: OrgMemberRow,
+  withEmail: boolean,
+  viewerId: string,
+): OrgMemberRecord {
   const role = parseOrgRole(row.role)
   return {
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    image: row.image,
+    ...personRecord(row, withEmail || row.id === viewerId),
     role,
     joinedAt: row.joinedAt,
     places: isOrgAdmin(role)
@@ -104,10 +118,14 @@ function wideRole(row: ProjectMemberRow): ProjectWideRole | null {
   return null
 }
 
-export function projectMembersRecord(rows: ProjectMemberRow[]): ProjectMembersRecord {
+export function projectMembersRecord(
+  rows: ProjectMemberRow[],
+  withEmail: boolean,
+  viewerId: string,
+): ProjectMembersRecord {
   const record: ProjectMembersRecord = { wholeProject: [], workspacesOnly: [] }
   for (const row of rows) {
-    const person = { id: row.id, name: row.name, email: row.email, image: row.image }
+    const person = personRecord(row, withEmail || row.id === viewerId)
     const role = wideRole(row)
     if (role) {
       record.wholeProject.push({ person, role })

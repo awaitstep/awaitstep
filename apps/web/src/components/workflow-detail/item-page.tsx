@@ -1,11 +1,8 @@
 import type { ReactNode } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
-import { useWorkflowRunCounts } from '../../data/dashboard/runs'
 import { useDataSource } from '../../data/dashboard/source'
 import { ApiError, type WorkflowSummary } from '../../lib/api-client'
 import type { RunHour } from '../../types/dashboard/workspaces'
 import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
-import { flatPages } from '../../lib/queries'
 import { useInOtherWorkspace, useItemScopeReady } from '../../lib/workflows/route-scope'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
 import { PageBody } from '../shell/page-intro'
@@ -16,7 +13,6 @@ import { ItemHeader } from './item-header'
 import { ItemNotFound } from './item-not-found'
 import { useDeploymentAccounts } from './use-deployment-accounts'
 import { useWorkflowOverview, type WorkflowOverview } from './use-workflow-overview'
-import { useQueries } from '../../contexts/api-client-context'
 
 /** Gone, or never this project's: the API says 404 for both. */
 function isMissing(error: Error): boolean {
@@ -65,21 +61,12 @@ interface ItemPageProps {
  * project; sample data has no real item to show.
  */
 export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
-  const queries = useQueries()
   const source = useDataSource()
   const ready = useItemScopeReady() && source === 'api'
   const overview = useWorkflowOverview(workflowId, ready)
-  const { workflow } = overview
+  const { workflow, summary } = overview
   const inOtherWorkspace = useInOtherWorkspace(workflow)
-  const isWorkflow = ready && !!workflow && workflow.kind !== 'script' && !inOtherWorkspace
   const accounts = useDeploymentAccounts(workflowId, ready)
-  // Counted by the workspace's runs list, which keeps them to this workspace.
-  const runsDay = useWorkflowRunCounts(slugs, workflowId, { period: '24h', enabled: isWorkflow })
-  const runsAll = useWorkflowRunCounts(slugs, workflowId, { enabled: isWorkflow })
-  const deployments = useInfiniteQuery({
-    ...queries.deployments.byWorkflow(workflowId),
-    enabled: ready && !!workflow,
-  })
   // Edit in place only where the API would take it (a Viewer would get a 403).
   const canEdit = useWorkspaceScope(slugs)?.workspace.viewerCan.edit.allowed ?? false
 
@@ -111,17 +98,16 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
   } else if (!workflow || inOtherWorkspace) {
     body = <ItemNotFound slugs={slugs} workflowId={workflowId} />
   } else {
-    const ranEver = runsAll.data ? runsAll.data.counts.all > 0 : undefined
-    const runs24h = runsDay.data
+    const ranEver = summary ? summary.runs.total > 0 : undefined
+    const runs24h = summary
       ? {
-          all: runsDay.data.counts.all,
-          failed: runsDay.data.counts.failed,
-          byHour: runsDay.data.byHour,
+          all: summary.runs.counts.all,
+          failed: summary.runs.counts.failed,
+          byHour: summary.runs.byHour,
           ranEver,
         }
       : undefined
-    const loadedDeploys = deployments.data ? flatPages(deployments.data).length : undefined
-    const draft = draftState(loadedDeploys, workflow.kind === 'script', ranEver)
+    const draft = draftState(summary?.deployCount, workflow.kind === 'script', ranEver)
     const neverDeployed = draft === true
     body = (
       <>
@@ -138,8 +124,8 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
             draft !== false
               ? undefined
               : {
-                  runs: runsAll.data?.counts.all,
-                  deployments: deployments.hasNextPage ? undefined : loadedDeploys,
+                  runs: summary?.runs.total,
+                  deployments: summary?.deployCount,
                 }
           }
         />

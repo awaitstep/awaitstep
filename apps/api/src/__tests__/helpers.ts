@@ -638,6 +638,32 @@ const mockDb: DatabaseAdapter = {
       : undefined
     return { data, nextCursor: null, counts, ...(byHour && { byHour }) }
   },
+  async countUnreadNotifications() {
+    return 0
+  },
+  async orgHomeSummary() {
+    return { failing: { count: 0, first: null } }
+  },
+  async projectSummary() {
+    return {
+      admins: { count: 0, people: [] },
+      projectKeys: 0,
+      variables: { total: 0, own: 0, inherited: 0, first: [] },
+      shared: { count: 0, first: [] },
+    }
+  },
+  async workspacePageOverview() {
+    return null
+  },
+  async workflowPageSummary() {
+    return null
+  },
+  async workspaceSettingsCounts() {
+    return { members: 0, keys: 0, variables: 0 }
+  },
+  async resourceCounts() {
+    return { installedNodes: 0, variables: 0 }
+  },
   async listFailingWorkflows() {
     return []
   },

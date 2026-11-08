@@ -51,16 +51,6 @@ beforeEach(() => {
   useOrgStore.setState({
     appReady: true,
     organizations: [{ id: 'org-1', name: 'Acme', slug: 'acme', createdAt: '' }],
-    projects: [
-      {
-        id: 'p-1',
-        organizationId: 'org-1',
-        name: 'Project 101',
-        slug: 'project-101',
-        createdAt: '',
-        updatedAt: '',
-      },
-    ],
     activeOrganizationId: 'org-1',
     activeProjectId: 'p-1',
   })

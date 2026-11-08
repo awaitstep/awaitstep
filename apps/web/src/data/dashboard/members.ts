@@ -53,6 +53,9 @@ function memberKeys(slugs: WorkspaceSlugs) {
     // Org Members lists each person's places, and the access editor reads them too.
     dashKeys.orgMembers(slugs.org),
     dashKeys.projects(slugs.org),
+    // The project summary's admins and the settings tab pills follow a grant.
+    dashKeys.inProject('setup', slugs.org, slugs.project),
+    dashKeys.workspaceSettingsCounts(slugs),
     dashKeys.scope(),
   ]
 }

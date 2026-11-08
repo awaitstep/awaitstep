@@ -46,7 +46,6 @@ function seedSwitcher() {
     appReady: true,
     activeOrganizationId: 'org_old',
     activeProjectId: 'prj_first',
-    projects: [],
   })
 }
 

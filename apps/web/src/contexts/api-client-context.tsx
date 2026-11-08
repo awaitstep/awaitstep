@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react'
 import { api, createApiClient, type ApiClient } from '../lib/api-client'
 import { createQueries, queries, type Queries } from '../lib/queries'
 import type { ItemApiScope } from '../lib/workflows/route-scope'
-import { useOrgReady, useOrgStore } from '../stores/org-store'
+import { useOrgStore } from '../stores/org-store'
 
 interface ApiClientValue {
   api: ApiClient
@@ -63,8 +63,8 @@ export function useItemApiScope(): ItemApiScope | null {
 export function useApiReady(): boolean {
   const scoped = useItemApiScope() !== null
   const appReady = useOrgStore((s) => s.appReady)
-  const orgReady = useOrgReady()
-  return scoped ? appReady : orgReady
+  const hasOrg = useOrgStore((s) => s.activeOrganizationId !== null)
+  return scoped ? appReady : appReady && hasOrg
 }
 
 /** The organization `useApi()`'s client calls: the workflow URL's, else the switcher's. */

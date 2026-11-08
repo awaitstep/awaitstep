@@ -29,7 +29,7 @@ export function useViewer() {
   })
 }
 
-export function useOrgs() {
+export function useOrgs({ enabled = true }: { enabled?: boolean } = {}) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
@@ -41,6 +41,7 @@ export function useOrgs() {
             .listOrgs()
             .then((res) => res.data.map((org) => toOrgListing(org, orgOpenedAt(org.slug))))
         : mockServer.session.listOrgs(ctx),
+    enabled,
   })
 }
 

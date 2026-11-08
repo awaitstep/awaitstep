@@ -125,6 +125,9 @@ const CLOSED_PATHS = new Set([
   '/organization/leave',
   '/organization/get-full-organization',
   '/organization/list-invitations',
+  // The member roster with every address in it: `/api/members?org=` answers
+  // that for a person, and sends an address only where the viewer may see it.
+  '/organization/list-members',
 ])
 
 /** Your account's closed paths (B10), with a refusal that says where to go instead. */
@@ -201,11 +204,12 @@ export function createAuth(options: AuthOptions) {
       }),
       // The session object carries its bearer token, and the cookie is
       // httpOnly for a reason: the answer the browser reads leaves it out.
+      // The raw client address is the account page's to show, masked.
       after: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== '/get-session') return
         const returned = ctx.context.returned as { session?: Record<string, unknown> } | null
         if (!returned || typeof returned !== 'object' || !returned.session) return
-        const { token: _token, ...session } = returned.session
+        const { token: _token, ipAddress: _ipAddress, ...session } = returned.session
         return ctx.json({ ...returned, session })
       }),
     },

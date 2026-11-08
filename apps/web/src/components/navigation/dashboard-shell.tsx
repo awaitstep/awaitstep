@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLocation, useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import { useNotifications, useReleases } from '../../data/dashboard/inbox'
+import { useNotificationCount, useReleases } from '../../data/dashboard/inbox'
 import { useViewer } from '../../data/dashboard/session'
 import { useDataSource } from '../../data/dashboard/source'
 import { useScope } from '../../data/dashboard/workspaces'
@@ -71,7 +71,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const { pathname, href } = useLocation()
   const search = useSearch({ strict: false }) as DashboardSearch
   const navigate = useNavigate()
-  const notifications = useNotifications(slugs.org)
+  const notifications = useNotificationCount(slugs.org)
   const releases = useReleases(slugs.org)
   const source = useDataSource()
 
@@ -90,7 +90,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   const overlays: RailOverlays = {
     here: href,
-    unread: notifications.data?.counts.unread ?? 0,
+    unread: notifications.data ?? 0,
     freshReleases: countFresh(releases.data),
   }
   const found = scope.data?.found === true

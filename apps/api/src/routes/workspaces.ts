@@ -7,7 +7,7 @@ import { zValidator } from '../lib/validation.js'
 import { apiKeyLevel, isSession } from '../middleware/auth.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
 import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
-import { FOR_KEY, FOR_SESSION, rolesOf, workspaceRecord } from '../lib/scope-records.js'
+import { FOR_KEY, forSession, rolesOf, workspaceRecord } from '../lib/scope-records.js'
 import { workspaceSlugSchema } from '../lib/slugs.js'
 import { recordAudit } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
@@ -46,7 +46,7 @@ const SLUG_TAKEN = 'Another workspace in this project already uses that URL'
 
 workspaces.get('/', async (c) => {
   const rows = await c.get('db').listWorkspacesByProject(c.get('projectId'), c.get('userId'))
-  const audience = isSession(c) ? FOR_SESSION : FOR_KEY
+  const audience = isSession(c) ? forSession(c.get('userId'), c.get('orgRole')) : FOR_KEY
   return c.json({ data: rows.map((row) => workspaceRecord(row, audience)) })
 })
 
@@ -106,10 +106,35 @@ workspaces.post('/', zValidator('json', createWorkspaceSchema), async (c) => {
   }
 })
 
+/** The workspace Overview: counts, failing items, recent runs and shares, one statement. */
+workspaces.get('/:id/overview', async (c) => {
+  const overview = await c.get('db').workspacePageOverview(c.get('workspaceId')!, new Date())
+  if (!overview) return c.json({ error: 'Not found' }, 404)
+  return c.json(overview)
+})
+
+workspaces.get('/:id/settings-counts', async (c) => {
+  const counts = await c
+    .get('db')
+    .workspaceSettingsCounts(c.get('workspaceId')!, new Date().toISOString())
+  if (!counts) return c.json({ error: 'Not found' }, 404)
+  return c.json(counts)
+})
+
 workspaces.get('/:id', async (c) => {
   const workspace = await c.get('db').getWorkspaceById(c.get('workspaceId')!)
   if (!workspace) return c.json({ error: 'Not found' }, 404)
-  return c.json(workspace)
+  return c.json({
+    id: workspace.id,
+    projectId: workspace.projectId,
+    slug: workspace.slug,
+    name: workspace.name,
+    description: workspace.description,
+    colour: workspace.colour,
+    createdBy: workspace.createdBy,
+    createdAt: workspace.createdAt,
+    updatedAt: workspace.updatedAt,
+  })
 })
 
 workspaces.patch('/:id', zValidator('json', updateWorkspaceSchema), async (c) => {

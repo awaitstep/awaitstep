@@ -15,9 +15,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthedOrgRouteImport } from './routes/_authed/$org'
 import { Route as AuthedOrglessRouteImport } from './routes/_authed/_orgless'
 import { Route as AuthedChooseOrgRouteImport } from './routes/_authed/choose-org'
-import { Route as AuthedConnectionsRouteImport } from './routes/_authed/connections'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
-import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthedOrgIndexRouteImport } from './routes/_authed/$org.index'
 import { Route as AuthedOrgProjectRouteImport } from './routes/_authed/$org.$project'
@@ -29,9 +27,6 @@ import { Route as AuthedOrgProjectsRouteImport } from './routes/_authed/$org.pro
 import { Route as AuthedOrgResourcesRouteImport } from './routes/_authed/$org.resources'
 import { Route as AuthedOrgWhatsNewRouteImport } from './routes/_authed/$org.whats-new'
 import { Route as AuthedOrglessApiPlaygroundRouteImport } from './routes/_authed/_orgless.api-playground'
-import { Route as AuthedRunsIndexRouteImport } from './routes/_authed/runs.index'
-import { Route as AuthedRunsRunIdRouteImport } from './routes/_authed/runs.$runId'
-import { Route as AuthedWorkflowsIndexRouteImport } from './routes/_authed/workflows.index'
 import { Route as AuthedOrgProjectIndexRouteImport } from './routes/_authed/$org.$project.index'
 import { Route as AuthedOrgProjectWorkspaceRouteImport } from './routes/_authed/$org.$project.$workspace'
 import { Route as AuthedOrgProjectApiKeysRouteImport } from './routes/_authed/$org.$project.api-keys'
@@ -51,12 +46,6 @@ import { Route as AuthedOrgSettingsMembersRouteImport } from './routes/_authed/$
 import { Route as AuthedOrglessAccountIndexRouteImport } from './routes/_authed/_orgless.account.index'
 import { Route as AuthedOrglessAccountProfileRouteImport } from './routes/_authed/_orgless.account.profile'
 import { Route as AuthedOrglessAccountSessionsRouteImport } from './routes/_authed/_orgless.account.sessions'
-import { Route as AuthedWorkflowsWorkflowIdIndexRouteImport } from './routes/_authed/workflows/$workflowId.index'
-import { Route as AuthedWorkflowsWorkflowIdCanvasRouteImport } from './routes/_authed/workflows/$workflowId.canvas'
-import { Route as AuthedWorkflowsWorkflowIdCodeRouteImport } from './routes/_authed/workflows/$workflowId.code'
-import { Route as AuthedWorkflowsWorkflowIdDeployRouteImport } from './routes/_authed/workflows/$workflowId.deploy'
-import { Route as AuthedWorkflowsWorkflowIdDeploymentsRouteImport } from './routes/_authed/workflows/$workflowId.deployments'
-import { Route as AuthedWorkflowsWorkflowIdEditorRouteImport } from './routes/_authed/workflows/$workflowId.editor'
 import { Route as AuthedOrgProjectWorkspaceIndexRouteImport } from './routes/_authed/$org.$project.$workspace.index'
 import { Route as AuthedOrgProjectWorkspaceFunctionsRouteImport } from './routes/_authed/$org.$project.$workspace.functions'
 import { Route as AuthedOrgProjectWorkspaceLibraryRouteImport } from './routes/_authed/$org.$project.$workspace.library'
@@ -71,7 +60,6 @@ import { Route as AuthedOrgProjectSettingsMembersRouteImport } from './routes/_a
 import { Route as AuthedOrgProjectSettingsSharedRouteImport } from './routes/_authed/$org.$project.settings.shared'
 import { Route as AuthedOrgProjectSettingsVariablesRouteImport } from './routes/_authed/$org.$project.settings.variables'
 import { Route as AuthedOrgProjectSettingsWorkspacesRouteImport } from './routes/_authed/$org.$project.settings.workspaces'
-import { Route as AuthedWorkflowsWorkflowIdRunsIndexRouteImport } from './routes/_authed/workflows/$workflowId.runs.index'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdIndexRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id.index'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdDeployRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id.deploy'
@@ -108,19 +96,9 @@ const AuthedChooseOrgRoute = AuthedChooseOrgRouteImport.update({
   path: '/choose-org',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedConnectionsRoute = AuthedConnectionsRouteImport.update({
-  id: '/connections',
-  path: '/connections',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
   getParentRoute: () => AuthedRoute,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -179,21 +157,6 @@ const AuthedOrglessApiPlaygroundRoute =
     path: '/api-playground',
     getParentRoute: () => AuthedOrglessRoute,
   } as any)
-const AuthedRunsIndexRoute = AuthedRunsIndexRouteImport.update({
-  id: '/runs/',
-  path: '/runs/',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedRunsRunIdRoute = AuthedRunsRunIdRouteImport.update({
-  id: '/runs/$runId',
-  path: '/runs/$runId',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedWorkflowsIndexRoute = AuthedWorkflowsIndexRouteImport.update({
-  id: '/workflows/',
-  path: '/workflows/',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedOrgProjectIndexRoute = AuthedOrgProjectIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -301,42 +264,6 @@ const AuthedOrglessAccountSessionsRoute =
     path: '/account/sessions',
     getParentRoute: () => AuthedOrglessRoute,
   } as any)
-const AuthedWorkflowsWorkflowIdIndexRoute =
-  AuthedWorkflowsWorkflowIdIndexRouteImport.update({
-    id: '/workflows/$workflowId/',
-    path: '/workflows/$workflowId/',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedWorkflowsWorkflowIdCanvasRoute =
-  AuthedWorkflowsWorkflowIdCanvasRouteImport.update({
-    id: '/workflows/$workflowId/canvas',
-    path: '/workflows/$workflowId/canvas',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedWorkflowsWorkflowIdCodeRoute =
-  AuthedWorkflowsWorkflowIdCodeRouteImport.update({
-    id: '/workflows/$workflowId/code',
-    path: '/workflows/$workflowId/code',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedWorkflowsWorkflowIdDeployRoute =
-  AuthedWorkflowsWorkflowIdDeployRouteImport.update({
-    id: '/workflows/$workflowId/deploy',
-    path: '/workflows/$workflowId/deploy',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedWorkflowsWorkflowIdDeploymentsRoute =
-  AuthedWorkflowsWorkflowIdDeploymentsRouteImport.update({
-    id: '/workflows/$workflowId/deployments',
-    path: '/workflows/$workflowId/deployments',
-    getParentRoute: () => AuthedRoute,
-  } as any)
-const AuthedWorkflowsWorkflowIdEditorRoute =
-  AuthedWorkflowsWorkflowIdEditorRouteImport.update({
-    id: '/workflows/$workflowId/editor',
-    path: '/workflows/$workflowId/editor',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const AuthedOrgProjectWorkspaceIndexRoute =
   AuthedOrgProjectWorkspaceIndexRouteImport.update({
     id: '/',
@@ -421,12 +348,6 @@ const AuthedOrgProjectSettingsWorkspacesRoute =
     path: '/settings/workspaces',
     getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
-const AuthedWorkflowsWorkflowIdRunsIndexRoute =
-  AuthedWorkflowsWorkflowIdRunsIndexRouteImport.update({
-    id: '/workflows/$workflowId/runs/',
-    path: '/workflows/$workflowId/runs/',
-    getParentRoute: () => AuthedRoute,
-  } as any)
 const AuthedOrgProjectWorkspaceWorkflowsIdRoute =
   AuthedOrgProjectWorkspaceWorkflowsIdRouteImport.update({
     id: '/workflows_/$id',
@@ -475,9 +396,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/$org': typeof AuthedOrgRouteWithChildren
   '/choose-org': typeof AuthedChooseOrgRoute
-  '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
-  '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$org/$project': typeof AuthedOrgProjectRouteWithChildren
   '/$org/api-keys': typeof AuthedOrgApiKeysRoute
@@ -488,10 +407,7 @@ export interface FileRoutesByFullPath {
   '/$org/resources': typeof AuthedOrgResourcesRoute
   '/$org/whats-new': typeof AuthedOrgWhatsNewRoute
   '/api-playground': typeof AuthedOrglessApiPlaygroundRoute
-  '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/$org/': typeof AuthedOrgIndexRoute
-  '/runs/': typeof AuthedRunsIndexRoute
-  '/workflows/': typeof AuthedWorkflowsIndexRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
   '/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
@@ -507,16 +423,10 @@ export interface FileRoutesByFullPath {
   '/$org/settings/members': typeof AuthedOrgSettingsMembersRoute
   '/account/profile': typeof AuthedOrglessAccountProfileRoute
   '/account/sessions': typeof AuthedOrglessAccountSessionsRoute
-  '/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
-  '/workflows/$workflowId/code': typeof AuthedWorkflowsWorkflowIdCodeRoute
-  '/workflows/$workflowId/deploy': typeof AuthedWorkflowsWorkflowIdDeployRoute
-  '/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
-  '/workflows/$workflowId/editor': typeof AuthedWorkflowsWorkflowIdEditorRoute
   '/$org/$project/': typeof AuthedOrgProjectIndexRoute
   '/$org/account/': typeof AuthedOrgAccountIndexRoute
   '/$org/settings/': typeof AuthedOrgSettingsIndexRoute
   '/account/': typeof AuthedOrglessAccountIndexRoute
-  '/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
   '/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
   '/$org/$project/$workspace/overview': typeof AuthedOrgProjectWorkspaceOverviewRoute
@@ -531,7 +441,6 @@ export interface FileRoutesByFullPath {
   '/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
   '/$org/$project/$workspace/': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/$org/$project/settings/': typeof AuthedOrgProjectSettingsIndexRoute
-  '/workflows/$workflowId/runs/': typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
   '/$org/$project/$workspace/workflows/$id': typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
   '/$org/$project/$workspace/workflows/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/$org/$project/$workspace/workflows/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
@@ -544,9 +453,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRoute
   '/choose-org': typeof AuthedChooseOrgRoute
-  '/connections': typeof AuthedConnectionsRoute
   '/dashboard': typeof AuthedDashboardRoute
-  '/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/$org/api-keys': typeof AuthedOrgApiKeysRoute
   '/$org/audit': typeof AuthedOrgAuditRoute
@@ -556,10 +463,7 @@ export interface FileRoutesByTo {
   '/$org/resources': typeof AuthedOrgResourcesRoute
   '/$org/whats-new': typeof AuthedOrgWhatsNewRoute
   '/api-playground': typeof AuthedOrglessApiPlaygroundRoute
-  '/runs/$runId': typeof AuthedRunsRunIdRoute
   '/$org': typeof AuthedOrgIndexRoute
-  '/runs': typeof AuthedRunsIndexRoute
-  '/workflows': typeof AuthedWorkflowsIndexRoute
   '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
   '/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
   '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
@@ -574,16 +478,10 @@ export interface FileRoutesByTo {
   '/$org/settings/members': typeof AuthedOrgSettingsMembersRoute
   '/account/profile': typeof AuthedOrglessAccountProfileRoute
   '/account/sessions': typeof AuthedOrglessAccountSessionsRoute
-  '/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
-  '/workflows/$workflowId/code': typeof AuthedWorkflowsWorkflowIdCodeRoute
-  '/workflows/$workflowId/deploy': typeof AuthedWorkflowsWorkflowIdDeployRoute
-  '/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
-  '/workflows/$workflowId/editor': typeof AuthedWorkflowsWorkflowIdEditorRoute
   '/$org/$project': typeof AuthedOrgProjectIndexRoute
   '/$org/account': typeof AuthedOrgAccountIndexRoute
   '/$org/settings': typeof AuthedOrgSettingsIndexRoute
   '/account': typeof AuthedOrglessAccountIndexRoute
-  '/workflows/$workflowId': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
   '/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
   '/$org/$project/$workspace/overview': typeof AuthedOrgProjectWorkspaceOverviewRoute
@@ -598,7 +496,6 @@ export interface FileRoutesByTo {
   '/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/$org/$project/settings': typeof AuthedOrgProjectSettingsIndexRoute
-  '/workflows/$workflowId/runs': typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
   '/$org/$project/$workspace/workflows/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/$org/$project/$workspace/workflows/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
   '/$org/$project/$workspace/workflows/$id/overview': typeof AuthedOrgProjectWorkspaceWorkflowsIdOverviewRoute
@@ -614,9 +511,7 @@ export interface FileRoutesById {
   '/_authed/$org': typeof AuthedOrgRouteWithChildren
   '/_authed/_orgless': typeof AuthedOrglessRouteWithChildren
   '/_authed/choose-org': typeof AuthedChooseOrgRoute
-  '/_authed/connections': typeof AuthedConnectionsRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
-  '/_authed/settings': typeof AuthedSettingsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/_authed/$org/$project': typeof AuthedOrgProjectRouteWithChildren
   '/_authed/$org/api-keys': typeof AuthedOrgApiKeysRoute
@@ -627,10 +522,7 @@ export interface FileRoutesById {
   '/_authed/$org/resources': typeof AuthedOrgResourcesRoute
   '/_authed/$org/whats-new': typeof AuthedOrgWhatsNewRoute
   '/_authed/_orgless/api-playground': typeof AuthedOrglessApiPlaygroundRoute
-  '/_authed/runs/$runId': typeof AuthedRunsRunIdRoute
   '/_authed/$org/': typeof AuthedOrgIndexRoute
-  '/_authed/runs/': typeof AuthedRunsIndexRoute
-  '/_authed/workflows/': typeof AuthedWorkflowsIndexRoute
   '/_authed/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/_authed/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
   '/_authed/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
@@ -646,16 +538,10 @@ export interface FileRoutesById {
   '/_authed/$org/settings/members': typeof AuthedOrgSettingsMembersRoute
   '/_authed/_orgless/account/profile': typeof AuthedOrglessAccountProfileRoute
   '/_authed/_orgless/account/sessions': typeof AuthedOrglessAccountSessionsRoute
-  '/_authed/workflows/$workflowId/canvas': typeof AuthedWorkflowsWorkflowIdCanvasRoute
-  '/_authed/workflows/$workflowId/code': typeof AuthedWorkflowsWorkflowIdCodeRoute
-  '/_authed/workflows/$workflowId/deploy': typeof AuthedWorkflowsWorkflowIdDeployRoute
-  '/_authed/workflows/$workflowId/deployments': typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
-  '/_authed/workflows/$workflowId/editor': typeof AuthedWorkflowsWorkflowIdEditorRoute
   '/_authed/$org/$project/': typeof AuthedOrgProjectIndexRoute
   '/_authed/$org/account/': typeof AuthedOrgAccountIndexRoute
   '/_authed/$org/settings/': typeof AuthedOrgSettingsIndexRoute
   '/_authed/_orgless/account/': typeof AuthedOrglessAccountIndexRoute
-  '/_authed/workflows/$workflowId/': typeof AuthedWorkflowsWorkflowIdIndexRoute
   '/_authed/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
   '/_authed/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
   '/_authed/$org/$project/$workspace/overview': typeof AuthedOrgProjectWorkspaceOverviewRoute
@@ -670,7 +556,6 @@ export interface FileRoutesById {
   '/_authed/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
   '/_authed/$org/$project/$workspace/': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/_authed/$org/$project/settings/': typeof AuthedOrgProjectSettingsIndexRoute
-  '/_authed/workflows/$workflowId/runs/': typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
   '/_authed/$org/$project/$workspace/workflows_/$id': typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
   '/_authed/$org/$project/$workspace/workflows_/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/_authed/$org/$project/$workspace/workflows_/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
@@ -686,9 +571,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/$org'
     | '/choose-org'
-    | '/connections'
     | '/dashboard'
-    | '/settings'
     | '/invite/$token'
     | '/$org/$project'
     | '/$org/api-keys'
@@ -699,10 +582,7 @@ export interface FileRouteTypes {
     | '/$org/resources'
     | '/$org/whats-new'
     | '/api-playground'
-    | '/runs/$runId'
     | '/$org/'
-    | '/runs/'
-    | '/workflows/'
     | '/$org/$project/$workspace'
     | '/$org/$project/api-keys'
     | '/$org/$project/connections'
@@ -718,16 +598,10 @@ export interface FileRouteTypes {
     | '/$org/settings/members'
     | '/account/profile'
     | '/account/sessions'
-    | '/workflows/$workflowId/canvas'
-    | '/workflows/$workflowId/code'
-    | '/workflows/$workflowId/deploy'
-    | '/workflows/$workflowId/deployments'
-    | '/workflows/$workflowId/editor'
     | '/$org/$project/'
     | '/$org/account/'
     | '/$org/settings/'
     | '/account/'
-    | '/workflows/$workflowId/'
     | '/$org/$project/$workspace/functions'
     | '/$org/$project/$workspace/library'
     | '/$org/$project/$workspace/overview'
@@ -742,7 +616,6 @@ export interface FileRouteTypes {
     | '/$org/$project/settings/workspaces'
     | '/$org/$project/$workspace/'
     | '/$org/$project/settings/'
-    | '/workflows/$workflowId/runs/'
     | '/$org/$project/$workspace/workflows/$id'
     | '/$org/$project/$workspace/workflows/$id/deploy'
     | '/$org/$project/$workspace/workflows/$id/deployments'
@@ -755,9 +628,7 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/choose-org'
-    | '/connections'
     | '/dashboard'
-    | '/settings'
     | '/invite/$token'
     | '/$org/api-keys'
     | '/$org/audit'
@@ -767,10 +638,7 @@ export interface FileRouteTypes {
     | '/$org/resources'
     | '/$org/whats-new'
     | '/api-playground'
-    | '/runs/$runId'
     | '/$org'
-    | '/runs'
-    | '/workflows'
     | '/$org/$project/api-keys'
     | '/$org/$project/connections'
     | '/$org/$project/members'
@@ -785,16 +653,10 @@ export interface FileRouteTypes {
     | '/$org/settings/members'
     | '/account/profile'
     | '/account/sessions'
-    | '/workflows/$workflowId/canvas'
-    | '/workflows/$workflowId/code'
-    | '/workflows/$workflowId/deploy'
-    | '/workflows/$workflowId/deployments'
-    | '/workflows/$workflowId/editor'
     | '/$org/$project'
     | '/$org/account'
     | '/$org/settings'
     | '/account'
-    | '/workflows/$workflowId'
     | '/$org/$project/$workspace/functions'
     | '/$org/$project/$workspace/library'
     | '/$org/$project/$workspace/overview'
@@ -809,7 +671,6 @@ export interface FileRouteTypes {
     | '/$org/$project/settings/workspaces'
     | '/$org/$project/$workspace'
     | '/$org/$project/settings'
-    | '/workflows/$workflowId/runs'
     | '/$org/$project/$workspace/workflows/$id/deploy'
     | '/$org/$project/$workspace/workflows/$id/deployments'
     | '/$org/$project/$workspace/workflows/$id/overview'
@@ -824,9 +685,7 @@ export interface FileRouteTypes {
     | '/_authed/$org'
     | '/_authed/_orgless'
     | '/_authed/choose-org'
-    | '/_authed/connections'
     | '/_authed/dashboard'
-    | '/_authed/settings'
     | '/invite/$token'
     | '/_authed/$org/$project'
     | '/_authed/$org/api-keys'
@@ -837,10 +696,7 @@ export interface FileRouteTypes {
     | '/_authed/$org/resources'
     | '/_authed/$org/whats-new'
     | '/_authed/_orgless/api-playground'
-    | '/_authed/runs/$runId'
     | '/_authed/$org/'
-    | '/_authed/runs/'
-    | '/_authed/workflows/'
     | '/_authed/$org/$project/$workspace'
     | '/_authed/$org/$project/api-keys'
     | '/_authed/$org/$project/connections'
@@ -856,16 +712,10 @@ export interface FileRouteTypes {
     | '/_authed/$org/settings/members'
     | '/_authed/_orgless/account/profile'
     | '/_authed/_orgless/account/sessions'
-    | '/_authed/workflows/$workflowId/canvas'
-    | '/_authed/workflows/$workflowId/code'
-    | '/_authed/workflows/$workflowId/deploy'
-    | '/_authed/workflows/$workflowId/deployments'
-    | '/_authed/workflows/$workflowId/editor'
     | '/_authed/$org/$project/'
     | '/_authed/$org/account/'
     | '/_authed/$org/settings/'
     | '/_authed/_orgless/account/'
-    | '/_authed/workflows/$workflowId/'
     | '/_authed/$org/$project/$workspace/functions'
     | '/_authed/$org/$project/$workspace/library'
     | '/_authed/$org/$project/$workspace/overview'
@@ -880,7 +730,6 @@ export interface FileRouteTypes {
     | '/_authed/$org/$project/settings/workspaces'
     | '/_authed/$org/$project/$workspace/'
     | '/_authed/$org/$project/settings/'
-    | '/_authed/workflows/$workflowId/runs/'
     | '/_authed/$org/$project/$workspace/workflows_/$id'
     | '/_authed/$org/$project/$workspace/workflows_/$id/deploy'
     | '/_authed/$org/$project/$workspace/workflows_/$id/deployments'
@@ -941,25 +790,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedChooseOrgRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/connections': {
-      id: '/_authed/connections'
-      path: '/connections'
-      fullPath: '/connections'
-      preLoaderRoute: typeof AuthedConnectionsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/dashboard': {
       id: '/_authed/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthedDashboardRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/settings': {
-      id: '/_authed/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthedSettingsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/invite/$token': {
@@ -1038,27 +873,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api-playground'
       preLoaderRoute: typeof AuthedOrglessApiPlaygroundRouteImport
       parentRoute: typeof AuthedOrglessRoute
-    }
-    '/_authed/runs/': {
-      id: '/_authed/runs/'
-      path: '/runs'
-      fullPath: '/runs/'
-      preLoaderRoute: typeof AuthedRunsIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/runs/$runId': {
-      id: '/_authed/runs/$runId'
-      path: '/runs/$runId'
-      fullPath: '/runs/$runId'
-      preLoaderRoute: typeof AuthedRunsRunIdRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/workflows/': {
-      id: '/_authed/workflows/'
-      path: '/workflows'
-      fullPath: '/workflows/'
-      preLoaderRoute: typeof AuthedWorkflowsIndexRouteImport
-      parentRoute: typeof AuthedRoute
     }
     '/_authed/$org/$project/': {
       id: '/_authed/$org/$project/'
@@ -1193,48 +1007,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrglessAccountSessionsRouteImport
       parentRoute: typeof AuthedOrglessRoute
     }
-    '/_authed/workflows/$workflowId/': {
-      id: '/_authed/workflows/$workflowId/'
-      path: '/workflows/$workflowId'
-      fullPath: '/workflows/$workflowId/'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdIndexRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/workflows/$workflowId/canvas': {
-      id: '/_authed/workflows/$workflowId/canvas'
-      path: '/workflows/$workflowId/canvas'
-      fullPath: '/workflows/$workflowId/canvas'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdCanvasRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/workflows/$workflowId/code': {
-      id: '/_authed/workflows/$workflowId/code'
-      path: '/workflows/$workflowId/code'
-      fullPath: '/workflows/$workflowId/code'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdCodeRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/workflows/$workflowId/deploy': {
-      id: '/_authed/workflows/$workflowId/deploy'
-      path: '/workflows/$workflowId/deploy'
-      fullPath: '/workflows/$workflowId/deploy'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdDeployRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/workflows/$workflowId/deployments': {
-      id: '/_authed/workflows/$workflowId/deployments'
-      path: '/workflows/$workflowId/deployments'
-      fullPath: '/workflows/$workflowId/deployments'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdDeploymentsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/workflows/$workflowId/editor': {
-      id: '/_authed/workflows/$workflowId/editor'
-      path: '/workflows/$workflowId/editor'
-      fullPath: '/workflows/$workflowId/editor'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdEditorRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/$org/$project/$workspace/': {
       id: '/_authed/$org/$project/$workspace/'
       path: '/'
@@ -1332,13 +1104,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/$org/$project/settings/workspaces'
       preLoaderRoute: typeof AuthedOrgProjectSettingsWorkspacesRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
-    }
-    '/_authed/workflows/$workflowId/runs/': {
-      id: '/_authed/workflows/$workflowId/runs/'
-      path: '/workflows/$workflowId/runs'
-      fullPath: '/workflows/$workflowId/runs/'
-      preLoaderRoute: typeof AuthedWorkflowsWorkflowIdRunsIndexRouteImport
-      parentRoute: typeof AuthedRoute
     }
     '/_authed/$org/$project/$workspace/workflows_/$id': {
       id: '/_authed/$org/$project/$workspace/workflows_/$id'
@@ -1563,40 +1328,14 @@ interface AuthedRouteChildren {
   AuthedOrgRoute: typeof AuthedOrgRouteWithChildren
   AuthedOrglessRoute: typeof AuthedOrglessRouteWithChildren
   AuthedChooseOrgRoute: typeof AuthedChooseOrgRoute
-  AuthedConnectionsRoute: typeof AuthedConnectionsRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
-  AuthedSettingsRoute: typeof AuthedSettingsRoute
-  AuthedRunsRunIdRoute: typeof AuthedRunsRunIdRoute
-  AuthedRunsIndexRoute: typeof AuthedRunsIndexRoute
-  AuthedWorkflowsIndexRoute: typeof AuthedWorkflowsIndexRoute
-  AuthedWorkflowsWorkflowIdCanvasRoute: typeof AuthedWorkflowsWorkflowIdCanvasRoute
-  AuthedWorkflowsWorkflowIdCodeRoute: typeof AuthedWorkflowsWorkflowIdCodeRoute
-  AuthedWorkflowsWorkflowIdDeployRoute: typeof AuthedWorkflowsWorkflowIdDeployRoute
-  AuthedWorkflowsWorkflowIdDeploymentsRoute: typeof AuthedWorkflowsWorkflowIdDeploymentsRoute
-  AuthedWorkflowsWorkflowIdEditorRoute: typeof AuthedWorkflowsWorkflowIdEditorRoute
-  AuthedWorkflowsWorkflowIdIndexRoute: typeof AuthedWorkflowsWorkflowIdIndexRoute
-  AuthedWorkflowsWorkflowIdRunsIndexRoute: typeof AuthedWorkflowsWorkflowIdRunsIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedOrgRoute: AuthedOrgRouteWithChildren,
   AuthedOrglessRoute: AuthedOrglessRouteWithChildren,
   AuthedChooseOrgRoute: AuthedChooseOrgRoute,
-  AuthedConnectionsRoute: AuthedConnectionsRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
-  AuthedSettingsRoute: AuthedSettingsRoute,
-  AuthedRunsRunIdRoute: AuthedRunsRunIdRoute,
-  AuthedRunsIndexRoute: AuthedRunsIndexRoute,
-  AuthedWorkflowsIndexRoute: AuthedWorkflowsIndexRoute,
-  AuthedWorkflowsWorkflowIdCanvasRoute: AuthedWorkflowsWorkflowIdCanvasRoute,
-  AuthedWorkflowsWorkflowIdCodeRoute: AuthedWorkflowsWorkflowIdCodeRoute,
-  AuthedWorkflowsWorkflowIdDeployRoute: AuthedWorkflowsWorkflowIdDeployRoute,
-  AuthedWorkflowsWorkflowIdDeploymentsRoute:
-    AuthedWorkflowsWorkflowIdDeploymentsRoute,
-  AuthedWorkflowsWorkflowIdEditorRoute: AuthedWorkflowsWorkflowIdEditorRoute,
-  AuthedWorkflowsWorkflowIdIndexRoute: AuthedWorkflowsWorkflowIdIndexRoute,
-  AuthedWorkflowsWorkflowIdRunsIndexRoute:
-    AuthedWorkflowsWorkflowIdRunsIndexRoute,
 }
 
 const AuthedRouteWithChildren =

@@ -13,7 +13,7 @@ import { useDashKey, useDataSource } from './source'
  * not. On the API the marketplace only (D-B9-10); a registry the instance
  * can't reach is a `503` the tab shows as an error.
  */
-export function useOrgNodes(org: string) {
+export function useOrgNodes(org: string, { enabled = true }: { enabled?: boolean } = {}) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
@@ -23,6 +23,28 @@ export function useOrgNodes(org: string) {
       source === 'api'
         ? dashboardApi.listMarketplace(org).then((res) => res.nodes.map(toOrgNode))
         : mockServer.resources.listOrgNodes(ctx, org),
+    enabled,
+  })
+}
+
+/** Resources' two tab pills, without opening either tab. */
+export function useResourceCounts(org: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  return useQuery({
+    queryKey: key(dashKeys.resourceCounts(org)),
+    queryFn: async (): Promise<{ installedNodes: number; variables: number }> => {
+      if (source === 'api') return dashboardApi.getResourceCounts(org)
+      const [nodes, variables] = await Promise.all([
+        mockServer.resources.listOrgNodes(ctx, org),
+        mockServer.variables.listOrgVariables(ctx, org),
+      ])
+      return {
+        installedNodes: nodes.filter((node) => node.installed).length,
+        variables: variables.length,
+      }
+    },
   })
 }
 
@@ -51,7 +73,7 @@ function useNodeChange(org: string, change: NodeChange) {
       await dashboardApi.changeNode(org, API_CHANGE[change], nodeId)
     },
     // The canvas palette reads its definitions each time the editor opens: nothing to refresh here.
-    onSuccess: () => invalidateAll(client, [dashKeys.orgNodes(org)]),
+    onSuccess: () => invalidateAll(client, [dashKeys.orgNodes(org), dashKeys.resourceCounts(org)]),
   })
 }
 

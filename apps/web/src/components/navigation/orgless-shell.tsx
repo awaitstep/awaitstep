@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate, useSearch } from '@tanstack/react-router'
-import { useNotifications, useReleases } from '../../data/dashboard/inbox'
+import { useNotificationCount, useReleases } from '../../data/dashboard/inbox'
 import { useViewer } from '../../data/dashboard/session'
 import { withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
@@ -39,7 +39,7 @@ export function OrgLessShell({ children }: { children: ReactNode }) {
   const { href } = useLocation()
   const search = useSearch({ strict: false }) as DashboardSearch
   const navigate = useNavigate()
-  const notifications = useNotifications(org.slug)
+  const notifications = useNotificationCount(org.slug)
   const releases = useReleases(org.slug)
 
   // A new history entry, as opening one is: Back reopens it rather than standing still.
@@ -53,7 +53,7 @@ export function OrgLessShell({ children }: { children: ReactNode }) {
 
   const overlays: RailOverlays = {
     here: href,
-    unread: notifications.data?.counts.unread ?? 0,
+    unread: notifications.data ?? 0,
     freshReleases: countFresh(releases.data),
   }
 

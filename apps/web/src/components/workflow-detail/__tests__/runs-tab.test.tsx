@@ -41,18 +41,14 @@ const run = (
 describe('RunsTab', () => {
   it('reads Result · Run · Version · Took · Started, each run opening its page', () => {
     renderWithPages(
-      <RunsTab
-        workflow={WORKFLOW}
-        versions={VERSIONS}
-        neverDeployed={false}
-        runs24h={{ all: 128, failed: 3 }}
-      />,
+      <RunsTab workflow={WORKFLOW} neverDeployed={false} runs24h={{ all: 128, failed: 3 }} />,
       {
-        '["workflow-runs","wf_1"]': [
+        '["workflow-runs","wf_1",null]': [
           run('run_a', 'errored', 'v3', 1200),
           run('run_b', 'complete', 'v2', 900),
           run('run_c', 'running', 'gone', 0),
         ],
+        '["versions","wf_1"]': VERSIONS,
       },
     )
     expect(screen.getByText('128 in the last 24h · 3 failed')).toBeVisible()
@@ -72,7 +68,7 @@ describe('RunsTab', () => {
   })
 
   it('names the version a run kept after that version was deleted', () => {
-    renderWithPages(<RunsTab workflow={WORKFLOW} versions={VERSIONS} neverDeployed={false} />, {
+    renderWithPages(<RunsTab workflow={WORKFLOW} neverDeployed={false} />, {
       '["workflow-runs","wf_1"]': [run('run_old', 'complete', null, 900, 4)],
     })
     const [old] = within(screen.getByRole('table')).getAllByRole('row').slice(1)
@@ -80,7 +76,7 @@ describe('RunsTab', () => {
   })
 
   it('says no run has happened yet, and offers Deploy while it never has been (WorkflowDraft)', () => {
-    renderWithPages(<RunsTab workflow={WORKFLOW} versions={VERSIONS} neverDeployed />, {
+    renderWithPages(<RunsTab workflow={WORKFLOW} neverDeployed />, {
       '["workflow-runs","wf_1"]': [],
     })
     expect(screen.getByText('None yet')).toBeVisible()

@@ -48,6 +48,14 @@ export const dashKeys = {
   library: (s: WorkspaceSlugs) => ['dash', 'library', s.org, s.project, s.workspace] as const,
   editRequest: (s: WorkspaceSlugs) => ['dash', 'requests', s.org, s.project, s.workspace] as const,
   setup: (org: string, project: string) => ['dash', 'setup', org, project, null] as const,
+  /** Under `setup`, so the same writes refresh both. */
+  projectSummary: (org: string, project: string) =>
+    ['dash', 'setup', org, project, null, 'summary'] as const,
+  workspaceOverview: (s: WorkspaceSlugs) =>
+    ['dash', 'workspace-overview', s.org, s.project, s.workspace] as const,
+  workflowSummary: (workflowId: string) => ['dash', 'workflow-summary', workflowId] as const,
+  workspaceSettingsCounts: (s: WorkspaceSlugs) =>
+    ['dash', 'settings-counts', s.org, s.project, s.workspace] as const,
   projectKeys: (org: string, project: string) => ['dash', 'keys', org, project, null] as const,
   projectVariables: (org: string, project: string) =>
     ['dash', 'variables', org, project, null] as const,
@@ -65,7 +73,10 @@ export const dashKeys = {
     ['dash', 'connections', org, project, 'available'] as const,
   orgKeys: (org: string) => ['dash', 'orgKeys', org] as const,
   orgNodes: (org: string) => ['dash', 'orgNodes', org] as const,
+  resourceCounts: (org: string) => ['dash', 'resources', org, 'counts'] as const,
   notifications: (org: string) => ['dash', 'notifications', org] as const,
+  /** Under `notifications(org)`, so a read mark refreshes the badge too. */
+  notificationCount: (org: string) => ['dash', 'notifications', org, 'count'] as const,
   /**
    * Every query of a domain in every org: for changes made from outside an org,
    * like answering an invite to it.
@@ -96,6 +107,7 @@ const SCOPED = [
   'keys',
   'variables',
   'members',
+  'settings-counts',
 ] as const
 
 type ScopedDomain = (typeof SCOPED)[number]

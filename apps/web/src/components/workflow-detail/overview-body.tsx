@@ -31,12 +31,26 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
   const { canDeploy } = useEditorAccess()
   const isFunction = workflow.kind === 'script'
   const { data: runs } = useInfiniteQuery({
-    ...queries.runs.byWorkflow(workflow.id),
+    // The card shows six runs; the Runs tab keeps its own paged list.
+    ...queries.runs.byWorkflow(workflow.id, { limit: 6 }),
     select: (data) => flatPages(data),
     // A function has no runs.
     enabled: !isFunction,
   })
-  const latest = overview.versions[0]
+  // The Versions card is Overview's own list; other subpages never load it.
+  const versionsQuery = useInfiniteQuery({
+    ...queries.versions.byWorkflow(workflow.id),
+    enabled: true,
+  })
+  const versions = flatPages(versionsQuery.data)
+  const latest = versions[0]
+    ? { version: versions[0].version, at: versions[0].createdAt }
+    : overview.summary?.currentVersion
+      ? {
+          version: overview.summary.currentVersion.version,
+          at: overview.summary.currentVersion.createdAt,
+        }
+      : undefined
   const live = overview.live.map((l) => ({
     accountId: l.id,
     version: l.version ?? undefined,
@@ -48,23 +62,18 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
 
   return (
     <>
-      <StatusBand
-        live={live}
-        latest={latest && { version: latest.version, at: latest.createdAt }}
-        runs24h={runs24h}
-        isFunction={isFunction}
-      />
+      <StatusBand live={live} latest={latest} runs24h={runs24h} isFunction={isFunction} />
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">
           <VersionsCard
             versionHref={(versionId) => links.editor('canvas', { version: versionId })}
             deployHref={canDeploy ? links.deployVersion : undefined}
-            versions={overview.versions}
+            versions={versions}
             liveVersionIds={liveVersionIds}
             deployBlocked={overview.deployBlocked}
-            hasMore={overview.versionsHasMore}
-            loadingMore={overview.versionsLoadingMore}
-            onLoadMore={overview.loadMoreVersions}
+            hasMore={!!versionsQuery.hasNextPage}
+            loadingMore={versionsQuery.isFetchingNextPage}
+            onLoadMore={() => void versionsQuery.fetchNextPage()}
             draft={neverDeployed}
             isFunction={isFunction}
           />

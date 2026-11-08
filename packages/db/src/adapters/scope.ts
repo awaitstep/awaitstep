@@ -303,7 +303,6 @@ export class ScopeAdapter {
         viewerRole: me.role,
         projectCount: roles.visibleProjectCount(userId, o.id),
         memberCount: this.fields.memberCount(o.id),
-        members: this.fields.members(o.id),
         project: p,
         projectWorkspaces: this.fields.workspaceChips(p.id, viewer),
         projectHealth: this.fields.projectHealth(p.id, viewer),
@@ -363,7 +362,6 @@ export class ScopeAdapter {
     const row = rows[0]
     if (!row) return null
 
-    const members = readJsonArray<OrgMemberSummary>(row.members)
     const viewerRows: GrantRows = {
       orgRole: row.viewerRole,
       projectGrant: row.projectGrant,
@@ -402,7 +400,6 @@ export class ScopeAdapter {
         viewerRole: row.viewerRole,
         projectCount: row.projectCount,
         memberCount: row.memberCount,
-        members,
       },
       project,
       workspace,

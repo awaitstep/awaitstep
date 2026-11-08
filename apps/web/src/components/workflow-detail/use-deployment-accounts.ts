@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { useConnectionsStore } from '../../stores/connections-store'
 import { useQueries } from '../../contexts/api-client-context'
 
 /**
@@ -9,10 +8,8 @@ import { useQueries } from '../../contexts/api-client-context'
  */
 export function useDeploymentAccounts(workflowId: string, ready: boolean): Map<string, string> {
   const queries = useQueries()
-  const orgConnections = useConnectionsStore((s) => s.connections)
   const { data } = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })
   return new Map([
-    ...orgConnections.map((c) => [c.id, c.name] as const),
     ...(data?.deployedWith ?? []).map((c) => [c.id, c.name] as const),
     ...(data?.connections ?? []).map((c) => [c.id, c.name] as const),
   ])

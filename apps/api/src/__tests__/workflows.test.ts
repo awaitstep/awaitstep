@@ -263,7 +263,7 @@ describe('workflows in projects and workspaces', () => {
     expect(old.data.map((w: { id: string }) => w.id)).not.toContain(created.id)
   })
 
-  it('masks secret values on the list as it does on a single read', async () => {
+  it('keeps env vars off the list and masks them — by flag or SECRET_ name — on the read', async () => {
     const created = await (
       await app.request(url('/api/workflows'), {
         method: 'POST',
@@ -275,18 +275,41 @@ describe('workflows in projects and workspaces', () => {
     await mockDb.updateWorkflow(created.id, {
       envVars: JSON.stringify([
         { name: 'API_TOKEN', value: 'hunter2', isSecret: true },
+        // A legacy row: no flag, but the editors treat a SECRET_ name as a secret.
+        { name: 'SECRET_LEGACY', value: 'old-secret' },
         { name: 'REGION', value: 'eu', isSecret: false },
       ]),
     })
     const list = await (await app.request(url('/api/workflows'))).json()
     const row = list.data.find((w: { id: string }) => w.id === created.id)
-    expect(row.envVars).not.toContain('hunter2')
-    expect(row.envVars).toContain('REGION')
-    expect(JSON.parse(row.envVars)).toContainEqual({
+    // A list renders no variable values at all.
+    expect(row).not.toHaveProperty('envVars')
+    const read = await (await app.request(url(`/api/workflows/${created.id}`))).json()
+    expect(read.envVars).not.toContain('hunter2')
+    expect(read.envVars).not.toContain('old-secret')
+    expect(read.envVars).toContain('REGION')
+    expect(JSON.parse(read.envVars)).toContainEqual({
       name: 'API_TOKEN',
       value: '••••••••',
       isSecret: true,
     })
+    expect(JSON.parse(read.envVars)).toContainEqual({
+      name: 'SECRET_LEGACY',
+      value: '••••••••',
+    })
+  })
+
+  it('drops malformed env var JSON rather than passing it through', async () => {
+    const created = await (
+      await app.request(url('/api/workflows'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Broken secret' }),
+      })
+    ).json()
+    await mockDb.updateWorkflow(created.id, { envVars: '{not json' })
+    const read = await (await app.request(url(`/api/workflows/${created.id}`))).json()
+    expect(read.envVars).toBeNull()
   })
 
   describe('PATCH /api/workflows/:id env vars', () => {

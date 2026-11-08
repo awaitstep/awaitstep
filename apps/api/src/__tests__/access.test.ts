@@ -393,13 +393,20 @@ describe('API keys act with their creator’s standing', () => {
       h.as('u-ama', h.json({ name: 'API_URL', value: 'x', isSecret: false })),
     )
     expect(set.status).toBe(201)
-    // Eve can open Project 101 (a Viewer in Sales); Fay, in the organization, can open no project.
+    // Eve can open Project 101 as a Viewer, and a Viewer no longer lists keys (D1).
     const keysForEve = await h.app.request(
       '/api/api-keys?org=acme&project=project-101',
       h.as('u-eve'),
     )
-    expect(keysForEve.status).toBe(200)
-    expect((await keysForEve.json()).own).toHaveLength(1)
+    expect(keysForEve.status).toBe(403)
+    const keysForAma = await h.app.request(
+      '/api/api-keys?org=acme&project=project-101',
+      h.as('u-ama'),
+    )
+    expect(keysForAma.status).toBe(200)
+    const amaKeys = await keysForAma.json()
+    expect(amaKeys.own).toHaveLength(1)
+    expect(amaKeys.own[0].keySuffix).toEqual(expect.any(String))
     expect(
       (await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-fay'))).status,
     ).toBe(404)
@@ -414,6 +421,37 @@ describe('API keys act with their creator’s standing', () => {
     expect(
       (await h.app.request('/api/env-vars?org=acme&project=project-101', h.as('u-fay'))).status,
     ).toBe(404)
+  })
+
+  it('shows an org variable only where it reaches a project the viewer can open', async () => {
+    async function make(name: string, ids?: string[]) {
+      const res = await h.app.request(
+        '/api/env-vars?org=acme',
+        h.as(
+          'u-ama',
+          h.json({
+            name,
+            value: 'x',
+            isSecret: false,
+            ...(ids ? { reach: { ids } } : {}),
+          }),
+        ),
+      )
+      expect(res.status, name).toBe(201)
+    }
+    async function names(user: string): Promise<string[]> {
+      const res = await h.app.request('/api/env-vars?org=acme', h.as(user))
+      expect(res.status).toBe(200)
+      return (await res.json()).data.map((v: { name: string }) => v.name).sort()
+    }
+    await make('GLOBAL')
+    await make('ONLY_101', ['p-101'])
+    await make('ONLY_202', ['p-202'])
+    // Eve opens Sales in Project 101; Fay opens no project at all.
+    expect(await names('u-eve')).toEqual(['GLOBAL', 'ONLY_101'])
+    expect(await names('u-fay')).toEqual([])
+    // Owners and admins still see every variable.
+    expect(await names('u-ama')).toEqual(['GLOBAL', 'ONLY_101', 'ONLY_202'])
   })
 
   it('changes or removes a project’s variables only for someone who can open it', async () => {
@@ -610,30 +648,18 @@ describe('API keys act with their creator’s standing', () => {
       expect(org.data.map((k: { id: string; level: string }) => [k.id, k.level])).toEqual([
         ['k-org', 'organization'],
       ])
-      // Eve opens Sales only: the project's keys, and Sales's count — never Ops's.
-      const project = await (
-        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
-      ).json()
-      expect(project.own.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
-      expect(project.workspaceCounts).toEqual([
-        { workspace: { id: 'ws-sales', slug: 'sales', name: 'Sales', colour: 'green' }, count: 1 },
-      ])
-      const sales = await (
-        await h.app.request(
-          '/api/api-keys?org=acme&project=project-101&workspace=sales',
-          h.as('u-eve'),
-        )
-      ).json()
-      expect(sales.own.map((k: { id: string }) => k.id)).toEqual(['k-sales'])
-      expect(sales.reaching.map((k: { id: string }) => k.id)).toEqual(['k-proj'])
+      // Eve is a Viewer in Sales: neither key list is hers to read (D1).
+      expect(
+        (await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))).status,
+      ).toBe(403)
       expect(
         (
           await h.app.request(
-            '/api/api-keys?org=acme&project=project-101&workspace=ops',
+            '/api/api-keys?org=acme&project=project-101&workspace=sales',
             h.as('u-eve'),
           )
         ).status,
-      ).toBe(404)
+      ).toBe(403)
       // Revoking: the level's managers, at the level's address.
       await h.adapter.setWorkspaceGrant('ws-sales', 'u-eve', 'admin')
       expect(
@@ -681,10 +707,10 @@ describe('API keys act with their creator’s standing', () => {
         .insert(h.schema.apiKeyProjects)
         .values({ keyId: 'k-mp', projectId: 'p-202', revokedAt: null })
 
-      // Eve opens Project 101 but is not an org admin: the bundle reaches her
-      // project, but the sibling Project 202 is not disclosed to her.
+      // Dan is a project member (not an org admin): the bundle reaches his
+      // project, but the sibling Project 202 is not disclosed to him.
       const limited = await (
-        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-eve'))
+        await h.app.request('/api/api-keys?org=acme&project=project-101', h.as('u-dan'))
       ).json()
       const limitedMp = limited.reaching.find((k: { id: string }) => k.id === 'k-mp')
       expect(limitedMp.projects.map((p: { projectId: string }) => p.projectId)).toEqual(['p-101'])
@@ -1042,8 +1068,9 @@ describe('variables at three levels', () => {
     // Eve opens Project 101 (Sales), not Project 202; Fay opens no project.
     const forEve = await list('u-eve', ORG)
     expect(forEve.data.find((v: { name: string }) => v.name === 'REGION').overriddenIn).toBe(1)
+    // Fay opens no project: no org variable reaches one she can open.
     const forFay = await list('u-fay', ORG)
-    expect(forFay.data.find((v: { name: string }) => v.name === 'REGION').overriddenIn).toBe(0)
+    expect(forFay.data).toEqual([])
     expect((await list('u-ama', P101)).data).toEqual([])
     expect((await list('u-ama', P202)).data.map((v: { value: string }) => v.value)).toEqual(['us'])
     expect((await list('u-ama', SALES)).data.map((v: { value: string }) => v.value)).toEqual([

@@ -110,7 +110,11 @@ export class AccessAdapter {
    * and counting only the workspaces the viewer can open. A workspace row
    * in a project someone holds project-wide adds nothing and is left out.
    */
-  async listOrgMembers(organizationId: string, viewerId: string): Promise<OrgMemberRow[]> {
+  async listOrgMembers(
+    organizationId: string,
+    viewerId: string,
+    options?: { seeAll?: boolean },
+  ): Promise<OrgMemberRow[]> {
     const m = aliasedTable(this.t.member, 'm')
     const u = aliasedTable(this.t.user, 'u')
     const pm = aliasedTable(this.t.projectMembers, 'lpm')
@@ -119,7 +123,20 @@ export class AccessAdapter {
     const p = aliasedTable(this.t.projects, 'lp')
     const w = aliasedTable(this.t.workspaces, 'lw')
     const cw = aliasedTable(this.t.workspaces, 'lcw')
+    const sp = aliasedTable(this.t.projects, 'lsp')
+    const spm = aliasedTable(this.t.projectMembers, 'lspm')
+    const sw = aliasedTable(this.t.workspaces, 'lsw')
+    const swm = aliasedTable(this.t.workspaceMembers, 'lswm')
+    const vp = aliasedTable(this.t.projects, 'lvp')
     const roles = this.fields.roles
+    // People the viewer shares a place with: an org admin is in every place,
+    // and anyone else is named only through a project or workspace the
+    // viewer can open.
+    const sharesProject = sql`exists (select 1 from ${aliasedFrom(spm)} inner join ${aliasedFrom(sp)} on ${sp.id} = ${spm.projectId} where ${spm.userId} = ${u.id} and ${sp.organizationId} = ${m.organizationId} and ${roles.projectVisible(viewerId, { organizationId: sp.organizationId, projectId: sp.id })})`
+    const sharesWorkspace = sql`exists (select 1 from ${aliasedFrom(swm)} inner join ${aliasedFrom(sw)} on ${sw.id} = ${swm.workspaceId} inner join ${aliasedFrom(sp)} on ${sp.id} = ${sw.projectId} where ${swm.userId} = ${u.id} and ${sp.organizationId} = ${m.organizationId} and ${roles.workspaceRoleOf(viewerId, { organizationId: sp.organizationId, projectId: sp.id, workspaceId: sw.id })} is not null)`
+    // An org admin shares every place the viewer can open; with no place at all
+    // there is no shared place to name them through.
+    const viewerHasPlace = sql`exists (select 1 from ${aliasedFrom(vp)} where ${vp.organizationId} = ${organizationId} and ${roles.projectVisible(viewerId, { organizationId: vp.organizationId, projectId: vp.id })})`
     const viewerOpens = (workspaceId: unknown) =>
       sql`${roles.workspaceRoleOf(viewerId, { organizationId: p.organizationId, projectId: p.id, workspaceId })} is not null`
     const workspaceCount = sql`(select count(*) from ${aliasedFrom(cw)} where ${cw.projectId} = ${p.id} and ${viewerOpens(cw.id)})`
@@ -157,7 +174,14 @@ export class AccessAdapter {
       })
       .from(m)
       .innerJoin(u, eq(u.id, m.userId))
-      .where(eq(m.organizationId, organizationId))
+      .where(
+        and(
+          eq(m.organizationId, organizationId),
+          options?.seeAll
+            ? undefined
+            : sql`((${m.role} in ${ORG_ADMINS} and ${viewerHasPlace}) or ${u.id} = ${viewerId} or ${sharesProject} or ${sharesWorkspace})`,
+        ),
+      )
       .orderBy(asc(u.name), asc(u.id))
     return rows.map((row: OrgMemberRow & { places: unknown }) => ({
       ...row,

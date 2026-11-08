@@ -21,6 +21,8 @@ interface ConnectionCardProps {
   /** Projects that could be added to its list. */
   addable: { id: string; name: string }[]
   /** Without it the card is read-only. */
+  /** Called when the project picker opens or closes, so its list can be fetched then. */
+  onAddingChange?: (open: boolean) => void
   actions?: {
     onAddProject: (projectId: string) => void
     onRemoveProject: (projectId: string) => void
@@ -58,6 +60,7 @@ export function tokenStatus(
 export function ConnectionCard({
   connection,
   addable,
+  onAddingChange,
   actions,
   now = new Date(),
 }: ConnectionCardProps) {
@@ -70,8 +73,13 @@ export function ConnectionCard({
       ? 'No deployments yet'
       : `${plural(deployments.count, 'deployment')} · last ${timeAgoOrDay(deployments.lastAt, now)}`
 
+  function handleAddingChange(open: boolean) {
+    setAdding(open)
+    onAddingChange?.(open)
+  }
+
   function handleAdd(projectId: string) {
-    setAdding(false)
+    handleAddingChange(false)
     actions?.onAddProject(projectId)
   }
 
@@ -152,10 +160,10 @@ export function ConnectionCard({
           connection.hiddenProjects === 0 && (
             <span className="text-2xs text-muted-foreground">No projects</span>
           )}
-        {actions && connection.projects !== 'all' && addable.length > 0 && (
+        {actions && connection.projects !== 'all' && (
           <ScopeSwitcher
             open={adding}
-            onOpenChange={setAdding}
+            onOpenChange={handleAddingChange}
             trigger={
               <button
                 type="button"

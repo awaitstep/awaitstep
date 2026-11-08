@@ -720,6 +720,33 @@ caller may not open reads as not found. The workspace record also carries
 | `project`   | query | no       | Project slug                     |
 | `workspace` | query | no       | Workspace slug (needs `project`) |
 
+### Page summaries
+
+One request per page section, shaped to what it renders. They are dashboard
+reads: no whole rows, no emails outside the audience `/scope` and
+`/members` define, and no secret or credential.
+
+- `GET /orgs/:slug/home-summary` — `{ failing: { count, first } }` for the org
+  home; `first` is the same workflow/project/workspace/run record `/failing`
+  returns, or `null`.
+- `GET /projects/:id/summary?org=` — `{ admins: { count, people[≤5] },
+projectKeys, variables: { total, own, inherited, first[≤2] }, shared: {
+count, first[≤2] } }` for the workspaces page's Project-wide cards.
+- `GET /workspaces/:id/overview` — `{ counts, needsAttention, recent[≤4],
+shared: { out, in } }` for a workspace's Overview. People come from
+  `/scope`; an empty workspace asks for nothing else.
+- `GET /workspaces/:id/settings-counts` — `{ members, keys, variables }` for
+  Workspace Settings' tab pills; a tab's list loads when it opens.
+- `GET /workflows/:id/summary` — `{ currentVersion, versionCount,
+lastSuccessfulDeploy, latestDeploy, deployCount, runs: { counts, total,
+byHour } }` for a workflow page's band, header and tabs. The full versions,
+  deployments and runs lists stay on their own tabs.
+- `GET /resources/counts?org=` — `{ installedNodes, variables }` for
+  Resources' two tab pills.
+
+`GET /scope` no longer carries `org.members`: the roster is `/members?org=`'s
+answer, and only an org owner or admin sees other people's addresses.
+
 ### `GET /orgs`
 
 Session only. The organizations the session is a member of, with the
@@ -1907,11 +1934,8 @@ A project that isn't the organization's (or a slug nobody uses) lists nothing.
   "data": [
     {
       "id": "conn_1",
-      "organizationId": "org_1",
       "provider": "cloudflare",
       "name": "Acme production",
-      "credentials": { "accountId": "0123…7f2a", "apiToken": "***" },
-      "createdBy": "usr_1",
       "createdByName": "Ama Mensah",
       "accountSuffix": "7f2a",
       "allProjects": false,
@@ -1928,6 +1952,9 @@ A project that isn't the organization's (or a slug nobody uses) lists nothing.
   "nextCursor": null
 }
 ```
+
+The account is named by `accountSuffix` (its id's last four characters); the
+credentials, the creator's id and the organization id never leave the API.
 
 - `projects` names only the projects the reader can open — a person's, or an
   organization key's creator's as they stand now; a project or workspace key:
@@ -2887,6 +2914,16 @@ reads as read. `link.to` names where the row leads by slug — `workspace`
   ],
   "counts": { "all": 6, "unread": 3, "action": 4 }
 }
+```
+
+#### `GET /notifications/count`
+
+The shell's unread badge, and nothing else: one `COUNT` over the same rows
+`GET /notifications` would show unread, for the caller in `?org=`. The list
+itself is fetched when the Inbox opens.
+
+```json
+{ "unread": 3 }
 ```
 
 #### `POST /notifications/:id/read`

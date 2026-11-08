@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { useState, type ReactElement } from 'react'
 import { Layers, Plus } from 'lucide-react'
 import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
@@ -27,7 +27,9 @@ const ACTIONS: ScopeAction[] = [
 
 /** Switches workspace within the project; also New workspace and Manage workspaces. */
 export function WorkspaceSwitcher({ trigger, slugs, projectName, page }: WorkspaceSwitcherProps) {
-  const workspaces = useWorkspaces(slugs.org, slugs.project)
+  const [open, setOpen] = useState(false)
+  // Asked for when the switcher opens: the panel shows its trigger on every page.
+  const workspaces = useWorkspaces(slugs.org, slugs.project, { enabled: open })
   const goTo = useGoTo()
 
   function handleSelect(slug: string) {
@@ -62,6 +64,8 @@ export function WorkspaceSwitcher({ trigger, slugs, projectName, page }: Workspa
       onSelect={handleSelect}
       actions={ACTIONS}
       onAction={handleAction}
+      open={open}
+      onOpenChange={setOpen}
     />
   )
 }

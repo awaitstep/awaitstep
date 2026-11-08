@@ -8,6 +8,7 @@ import {
   orgCapabilities,
   orgRoleOf,
   projectCapabilities,
+  projectGrantedRole,
   projectRoleOf,
   workspaceCapabilities,
   workspaceRoleOf,
@@ -228,11 +229,32 @@ export function workspaceScope(
 ): WorkspaceScope {
   const viewerRole = workspaceRoleOf(db, ctx, project, row)
   if (!viewerRole) throw notFoundError()
+  const orgRows = new Map(
+    db.orgMembers.filter((m) => m.orgId === project.orgId).map((m) => [m.userId, m]),
+  )
+  const people = workspacePeople(db, project, row).map((person) => {
+    const as = { scenario: 'none' as const, userId: person.id }
+    const role = workspaceRoleOf(db, as, project, row)!
+    const projectRole = projectGrantedRole(db, as, project)
+    const orgRow = orgRows.get(person.id)
+    return {
+      person,
+      role,
+      inherited: role === projectRole,
+      lastActiveAt: orgRow?.lastOpenedAt ?? null,
+      projectRole,
+      orgRole:
+        orgRow?.role === 'owner' || orgRow?.role === 'admin'
+          ? (orgRow.role as 'owner' | 'admin')
+          : null,
+    }
+  })
   return {
     workspace: {
       ...workspaceRecord(db, ctx, project, row),
       runsByHour: workspaceRunsByHour(db, row),
     },
+    people,
     viewerRole,
     viewerCan: workspaceCapabilities(viewerRole, {
       ownLock: row.lock !== null,

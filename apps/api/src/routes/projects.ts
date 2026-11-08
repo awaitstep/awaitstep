@@ -5,8 +5,7 @@ import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { isUniqueViolation } from '@awaitstep/db'
 import { ACCESS_REASONS, isOrgAdmin, projectCapabilities, type ProjectSetup } from '@awaitstep/ir'
-import { isSession } from '../middleware/auth.js'
-import { FOR_KEY, FOR_SESSION, projectRecord } from '../lib/scope-records.js'
+import { FOR_KEY, projectRecord } from '../lib/scope-records.js'
 import { CHANGED_MEANWHILE, lockBodySchema, lockResponse } from '../lib/locks.js'
 import { sharedItemRecord, sharedListQuerySchema } from '../lib/sharing.js'
 import { parseOrgRole } from '../lib/org-role.js'
@@ -30,6 +29,15 @@ const SLUG_TAKEN = 'Another project in this organization already uses that URL'
 
 export const projects = new Hono<AppEnv>()
 
+/** The workspaces page's three Project-wide cards, in one statement. */
+projects.get('/:id/summary', async (c) => {
+  const summary = await c
+    .get('db')
+    .projectSummary(c.get('organizationId'), c.get('projectId')!, new Date().toISOString())
+  if (!summary) return c.json({ error: 'Not found' }, 404)
+  return c.json(summary)
+})
+
 projects.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const db = c.get('db')
   const organizationId = c.get('organizationId')
@@ -38,7 +46,8 @@ projects.get('/', zValidator('query', paginationQuerySchema), async (c) => {
     cursor,
     limit,
   })
-  const audience = isSession(c) ? FOR_SESSION : FOR_KEY
+  // The list is a project card's data: no member roster (and no addresses).
+  const audience = FOR_KEY
   return c.json({
     ...result,
     data: result.data.map((row) => projectRecord(row, audience)),

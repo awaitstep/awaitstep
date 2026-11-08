@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ReleaseVisit } from '@awaitstep/ir'
 import { defineToast } from '../../lib/action-toast'
 import { useEffect } from 'react'
 import { RELEASE_NOTES } from '../../content/releases'
@@ -32,6 +33,28 @@ export function useNotifications(org: string) {
       }
       const list = await mockServer.inbox.listNotifications(ctx, org)
       return { list, counts: inboxCounts(list) }
+    },
+    ...(source === 'api' && {
+      refetchInterval: INBOX_REFRESH_MS,
+      refetchOnWindowFocus: true,
+    }),
+  })
+}
+
+/**
+ * The rail's unread marker: one count, polled, never the list. The list is
+ * fetched by the popover when it opens.
+ */
+export function useNotificationCount(org: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  return useQuery({
+    queryKey: key(dashKeys.notificationCount(org)),
+    queryFn: async (): Promise<number> => {
+      if (source === 'api') return (await dashboardApi.getNotificationCount(org)).unread
+      const list = await mockServer.inbox.listNotifications(ctx, org)
+      return inboxCounts(list).unread
     },
     ...(source === 'api' && {
       refetchInterval: INBOX_REFRESH_MS,
@@ -115,21 +138,35 @@ export function useReleases(org: string) {
       if (source === 'mock') return mockServer.inbox.listReleases(ctx, org)
       return releaseFeed(org, RELEASE_NOTES, await dashboardApi.getReleaseVisit())
     },
+    // The visit changes only when this person closes What's new (or another
+    // device does); opening and closing it again reuses the answer.
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   })
 }
 
-function useMarkReleasesSeen() {
+function useMarkReleasesSeen(org: string) {
   const source = useDataSource()
   const ctx = useMockContext()
   const client = useQueryClient()
+  const key = useDashKey()
   return useMutation({
     // Recorded when What's new closes, not clicked (D-AT-2).
     meta: { toast: 'silent' },
-    mutationFn: async (seen: string[]) => {
-      if (source === 'api') await dashboardApi.recordReleaseVisit(seen)
-      else await mockServer.inbox.markReleasesSeen(ctx, seen)
+    mutationFn: async (seen: string[]): Promise<ReleaseVisit | null> => {
+      if (source === 'api') return dashboardApi.recordReleaseVisit(seen)
+      await mockServer.inbox.markReleasesSeen(ctx, seen)
+      return null
     },
-    onSuccess: () => invalidateAll(client, [dashKeys.inAnyOrg('releases')]),
+    // The write already answers the new visit: rebuild the feed in the cache
+    // instead of fetching it back. The rail's dot clears in the same render.
+    onSuccess: (visit) => {
+      if (source === 'api' && visit) {
+        client.setQueryData(key(dashKeys.releases(org)), releaseFeed(org, RELEASE_NOTES, visit))
+        return
+      }
+      invalidateAll(client, [dashKeys.inAnyOrg('releases')])
+    },
   })
 }
 
@@ -139,8 +176,8 @@ function useMarkReleasesSeen() {
  * Back. Until then the sheet keeps its "New to you". Nothing is recorded for
  * notes that never loaded (`shown` undefined).
  */
-export function useRecordReleasesVisit(shown: readonly string[] | undefined) {
-  const { mutate } = useMarkReleasesSeen()
+export function useRecordReleasesVisit(org: string, shown: readonly string[] | undefined) {
+  const { mutate } = useMarkReleasesSeen(org)
   const key = shown?.join('\n')
   // Unmounting is the one moment every way of closing shares: a genuine side effect.
   useEffect(() => {

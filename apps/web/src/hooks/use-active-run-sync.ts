@@ -53,6 +53,9 @@ export function useActiveRunSync(runs: Run[] | undefined, listQueryKey: string[]
 
       if (changed) {
         queryClient.invalidateQueries({ queryKey: listQueryKey })
+        // The page summaries count and list runs; a moved run changes both.
+        queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-summary'] })
+        queryClient.invalidateQueries({ queryKey: ['dash', 'workspace-overview'] })
       }
     }
 

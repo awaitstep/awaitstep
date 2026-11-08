@@ -32,10 +32,17 @@ describe('/api/members', () => {
       },
     ])
     expect(byId['u-fay'].places).toEqual([])
-    // A member who can open no project sees everyone, but nobody's places.
+    // A member who shares no place sees the org's admins and themselves only.
     const asFay = await (await h.app.request('/api/members?org=acme', h.as('u-fay'))).json()
-    expect(asFay.data).toHaveLength(6)
+    expect(asFay.data.map((m: { id: string }) => m.id).sort()).toEqual(['u-fay'])
     expect(asFay.data.every((m: { places: unknown[] }) => m.places.length === 0)).toBe(true)
+    // Emails are the org admins' to read. Eve shares Sales with Dan, but is not an admin.
+    const asEve = await (await h.app.request('/api/members?org=acme', h.as('u-eve'))).json()
+    const eveById = Object.fromEntries(asEve.data.map((m: { id: string }) => [m.id, m]))
+    expect(eveById['u-eve']).toMatchObject({ email: 'eve@acme.test' })
+    expect(eveById['u-dan']).not.toHaveProperty('email')
+    expect(eveById['u-ama']).not.toHaveProperty('email')
+    expect(byId['u-dan']).toMatchObject({ email: 'dan@acme.test' })
     expect((await h.app.request('/api/members?org=acme', h.as('u-cleo'))).status).toBe(404)
   })
 

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { MoreHorizontal, Plus } from 'lucide-react'
 import { useRemoveWorkspaceMember, useSetWorkspaceRole } from '../../data/dashboard/members'
 import { useViewer } from '../../data/dashboard/session'
-import { useWorkspaces } from '../../data/dashboard/workspaces'
 import {
   orgPath,
   projectPath,
@@ -35,6 +34,8 @@ import { WORKSPACE_ROLES, WORKSPACE_ROLE_LABEL, inheritedRoleLabel } from './wor
 interface MembersTabProps {
   slugs: WorkspaceSlugs
   scope: WorkspaceScope
+  /** The project has a workspace other than this one: leaving still has somewhere to land. */
+  hasOtherWorkspaces: boolean
   org: { slug: string; name: string }
   projectName: string
   people: WorkspacePerson[]
@@ -45,10 +46,16 @@ function activeLabel(at: string | null): string {
 }
 
 /** Workspace settings → Members (`Access`): who only this workspace has, and who comes from the project. */
-export function MembersTab({ slugs, scope, org, projectName, people }: MembersTabProps) {
+export function MembersTab({
+  slugs,
+  scope,
+  hasOtherWorkspaces,
+  org,
+  projectName,
+  people,
+}: MembersTabProps) {
   const viewer = useViewer()
   const goTo = useGoTo()
-  const workspaces = useWorkspaces(slugs.org, slugs.project)
   const setRole = useSetWorkspaceRole(slugs)
   const remove = useRemoveWorkspaceMember(slugs)
   const [adding, setAdding] = useState(false)
@@ -87,7 +94,7 @@ export function MembersTab({ slugs, scope, org, projectName, people }: MembersTa
     // Removing your own only way in leaves nothing to show here: go to the
     // project if you can still open another workspace in it, else the org.
     const leaving = removing.person.id === viewerId && removing.projectRole === null
-    const elsewhere = workspaces.data?.some((w) => w.slug !== slugs.workspace) ?? false
+    const elsewhere = hasOtherWorkspaces
     const landing = elsewhere ? projectPath(slugs) : orgPath(slugs.org)
     remove.mutate(
       { userId: removing.person.id, leaving },

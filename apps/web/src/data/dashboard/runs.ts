@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { dashboardApi, type ApiRunFilter } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
-import type { RunFilter, RunPage, WorkspaceRun } from '../../types/dashboard/runs'
+import type { FailingItem, RunFilter, RunPage, WorkspaceRun } from '../../types/dashboard/runs'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import { toFailingItem, toRunPage } from './api/runs'
 import { collectPages } from './export-pages'
@@ -63,6 +63,31 @@ export function useWorkflowRunCounts(
 }
 
 /** Org home "Failing now", across every project and workspace the viewer can open. */
+/** The org home's Failing now: a count and the first row, not the list. */
+export interface FailingNowSummary {
+  count: number
+  first: FailingItem | null
+}
+
+export function useOrgHomeSummary(org: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  return useQuery({
+    queryKey: key(dashKeys.failing(org)),
+    queryFn: (): Promise<FailingNowSummary> =>
+      source === 'api'
+        ? dashboardApi.getOrgHomeSummary(org).then((summary) => ({
+            count: summary.failing.count,
+            first: summary.failing.first ? toFailingItem(summary.failing.first) : null,
+          }))
+        : mockServer.runs.listFailingNow(ctx, org).then((list) => ({
+            count: list.length,
+            first: list[0] ?? null,
+          })),
+  })
+}
+
 export function useFailingNow(org: string) {
   const source = useDataSource()
   const ctx = useMockContext()

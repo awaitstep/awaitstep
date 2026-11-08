@@ -45,7 +45,8 @@ export function MobileProjectMenu({
   projectHref,
 }: MobileProjectMenuProps) {
   const [open, setOpen] = useState(false)
-  const workspaces = useWorkspaces(slugs.org, slugs.project)
+  // The sheet's list loads when it opens; the phone header only names the current scope.
+  const workspaces = useWorkspaces(slugs.org, slugs.project, { enabled: open })
 
   function handleClose() {
     setOpen(false)

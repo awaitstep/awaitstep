@@ -1,11 +1,11 @@
-import type { SharedItem, WorkspaceItem } from '../../types/dashboard/items'
+import type { ItemKind, SharedItem, WorkspaceItem } from '../../types/dashboard/items'
 import type { WorkspaceRun } from '../../types/dashboard/runs'
 
 // What the workspace Overview (`WsOverview`) derives from the lists it
 // already loads; no endpoint of its own.
 
 export interface AttentionItem {
-  item: WorkspaceItem
+  item: { id: string; name: string; kind: ItemKind }
   /** The latest failed run, with where it stopped and why. */
   run: WorkspaceRun | null
   /** Failures among the last ten runs. */
@@ -53,8 +53,8 @@ export function sharedSummary(items: WorkspaceItem[], sharedIn: SharedItem[]): S
 }
 
 /** "Lead enrichment · used by IT". */
-export function sharedOutLabel(item: WorkspaceItem): string {
-  if (item.usedBy.length === 0) return item.name
+export function sharedOutLabel(item: { name: string; usedBy?: { name: string }[] }): string {
+  if (!item.usedBy || item.usedBy.length === 0) return item.name
   return `${item.name} · used by ${item.usedBy.map((w) => w.name).join(', ')}`
 }
 

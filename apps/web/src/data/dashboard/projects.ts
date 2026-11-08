@@ -3,15 +3,21 @@ import { slugify } from '@awaitstep/ir'
 import { availableSlug } from '../../lib/available-slug'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
-import type { NewProjectInput, Project, ProjectUpdate } from '../../types/dashboard/projects'
+import type {
+  NewProjectInput,
+  Project,
+  ProjectOverviewSummary,
+  ProjectUpdate,
+} from '../../types/dashboard/projects'
 import type { Workspace } from '../../types/dashboard/workspaces'
-import { projectFromRow, toProject, workspaceFromRow } from './api/records'
+import { projectFromRow, toPerson, toProject, workspaceFromRow } from './api/records'
 import { collectPages } from './export-pages'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useOrgs } from './session'
 import { useDashKey, useDataSource } from './source'
 import { useScope } from './workspaces'
+import { projectAdmins } from '../../components/project-settings/project-pool'
 
 /** `enabled: false` holds the request back, for a frame that needs the list on one page only. */
 export function useProjects(org: string, { enabled = true }: { enabled?: boolean } = {}) {
@@ -57,6 +63,65 @@ const throughProject = (org: string, project: string) => [
 export function useProjectId(org: string, project: string): string | null {
   const scope = useScope({ org, project })
   return scope.data?.found ? (scope.data.project?.project.id ?? null) : null
+}
+
+/**
+ * The workspaces page's three Project-wide cards, in one request. The mock
+ * builds the same shape from its own lists.
+ */
+export function useProjectSummary(org: string, project: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  const projectId = useProjectId(org, project)
+  return useQuery({
+    queryKey: key(dashKeys.projectSummary(org, project)),
+    queryFn: async (): Promise<ProjectOverviewSummary> => {
+      if (source === 'api') {
+        if (!projectId) throw new Error('The project has not loaded yet')
+        const summary = await dashboardApi.getProjectSummary(org, projectId)
+        return {
+          admins: {
+            count: summary.admins.count,
+            people: summary.admins.people.map((person) => toPerson(person)),
+          },
+          projectKeys: summary.projectKeys,
+          variables: summary.variables,
+          shared: summary.shared,
+        }
+      }
+      const [members, setup, variables, shared] = await Promise.all([
+        mockServer.members.listProjectMembers(ctx, org, project),
+        mockServer.setup.getProjectSetup(ctx, org, project),
+        mockServer.variables.listProjectVariables(ctx, org, project),
+        mockServer.items.listProjectShared(ctx, org, project),
+      ])
+      const own = variables.filter((v) => v.setAt.level === 'project').length
+      return {
+        admins: {
+          count: projectAdmins(members).length,
+          people: projectAdmins(members).slice(0, 5),
+        },
+        projectKeys: setup.projectKeys,
+        variables: {
+          total: variables.length,
+          own,
+          inherited: variables.length - own,
+          first: variables.slice(0, 2).map((v) => v.name),
+        },
+        shared: {
+          count: shared.length,
+          first: shared.slice(0, 2).map((item) => ({
+            id: item.id,
+            name: item.name,
+            kind: item.kind,
+            from: item.from,
+          })),
+        },
+      }
+    },
+    enabled: source !== 'api' || projectId !== null,
+  })
 }
 
 /** Creates the project with its Default workspace; resolves to both, so the page can open it. */

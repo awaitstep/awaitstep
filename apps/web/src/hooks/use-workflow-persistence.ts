@@ -197,6 +197,7 @@ export function useWorkflowPersistence(opts: {
       setRefusal(null)
       queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] })
+      queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-summary', workflowId] })
       if (created) {
         window.history.replaceState(null, '', workflowLinks(scope, created.id).editor('canvas'))
         setWorkflowId(created.id)

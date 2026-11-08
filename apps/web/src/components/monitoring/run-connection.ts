@@ -6,27 +6,16 @@ export interface RunConnection {
   account: string | null
 }
 
-interface OrgConnection {
-  id: string
-  name: string
-  credentials: Record<string, string> | string
-}
-
 /**
- * The account a run went out with. It may be the org's, the project's own, or
- * one the workflow was deployed with that the project has since dropped.
+ * The account a run went out with: the project's own, or one the workflow was
+ * deployed with that the project has since dropped. The deploy page's answer
+ * already names every account the workflow can use, so no org list is read.
  */
 export function runConnection(
   connectionId: string | null | undefined,
-  org: readonly OrgConnection[] | undefined,
   deploy: DeployConnections | undefined,
 ): RunConnection | null {
   if (!connectionId) return null
-  const fromOrg = org?.find((c) => c.id === connectionId)
-  if (fromOrg) {
-    const account = typeof fromOrg.credentials === 'string' ? null : fromOrg.credentials.accountId
-    return { name: fromOrg.name, account: account ?? null }
-  }
   const fromProject = deploy?.connections.find((c) => c.id === connectionId)
   if (fromProject) {
     return {

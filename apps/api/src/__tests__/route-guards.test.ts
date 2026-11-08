@@ -64,6 +64,15 @@ function sessionOnly(method: string, path: string): boolean {
   if (path === '/api/projects/:id/shared') return true
   // The empty-project page's counts are a person's dashboard read (B9).
   if (path === '/api/projects/:id/setup') return true
+  // Page summaries are dashboard reads; the workflow one is the only key-mapped summary.
+  if (
+    path === '/api/projects/:id/summary' ||
+    path === '/api/workspaces/:id/overview' ||
+    path === '/api/workspaces/:id/settings-counts' ||
+    path === '/api/resources/counts'
+  ) {
+    return true
+  }
   return path === '/api/projects/:id/move' || path === '/api/workflows/:id/move'
 }
 

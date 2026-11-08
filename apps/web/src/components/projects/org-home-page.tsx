@@ -1,6 +1,6 @@
 import { useOrgActivity } from '../../data/dashboard/activity'
 import { useProjects } from '../../data/dashboard/projects'
-import { useFailingNow } from '../../data/dashboard/runs'
+import { useOrgHomeSummary } from '../../data/dashboard/runs'
 import { useScope } from '../../data/dashboard/workspaces'
 import { ListCardSkeleton, LoadingRegion, Bone } from '../ui/skeletons'
 import { LoadError } from '../ui/load-error'
@@ -45,7 +45,7 @@ function OrgHomeSkeleton() {
 export function OrgHomePage({ org, dialog, then, onCloseDialog }: OrgHomePageProps) {
   const scope = useScope({ org })
   const projects = useProjects(org)
-  const failing = useFailingNow(org)
+  const failing = useOrgHomeSummary(org)
   const activity = useOrgActivity(org)
 
   function handleRetry() {

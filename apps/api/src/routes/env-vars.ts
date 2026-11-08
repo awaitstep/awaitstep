@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
-import { ENV_VAR_NAME, variableLevelOf } from '@awaitstep/ir'
+import { ENV_VAR_NAME, orgCapabilities, variableLevelOf } from '@awaitstep/ir'
 import {
   isUniqueViolation,
   type EnvVar,
@@ -121,7 +121,16 @@ envVars.get('/', zValidator('query', paginationQuerySchema), async (c) => {
   const { cursor, limit } = c.req.valid('query')
   const result =
     place.level === 'organization'
-      ? await db.listEnvVarsByOrganization(place.organizationId, { cursor, limit }, c.get('userId'))
+      ? await db.listEnvVarsByOrganization(
+          place.organizationId,
+          { cursor, limit },
+          c.get('userId'),
+          {
+            seeAll:
+              c.get('orgRole') !== null &&
+              orgCapabilities(c.get('orgRole')!).manageSettings.allowed,
+          },
+        )
       : place.level === 'project'
         ? await db.listEnvVarsByProject(place.organizationId, place.projectId, { cursor, limit })
         : await db.listEnvVarsByWorkspace(

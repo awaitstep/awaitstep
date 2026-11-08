@@ -1,6 +1,6 @@
 import { useWorkspaceKeys } from '../../data/dashboard/api-keys'
 import { useWorkspaceVariables } from '../../data/dashboard/variables'
-import { useWorkspacePeople } from '../../data/dashboard/workspaces'
+import { useWorkspacePeople, useWorkspaceSettingsCounts } from '../../data/dashboard/workspaces'
 import {
   WORKSPACE_SETTINGS_TABS,
   type WorkspaceSettingsTab,
@@ -49,9 +49,11 @@ export function WorkspaceSettingsPage({
   onCloseDialog = noop,
 }: WorkspaceSettingsPageProps) {
   const scope = useWorkspaceScope(slugs)
-  const people = useWorkspacePeople(slugs)
-  const keys = useWorkspaceKeys(slugs)
-  const variables = useWorkspaceVariables(slugs)
+  // Each pill's count comes from the page's own summary; a tab's list opens with it.
+  const counts = useWorkspaceSettingsCounts(slugs)
+  const people = useWorkspacePeople(slugs, { enabled: tab === 'members' })
+  const keys = useWorkspaceKeys(slugs, { enabled: tab === 'keys' })
+  const variables = useWorkspaceVariables(slugs, { enabled: tab === 'variables' })
 
   if (!scope) return null
   const workspace = scope.workspace.workspace
@@ -61,8 +63,6 @@ export function WorkspaceSettingsPage({
   function handleTabChange(value: string) {
     onTabChange(tabFrom(value))
   }
-
-  const keyCount = keys.data && keys.data.own.length + keys.data.reaching.length
 
   return (
     <PageBody>
@@ -84,13 +84,13 @@ export function WorkspaceSettingsPage({
       <Tabs value={tab} onValueChange={handleTabChange} className="flex flex-col gap-6">
         <PillTabsList>
           <PillTab value="general">General</PillTab>
-          <PillTab value="members" count={people.data?.length}>
+          <PillTab value="members" count={counts.data?.members}>
             Members
           </PillTab>
-          <PillTab value="keys" count={keyCount}>
+          <PillTab value="keys" count={counts.data?.keys}>
             API keys
           </PillTab>
-          <PillTab value="variables" count={variables.data?.length}>
+          <PillTab value="variables" count={counts.data?.variables}>
             Variables
           </PillTab>
         </PillTabsList>
@@ -111,6 +111,7 @@ export function WorkspaceSettingsPage({
                 scope={scope.workspace}
                 org={org}
                 projectName={projectName}
+                hasOtherWorkspaces={scope.project.project.workspaces.length > 1}
                 people={data}
               />
             )}

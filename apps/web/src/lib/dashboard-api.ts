@@ -51,7 +51,8 @@ export interface PlaceInviteReply {
 export interface ApiMember {
   id: string
   name: string
-  email: string
+  /** Left out unless the viewer is an org owner or admin (or this is their own row). */
+  email?: string
   image: string | null
   role: OrgRole
 }
@@ -60,7 +61,8 @@ export interface ApiMember {
 export interface ApiWorkspacePerson {
   id: string
   name: string
-  email: string
+  /** Left out unless the viewer is an org owner or admin (or this is their own row). */
+  email?: string
   image: string | null
   role: WorkspaceRole
   inherited: boolean
@@ -81,7 +83,7 @@ export interface ApiOrgMember extends ApiMember {
 }
 
 export interface ApiPersonAccess {
-  person: { id: string; name: string; email: string; image: string | null }
+  person: { id: string; name: string; email?: string; image: string | null }
   joinedAt: string
   orgRole: OrgRole
   projects: { id: string; name: string; workspaces: ApiWorkspaceChip[] }[]
@@ -265,7 +267,7 @@ export interface ApiProjectRow {
 export type ApiScope =
   | {
       found: true
-      org: ApiOrg & { members: ApiMember[] }
+      org: ApiOrg
       project?: ApiProject
       workspace?: ApiWorkspace
     }
@@ -323,6 +325,94 @@ export interface ApiFailing {
   project: { slug: string; name: string }
   workspace: { slug: string; name: string; colour: WorkspaceColour }
   run: RunSummary
+}
+
+export interface ApiOrgHomeSummary {
+  failing: { count: number; first: ApiFailing | null }
+}
+
+export interface ApiProjectSummary {
+  admins: { count: number; people: { id: string; name: string; image: string | null }[] }
+  projectKeys: number
+  variables: { total: number; own: number; inherited: number; first: string[] }
+  shared: {
+    count: number
+    first: {
+      id: string
+      name: string
+      kind: 'workflow' | 'script'
+      from: { id: string; slug: string; name: string; colour: WorkspaceColour }
+    }[]
+  }
+}
+
+export interface ApiWorkflowDeploySummary {
+  id: string
+  connectionId: string | null
+  connectionName: string | null
+  versionId: string | null
+  versionNumber: number | null
+  versionLocked: number | null
+  status: string
+  error: string | null
+  createdAt: string
+}
+
+export interface ApiWorkflowPageSummary {
+  currentVersion: { id: string; version: number; locked: number; createdAt: string } | null
+  versionCount: number
+  lastSuccessfulDeploy: ApiWorkflowDeploySummary | null
+  latestDeploy: ApiWorkflowDeploySummary | null
+  deployCount: number
+  runs: {
+    counts: { all: number; succeeded: number; failed: number; running: number }
+    total: number
+    byHour: RunHour[]
+  }
+}
+
+export interface ApiWorkspaceOverview {
+  counts: ApiWorkspace['counts']
+  needsAttention: {
+    item: { id: string; name: string; kind: 'workflow' | 'script' }
+    run: {
+      id: string
+      workflowId: string
+      status: string
+      createdAt: string
+      error: string | null
+    } | null
+    failures: number
+    total: number
+  }[]
+  recent: {
+    id: string
+    workflowId: string
+    workflowName: string
+    kind: 'workflow' | 'script'
+    status: string
+    createdAt: string
+  }[]
+  shared: {
+    out: { id: string; name: string }[]
+    in: {
+      id: string
+      name: string
+      kind: 'workflow' | 'script'
+      from: { id: string; slug: string; name: string; colour: WorkspaceColour }
+    }[]
+  }
+}
+
+export interface ApiWorkspaceSettingsCounts {
+  members: number
+  keys: number
+  variables: number
+}
+
+export interface ApiResourceCounts {
+  installedNodes: number
+  variables: number
 }
 
 export interface ApiRunFilter {
@@ -506,6 +596,31 @@ export const dashboardApi = {
 
   listFailing(org: string): Promise<{ data: ApiFailing[] }> {
     return request(apiPath`/failing` + query({ org }))
+  },
+
+  /** The org home's failing count and first row: the list itself lives behind the tile. */
+  getOrgHomeSummary(org: string): Promise<ApiOrgHomeSummary> {
+    return request(apiPath`/orgs/${org}/home-summary`)
+  },
+
+  /** The workspaces page's three Project-wide cards. */
+  getProjectSummary(org: string, projectId: string): Promise<ApiProjectSummary> {
+    return request(apiPath`/projects/${projectId}/summary` + query({ org }))
+  },
+
+  /** The workspace Overview, in one request. */
+  getWorkspaceOverview(workspaceId: string): Promise<ApiWorkspaceOverview> {
+    return request(apiPath`/workspaces/${workspaceId}/overview`)
+  },
+
+  /** Workspace Settings' tab pills, without opening a tab. */
+  getWorkspaceSettingsCounts(workspaceId: string): Promise<ApiWorkspaceSettingsCounts> {
+    return request(apiPath`/workspaces/${workspaceId}/settings-counts`)
+  },
+
+  /** Resources' tab pills. */
+  getResourceCounts(org: string): Promise<ApiResourceCounts> {
+    return request(apiPath`/resources/counts` + query({ org }))
   },
 
   listProjects(
@@ -1009,6 +1124,11 @@ export const dashboardApi = {
   /** `GET /notifications`: the person's Inbox in the org, newest first, with its counts (B8). */
   listNotifications(org: string): Promise<InboxPage> {
     return request(apiPath`/notifications` + query({ org }))
+  },
+
+  /** The shell badge: one count, so the list stays closed until the Inbox opens. */
+  getNotificationCount(org: string): Promise<{ unread: number }> {
+    return request(apiPath`/notifications/count` + query({ org }))
   },
 
   markNotificationRead(org: string, id: string): Promise<{ ok: true }> {

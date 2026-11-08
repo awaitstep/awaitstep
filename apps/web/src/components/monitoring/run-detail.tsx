@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
-import { flatPages } from '../../lib/queries'
 import { durationCompact, formatDateTime } from '../../lib/time'
 import { RunActions } from './run-actions'
 import { runConnection } from './run-connection'
@@ -43,14 +42,7 @@ export function RunDetail({ runId, workflowId }: RunDetailProps) {
     prevStatus.current = run.status
   }, [run, queryClient, workflowId])
 
-  // Keyed by the org this client calls, so another org's list never stands in.
-  const { organizationId } = api.scope()
-  const { data: connections } = useInfiniteQuery({
-    ...queries.connections.list(organizationId ?? ''),
-    retry: false,
-    select: (data) => flatPages(data),
-  })
-  // A project's own accounts aren't in the org's list.
+  // A project's own accounts, named by the deploy page's answer.
   const { data: deployConnections } = useQuery({
     ...queries.connections.forDeploy(workflowId),
     retry: false,
@@ -70,7 +62,7 @@ export function RunDetail({ runId, workflowId }: RunDetailProps) {
 
   const isTerminal = TERMINAL_STATUSES.has(run.status)
   const isRunning = run.status === 'running' || run.status === 'queued'
-  const connection = runConnection(run.connectionId, connections, deployConnections)
+  const connection = runConnection(run.connectionId, deployConnections)
 
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-4">

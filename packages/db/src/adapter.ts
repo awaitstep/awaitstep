@@ -53,6 +53,12 @@ import type {
   ApiKeyTarget,
   CreateApiKeyData,
   WorkspaceKeyCount,
+  OrgHomeSummary,
+  ProjectSummary,
+  WorkspaceSettingsCounts,
+  ResourceCounts,
+  WorkflowPageSummary,
+  WorkspacePageOverview,
   OrgEnvVar,
   ResolvedProjectVariable,
   ResolvedWorkspaceVariable,
@@ -295,7 +301,11 @@ export interface DatabaseAdapter {
   // Access: people, grants and the access editor (B2). Reads are one
   // statement; a refusal is the statement's own WHERE matching nothing.
   /** Everyone in the organization and, for plain members, where they can work (in the viewer's projects). */
-  listOrgMembers(organizationId: string, viewerId: string): Promise<OrgMemberRow[]>
+  listOrgMembers(
+    organizationId: string,
+    viewerId: string,
+    options?: { seeAll?: boolean },
+  ): Promise<OrgMemberRow[]>
   getPersonAccess(organizationId: string, userId: string): Promise<PersonAccessRows | null>
   /** One read of every check a write needs: which ids are the organization's, and one person's role in it. */
   checkInOrganization(
@@ -536,12 +546,30 @@ export interface DatabaseAdapter {
   clearNotificationsByPrefix(organizationId: string, prefixes: string[]): Promise<void>
   /** Warns live keys' creators before expiry, once per threshold, in one statement; rows written. */
   notifyExpiringKeys(check: ExpiringKeysCheck): Promise<number>
+  /** The org home's Failing now: a count and the first row, in one statement. */
+  orgHomeSummary(organizationId: string, viewerId: string): Promise<OrgHomeSummary | null>
+  /** The workspaces page's Project-wide cards, in one statement. */
+  projectSummary(
+    organizationId: string,
+    projectId: string,
+    now: string,
+  ): Promise<ProjectSummary | null>
+  /** A workspace's Overview: counts, failing items, recent runs and shares, one statement. */
+  workspacePageOverview(workspaceId: string, now: Date): Promise<WorkspacePageOverview | null>
+  /** A workflow's page summary: current version, deploys and runs, in one statement. */
+  workflowPageSummary(workflowId: string, now: Date): Promise<WorkflowPageSummary | null>
+  /** Workspace Settings' three tab pills, without opening a tab. */
+  workspaceSettingsCounts(workspaceId: string, now: string): Promise<WorkspaceSettingsCounts | null>
+  /** Resources' two tab pills. */
+  resourceCounts(organizationId: string): Promise<ResourceCounts>
   /** A person's Inbox in an organization, newest first, with the pills' counts — one statement. */
   listNotifications(
     organizationId: string,
     userId: string,
     limit: number,
   ): Promise<NotificationList>
+  /** The shell badge's count: unread rows the person can see in the organization. */
+  countUnreadNotifications(organizationId: string, userId: string): Promise<number>
   /** False when the row isn't the person's in this organization. */
   markNotificationRead(
     organizationId: string,
@@ -943,6 +971,7 @@ export interface DatabaseAdapter {
     organizationId: string,
     pagination?: PaginationParams,
     visibleTo?: string,
+    options?: { seeAll?: boolean },
   ): Promise<PaginatedResult<OrgEnvVar>>
   /** The project's own rows, not its workspaces'. */
   listEnvVarsByProject(

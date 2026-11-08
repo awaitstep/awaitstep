@@ -27,6 +27,7 @@ export function useLockDeployed(workflowId: string, versionId: string | undefine
         queryClient.invalidateQueries({ queryKey: ['versions', workflowId] }),
         queryClient.invalidateQueries({ queryKey: ['deployments', workflowId] }),
         queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflowId] }),
+        queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-summary', workflowId] }),
       ]),
   })
 }

@@ -901,7 +901,7 @@ export interface WorkspaceOverview extends Workspace {
 }
 
 export interface ScopeRows {
-  org: OrgOverview & { members: OrgMemberSummary[] }
+  org: OrgOverview
   /** Null when no project slug was asked for, or none matched. */
   project: ProjectOverview | null
   workspace: WorkspaceOverview | null
@@ -968,6 +968,126 @@ export interface WorkspaceRunPage {
    * period. Absent otherwise.
    */
   byHour?: RunHour[]
+}
+
+/** A person a summary card names: no address, no role. */
+export interface SummaryPerson {
+  id: string
+  name: string
+  image: string | null
+}
+
+/** An item a summary card shows: its name, kind and the workspace it lives in. */
+export interface SharedSummaryItem {
+  id: string
+  name: string
+  kind: 'workflow' | 'script'
+  from: WorkspaceChip
+}
+
+/** The workspaces page's three Project-wide cards, in one answer. */
+export interface ProjectSummary {
+  admins: { count: number; people: SummaryPerson[] }
+  projectKeys: number
+  variables: { total: number; own: number; inherited: number; first: string[] }
+  shared: { count: number; first: SharedSummaryItem[] }
+}
+
+/** A failing workflow as the org home's one row shows it. */
+export interface FailingSummary {
+  workflow: { id: string; name: string; kind: 'workflow' | 'script' }
+  project: { slug: string; name: string }
+  workspace: { slug: string; name: string; colour: string }
+  run: {
+    id: string
+    workflowId: string
+    versionId: string | null
+    versionNumber: number | null
+    status: string
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+/** One failing item on a workspace overview. */
+export interface WorkspaceAttentionItem {
+  item: { id: string; name: string; kind: 'workflow' | 'script' }
+  run: {
+    id: string
+    workflowId: string
+    status: string
+    createdAt: string
+    error: string | null
+  } | null
+  /** Failures among the last ten runs, and how many that is. */
+  failures: number
+  total: number
+}
+
+/** One of a workspace's latest finished runs, for its overview table. */
+export interface WorkspaceRecentRun {
+  id: string
+  workflowId: string
+  workflowName: string
+  kind: 'workflow' | 'script'
+  status: string
+  createdAt: string
+}
+
+/** What a workspace's Overview shows, built in one statement. */
+export interface WorkspacePageOverview {
+  counts: WorkspaceCounts
+  needsAttention: WorkspaceAttentionItem[]
+  recent: WorkspaceRecentRun[]
+  shared: {
+    out: { id: string; name: string }[]
+    in: { id: string; name: string; kind: 'workflow' | 'script'; from: WorkspaceChip }[]
+  }
+}
+
+/** A deployment on a workflow's summary: enough for the band and the header. */
+export interface WorkflowDeploySummary {
+  id: string
+  connectionId: string | null
+  connectionName: string | null
+  versionId: string | null
+  versionNumber: number | null
+  versionLocked: number | null
+  status: string
+  error: string | null
+  createdAt: string
+}
+
+/** A workflow's page summary: current version, deploys and runs, one statement. */
+export interface WorkflowPageSummary {
+  currentVersion: { id: string; version: number; locked: number; createdAt: string } | null
+  versionCount: number
+  lastSuccessfulDeploy: WorkflowDeploySummary | null
+  latestDeploy: WorkflowDeploySummary | null
+  deployCount: number
+  runs: {
+    counts: { all: number; succeeded: number; failed: number; running: number }
+    total: number
+    byHour: RunHour[]
+  }
+}
+
+/** The org home's "Failing now" tile: a count and the first row behind it. */
+export interface OrgHomeSummary {
+  failing: { count: number; first: FailingSummary | null }
+}
+
+/** A workspace's settings tab pills, without opening any tab. */
+export interface WorkspaceSettingsCounts {
+  members: number
+  keys: number
+  variables: number
+}
+
+/** Resources' two tab pills. */
+export interface ResourceCounts {
+  installedNodes: number
+  variables: number
 }
 
 /** A workflow whose latest run failed, with where it lives and that run. */

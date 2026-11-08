@@ -11,15 +11,11 @@ export const TOKEN_CHECKS_PER_TICK = 20
 /** A connection as `GET /connections` lists it. */
 export interface ConnectionSummary {
   id: string
-  organizationId: string
   provider: string
   name: string
-  /** Redacted: account fields keep their values, secrets read `***`. */
-  credentials: Record<string, string> | string
-  createdBy: string
   /** Null when the person has been removed from the instance. */
   createdByName: string | null
-  /** Last four characters of the account id. */
+  /** Last four characters of the account id; the only account detail the list carries. */
   accountSuffix: string | null
   /** Serves every project, including ones created later. */
   allProjects: boolean

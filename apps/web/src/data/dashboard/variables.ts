@@ -25,7 +25,7 @@ import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
 
 /** Resources → Variables: what the org sets for every project. */
-export function useOrgVariables(org: string) {
+export function useOrgVariables(org: string, { enabled = true }: { enabled?: boolean } = {}) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
@@ -37,6 +37,7 @@ export function useOrgVariables(org: string) {
             res.data.map(toOrgVariable),
           )
         : mockServer.variables.listOrgVariables(ctx, org),
+    enabled,
   })
 }
 
@@ -57,7 +58,10 @@ export function useProjectVariables(org: string, project: string) {
 }
 
 /** Workspace settings → Variables: each name once, the closest level winning. */
-export function useWorkspaceVariables(slugs: Required<ScopeSlugs>) {
+export function useWorkspaceVariables(
+  slugs: Required<ScopeSlugs>,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
@@ -69,12 +73,18 @@ export function useWorkspaceVariables(slugs: Required<ScopeSlugs>) {
             .listResolvedWorkspaceVariables(slugs)
             .then((res) => res.data.map(toWorkspaceVariable))
         : mockServer.variables.listWorkspaceVariables(ctx, slugs),
+    enabled,
   })
 }
 
 /** What a variable change shows up in: every Variables list and the setup counts. */
 function variableKeys(org: string) {
-  return [dashKeys.inOrg('variables', org), dashKeys.inOrg('setup', org)]
+  return [
+    dashKeys.inOrg('variables', org),
+    dashKeys.inOrg('setup', org),
+    dashKeys.inOrg('settings-counts', org),
+    dashKeys.resourceCounts(org),
+  ]
 }
 
 /**

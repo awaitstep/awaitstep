@@ -5,6 +5,7 @@ import {
 } from '../../lib/ide/draft-persistence'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../lib/api-client'
+import type { ApiAccount } from '@awaitstep/ir'
 import { authClient } from '../../lib/auth-client'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { mockServer } from '../../mocks/dashboard/server'
@@ -12,9 +13,11 @@ import { useAuthStore } from '../../stores/auth-store'
 import { announceSignOut } from '../../lib/auth-signal'
 import { forgetRememberedInputs } from '../../stores/remembered-inputs'
 import type {
+  Account,
   AccountExport,
   ProfileUpdate,
   SignInMethod,
+  SignInMethods,
   SignInProvider,
 } from '../../types/dashboard/account'
 import { toAccount, toSignInMethods } from './api/account'
@@ -40,12 +43,11 @@ export function useAccount() {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
-  return useQuery({
+  return useQuery<ApiAccount | Account, Error, Account>({
     queryKey: key(dashKeys.account()),
     queryFn: () =>
-      source === 'api'
-        ? dashboardApi.getAccount().then(toAccount)
-        : mockServer.account.getAccount(ctx),
+      source === 'api' ? dashboardApi.getAccount() : mockServer.account.getAccount(ctx),
+    select: (row) => (source === 'api' ? toAccount(row as ApiAccount) : (row as Account)),
   })
 }
 
@@ -150,12 +152,13 @@ export function useSignInMethods() {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
-  return useQuery({
-    queryKey: key(dashKeys.signInMethods()),
+  // The API answers both from `GET /account`: one request, two `select`s.
+  return useQuery<ApiAccount | SignInMethods, Error, SignInMethods>({
+    queryKey: source === 'api' ? key(dashKeys.account()) : key(dashKeys.signInMethods()),
     queryFn: () =>
-      source === 'api'
-        ? dashboardApi.getAccount().then(toSignInMethods)
-        : mockServer.account.listSignInMethods(ctx),
+      source === 'api' ? dashboardApi.getAccount() : mockServer.account.listSignInMethods(ctx),
+    select: (row) =>
+      source === 'api' ? toSignInMethods(row as ApiAccount) : (row as SignInMethods),
   })
 }
 

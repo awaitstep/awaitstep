@@ -425,6 +425,26 @@ export class NotificationsAdapter {
     }
   }
 
+  /** The shell badge's one number: unread rows the person can see in the organization. */
+  async countUnread(organizationId: string, userId: string): Promise<number> {
+    const n = aliasedTable(this.t.notifications, 'cn')
+    const p = aliasedTable(this.t.projects, 'cp')
+    const w = aliasedTable(this.t.workspaces, 'cw')
+    const r = aliasedTable(this.t.accessRequests, 'cr')
+    const read = sql`(${n.readAt} is not null or (${r.id} is not null and ${r.status} <> 'pending'))`
+    const visible = sql`(case when ${n.workspaceId} is not null and ${w.id} is not null then ${this.roles.workspaceRoleOf(userId, { organizationId, projectId: p.id, workspaceId: w.id })} is not null when ${n.workspaceId} is null and ${n.projectId} is not null and ${p.id} is not null then ${this.roles.projectVisible(userId, { organizationId, projectId: p.id })} else true end)`
+    const rows = await this.db
+      .select({ unread: sql<number>`count(*)`.mapWith(Number) })
+      .from(n)
+      .leftJoin(p, and(eq(p.id, n.projectId), eq(p.organizationId, n.organizationId)))
+      .leftJoin(w, and(eq(w.id, n.workspaceId), eq(w.projectId, p.id)))
+      .leftJoin(r, eq(r.id, n.accessRequestId))
+      .where(
+        and(eq(n.organizationId, organizationId), eq(n.userId, userId), visible, sql`not ${read}`),
+      )
+    return rows[0]?.unread ?? 0
+  }
+
   /** Marks the person's own row read; false when it isn't theirs in this org. */
   async markRead(
     organizationId: string,

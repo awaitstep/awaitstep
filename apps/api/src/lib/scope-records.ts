@@ -1,4 +1,5 @@
 import {
+  isOrgAdmin,
   orgCapabilities,
   projectCapabilities,
   resolveRoles,
@@ -34,7 +35,8 @@ import { personOf } from './sharing.js'
 export interface MemberRecord {
   id: string
   name: string
-  email: string
+  /** Left out for a viewer who is not an org owner or admin, except their own. */
+  email?: string
   image: string | null
   role: OrgRole
 }
@@ -43,7 +45,8 @@ export interface MemberRecord {
 export interface WorkspacePersonRecord {
   id: string
   name: string
-  email: string
+  /** Left out for a viewer who is not an org owner or admin, except their own. */
+  email?: string
   image: string | null
   role: WorkspaceRole
   /** The role comes from the project or org, not a grant in the workspace itself. */
@@ -85,9 +88,7 @@ export interface OrgListingRecord extends OrgRecord {
   health: { failing: number; lastRunAt: string | null }
 }
 
-export interface OrgScopeRecord extends OrgRecord {
-  members: MemberRecord[]
-}
+export type OrgScopeRecord = OrgRecord
 
 export interface ProjectRecord {
   id: string
@@ -139,8 +140,22 @@ export type ScopeResponse =
   | { found: true; org: OrgScopeRecord; project?: ProjectRecord; workspace?: WorkspaceRecord }
   | { found: false; notFound: NotFoundRecord }
 
-function memberRecord(row: OrgMemberSummary): MemberRecord {
-  return { ...row, role: parseOrgRole(row.role) }
+function emailFor<T extends { id: string; email: string }>(
+  row: T,
+  audience: RecordAudience,
+): string | undefined {
+  return audience.withEmails || row.id === audience.viewerId ? row.email : undefined
+}
+
+function memberRecord(row: OrgMemberSummary, audience: RecordAudience): MemberRecord {
+  const email = emailFor(row, audience)
+  return {
+    id: row.id,
+    name: row.name,
+    ...(email !== undefined ? { email } : {}),
+    image: row.image,
+    role: parseOrgRole(row.role),
+  }
 }
 
 /** The roles a set of membership rows resolves to. */
@@ -152,14 +167,18 @@ export function rolesOf(rows: GrantRows) {
   })
 }
 
-export function workspacePersonRecord(row: WorkspacePersonRow): WorkspacePersonRecord {
+export function workspacePersonRecord(
+  row: WorkspacePersonRow,
+  audience: RecordAudience = { withMembers: true, withEmails: true, viewerId: row.id },
+): WorkspacePersonRecord {
   const roles = rolesOf(row)
   // The read lists only people who can open the workspace, so the role is never null.
   const role = roles.workspaceRole ?? 'viewer'
+  const email = emailFor(row, audience)
   return {
     id: row.id,
     name: row.name,
-    email: row.email,
+    ...(email !== undefined ? { email } : {}),
     image: row.image,
     role,
     inherited: role === roles.inheritedWorkspaceRole,
@@ -206,17 +225,30 @@ export function orgListingRecord(row: OrgListing): OrgListingRecord {
   }
 }
 
-/** What the caller is: a key never gets the member roster (names and emails). */
+/**
+ * What the caller is: a key never gets the member roster (names and emails);
+ * a session only gets other people's addresses when it is an org owner or admin.
+ */
 export interface RecordAudience {
   withMembers: boolean
+  withEmails: boolean
+  viewerId: string | null
 }
 
-export const FOR_SESSION: RecordAudience = { withMembers: true }
-export const FOR_KEY: RecordAudience = { withMembers: false }
+/** A session that may see every address. */
+export function forSession(viewerId: string, orgRole: OrgRole | null): RecordAudience {
+  return { withMembers: true, withEmails: orgRole !== null && isOrgAdmin(orgRole), viewerId }
+}
+
+export const FOR_KEY: RecordAudience = {
+  withMembers: false,
+  withEmails: false,
+  viewerId: null,
+}
 
 export function projectRecord(
   row: ProjectOverview,
-  audience: RecordAudience = FOR_SESSION,
+  audience: RecordAudience = FOR_KEY,
 ): ProjectRecord {
   const roles = rolesOf(row.viewer)
   const lock = lockRecord(row.lockedBy, row.lockedAt, row.lockedByName)
@@ -231,7 +263,7 @@ export function projectRecord(
     workspaces: row.workspaces,
     health: row.health,
     lock,
-    members: audience.withMembers ? row.members.map(memberRecord) : [],
+    members: audience.withMembers ? row.members.map((m) => memberRecord(m, audience)) : [],
     viewerRole: roles.projectRole,
     viewerCan: projectCapabilities(
       roles.projectRole,
@@ -243,7 +275,7 @@ export function projectRecord(
 
 export function workspaceRecord(
   row: WorkspaceOverview,
-  audience: RecordAudience = FOR_SESSION,
+  audience: RecordAudience = FOR_KEY,
 ): WorkspaceRecord {
   const roles = rolesOf(row.viewer)
   // The read hides workspaces the caller cannot open, so the role is never null.
@@ -270,7 +302,7 @@ export function workspaceRecord(
     inheritedLock,
     counts: row.counts,
     ...(row.runsByHour && { runsByHour: row.runsByHour }),
-    members: audience.withMembers ? row.members.map(workspacePersonRecord) : [],
+    members: audience.withMembers ? row.members.map((m) => workspacePersonRecord(m, audience)) : [],
     viewerRole: workspaceRole,
     viewerCan: workspaceCapabilities(workspaceRole, {
       ownLock: lock !== null,
@@ -288,11 +320,16 @@ export function workspaceRecord(
  * name, so the page can say "no workspace `x` in Project 101"; a non-member
  * reads the org as missing.
  */
-export function toScopeResponse(rows: ScopeRows | null, slugs: ScopeSlugs): ScopeResponse {
+export function toScopeResponse(
+  rows: ScopeRows | null,
+  slugs: ScopeSlugs,
+  viewerId: string,
+): ScopeResponse {
   if (!rows) {
     return { found: false, notFound: { kind: 'organization', slug: slugs.org, parent: null } }
   }
-  const org = { ...orgRecord(rows.org), members: rows.org.members.map(memberRecord) }
+  const audience = forSession(viewerId, parseOrgRole(rows.org.viewerRole))
+  const org = orgRecord(rows.org)
   if (slugs.project === undefined) return { found: true, org }
   if (!rows.project) {
     return {
@@ -304,7 +341,7 @@ export function toScopeResponse(rows: ScopeRows | null, slugs: ScopeSlugs): Scop
       },
     }
   }
-  const project = projectRecord(rows.project)
+  const project = projectRecord(rows.project, audience)
   if (slugs.workspace === undefined) return { found: true, org, project }
   if (!rows.workspace) {
     return {
@@ -316,5 +353,5 @@ export function toScopeResponse(rows: ScopeRows | null, slugs: ScopeSlugs): Scop
       },
     }
   }
-  return { found: true, org, project, workspace: workspaceRecord(rows.workspace) }
+  return { found: true, org, project, workspace: workspaceRecord(rows.workspace, audience) }
 }

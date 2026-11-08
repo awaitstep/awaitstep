@@ -5,6 +5,7 @@ import { currentFirst } from '../../lib/current-first'
 import { timeAgoOrDay } from '../../lib/time'
 import type { ActivityItem } from '../../types/dashboard/activity'
 import type { Project } from '../../types/dashboard/projects'
+import type { FailingNowSummary } from '../../data/dashboard/runs'
 import type { FailingItem } from '../../types/dashboard/runs'
 import { ActionCard } from '../ui/action-card'
 import { buttonVariants } from '../ui/button'
@@ -20,7 +21,7 @@ import { RecentActivity } from './recent-activity'
 interface OrgHomeProps {
   org: { slug: string; name: string }
   projects: Project[]
-  failing: FailingItem[]
+  failing: FailingNowSummary
   activity: ActivityItem[]
   /** The project you'd land in, marked "Current". */
   currentProject: string | null
@@ -60,7 +61,7 @@ export function OrgHome({
   const shown = filterProjects(projects, query)
   const deployed = projects.reduce((sum, project) => sum + project.health.deployed, 0)
   const newProjectHref = `${orgPath(org.slug)}?new=project`
-  const firstFailing = failing[0]
+  const firstFailing = failing.first
 
   const newProjectButton = canCreateProject && (
     <ShellLink href={newProjectHref} className={buttonVariants({ size: 'sm' })}>
@@ -92,9 +93,9 @@ export function OrgHome({
                 <StatTile value={projects.length} label="Projects" />
                 <StatTile value={deployed} label="Workflows deployed" />
                 <StatTile
-                  value={failing.length}
+                  value={failing.count}
                   label="Failing now"
-                  tone={failing.length > 0 ? 'danger' : undefined}
+                  tone={failing.count > 0 ? 'danger' : undefined}
                   href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
                 />
               </span>

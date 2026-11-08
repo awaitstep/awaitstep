@@ -4,6 +4,7 @@ import type {
   LiveDeployment,
 } from '@awaitstep/ir'
 import type { RuntimeRequirement, SourceDiagnostic } from '@awaitstep/codegen'
+import type { ApiWorkflowPageSummary } from './dashboard-api'
 import type {
   GeneratedFile,
   StepManifest,
@@ -489,10 +490,8 @@ export interface RunStepsResponse {
   coalescedInto: Record<string, string>
 }
 
-/** A connection as `GET /connections` lists it, its account fields readable (secrets read `***`). */
-export type ConnectionSummary = Omit<ApiConnectionSummary, 'credentials'> & {
-  credentials: Record<string, string>
-}
+/** A connection as `GET /connections` lists it: the account by suffix, never its credentials. */
+export type ConnectionSummary = ApiConnectionSummary
 
 export interface ApiKeySummary {
   id: string
@@ -555,6 +554,11 @@ export function createApiClient(scope: () => ApiScope) {
     getWorkflowFull(id: string, versionId?: string): Promise<WorkflowFull> {
       const params = versionId ? `?version=${encodeURIComponent(versionId)}` : ''
       return request(withProject(`/workflows/${pathSegment(id)}/full${params}`))
+    },
+
+    /** The workflow page's summary, addressed in this client's project. */
+    getWorkflowPageSummary(id: string): Promise<ApiWorkflowPageSummary> {
+      return request(withProject(`/workflows/${pathSegment(id)}/summary`))
     },
 
     // ── Test sessions ──

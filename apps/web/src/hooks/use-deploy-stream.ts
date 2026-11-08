@@ -47,6 +47,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
     // What is live on each account: the overview's and the editor's.
     queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflowId] })
     queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
+    queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-summary', workflowId] })
   }
 
   const startDeploy = useCallback(
