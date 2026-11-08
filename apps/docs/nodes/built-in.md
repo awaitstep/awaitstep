@@ -318,17 +318,18 @@ const fetch_data_result = await flow.step(
 
 ## sub_workflow
 
-Trigger another AwaitStep workflow, optionally waiting for it to complete.
+Call another deployed workflow, optionally waiting for it to complete.
 
 **Config:**
 
-| Field               | Type         | Required | Default     | Description                                                       |
-| ------------------- | ------------ | -------- | ----------- | ----------------------------------------------------------------- |
-| `workflowId`        | `string`     | yes      | —           | The ID of the child workflow (e.g. `wf_abc123`).                  |
-| `workflowName`      | `string`     | yes      | —           | Human-readable name used to generate the Cloudflare binding name. |
-| `input`             | `expression` | no       | —           | Expression for the params passed to the child workflow.           |
-| `waitForCompletion` | `boolean`    | no       | `true`      | If true, blocks until the child workflow finishes.                |
-| `timeout`           | `string`     | no       | `5 minutes` | Max time to wait for child completion (duration format).          |
+| Field               | Type         | Required | Default     | Description                                                                    |
+| ------------------- | ------------ | -------- | ----------- | ------------------------------------------------------------------------------ |
+| `workflowId`        | `string`     | yes      | —           | The target workflow's AwaitStep id or deployed name.                           |
+| `workflowName`      | `string`     | no       | —           | Provider export name, where the provider has one (Cloudflare: class name).     |
+| `input`             | `expression` | no       | —           | Expression for the params passed to the child workflow.                        |
+| `waitForCompletion` | `boolean`    | no       | `true`      | If true, blocks until the child workflow finishes.                             |
+| `timeout`           | `string`     | no       | `5 minutes` | Max time to wait for child completion (duration format).                       |
+| `params`            | `json`       | no       | —           | Provider-scoped settings, e.g. `{ "cf": { "binding": "ORDER_FULFILLMENT" } }`. |
 
 **Output:**
 
@@ -339,10 +340,29 @@ Trigger another AwaitStep workflow, optionally waiting for it to complete.
 **Generated code:**
 
 ```typescript
-const trigger_fulfillment_result = await flow.step('trigger_fulfillment', async () => {
-  const instance = await env.ORDER_FULFILLMENT.create({
-    params: charge_result,
-  })
-  return { instanceId: instance.id }
-})
+const order_instance = await flow.step('order--create', () =>
+  flow.startWorkflow({
+    workflow: 'order-fulfillment',
+    exportName: 'OrderFulfillment',
+    input: charge_result,
+    waitForCompletion: true,
+  }),
+)
+
+const order = await flow.step(
+  'order--await',
+  { retries: { limit: 60, delay: '5 seconds', backoff: 'linear' } },
+  async () => {
+    const status = await flow.workflowStatus(order_instance.instanceId, {
+      workflow: 'order-fulfillment',
+      exportName: 'OrderFulfillment',
+    })
+    if (status.status === 'complete') return status.output
+    throw new Error('Still running')
+  },
+)
 ```
+
+The provider's platform adapter maps those calls to its own primitive. On
+Cloudflare, the generated `worker.ts` implements them over the workflow and
+service bindings. <Badge type="warning" text="Cloudflare Only" />

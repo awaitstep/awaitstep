@@ -62,14 +62,16 @@ describe('graphHash', () => {
     expect(hashOf({ ...bare, runtime: { files: ir.runtime.files } })).toBe(hashOf(bare))
   })
 
-  it('moves with the graph: node code, settings, wiring, the trigger, the runtime env', () => {
+  it('moves with the graph: node code, settings, wiring, the runtime resources and env', () => {
     const base = hashOf(ir)
     expect(hashOf({ ...ir, nodes: [{ ...node, data: { code: 'return 2;' } }] })).not.toBe(base)
     expect(hashOf({ ...ir, nodes: [{ ...node, name: 'Renamed' }] })).not.toBe(base)
     expect(hashOf({ ...ir, edges: [{ id: 'e', source: 'step-1', target: 'step-1' }] })).not.toBe(
       base,
     )
-    expect(hashOf({ ...ir, trigger: { type: 'http' } })).not.toBe(base)
+    expect(
+      hashOf({ ...ir, runtime: { ...ir.runtime, resources: [{ name: 'X', kind: 'kv' }] } }),
+    ).not.toBe(base)
     expect(hashOf({ ...ir, runtime: { ...ir.runtime, env: [] } })).not.toBe(base)
   })
 

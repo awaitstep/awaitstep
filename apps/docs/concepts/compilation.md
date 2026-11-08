@@ -1,6 +1,6 @@
 # Compilation
 
-The compilation pipeline transforms an `ArtifactIR` (`WorkflowIR | ScriptIR`) into a deployable Cloudflare Worker. The pipeline dispatches on `ir.kind`: workflows compile to a `WorkflowEntrypoint` class with `step.do()` wrappers; scripts compile to a fetch handler that calls a generated `runGraph(env, event)` function. Stages 1–5 below are the same for both; only the final wrapper differs.
+The compilation pipeline transforms an `ArtifactIR` (`WorkflowIR | ScriptIR`) into a deployable artifact. The provider-neutral stage dispatches on `ir.kind`: workflows compile to an `awaitstep/workflow.ts` module with `flow.step()` wrappers; scripts compile to an `awaitstep/function.ts` module with a generated `runGraph(env, event)` function. The provider adapter then adds its bootstrap — on Cloudflare, a `WorkflowEntrypoint` class or a fetch handler. <Badge type="warning" text="Cloudflare Only" /> Stages 1–5 below are the same for both; only the final wrapper differs.
 
 ## Pipeline Overview
 
@@ -8,9 +8,10 @@ The compilation pipeline transforms an `ArtifactIR` (`WorkflowIR | ScriptIR`) in
 graph LR
     A["Canvas<br/>(XYFlow)"] -->|serialize| B["WorkflowIR<br/>(JSON)"]
     B -->|validateIR| C["Validated IR"]
-    C -->|generateWorkflow| D["TypeScript Source"]
-    D -->|transpileToJS| E["JavaScript (ESM)"]
-    E -->|wrangler deploy| F["CF Worker"]
+    C -->|generateUniversalWorkflowBundle| D["Portable workflow module"]
+    D -->|provider bootstrap| D2["Provider deploy bundle"]
+    D2 -->|transpileToJS| E["JavaScript (ESM)"]
+    E -->|wrangler deploy| F["Cloudflare Worker (Cloudflare only)"]
 ```
 
 ## Stage 1 — Build IR
@@ -54,8 +55,10 @@ workflow primitive, which gives it:
 The generated workflow module imports `#awaitstep/runtime`; the provider
 bootstrap implements a small `WorkflowHost` over the runtime's own primitive
 (`step.do` on Cloudflare). Provider-scoped code — a KV namespace, a
-sub-workflow, a service binding — imports `#awaitstep/cloudflare`, which
-declares the workflow as Cloudflare-only and is checked before a deploy.
+resource binding, a hand-written `cloudflare:*` import — declares the
+workflow as Cloudflare-only and is checked before a deploy. Sub-workflow and
+sub-script calls are not provider-scoped: they call the runtime's platform
+adapter, and the provider decides how the call is carried out.
 
 In **script mode**, the same per-node code is emitted without the `flow.step()`
 wrapper — there is no step runner in a fetch handler. Step bodies are inlined
@@ -211,26 +214,14 @@ export default defineWorkflow<Env>({
 ```
 
 ```typescript
-// worker.ts — the provider bootstrap; the only file importing cloudflare:*
-import { WorkflowEntrypoint } from 'cloudflare:workers'
-import { createWorkflowContext } from '#awaitstep/runtime'
-import workflow from './awaitstep/workflow.js'
-import type { Env } from './awaitstep/env.js'
-
-export class MyWorkflow extends WorkflowEntrypoint<Env> {
-  async run(event, step) {
-    return workflow.run(createWorkflowContext({ env: this.env, event, host: cloudflareHost(step) }))
-  }
-}
-
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    // HTTP trigger handler (if configured) creates a new instance.
-    const instance = await env.WORKFLOW.create()
-    return new Response(JSON.stringify({ instanceId: instance.id }))
-  },
-}
+// worker.ts — provider-neutral; the deploy build selects the entry.
+export * from '#awaitstep/entry'
+export { default } from '#awaitstep/entry'
 ```
+
+The provider entry itself lives in `awaitstep/entry.ts`; on Cloudflare it
+imports `createAwaitstepPlatform(env)` from `awaitstep/platform.ts` and the
+Cloudflare `WorkflowEntrypoint`. <Badge type="warning" text="Cloudflare Only" />
 
 ### Script shape (kind: 'script')
 

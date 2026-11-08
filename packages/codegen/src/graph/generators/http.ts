@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, type GenerateMode, type GenerationContext } from '../internal.js'
 import { generateStepConfig } from './config.js'
 import { isJsonLiteralBody } from './http-body.js'
 
@@ -25,7 +25,7 @@ export function generateHttp(
   const config = generateStepConfig(node.config)
   const configArg = config ? `, ${config}` : ''
 
-  const fetchOptions: string[] = [`method: "${method}"`]
+  const fetchOptions: string[] = [`method: ${JSON.stringify(method)}`]
 
   // Off-schema rows can hold a non-string Body (save does not run the strict
   // schema); those are emitted as before rather than scanned. A non-literal
@@ -33,7 +33,9 @@ export function generateHttp(
   const bodyExpression = typeof body === 'string' ? body : body ? String(body) : ''
   const jsonBody = typeof body === 'string' && isJsonLiteralBody(body)
 
-  const headerEntries = Object.entries(headers ?? {}).map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
+  const headerEntries = Object.entries(headers ?? {}).map(
+    ([k, v]) => `${JSON.stringify(k)}: ${toJsLiteral(v)}`,
+  )
   if (jsonBody && !hasContentType(headers)) {
     headerEntries.push('"Content-Type": "application/json"')
   }
@@ -57,7 +59,7 @@ export function generateHttp(
     const urlLiteral = toJsLiteral(url)
     lines.push(`const url = new URL(${urlLiteral});`)
     for (const [k, v] of Object.entries(queryParams)) {
-      lines.push(`url.searchParams.set("${k}", ${toJsLiteral(v)});`)
+      lines.push(`url.searchParams.set(${JSON.stringify(k)}, ${toJsLiteral(v)});`)
     }
     lines.push(`const response = await fetch(url${fetchOpts});`)
   } else {
@@ -84,7 +86,7 @@ export function generateHttp(
     const urlLiteral = toJsLiteral(url)
     const scriptLines: string[] = [`const _${v}_url = new URL(${urlLiteral});`]
     for (const [k, qv] of Object.entries(queryParams)) {
-      scriptLines.push(`_${v}_url.searchParams.set("${k}", ${toJsLiteral(qv)});`)
+      scriptLines.push(`_${v}_url.searchParams.set(${JSON.stringify(k)}, ${toJsLiteral(qv)});`)
     }
     scriptLines.push(`const ${v} = await fetch(_${v}_url${fetchOpts}).then(r => r.json());`)
     return scriptLines.join('\n')
@@ -115,7 +117,7 @@ function toJsLiteral(value: unknown): string {
   }
   if (typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
-      .map(([k, v]) => `"${k}": ${toJsLiteral(v)}`)
+      .map(([k, v]) => `${JSON.stringify(k)}: ${toJsLiteral(v)}`)
       .join(', ')
     return `{ ${entries} }`
   }

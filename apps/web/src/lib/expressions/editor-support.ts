@@ -62,7 +62,6 @@ function expressionIr(ctx: ExpressionEditorContext): ArtifactIR {
           name: n.name,
           type: n.type,
           version: '1.0.0',
-          provider: 'cloudflare',
           position: { x: 0, y: 0 },
           data: {},
         }) as WorkflowNode,

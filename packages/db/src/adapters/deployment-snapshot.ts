@@ -15,3 +15,8 @@ type AnyTable = any
 export function latestDeploymentSnapshot(deployments: AnyTable, runs: AnyTable): SQL {
   return sql`(SELECT ${deployments.configSnapshot} FROM ${deployments} WHERE ${deployments.workflowId} = ${runs.workflowId} AND (${deployments.versionId} = ${runs.versionId} OR (${runs.versionId} IS NULL AND ${deployments.versionId} IS NULL AND ${deployments.versionNumber} = ${runs.versionNumber})) AND ${deployments.status} IN ('success', 'taken_down') ORDER BY CASE WHEN ${deployments.connectionId} = ${runs.connectionId} THEN 0 ELSE 1 END, ${deployments.createdAt} DESC, ${deployments.id} DESC LIMIT 1)`
 }
+
+/** The service name of the latest deployment that matches a run's version and account. */
+export function latestDeploymentServiceName(deployments: AnyTable, runs: AnyTable): SQL {
+  return sql`(SELECT ${deployments.serviceName} FROM ${deployments} WHERE ${deployments.workflowId} = ${runs.workflowId} AND (${deployments.versionId} = ${runs.versionId} OR (${runs.versionId} IS NULL AND ${deployments.versionId} IS NULL AND ${deployments.versionNumber} = ${runs.versionNumber})) AND ${deployments.status} IN ('success', 'taken_down') ORDER BY CASE WHEN ${deployments.connectionId} = ${runs.connectionId} THEN 0 ELSE 1 END, ${deployments.createdAt} DESC, ${deployments.id} DESC LIMIT 1)`
+}

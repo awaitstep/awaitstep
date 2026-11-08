@@ -27,9 +27,9 @@ describe('generateWorkflow', () => {
     const code = workflowSource(generateWorkflowBundle(simpleWorkflow as unknown as WorkflowIR))
     expect(code).toMatchInlineSnapshot(`
       "import { defineWorkflow, durableStep } from "#awaitstep/runtime";
-      import type { Env } from "./env.js";
-      import $Fetch_data from "../steps/step-1.js";
-      import $Process_data from "../steps/step-2.js";
+      import type { Env } from "#awaitstep/env";
+      import $Fetch_data from "#app/steps/step-1.js";
+      import $Process_data from "#app/steps/step-2.js";
 
       export const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };
 

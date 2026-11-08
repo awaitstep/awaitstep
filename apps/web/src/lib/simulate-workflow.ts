@@ -61,11 +61,14 @@ function getStepDetail(node: FlowNode): { status: SimulationStepStatus; detail: 
     case 'break':
       return { status: 'executed', detail: `Exit: ${ir.name}` }
     case 'sub_workflow':
-      return { status: 'executed', detail: `Sub-workflow: ${ir.data.workflowName}` }
+      return {
+        status: 'executed',
+        detail: `Sub-workflow: ${String(ir.data.workflowName ?? ir.data.workflowId ?? '?')}`,
+      }
     case 'sub_script':
       return {
         status: 'executed',
-        detail: `Call script: ${String(ir.data.method ?? 'POST')} → ${String(ir.data.workerName ?? '?')}`,
+        detail: `Call script: ${String(ir.data.method ?? 'POST')} → ${String(ir.data.scriptId ?? ir.data.workerName ?? '?')}`,
       }
     case 'http_request':
       return { status: 'executed', detail: `HTTP ${ir.data.method} ${ir.data.url} (simulated)` }

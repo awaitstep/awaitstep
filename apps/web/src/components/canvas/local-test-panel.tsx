@@ -66,7 +66,7 @@ export function LocalTestPanel({ workflowId, onClose }: LocalTestPanelProps) {
         {state === 'idle' || state === 'error' ? (
           <div className="p-4 space-y-3">
             <p className="text-xs text-muted-foreground">
-              Start a local dev server to test your workflow without deploying. No Cloudflare
+              Start a local dev server to test your workflow without deploying. No provider
               credentials required.
             </p>
             {error && (

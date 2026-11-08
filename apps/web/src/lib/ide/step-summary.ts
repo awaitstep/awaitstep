@@ -1,5 +1,5 @@
 import type { StepConfig } from '@awaitstep/ir'
-import { appliedStepSettings } from '@awaitstep/provider-cloudflare/codegen'
+import { appliedStepSettings } from '@awaitstep/codegen'
 import type { RunStep, VersionSummary } from '../api-client'
 import { formatDurationMs } from '../time'
 
@@ -20,7 +20,7 @@ function formatDelay(delay: string | number): string {
   return `${match[1]}${unit[match[2]!.toLowerCase()]}`
 }
 
-/** `limit` counts retries after the first attempt, as Cloudflare and the in-request host read it. */
+/** `limit` counts retries after the first attempt, as the runtime and the in-request host read it. */
 function retriesLabel(limit: number): string {
   return limit === 1 ? '1 retry' : `${limit} retries`
 }

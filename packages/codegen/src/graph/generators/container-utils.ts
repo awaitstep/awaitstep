@@ -5,7 +5,7 @@ import {
   stepLabel,
   type GenerateMode,
   type GenerationContext,
-} from '@awaitstep/codegen'
+} from '../internal.js'
 import { collectChain, computeInDegree } from './branch.js'
 import { emitGroupedChain } from '../coalesce.js'
 

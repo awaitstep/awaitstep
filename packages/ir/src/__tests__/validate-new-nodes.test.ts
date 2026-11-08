@@ -299,7 +299,7 @@ describe('sub_workflow validation', () => {
     expect(result.ok).toBe(true)
   })
 
-  it('rejects sub_workflow without workflowName', () => {
+  it('accepts sub_workflow without a provider export name', () => {
     const result = validateIR({
       metadata: meta,
       nodes: [
@@ -311,10 +311,7 @@ describe('sub_workflow validation', () => {
       edges: [],
       entryNodeId: 'sub',
     })
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.message.includes('workflowName'))).toBe(true)
-    }
+    expect(result.ok).toBe(true)
   })
 
   it('rejects sub_workflow without workflowId', () => {
@@ -331,7 +328,7 @@ describe('sub_workflow validation', () => {
     })
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.errors.some((e) => e.message.includes('script name'))).toBe(true)
+      expect(result.errors.some((e) => e.message.includes('target workflow'))).toBe(true)
     }
   })
 })

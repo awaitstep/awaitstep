@@ -15,6 +15,8 @@ import {
   checkRequirements,
   collectRuntimeRequirements,
   formatUnsupportedRequirements,
+  generateUniversalFunctionBundle,
+  generateUniversalWorkflowBundle,
   mergeRequirements,
 } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
@@ -141,6 +143,12 @@ export interface WorkflowPrepareInput {
    * IR; missing values are not an error there.
    */
   mode?: PrepareMode
+  /**
+   * Generate the provider-neutral presentation bundle (IDE, source view)
+   * instead of the deploy bundle. Provider entries and platform adapters are
+   * deploy artifacts and never reach this view.
+   */
+  presentation?: boolean
 }
 
 export async function prepareWorkflow(
@@ -188,14 +196,11 @@ export async function prepareWorkflow(
   const parsedIr = loaded.value
   // Stamp kind from the workflow row when the stored IR predates the
   // discriminator. Existing workflows have no `kind` in their stored IR.
-  // Scripts also require a `trigger` field — default to HTTP if the stored
-  // IR was persisted before that schema requirement.
+  // Stamp kind from the workflow row when the stored IR predates the
+  // discriminator. A script's kind is its HTTP entry; no trigger block.
   let ir: ArtifactIR = parsedIr
   if (ir.kind === undefined && workflow.kind === 'script') {
     ir = { ...ir, kind: 'script' } as ArtifactIR
-  }
-  if (ir.kind === 'script' && !ir.trigger) {
-    ir = { ...ir, trigger: { type: 'http' } } as ArtifactIR
   }
   // Fold the legacy workflow columns into ir.runtime — from here on the IR is
   // the single self-contained description (trigger code, deps, env, bindings).
@@ -222,9 +227,10 @@ export async function prepareWorkflow(
   // What the workflow needs beyond pure orchestration. Computed before any
   // validation so a read that fails early can still tell a client whether the
   // workflow is provider-specific.
+  const presentation = input.presentation === true
   const requirements = mergeRequirements(
     collectRuntimeRequirements(ir),
-    adapter.requirements?.(ir) ?? [],
+    presentation ? [] : (adapter.requirements?.(ir) ?? []),
   )
 
   // Validate IR
@@ -248,26 +254,32 @@ export async function prepareWorkflow(
   }
 
   checked.push('provider')
-  const nodeCheck = validateNodesForProvider(ir, input.provider)
-  if (!nodeCheck.valid) {
-    const names = nodeCheck.unsupportedNodes.map((node) => node.name)
-    // Unsupported nodes still generate something worth looking at, so a read
-    // reports them rather than refusing to open the workspace — one
-    // diagnostic per node, each carrying the id, because a client marks the
-    // node and names are not unique.
-    if (!lenient) {
-      return {
-        error: `Nodes not supported by this provider: ${names.join(', ')}`,
-        status: 400,
-        requirements,
+  if (!presentation) {
+    const nodeCheck = validateNodesForProvider(
+      ir,
+      input.provider ?? adapter.name,
+      (type) => nodeRegistry.registry.get(type)?.providers,
+    )
+    if (!nodeCheck.valid) {
+      const names = nodeCheck.unsupportedNodes.map((node) => node.name)
+      // Unsupported nodes still generate something worth looking at, so a read
+      // reports them rather than refusing to open the workspace — one
+      // diagnostic per node, each carrying the id, because a client marks the
+      // node and names are not unique.
+      if (!lenient) {
+        return {
+          error: `Nodes not supported by this provider: ${names.join(', ')}`,
+          status: 400,
+          requirements,
+        }
       }
-    }
-    for (const node of nodeCheck.unsupportedNodes) {
-      diagnostics.push({
-        source: 'provider',
-        message: `Node "${node.name}" is not supported by this provider`,
-        nodeId: node.id,
-      })
+      for (const node of nodeCheck.unsupportedNodes) {
+        diagnostics.push({
+          source: 'provider',
+          message: `Node "${node.name}" is not supported by this provider`,
+          nodeId: node.id,
+        })
+      }
     }
   }
 
@@ -335,7 +347,17 @@ export async function prepareWorkflow(
   // Bundle invariants (path collisions, reserved names) are a 422 the
   // caller can act on, not a 500 that repeats on every deploy.
   try {
-    bundle = adapter.generate(ir, generateConfig)
+    bundle = input.presentation
+      ? ir.kind === 'script'
+        ? generateUniversalFunctionBundle(ir, {
+            templateResolver: nodeRegistry.templateResolver,
+            envVarNames: Object.keys(envResult.envVars ?? {}),
+          })
+        : generateUniversalWorkflowBundle(ir, {
+            templateResolver: nodeRegistry.templateResolver,
+            envVarNames: Object.keys(envResult.envVars ?? {}),
+          })
+      : adapter.generate(ir, generateConfig)
   } catch (err) {
     // Only a failure the generator blames on its input is a fact about the
     // workflow. Anything else is a bug in the generator, and has to look

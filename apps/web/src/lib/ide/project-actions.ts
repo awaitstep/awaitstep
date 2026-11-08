@@ -1,7 +1,7 @@
 import { PROJECT_HANDLERS_PATH, handlerEntry } from '@awaitstep/ir'
 import { failureLine } from '../action-toast'
 import { copyToClipboard } from '../utils'
-import { handlerModuleScaffold, type HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
+import { handlerModuleScaffold, type HandlerTarget } from '@awaitstep/codegen'
 import {
   ProjectFileConflictError,
   type HandlerConversionResult,

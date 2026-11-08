@@ -397,7 +397,7 @@ describe('generateScript', () => {
     expect(worker).toContain(
       'import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";',
     )
-    expect(worker).toContain('import $New_step from "../steps/new-step.js";')
+    expect(worker).toContain('import $New_step from "#app/steps/new-step.js";')
     // The context's event is a run's: the request payload plus a timestamp
     // and an instance id, which `WorkflowEvent` requires (review round 1:
     // `{ payload }` alone did not type-check in the Code view).
@@ -476,8 +476,8 @@ describe('generateScript', () => {
     expect(code).toContain('const step = durableStep(flow);')
     expect(code).not.toMatch(/const step = await flow\.step/)
     expect(code).not.toMatch(/const env = await flow\.step/)
-    expect(code).toContain('import $step_node from "../steps/s1.js";')
-    expect(code).toContain('import $env_node from "../steps/s2.js";')
+    expect(code).toContain('import $step_node from "#app/steps/s1.js";')
+    expect(code).toContain('import $env_node from "#app/steps/s2.js";')
   })
 
   it('does not take a comment or an inline body’s own identifier for a use of the host', () => {
@@ -595,7 +595,7 @@ describe('generateScript', () => {
     const code = generateScript(makeScript([stepNode('c', 'return 1;', 'crypto')]))
     expect(code).toContain('globalThis.crypto.randomUUID()')
     expect(code).not.toMatch(/const crypto = /)
-    expect(code).toContain('../steps/c.js')
+    expect(code).toContain('#app/steps/c.js')
   })
 
   it('keeps a top-level export after another step as a const, not a hoisted let', () => {
@@ -634,7 +634,7 @@ describe('generateScript', () => {
     const code = generateScript(makeScript([inline]))
     expect(code).toContain('let n = 1; n++;')
     expect(code).not.toContain('flow.step("raw"')
-    expect(code).not.toContain('../steps/raw.js')
+    expect(code).not.toContain('#app/steps/raw.js')
   })
 
   it('emits no runtime import or host for a function whose nodes need no step', () => {
@@ -653,7 +653,11 @@ describe('generateScript', () => {
     const worker = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
     expect(worker).not.toContain('#awaitstep/runtime')
     expect(worker).not.toContain('createInlineHost')
-    expect(bundle.files.map((f) => f.path)).toEqual(['worker.ts', 'awaitstep/function.ts'])
+    expect(bundle.files.map((f) => f.path)).toEqual([
+      'worker.ts',
+      'awaitstep/function.ts',
+      'awaitstep/entry.ts',
+    ])
     expect(bundle.manifest?.steps).toEqual([{ nodeId: 'ping', varName: 'Ping', exportKey: 'Ping' }])
   })
 
@@ -726,7 +730,9 @@ describe('generateScript', () => {
       },
     ])
     const code = generateScript(ir)
-    expect(code).toContain('const send_auth_email = await env["SEND_MAIL"].create({')
+    expect(code).toContain(
+      'const send_auth_email = await flow.startWorkflow({ workflow: "awaitstep-send-mail", exportName: "SendMail", waitForCompletion: false });',
+    )
     expect(code).toContain('return { send_auth_email };')
   })
 
@@ -771,7 +777,9 @@ describe('generateScript', () => {
       },
     ])
     const code = generateScript(ir)
-    expect(code).toContain('const pricing = await env.PRICING_SVC.fetch(')
+    expect(code).toContain(
+      'const pricing = await flow.callScript({ script: "pricing-svc", method: "GET", url: "https://pricing-svc.example/quote" });',
+    )
     expect(code).toContain('return { pricing };')
   })
 
@@ -795,7 +803,9 @@ describe('generateScript', () => {
     ])
     ir.edges = [{ id: 'e1', source: 'transform', target: 'forward' }]
     const code = generateScript(ir)
-    expect(code).toContain('env["ONBOARDING_WORKFLOW"].create(')
+    expect(code).toContain(
+      'flow.startWorkflow({ workflow: "awaitstep-onboarding", exportName: "OnboardingWorkflow", input: transform, waitForCompletion: true })',
+    )
     expect(code).not.toContain('--await') // no polling
     // The forward itself is not a step: the binding call is awaited directly.
     expect(code).not.toMatch(/flow\.step\("Run Onboarding"/)
@@ -1183,14 +1193,17 @@ function shared(x) { return x * 2 }
   return Response.json({ doubled: shared(21), config: SHARED_CONFIG })
 }
 `
-    const code = generateScript(trivialIR, { triggerCode })
+    const bundle = generateScriptBundle(trivialIR, { triggerCode })
+    const code = bundle.files.find((file) => file.path === 'awaitstep/entry.ts')!.source
+    const graph = bundle.files.find((file) => file.path === 'awaitstep/function.ts')!.source
     expect(code).toContain('const SHARED_CONFIG = { region: "eu" }')
     expect(code).toContain('function shared(x) { return x * 2 }')
-    // Module code emitted before runGraph so handlers can reference it.
+    // Module code lives in the entry, above the handler object it serves.
     const moduleIdx = code.indexOf('const SHARED_CONFIG')
-    const runGraphIdx = code.indexOf('async function runGraph')
+    const handlersIdx = code.indexOf('export default {')
     expect(moduleIdx).toBeGreaterThan(0)
-    expect(moduleIdx).toBeLessThan(runGraphIdx)
+    expect(moduleIdx).toBeLessThan(handlersIdx)
+    expect(graph).toContain('async function runGraph')
   })
 
   it('hoists imports from inside any annotated handler body to module top', () => {
@@ -1277,7 +1290,7 @@ describe('generateScript — code review round 1 of the step-module batch', () =
     inline.data.inline = true
     const bundle = generateScriptBundle(makeScript([inline]))
     const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
-    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const worker = bundle.files.find((f) => f.path === 'awaitstep/entry.ts')!.source
     expect(graph).toContain('import { nanoid } from "nanoid";')
     expect(graph).toContain('const id = nanoid();')
     expect(worker).not.toContain('nanoid')

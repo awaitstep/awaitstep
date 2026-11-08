@@ -114,7 +114,7 @@ describe('collectRuntimeRequirements', () => {
         kind: 'provider',
         id: 'cloudflare',
         import: '#awaitstep/cloudflare',
-        label: 'Cloudflare-only primitives (#awaitstep/cloudflare)',
+        label: 'cloudflare-only primitives (#awaitstep/cloudflare)',
         nodeId: 'n1',
       },
     ])
@@ -212,16 +212,16 @@ describe('collectRuntimeRequirements', () => {
     const requirements = collectRuntimeRequirements(
       ir({
         runtime: {
-          bindings: [
-            { name: 'USERS', type: 'kv' },
-            { name: 'DB', type: 'd1' },
+          resources: [
+            { name: 'USERS', kind: 'kv' },
+            { name: 'DB', kind: 'd1' },
           ],
         },
       }),
     )
     expect(requirements).toEqual([
-      { kind: 'binding', id: 'kv', name: 'USERS', label: 'KV namespace "USERS"' },
-      { kind: 'binding', id: 'd1', name: 'DB', label: 'D1 database "DB"' },
+      { kind: 'binding', id: 'kv', name: 'USERS', label: 'kv "USERS"' },
+      { kind: 'binding', id: 'd1', name: 'DB', label: 'd1 "DB"' },
     ])
   })
 })
@@ -248,7 +248,7 @@ describe('checkRequirements', () => {
       checkRequirements(
         [
           { kind: 'provider', id: 'cloudflare', label: 'Cloudflare-only primitives' },
-          { kind: 'binding', id: 'kv', name: 'USERS', label: 'KV namespace "USERS"' },
+          { kind: 'binding', id: 'kv', name: 'USERS', label: 'kv "USERS"' },
         ],
         cloudflareTarget,
       ),
@@ -268,12 +268,31 @@ describe('checkRequirements', () => {
     ])
   })
 
-  it('refuses a binding kind the provider does not list', () => {
+  it('accepts a provider runtime scheme through the same provider', () => {
+    const target: RequirementTarget = {
+      name: 'cloudflare',
+      supportedBindingKinds: ['kv'],
+      importSchemes: ['cloudflare', 'workerd'],
+    }
+    expect(
+      checkRequirements([{ kind: 'provider', id: 'workerd', label: 'workerd primitives' }], target),
+    ).toEqual([])
+  })
+
+  it('refuses a resource scoped to another provider', () => {
     const unsupported = checkRequirements(
-      [{ kind: 'binding', id: 'kv', name: 'USERS', label: 'KV namespace "USERS"' }],
+      [{ kind: 'binding', id: 'kv', name: 'USERS', label: 'kv', provider: 'other' }],
       inngestTarget,
     )
-    expect(unsupported[0]!.reason).toBe('inngest cannot supply a KV namespace "USERS"')
+    expect(unsupported[0]!.reason).toBe('requires the other provider')
+  })
+
+  it('refuses a binding kind the provider does not list', () => {
+    const unsupported = checkRequirements(
+      [{ kind: 'binding', id: 'kv', name: 'USERS', label: 'kv "USERS"' }],
+      inngestTarget,
+    )
+    expect(unsupported[0]!.reason).toBe('inngest cannot supply a kv "USERS"')
   })
 
   it('lets a provider answer for itself', () => {
@@ -303,12 +322,12 @@ describe('formatUnsupportedRequirements', () => {
         reason: 'requires the cloudflare provider',
       },
       {
-        requirement: { kind: 'binding', id: 'kv', name: 'USERS', label: 'KV namespace "USERS"' },
+        requirement: { kind: 'binding', id: 'kv', name: 'USERS', label: 'kv "USERS"' },
         reason: 'inngest cannot supply it',
       },
     ])
     expect(message).toBe(
-      'Cannot deploy to inngest: this workflow requires Cloudflare-only primitives; KV namespace "USERS". Choose a compatible connection or remove the provider-specific code.',
+      'Cannot deploy to inngest: this workflow requires Cloudflare-only primitives; kv "USERS". Choose a compatible connection or remove the provider-specific code.',
     )
   })
 })

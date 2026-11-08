@@ -28,10 +28,8 @@ export const GENERATED_GRAPH_MODULES: ReadonlySet<string> = new Set(['workflow',
 /** Bundle path of the emitted core runtime module. */
 export const RUNTIME_MODULE_PATH = `${AWAITSTEP_MODULE_DIR}runtime.ts`
 
-/** Provider-scoped primitives, by provider id (only Cloudflare today). */
-export const PROVIDER_PRIMITIVE_IMPORTS: Readonly<Record<string, string>> = {
-  cloudflare: `${AWAITSTEP_IMPORT_PREFIX}cloudflare`,
-}
+/** Bundle path of a function's generated graph module. */
+export const FUNCTION_MODULE_PATH = `${AWAITSTEP_MODULE_DIR}function.ts`
 
 /**
  * The `package.json` `imports` entry that resolves `#awaitstep/*` in the deploy

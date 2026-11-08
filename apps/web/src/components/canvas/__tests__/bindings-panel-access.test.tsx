@@ -23,9 +23,32 @@ function renderPanel(readOnly: boolean) {
     triggerCode: '',
     readOnly,
   })
-  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-    new Response(JSON.stringify({ handlers: { consumedQueues: [], modules: true } })),
-  )
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
+    const url = String(input)
+    if (url.includes('/providers')) {
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            providers: [
+              {
+                id: 'cloudflare',
+                label: 'Cloudflare',
+                handlerKinds: ['fetch', 'scheduled', 'queue'],
+                queueNamePattern: '^[a-z0-9-]+$',
+                importSchemes: ['cloudflare'],
+                bindingKinds: ['kv', 'queue'],
+                bindingKindLabels: { queue: 'queue' },
+                scheduleConfigKey: 'cronTriggers',
+              },
+            ],
+          }),
+        ),
+      )
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify({ handlers: { consumedQueues: [], modules: true } })),
+    )
+  })
   render(
     <QueryClientProvider client={new QueryClient()}>
       <EditorScopeProvider value={SALES}>
@@ -40,7 +63,7 @@ afterEach(() => vi.restoreAllMocks())
 describe('BindingsPanel Consume', () => {
   it('can’t write a consumer while the canvas is read-only (an older version, or a Viewer)', async () => {
     renderPanel(true)
-    await userEvent.click(screen.getByRole('button', { name: /binding/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /binding/i }))
     const consume = screen.getByRole('button', { name: 'Consume' })
     expect(consume).toBeDisabled()
     expect(consume).toHaveAttribute('title', 'Read-only')
@@ -48,7 +71,7 @@ describe('BindingsPanel Consume', () => {
 
   it('offers it on an editable saved workflow', async () => {
     renderPanel(false)
-    await userEvent.click(screen.getByRole('button', { name: /binding/i }))
+    await userEvent.click(await screen.findByRole('button', { name: /binding/i }))
     expect(screen.getByRole('button', { name: 'Consume' })).toBeEnabled()
   })
 })

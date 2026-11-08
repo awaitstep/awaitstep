@@ -28,6 +28,7 @@ import {
 import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
 import { requireLevelCan } from '../middleware/level.js'
 import { workflows } from './workflows.js'
+import { providers } from './providers.js'
 import { versions } from './versions.js'
 import { source } from './source.js'
 import { projectFiles } from './project-files.js'
@@ -154,6 +155,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.use('/workspaces/:id/*', requireWorkspace)
 
   // The dashboard's own reads answer for a person: session only.
+  router.use('/providers', requireSessionAuth)
   router.use('/scope', requireSessionAuth)
   // The org list, and an org's logo (`/orgs/:orgId/logo`).
   router.use('/orgs/*', requireSessionAuth)
@@ -510,8 +512,9 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   if (options?.enableLocalDev) {
     router.use('/workflows/:workflowId/local-dev/*', requireWorkflowAccess)
     // Running the workflow's code on the host is building it: an Editor's
-    // act, like every other workflow write; reading its logs is not.
-    router.use('/workflows/:workflowId/local-dev/*', requireWorkspaceCanWrite('edit'))
+    // act. Its logs can contain env values and payloads, so reading them is
+    // gated the same way — a Viewer has no local-dev surface at all.
+    router.use('/workflows/:workflowId/local-dev/*', requireWorkspaceCan('edit'))
     // Starting, stopping and triggering a local wrangler process is run
     // control — not something a read key does. Its own budget for starts
     // (spawning a process on the host), the write budget for stop and
@@ -561,6 +564,7 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   router.route('/me/invitations', myInvitations)
   router.route('/access-requests', accessRequests)
   router.route('/', scope)
+  router.route('/providers', providers)
   router.route('/nodes', nodes)
   router.route('/marketplace', marketplace)
   router.route('/audit-events', audit)

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { workflowSource } from './bundle-source.js'
-import { groupChain, isCoalescible } from '../../codegen/coalesce.js'
+import { groupChain, isCoalescible } from '@awaitstep/codegen'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
 function node(
@@ -132,7 +132,9 @@ describe('coalesced bundle emission', () => {
     const bundle = generateWorkflowBundle(ir)
     const modulePaths = bundle.files.filter((f) => f.role === 'module').map((f) => f.path)
     expect(modulePaths.sort()).toEqual([
+      'awaitstep/entry.ts',
       'awaitstep/env.ts',
+      'awaitstep/platform.ts',
       'awaitstep/runtime.ts',
       'awaitstep/workflow.ts',
       'steps/a.ts',

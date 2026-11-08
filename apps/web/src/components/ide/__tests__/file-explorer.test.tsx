@@ -366,6 +366,23 @@ describe('Project row menu', () => {
   const projectRow = () => screen.getByRole('treeitem', { name: /^Project/ })
 
   it('right-click shows the New… choices, File and Folder, handlers and config files', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          providers: [
+            {
+              id: 'cloudflare',
+              label: 'Cloudflare',
+              handlerKinds: ['fetch', 'scheduled', 'queue'],
+              importSchemes: ['cloudflare'],
+              bindingKinds: [],
+              bindingKindLabels: {},
+              scheduleConfigKey: 'cronTriggers',
+            },
+          ],
+        }),
+      ),
+    )
     const user = userEvent.setup()
     setup()
     await user.pointer({ keys: '[MouseRight]', target: projectRow() })

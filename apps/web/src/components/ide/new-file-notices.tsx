@@ -13,7 +13,8 @@ export function ScheduleBanner({ onOpenCanvas }: { onOpenCanvas: () => void }) {
         </Button>
       }
     >
-      This handler has no schedule yet. Set the workflow’s trigger to a schedule before you deploy.
+      This handler has no schedule yet. Add a cron trigger to the deployment config before you
+      deploy.
     </EditorBanner>
   )
 }

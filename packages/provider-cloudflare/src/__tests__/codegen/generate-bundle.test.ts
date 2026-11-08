@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { generateWorkflowBundle, generateWorkflow } from '../../codegen/generate.js'
-import { bundleSource, workflowSource } from './bundle-source.js'
+import { bundleSource, providerEntrySource, workflowSource } from './bundle-source.js'
 
 function node(id: string, name: string, data: Record<string, unknown>): WorkflowNode {
   return {
@@ -40,6 +40,8 @@ describe('generateWorkflowBundle', () => {
       'entry:worker.ts',
       'module:awaitstep/workflow.ts',
       'module:awaitstep/env.ts',
+      'module:awaitstep/entry.ts',
+      'module:awaitstep/platform.ts',
       'module:steps/fetch.ts',
       'module:steps/report.ts',
       'module:awaitstep/runtime.ts',
@@ -72,8 +74,8 @@ describe('generateWorkflowBundle', () => {
 
   it('entry imports modules with .js specifiers and calls them from flow.step', () => {
     const entry = workflowSource(bundle)
-    expect(entry).toContain('import $Fetch_data from "../steps/fetch.js";')
-    expect(entry).toContain('import $Report from "../steps/report.js";')
+    expect(entry).toContain('import $Fetch_data from "#app/steps/fetch.js";')
+    expect(entry).toContain('import $Report from "#app/steps/report.js";')
     expect(entry).toContain(
       'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data({ env, event, inputs: {}, step, ctx }),\n    );',
     )
@@ -86,10 +88,8 @@ describe('generateWorkflowBundle', () => {
 
   it('the string form is the worker entry: it imports the workflow module and the runtime', () => {
     const entry = generateWorkflow(ir)
-    expect(entry).toBe(bundleSource(generateWorkflowBundle(ir), 'worker.ts'))
-    expect(entry).toContain(
-      'import workflow, { AWAITSTEP_RETENTION } from "./awaitstep/workflow.js";',
-    )
+    expect(entry).toBe(providerEntrySource(generateWorkflowBundle(ir)))
+    expect(entry).toContain('import workflow, { AWAITSTEP_RETENTION } from "#awaitstep/workflow";')
     expect(entry).not.toContain('$Fetch_data')
   })
 })
@@ -119,6 +119,8 @@ describe('generateWorkflowBundle with containers', () => {
       'worker.ts',
       'awaitstep/workflow.ts',
       'awaitstep/env.ts',
+      'awaitstep/entry.ts',
+      'awaitstep/platform.ts',
       'steps/work.ts',
       'awaitstep/runtime.ts',
     ])
@@ -168,6 +170,8 @@ export default async function(ctx) {
       'entry:worker.ts',
       'module:awaitstep/workflow.ts',
       'module:awaitstep/env.ts',
+      'module:awaitstep/entry.ts',
+      'module:awaitstep/platform.ts',
       'module:steps/fetch.ts',
       'module:nodes/Post_webhook.ts',
       'module:awaitstep/runtime.ts',
@@ -186,7 +190,7 @@ export default async function(ctx) {
 
   it('entry calls the custom module and hoists no class definition', () => {
     const entry = workflowSource(bundle)
-    expect(entry).toContain('import $Post_webhook from "../nodes/Post_webhook.js";')
+    expect(entry).toContain('import $Post_webhook from "#app/nodes/Post_webhook.js";')
     // Wrapped: the call outgrows the line once indented into `run`.
     expect(entry).toContain(
       'await flow.step("hook", (ctx) =>\n      $Post_webhook({ env, event, inputs: { Fetch_data }, step, ctx }),\n    );',
@@ -223,7 +227,7 @@ describe('generateWorkflowBundle adversarial user code', () => {
   })
 })
 
-describe('generateWorkflowBundle with Cloudflare-only primitives', () => {
+describe('generateWorkflowBundle sub-workflow calls', () => {
   const subWorkflowIR: WorkflowIR = {
     metadata: { name: 'ChildFlow', version: 1, createdAt: '', updatedAt: '' },
     entryNodeId: 'sub',
@@ -235,18 +239,24 @@ describe('generateWorkflowBundle with Cloudflare-only primitives', () => {
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { workflowName: 'ChildFlow', waitForCompletion: false },
+        data: {
+          workflowId: 'child-flow',
+          workflowName: 'ChildFlow',
+          waitForCompletion: false,
+        },
       },
     ],
     edges: [],
   }
 
-  it('emits the Cloudflare primitive module and imports it from the workflow', () => {
+  it('emits a platform-adapter call and no provider primitive', () => {
     const bundle = generateWorkflowBundle(subWorkflowIR)
-    expect(bundle.files.some((f) => f.path === 'awaitstep/cloudflare.ts')).toBe(true)
+    expect(bundle.files.some((f) => f.path === 'awaitstep/cloudflare.ts')).toBe(false)
     const workflow = workflowSource(bundle)
-    expect(workflow).toContain('import { workflow } from "#awaitstep/cloudflare"')
-    expect(workflow).toContain('workflow(env, "CHILD_FLOW")')
+    expect(workflow).toContain(
+      'flow.startWorkflow({ workflow: "child-flow", exportName: "ChildFlow", waitForCompletion: false })',
+    )
+    expect(workflow).not.toContain('#awaitstep/cloudflare')
   })
 
   it('omits the module when nothing needs it', () => {
@@ -255,8 +265,26 @@ describe('generateWorkflowBundle with Cloudflare-only primitives', () => {
     )
   })
 
-  it('emits the provider source verbatim, import-free', () => {
-    const cloudflare = generateWorkflowBundle(subWorkflowIR).files.find(
+  it('still emits the provider source verbatim when a step imports it', () => {
+    const ir: WorkflowIR = {
+      metadata: { name: 'KvStep', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'read',
+      nodes: [
+        {
+          id: 'read',
+          type: 'step',
+          name: 'Read KV',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: {
+            code: "import { kv } from '#awaitstep/cloudflare'\nreturn kv(env, 'USERS').get('a')",
+          },
+        },
+      ],
+      edges: [],
+    }
+    const cloudflare = generateWorkflowBundle(ir).files.find(
       (f) => f.path === 'awaitstep/cloudflare.ts',
     )!
     expect(cloudflare.source).toContain('export function kv')
@@ -301,7 +329,7 @@ describe('generateWorkflowBundle container-child custom nodes', () => {
     expect(workflow).toMatch(/class \w+ \{/)
     expect(workflow).toContain('WebhookPostNode.execute(')
     // The entry is the bootstrap; the class is not declared there.
-    expect(bundleSource(bundle, 'worker.ts')).not.toMatch(/class WebhookPostNode/)
+    expect(providerEntrySource(bundle)).not.toMatch(/class WebhookPostNode/)
   })
 })
 

@@ -5,7 +5,7 @@ import {
   childContext,
   type GenerateMode,
   type GenerationContext,
-} from '@awaitstep/codegen'
+} from '../internal.js'
 import { prepareContainerContext, inlineChain } from './container-utils.js'
 
 export function generateTryCatch(

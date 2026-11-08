@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { stepLabel } from '@awaitstep/codegen'
+import { stepLabel } from '../internal.js'
 
 export function generateSleep(node: WorkflowNode): string {
   const duration = node.data.duration

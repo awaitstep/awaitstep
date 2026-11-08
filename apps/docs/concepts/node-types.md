@@ -1,6 +1,6 @@
 # Node Types
 
-AwaitStep ships 12 built-in nodes. Every node is automatically wrapped in `step.do()` by the compile pipeline, giving it durable execution, automatic retries, and persistent output storage.
+AwaitStep ships 12 built-in nodes. In a workflow, every node is wrapped in `flow.step()` by the compile pipeline, giving it durable execution, automatic retries, and persistent output storage. The generated module imports `#awaitstep/runtime` and is provider-neutral: even `sub_workflow` and `sub_script` call the runtime's platform adapter, which the provider implements over its own primitives.
 
 ## step
 
@@ -16,7 +16,7 @@ Run arbitrary TypeScript inside a durable step. The platform retries automatical
 
 ```typescript
 // Generated code
-const my_step_result = await step.do('my_step', { retries: { limit: 5 } }, async () => {
+const my_step_result = await flow.step('my_step', { retries: { limit: 5 } }, async () => {
   const data = await fetch('https://api.example.com/data').then((r) => r.json())
   return { value: data.value }
 })
@@ -250,15 +250,16 @@ const fetch_user_result = await step.do('fetch_user', { retries: { limit: 5 } },
 
 ## sub_workflow
 
-Trigger another AwaitStep workflow, optionally waiting for it to complete before continuing.
+Call another deployed workflow, optionally waiting for it to complete before continuing.
 
-| Field               | Type         | Required | Default     | Description                                         |
-| ------------------- | ------------ | -------- | ----------- | --------------------------------------------------- |
-| `workflowId`        | `string`     | yes      | —           | The ID of the child workflow.                       |
-| `workflowName`      | `string`     | yes      | —           | Human-readable name used for the CF binding.        |
-| `input`             | `expression` | no       | —           | Expression for params passed to the child workflow. |
-| `waitForCompletion` | `boolean`    | no       | `true`      | Block until the child workflow finishes.            |
-| `timeout`           | `string`     | no       | `5 minutes` | Max time to wait for child completion.              |
+| Field               | Type         | Required | Default     | Description                                                             |
+| ------------------- | ------------ | -------- | ----------- | ----------------------------------------------------------------------- |
+| `workflowId`        | `string`     | yes      | —           | The target workflow's AwaitStep id or deployed name.                    |
+| `workflowName`      | `string`     | no       | —           | Provider export name (Cloudflare: the exported workflow class).         |
+| `input`             | `expression` | no       | —           | Expression for params passed to the child workflow.                     |
+| `waitForCompletion` | `boolean`    | no       | `true`      | Block until the child workflow finishes.                                |
+| `timeout`           | `string`     | no       | `5 minutes` | Max time to wait for child completion.                                  |
+| `params`            | `json`       | no       | —           | Provider-scoped settings, e.g. `{ "cf": { "binding": "CHILD_FLOW" } }`. |
 
 **Output:**
 
@@ -268,8 +269,24 @@ Trigger another AwaitStep workflow, optionally waiting for it to complete before
 
 ```typescript
 // Generated code
-const child_result = await step.do('trigger_fulfillment', async () => {
-  const instance = await env.ORDER_FULFILLMENT.create({ params: charge_result })
-  return { instanceId: instance.id }
-})
+const child_instance = await flow.step('child--create', () =>
+  flow.startWorkflow({
+    workflow: 'order-fulfillment',
+    exportName: 'OrderFulfillment',
+    input: charge_result,
+  }),
+)
+
+const child = await flow.step(
+  'child--await',
+  { retries: { limit: 60, delay: '5 seconds' } },
+  async () => {
+    const status = await flow.workflowStatus(child_instance.instanceId, {
+      workflow: 'order-fulfillment',
+      exportName: 'OrderFulfillment',
+    })
+    if (status.status === 'complete') return status.output
+    throw new Error('Still running')
+  },
+)
 ```

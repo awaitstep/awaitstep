@@ -52,7 +52,32 @@ describe('source routes', () => {
   })
 
   describe('GET /api/workflows/:workflowId/source', () => {
-    it('generates the deployable view from the current version', async () => {
+    it('does not apply the deploy provider’s compatibility checks to the presentation view', async () => {
+      const version = await mockDb.createVersion({
+        id: 'v-neutral',
+        workflowId: 'wf-1',
+        ir: JSON.stringify({
+          ...validIR,
+          nodes: [{ ...validIR.nodes[0], provider: 'inngest' }],
+          runtime: {
+            resources: [{ name: 'STATE', kind: 'durable_object', provider: 'inngest' }],
+          },
+        }),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        diagnostics: { message: string }[]
+        requirements: { id: string }[]
+      }
+      expect(body.diagnostics.map((d) => d.message)).not.toContain(
+        'Node "Hello" is not supported by this provider',
+      )
+      expect(body.requirements.some((r) => r.id === 'cloudflare')).toBe(false)
+    })
+
+    it('generates the portable presentation view from the current version', async () => {
       const res = await app.request(url('/api/workflows/wf-1/source'))
       expect(res.status).toBe(200)
       const body = (await res.json()) as {
@@ -61,11 +86,13 @@ describe('source routes', () => {
         requirements: unknown[]
         files: { path: string }[]
       }
-      expect(body.entry).toBe('worker.ts')
-      // The portable workflow is what a reader opens first; the entry is the
-      // provider bootstrap the deployer needs.
+      // The IDE/local-development view is provider-neutral: no worker, entry
+      // or platform adapter. Those are deploy artifacts.
+      expect(body.entry).toBe('awaitstep/workflow.ts')
       expect(body.primary).toBe('awaitstep/workflow.ts')
-      expect(body.files.some((f) => f.path === 'worker.ts')).toBe(true)
+      expect(body.files.some((f) => f.path === 'worker.ts')).toBe(false)
+      expect(body.files.some((f) => f.path === 'awaitstep/entry.ts')).toBe(false)
+      expect(body.files.some((f) => f.path === 'awaitstep/platform.ts')).toBe(false)
       expect(body.files.some((f) => f.path === 'awaitstep/workflow.ts')).toBe(true)
       expect(body.requirements).toEqual([])
     })
@@ -143,7 +170,7 @@ describe('source routes', () => {
       expect(((await res.json()) as { versionId: string | null }).versionId).not.toBeNull()
     })
 
-    it('compiles a project handlers.ts into the generated entry', async () => {
+    it('returns a project handlers.ts as a file, not compiled into the portable entry', async () => {
       // These tests model the legacy annotation file, which cannot sit beside
       // the HTTP entry a fresh first save seeds: drop the seeded module first.
       await app.request(url('/api/workflows/wf-1/files/handlers/fetch.ts'), { method: 'DELETE' })
@@ -161,10 +188,11 @@ describe('source routes', () => {
         entry: string
         files: { path: string; source: string }[]
       }
-      // The annotation file is input to the entry — the read shows both the
-      // project file as it was written and the entry it compiled into.
+      // The presentation view is the portable workflow plus the person's own
+      // files. Compiling handlers.ts into an entry is a deploy concern.
       expect(body.files.map((f) => f.path)).toContain('handlers.ts')
-      expect(body.files.find((f) => f.path === body.entry)!.source).toContain('"from file"')
+      expect(body.entry).toBe('awaitstep/workflow.ts')
+      expect(body.files.find((f) => f.path === body.entry)!.source).not.toContain('"from file"')
     })
   })
 
@@ -207,16 +235,16 @@ describe('source routes', () => {
         files: { path: string; source: string }[]
         diagnostics: { source: string; nodeId?: string; message: string }[]
       }
-      expect(body.files.some((f) => f.path === 'worker.ts')).toBe(true)
+      expect(body.files.some((f) => f.path === 'awaitstep/workflow.ts')).toBe(true)
 
       // The cause is the IR finding; it marks the node on the canvas. The
       // generated code is still shown, and names the binding it resolved.
       const ir = body.diagnostics.find((d) => d.source === 'ir')
       expect(ir).toMatchObject({ nodeId: 'call' })
-      expect(ir!.message).toContain('no worker selected')
+      expect(ir!.message).toContain('no script selected')
 
       const workflow = body.files.find((f) => f.path === 'awaitstep/workflow.ts')!
-      expect(workflow.source).toContain('service(env, "")')
+      expect(workflow.source).toContain('flow.callScript({ script: "",')
     })
 
     it('names the file a compile error came from', async () => {

@@ -8,14 +8,13 @@ import type {
   StepManifest,
   TemplateResolver,
 } from '@awaitstep/codegen'
+import { builtinGenerators } from './generator-registry.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
-import { boundVarNames, exportPlan } from './export-plan.js'
-import { graphModuleNames } from './graph-module-names.js'
-import { assertStepPathsFree, moduleImportLine, modulePathOf } from './module-files.js'
 import {
   CORE_RUNTIME_IMPORT,
   computeVarNames,
   contentHash,
+  FUNCTION_MODULE_PATH,
   createGenerationContext,
   importSpecifiers,
   indent,
@@ -26,21 +25,14 @@ import {
   topologicalSort,
   validateBundle,
   withoutComments,
-} from '@awaitstep/codegen'
-import {
-  CLOUDFLARE_PRIMITIVES_IMPORT,
-  FUNCTION_RUNTIME_IMPORT,
-  cloudflarePrimitivesModuleFile,
-  runtimeModuleFile,
-} from './runtime-module.js'
-import { collectBranchInlineTargets } from './generators/branch.js'
-import { getSubWorkflowBindings } from './generators/sub-workflow.js'
-import { getSubScriptBindings } from './generators/sub-script.js'
-import { hasTemplateExpressions } from './generators/state-tracking.js'
-import { detectBindings } from './bindings.js'
-import { retentionLiteral, type CloudflareRetention } from './retention.js'
-import {
-  CF_ENV_TYPE,
+  boundVarNames,
+  exportPlan,
+  graphModuleNames,
+  assertStepPathsFree,
+  moduleImportLine,
+  modulePathOf,
+  collectBranchInlineTargets,
+  hasTemplateExpressions,
   collapseBlankLines,
   endsWithReturn,
   extractImports,
@@ -50,7 +42,20 @@ import {
   generateNodeCode,
   resolveNodeExpressions,
   wrapModuleCalls,
-} from './generate-helpers.js'
+} from '@awaitstep/codegen'
+import {
+  CLOUDFLARE_PRIMITIVES_IMPORT,
+  FUNCTION_RUNTIME_IMPORT,
+  FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM,
+  platformModuleFile,
+  cloudflarePrimitivesModuleFile,
+  runtimeModuleFile,
+} from './runtime-module.js'
+import { getSubWorkflowBindings } from './generators/sub-workflow.js'
+import { getSubScriptBindings } from './generators/sub-script.js'
+import { detectBindings } from './bindings.js'
+import { retentionLiteral, type CloudflareRetention } from './retention.js'
+import { CF_ENV_TYPE } from './env-types.js'
 import { parseAnnotations } from './parse-annotations.js'
 
 /**
@@ -65,9 +70,6 @@ import { parseAnnotations } from './parse-annotations.js'
  * outputs. Users can replace this code via the script's `triggerCode` field —
  * the runGraph call and `graph.*` outputs stay stable across edits.
  */
-/** The generated graph module of a function: `runGraph`, its `Env`, its classes. */
-export const FUNCTION_MODULE_PATH = 'awaitstep/function.ts'
-
 export const DEFAULT_SCRIPT_TRIGGER_CODE = `
 @fetch function handler(request: Request, env: Env) {
   try {
@@ -126,14 +128,14 @@ export function generateScriptBundle(
   templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
 ): GeneratedBundle {
   assertStepPathsFree(ir)
-  const { source, files, manifest } = generateScriptInternal(ir, templateResolverOrOptions)
+  const { worker, files, manifest } = generateScriptInternal(ir, templateResolverOrOptions)
   const projectFiles = projectBundleFiles(ir.runtime?.files)
   // Emit a runtime module only when something shipped imports it — generated
   // code, a step module, or a project file — so a function with no steps
   // stays the single file it always was.
   const imported = new Set(
     [
-      source,
+      worker,
       ...files.map((file) => file.source),
       ...projectFiles.map((file) => file.source),
     ].flatMap((candidate) => importSpecifiers(withoutComments(candidate))),
@@ -152,7 +154,12 @@ export function generateScriptBundle(
   return {
     ...validateBundle({
       entry: 'worker.ts',
-      files: [{ path: 'worker.ts', source, role: 'entry' }, ...files, ...extra, ...projectFiles],
+      files: [
+        { path: 'worker.ts', source: worker, role: 'entry' },
+        ...files,
+        ...extra,
+        ...projectFiles,
+      ],
     }),
     manifest,
   }
@@ -179,13 +186,17 @@ const RESULT_CONTAINERS: ReadonlySet<string> = new Set(['parallel', 'race', 'loo
 function generateScriptInternal(
   ir: ScriptIR,
   templateResolverOrOptions?: TemplateResolver | GenerateScriptOptions,
-): { source: string; files: GeneratedFile[]; manifest: StepManifest } {
+): { source: string; worker: string; files: GeneratedFile[]; manifest: StepManifest } {
   const opts: GenerateScriptOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, preview, triggerCode, retention, generators } = opts
+  const { templateResolver, envVarNames, preview, triggerCode, retention } = opts
+  const generators = opts.generators ?? builtinGenerators
+  const hasSubCalls = ir.nodes.some(
+    (node) => node.type === 'sub_workflow' || node.type === 'sub_script',
+  )
 
   // Every step's code in module form, whatever shape was stored.
   ir = normalizeStepModules(ir)
@@ -425,7 +436,7 @@ function generateScriptInternal(
   // comment or an inline body's own `step` identifier.
   const usesFlow =
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   // A function's invocation is a run of its own: the context's event carries
@@ -439,7 +450,9 @@ function generateScriptInternal(
         '      timestamp: new Date(),',
         '      instanceId: globalThis.crypto.randomUUID(),',
         '    },',
-        '    host: createInlineHost(),',
+        hasSubCalls
+          ? '    host: createInlineHost(platform ?? createAwaitstepPlatform(env)),'
+          : '    host: createInlineHost(),',
         '  });',
         '  const step = durableStep(flow);',
         '',
@@ -453,7 +466,11 @@ function generateScriptInternal(
       : '  return {};'
   const runGraphBody =
     graphBody.trim().length > 0 ? indent(graphBody, 2) + (bodyAlreadyReturns ? '' : '\n') : ''
-  const runGraphBlock = `export async function runGraph(env: Env, event: { payload: unknown }) {
+  const runGraphBlock = hasSubCalls
+    ? `export async function runGraph(env: Env, event: { payload: unknown }, platform?: PlatformHost) {
+${contextLines}${declStatement}${runGraphBody}${returnStatement}
+}`
+    : `export async function runGraph(env: Env, event: { payload: unknown }) {
 ${contextLines}${declStatement}${runGraphBody}${returnStatement}
 }`
 
@@ -462,13 +479,20 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
   const moduleImports: string[] = []
   for (const moduleFile of ctx.files) {
     if (moduleFile.role !== 'module') continue
-    moduleImports.push(moduleImportLine(moduleFile, '../'))
+    moduleImports.push(moduleImportLine(moduleFile, '#app/'))
   }
   // The graph module imports the runtime and the step modules; the worker
   // imports the graph module, the handler modules and what the trigger code
   // asked for. Nothing imports the worker.
   const functionImports = [
-    ...new Set([...(usesFlow ? [FUNCTION_RUNTIME_IMPORT] : []), ...moduleImports, ...graphImports]),
+    ...new Set([
+      ...(usesFlow
+        ? [hasSubCalls ? FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM : FUNCTION_RUNTIME_IMPORT]
+        : []),
+      ...(hasSubCalls ? ['import { createAwaitstepPlatform } from "#awaitstep/platform";'] : []),
+      ...moduleImports,
+      ...graphImports,
+    ]),
   ]
   const importBlock = functionImports.length > 0 ? '\n' + functionImports.join('\n') : ''
   const classBlock =
@@ -525,12 +549,18 @@ ${runGraphBlock}
   const graphNames = graphModuleNames(workerBody, ['runGraph', 'AWAITSTEP_RETENTION'])
   const workerImports = [
     ...new Set([
-      `import { ${[...graphNames, 'type Env'].join(', ')} } from "./awaitstep/function.js";`,
+      `import { ${[...graphNames, 'type Env'].join(', ')} } from "#awaitstep/function";`,
       ...collectedImports,
     ]),
   ]
-  const source = `${workerImports.join('\n')}
+  const entrySource = `${workerImports.join('\n')}
 ${workerBody}
+`
+  // The entry is provider-neutral: it only re-exports the provider entry the
+  // build selected. Cloudflare's entry lives in awaitstep/entry.ts.
+  const workerSource = `// Generated from @awaitstep/codegen — the deploy target is bound at build time.
+export * from "#awaitstep/entry";
+export { default } from "#awaitstep/entry";
 `
 
   // One manifest entry per top-level node, as a workflow's: the step name and
@@ -582,8 +612,16 @@ ${workerBody}
   manifest.steps.push(...nestedSteps)
 
   return {
-    source,
-    files: [{ path: FUNCTION_MODULE_PATH, source: functionSource, role: 'module' }, ...ctx.files],
+    source: entrySource,
+    worker: workerSource,
+    files: [
+      { path: FUNCTION_MODULE_PATH, source: functionSource, role: 'module' },
+      { path: 'awaitstep/entry.ts', source: entrySource, role: 'module' },
+      ...(hasSubCalls
+        ? [platformModuleFile(retentionLiteral(retention), '#awaitstep/function')]
+        : []),
+      ...ctx.files,
+    ],
     manifest,
   }
 }

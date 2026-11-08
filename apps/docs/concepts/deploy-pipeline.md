@@ -44,7 +44,7 @@ AwaitStep automatically detects which Cloudflare resources your workflow needs:
 - **KV namespaces** — any `step` node code that references `env.MY_KV` will add a KV binding named `MY_KV`.
 - **D1 databases** — references to `env.MY_DB` add a D1 binding.
 - **R2 buckets** — references to `env.MY_BUCKET` add an R2 binding.
-- **Sub-workflow bindings** — every `sub_workflow` node adds a Workflow binding for the child workflow.
+- **Sub-workflow bindings** — every `sub_workflow` node adds a Workflow binding for the child workflow. <Badge type="warning" text="Cloudflare Only" />
 
 For KV and D1 bindings, AwaitStep needs the resource ID to generate the `wrangler.json`. You must provide these via environment variables in the **Environment** panel:
 
@@ -100,7 +100,7 @@ The deploy produces a single Cloudflare Worker:
 - **Custom route** — if configured, the worker is also reachable at your own domain (e.g. `api.example.com/my-workflow/*`). See [Custom Routes](../building-workflows/custom-routes.md).
 - **Dashboard URL** — link to the Cloudflare dashboard for the deployed worker
 
-The worker exports a `WorkflowEntrypoint` class and, if an HTTP trigger is configured, a `fetch` handler.
+The Cloudflare adapter's entry exports a `WorkflowEntrypoint` class and, if an HTTP trigger is configured, a `fetch` handler. <Badge type="warning" text="Cloudflare Only" /> The portable `awaitstep/workflow.ts` module alongside it names no provider.
 
 ## Custom Routes
 

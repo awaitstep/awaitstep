@@ -31,7 +31,7 @@ function seed(kind: 'workflow' | 'script', nodes: unknown[] = [step]) {
     nodes,
     edges: [],
     workflowEnvVars: [],
-    runtimeBindings: [],
+    runtimeResources: [],
   } as never)
 }
 
@@ -40,10 +40,11 @@ beforeEach(() => {
 })
 
 describe('useGeneratedEntry', () => {
-  it('shows the workflow module generated from the canvas graph', () => {
+  it('shows the portable workflow module by default', () => {
     const { result } = renderHook(() => useGeneratedEntry())
     expect(result.current.path).toBe('awaitstep/workflow.ts')
     expect(result.current.source).toContain('export default defineWorkflow')
+    expect(result.current.source).not.toMatch(/cloudflare/i)
     expect(result.current.error).toBeNull()
   })
 

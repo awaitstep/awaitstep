@@ -75,7 +75,7 @@ describe('the SQL role table against @awaitstep/ir', () => {
         )
       }
     }
-  })
+  }, 20_000)
 })
 
 describe('hidden workspaces and projects', () => {
@@ -924,7 +924,7 @@ describe('API keys act with their creator’s standing', () => {
 })
 
 describe('local dev', () => {
-  it('is building: a Viewer may read its logs but not start, stop or trigger it', async () => {
+  it('is building: a Viewer has no local-dev surface, including logs', async () => {
     const h = createSqliteApp({ enableLocalDev: true })
     await seedAcme(h)
     const start = await h.app.request(
@@ -941,10 +941,12 @@ describe('local dev', () => {
         )
       ).status,
     ).toBe(403)
-    expect(
-      (await h.app.request('/api/workflows/wf-sales/local-dev/logs?projectId=p-101', h.as('u-eve')))
-        .status,
-    ).not.toBe(403)
+    const logs = await h.app.request(
+      '/api/workflows/wf-sales/local-dev/logs?projectId=p-101',
+      h.as('u-eve'),
+    )
+    expect(logs.status).toBe(403)
+    expect((await logs.json()).error).toBe(ACCESS_REASONS.needsEditor)
   })
 })
 

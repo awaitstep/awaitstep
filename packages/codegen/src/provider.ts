@@ -1,3 +1,4 @@
+import type { ProcessLogEntry } from './types.js'
 import type { ArtifactIR, ProjectFile, ValidationError, Result } from '@awaitstep/ir'
 import type { RequirementSupport, RuntimeRequirement } from './requirements.js'
 import type {
@@ -57,8 +58,32 @@ export interface HandlerConversionResult {
   declarations: Record<string, unknown>
 }
 
+export type ProviderHandlerKind = 'fetch' | 'scheduled' | 'queue'
+
+/**
+ * What a provider can do, for shared UI that must not hardcode a provider's
+ * nouns. A provider without `capabilities` is treated as fetch-only.
+ */
+export interface ProviderCapabilities {
+  id: string
+  label: string
+  handlerKinds: readonly ProviderHandlerKind[]
+  /** Regex source for a queue name; absent = the provider has no queues. */
+  queueNamePattern?: string
+  /** Import schemes the provider owns (`cloudflare:`), used by analysis. */
+  importSchemes: readonly string[]
+  bindingKinds: readonly string[]
+  bindingKindLabels: Readonly<Record<string, string>>
+  /** Deployment-config field that holds cron expressions, if schedules exist. */
+  scheduleConfigKey?: string
+  /** How a deployment is reached; `{deploymentId}` is substituted. */
+  runUrlTemplate?: string
+}
+
 export interface WorkflowProvider {
   readonly name: string
+  /** Optional capability descriptor; shared UI reads it instead of provider names. */
+  readonly capabilities?: ProviderCapabilities
 
   /**
    * Binding kinds this provider can supply (KV, D1, R2, …). A workflow that
@@ -93,6 +118,15 @@ export interface WorkflowProvider {
    * on `ir.kind` (treating absent `kind` as `'workflow'`).
    */
   validate(ir: ArtifactIR): Result<void, ValidationError[]>
+
+  /** The deployed resource name for a workflow id, when the provider names it. */
+  deploymentName?(workflowId: string): string
+
+  /** Env names the provider uses internally and must not pass to user code. */
+  isInternalEnvVar?(name: string): boolean
+
+  /** Refuse a credential shape before a network check; absent = no local rule. */
+  validateCredentials?(credentials: Record<string, string>): { field: string; error: string } | null
 
   verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult>
 
@@ -138,6 +172,16 @@ export interface WorkflowProvider {
    */
   getRunDetail?(instanceId: string, config: ProviderConfig): Promise<WorkflowRunDetail>
 
+  /**
+   * Pause, resume or terminate one run instance. Absent = the provider has no
+   * run control beyond status. The route must not reach a provider SDK
+   * directly for these.
+   */
+  controlRun?(
+    action: 'pause' | 'resume' | 'terminate',
+    input: { workflowName: string; instanceId: string; config: ProviderConfig },
+  ): Promise<void>
+
   trigger(
     deploymentId: string,
     params: unknown,
@@ -152,6 +196,10 @@ export interface WorkflowProvider {
 
 export interface LocalDevProvider {
   startLocalDev(bundle: GeneratedBundle, options: LocalDevOptions): Promise<LocalDevSession>
+  stopLocalDev(): Promise<void>
+  triggerLocalDev(body: unknown): Promise<{ status: number; data: unknown }>
+  localDevInstance(instanceId: string): Promise<{ status: number; data: unknown }>
+  readLocalDevLogs(since?: number): Promise<ProcessLogEntry[]>
 }
 
 export function supportsLocalDev(
@@ -159,6 +207,6 @@ export function supportsLocalDev(
 ): provider is WorkflowProvider & LocalDevProvider {
   return (
     'startLocalDev' in provider &&
-    typeof (provider as LocalDevProvider).startLocalDev === 'function'
+    typeof (provider as unknown as LocalDevProvider).startLocalDev === 'function'
   )
 }

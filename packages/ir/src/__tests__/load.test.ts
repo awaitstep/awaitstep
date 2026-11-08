@@ -22,18 +22,64 @@ describe('migrateArtifact', () => {
     expect(migrateArtifact(v2)).toBe(v2)
   })
 
-  it('defaults the trigger for legacy script IRs so they still load', () => {
-    const legacyScript = {
+  it('migrates legacy bindings to resources and drops the trigger block', () => {
+    const legacy = {
       ...(simpleWorkflow as Record<string, unknown>),
-      kind: 'script',
+      trigger: { type: 'cron', expression: '0 * * * *' },
+      runtime: { bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }] },
     }
-    delete (legacyScript as Record<string, unknown>).trigger
-    const migrated = migrateArtifact(legacyScript) as Record<string, unknown>
-    expect(migrated.trigger).toEqual({ type: 'http' })
+    const migrated = migrateArtifact(legacy) as Record<string, unknown>
+    expect(migrated.trigger).toBeUndefined()
+    expect((migrated.runtime as { resources: unknown }).resources).toEqual([
+      { name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' },
+    ])
+  })
 
-    const loaded = loadArtifact(legacyScript)
-    expect(loaded.ok).toBe(true)
-    if (loaded.ok) expect(loaded.value.kind).toBe('script')
+  it('merges existing resources with legacy bindings and keeps unknown fields', () => {
+    const doc = {
+      ...(simpleWorkflow as Record<string, unknown>),
+      irVersion: 2,
+      runtime: {
+        resources: [{ name: 'BUCKET', kind: 'r2' }],
+        bindings: [
+          { name: 'CACHE', type: 'kv', description: 'keep' },
+          { name: 'BUCKET', type: 'r2' },
+        ],
+      },
+    }
+    const migrated = migrateArtifact(doc) as {
+      runtime: { resources: Record<string, unknown>[]; bindings?: unknown }
+    }
+    expect(migrated.runtime.bindings).toBeUndefined()
+    expect(migrated.runtime.resources).toEqual([
+      { name: 'BUCKET', kind: 'r2' },
+      { name: 'CACHE', kind: 'kv', description: 'keep' },
+    ])
+  })
+
+  it('strips an empty legacy bindings key from a current document', () => {
+    const doc = {
+      ...(simpleWorkflow as Record<string, unknown>),
+      irVersion: IR_VERSION,
+      runtime: { bindings: [] },
+    }
+    const migrated = migrateArtifact(doc) as { runtime: Record<string, unknown> }
+    expect(migrated.runtime).toEqual({})
+  })
+
+  it('returns a validation error, not a throw, for null legacy entries', () => {
+    const v2 = {
+      ...(simpleWorkflow as Record<string, unknown>),
+      runtime: { bindings: [null] },
+    }
+    const loaded = loadArtifact(v2)
+    expect(loaded.ok).toBe(false)
+    const v3 = {
+      ...(simpleWorkflow as Record<string, unknown>),
+      irVersion: IR_VERSION,
+      runtime: { resources: [null] },
+    }
+    expect(loadArtifact(v3).ok).toBe(false)
   })
 
   it('passes non-object input through for the schema to reject', () => {
@@ -73,15 +119,15 @@ describe('loadArtifact', () => {
         triggerCode: '@fetch function handler(request, env, ctx) { return new Response(null); }',
         dependencies: { zod: '^4.0.0' },
         env: [{ name: 'API_KEY', required: true, secret: true }],
-        bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc123' }],
+        resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc123' }],
       },
     }
     const loaded = loadArtifact(withRuntime)
     expect(loaded.ok).toBe(true)
     if (!loaded.ok) return
-    expect(loaded.value.runtime?.bindings?.[0]).toEqual({
+    expect(loaded.value.runtime?.resources?.[0]).toEqual({
       name: 'KV_CACHE',
-      type: 'kv',
+      kind: 'kv',
       resourceId: 'abc123',
     })
     const again = loadArtifact(serializeArtifact(loaded.value))

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { boundVarNames, exportPlan, nodeYieldsValue } from '../../codegen/export-plan.js'
+import { boundVarNames, exportPlan, nodeYieldsValue } from '@awaitstep/codegen'
 import { computeVarNames } from '@awaitstep/codegen'
 
 function node(

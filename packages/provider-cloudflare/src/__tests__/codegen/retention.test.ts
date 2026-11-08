@@ -103,6 +103,8 @@ describe('generated retention wiring', () => {
     expect(code).toContain(
       'const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };',
     )
-    expect(code).toContain('retention: AWAITSTEP_RETENTION })')
+    expect(code).toContain(
+      'const retention = cf.retention ?? { successRetention: "7 days", errorRetention: "7 days" };',
+    )
   })
 })

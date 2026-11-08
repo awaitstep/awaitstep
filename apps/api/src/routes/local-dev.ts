@@ -1,17 +1,16 @@
 import { Hono } from 'hono'
 import { NO_VERSION_MESSAGE } from '../lib/blank-source.js'
 import { GenerateInputError, supportsLocalDev, type LocalDevProvider } from '@awaitstep/codegen'
-import {
-  killPort,
-  isPortListening,
-  readLogs,
-  LOCAL_DEV_PORT,
-  splitEnvVars,
-} from '@awaitstep/provider-cloudflare'
+import { splitEnvVars } from '@awaitstep/codegen'
 import type { AppEnv } from '../types.js'
 import { prepareWorkflow, isPrepareError } from '../lib/workflow-prepare.js'
-
-const LOCAL_DEV_URL = `http://localhost:${LOCAL_DEV_PORT}`
+import { resolveProvider } from '../lib/provider-resolver.js'
+import {
+  activeLocalDevSession,
+  claimLocalDevSession,
+  currentLocalDevSession,
+  releaseLocalDevSession,
+} from '../lib/local-dev-sessions.js'
 
 export const localDev = new Hono<AppEnv>()
 
@@ -38,8 +37,24 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
     return c.json({ error: 'Provider does not support local development' }, 501)
   }
 
+  const claim = claimLocalDevSession({
+    workflowId: workflow.id,
+    organizationId: c.get('organizationId'),
+    provider: prepared.adapter.name,
+  })
+  if (!claim.ok) {
+    return c.json(
+      {
+        error: 'Another local dev session is running. Stop it before starting this one.',
+      },
+      409,
+    )
+  }
+
   const { vars, secrets } = prepared.envVars
-    ? splitEnvVars(prepared.envVars)
+    ? splitEnvVars(prepared.envVars, {
+        exclude: (name) => prepared.adapter.isInternalEnvVar?.(name) ?? false,
+      })
     : { vars: {}, secrets: {} }
 
   try {
@@ -55,6 +70,7 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
 
     return c.json({ status: 'running', port: result.port, url: result.url, pid: result.pid })
   } catch (err) {
+    releaseLocalDevSession(workflow.id, c.get('organizationId'))
     const message = err instanceof Error ? err.message : 'Failed to start local dev'
     return c.json({ error: message }, err instanceof GenerateInputError ? 422 : 500)
   }
@@ -66,7 +82,14 @@ localDev.post('/:workflowId/local-dev/stop', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  await killPort(LOCAL_DEV_PORT)
+  const session = currentLocalDevSession(workflow.id, c.get('organizationId'))
+  if (!session) return c.json({ error: 'No active session — start local dev first' }, 400)
+  const adapter = resolveProvider(session.provider)
+  if (!supportsLocalDev(adapter)) {
+    return c.json({ error: 'Provider does not support local development' }, 501)
+  }
+  await adapter.stopLocalDev()
+  releaseLocalDevSession(workflow.id, c.get('organizationId'))
   return c.json({ status: 'stopped' })
 })
 
@@ -76,19 +99,17 @@ localDev.post('/:workflowId/local-dev/trigger', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  if (!(await isPortListening(LOCAL_DEV_PORT))) {
-    return c.json({ error: 'No active session — start local dev first' }, 400)
+  const session = currentLocalDevSession(workflow.id, c.get('organizationId'))
+  if (!session) return c.json({ error: 'No active session — start local dev first' }, 400)
+  const adapter = resolveProvider(session.provider)
+  if (!supportsLocalDev(adapter)) {
+    return c.json({ error: 'Provider does not support local development' }, 501)
   }
 
   try {
     const body = await c.req.json().catch(() => ({}))
-    const response = await fetch(LOCAL_DEV_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-    const data = await response.json().catch(() => null)
-    return c.json(data ?? { status: response.status }, response.status as 200)
+    const result = await adapter.triggerLocalDev(body)
+    return c.json(result.data, result.status as 200)
   } catch (err) {
     return c.json(
       { error: err instanceof Error ? err.message : 'Failed to trigger local workflow' },
@@ -103,15 +124,17 @@ localDev.get('/:workflowId/local-dev/instance/:instanceId', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  if (!(await isPortListening(LOCAL_DEV_PORT))) {
-    return c.json({ error: 'No active session' }, 400)
+  const session = currentLocalDevSession(workflow.id, c.get('organizationId'))
+  if (!session) return c.json({ error: 'No active session — start local dev first' }, 400)
+  const adapter = resolveProvider(session.provider)
+  if (!supportsLocalDev(adapter)) {
+    return c.json({ error: 'Provider does not support local development' }, 501)
   }
 
   const instanceId = c.req.param('instanceId')
   try {
-    const response = await fetch(`${LOCAL_DEV_URL}?instanceId=${encodeURIComponent(instanceId)}`)
-    const data = await response.json().catch(() => null)
-    return c.json(data ?? { status: response.status }, response.status as 200)
+    const result = await adapter.localDevInstance(instanceId)
+    return c.json(result.data, result.status as 200)
   } catch (err) {
     return c.json(
       { error: err instanceof Error ? err.message : 'Failed to get instance status' },
@@ -126,13 +149,23 @@ localDev.get('/:workflowId/local-dev/logs', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
+  const session = currentLocalDevSession(workflow.id, c.get('organizationId'))
+  if (!session) return c.json({ error: 'No active session — start local dev first' }, 400)
+  const adapter = resolveProvider(session.provider)
+  if (!supportsLocalDev(adapter)) {
+    return c.json({ error: 'Provider does not support local development' }, 501)
+  }
   const since = Number(c.req.query('since') ?? '0')
-  const logs = await readLogs(since || undefined)
+  const logs = await adapter.readLocalDevLogs(since || undefined)
   return c.json(logs)
 })
 
 // ── Cleanup (process shutdown) ─────────────────────────
 
 export async function cleanupLocalDevSessions(): Promise<void> {
-  await killPort(LOCAL_DEV_PORT)
+  const session = activeLocalDevSession()
+  if (!session) return
+  const adapter = resolveProvider(session.provider)
+  if (supportsLocalDev(adapter)) await adapter.stopLocalDev()
+  releaseLocalDevSession(session.workflowId, session.organizationId)
 }

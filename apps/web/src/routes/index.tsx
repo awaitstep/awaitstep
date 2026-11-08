@@ -9,7 +9,7 @@ export const Route = createFileRoute('/')({
       {
         name: 'description',
         content:
-          'A self-hosted visual builder that generates and deploys code directly to Cloudflare Workflows.',
+          'A self-hosted visual builder that generates portable workflow code and deploys it to your runtime.',
       },
     ],
   }),
@@ -120,8 +120,8 @@ function HomePage() {
         `}</style>
 
         <p className="mt-6 max-w-lg text-sm leading-relaxed text-muted-foreground sm:text-base">
-          A self-hosted visual builder that generates and deploys code directly to Cloudflare
-          Workflows. No proprietary engines, just your code.
+          A self-hosted visual builder that generates portable workflow code and deploys it to your
+          runtime. No proprietary engines, just your code.
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">

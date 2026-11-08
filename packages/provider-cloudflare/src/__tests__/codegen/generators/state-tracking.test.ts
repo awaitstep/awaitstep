@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasTemplateExpressions } from '../../../codegen/generators/state-tracking.js'
+import { hasTemplateExpressions } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
 
 function node(data: Record<string, unknown>): WorkflowNode {

@@ -6,6 +6,10 @@ title: Human Approval
 
 Pauses a workflow at a decision point and waits for a human to approve or reject before continuing. The workflow can wait for days or weeks with no compute cost.
 
+::: warning Cloudflare Only
+The generated code in this template is the Cloudflare adapter's output. The workflow module it wraps is provider-neutral.
+:::
+
 ## Workflow structure
 
 ```mermaid

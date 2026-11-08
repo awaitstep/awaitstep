@@ -43,7 +43,6 @@ const workflow: ArtifactIR = {
     { id: 'e4', source: 'nap', target: 'done' },
   ],
   entryNodeId: 'validate',
-  trigger: { type: 'http' },
   runtime: {
     env: [{ name: 'STRIPE_KEY', secret: true }],
     files: [{ path: 'lib/x.ts', source: 'export const x = 1' }],
@@ -92,7 +91,6 @@ describe('stepSources', () => {
       nodes: [node('a', 'step', { code: 'return 1' })],
       edges: [],
       entryNodeId: 'a',
-      trigger: { type: 'http' },
     }
     expect(stepSources(script).files).toEqual([
       { path: 'steps/a.ts', source: 'return 1', role: 'source', hash: contentHash('return 1') },

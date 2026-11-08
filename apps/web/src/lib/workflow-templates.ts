@@ -69,7 +69,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'greet',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const name = event.payload.name ?? "World";\n  return { message: `Hello, ${name}!`, timestamp: new Date().toISOString() };',
           },
@@ -80,7 +79,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'pause',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '5 seconds',
           },
@@ -91,7 +89,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'done',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return { status: "completed", greeting: {{greet.message}} };',
           },
@@ -131,7 +128,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'validate_order',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const { orderId, items, customer } = event.payload;\n  if (!orderId || !items?.length) {\n    throw new Error("Invalid order: missing orderId or items");\n  }\n  return { orderId, items, customer, total: items.reduce((sum, i) => sum + i.price * i.qty, 0) };',
           },
@@ -142,7 +138,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'charge_payment',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
             timeout: '30 seconds',
@@ -163,7 +158,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'check_payment',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             branches: [
               { label: 'true', condition: '{{charge_payment}}.status === "succeeded"' },
@@ -177,7 +171,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'create_shipment',
           position: { x: 150, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const label = {\n    trackingId: `SHIP-${Date.now()}`,\n    carrier: "fedex",\n    address: {{validate_order.customer.address}},\n    items: {{validate_order.items}},\n  };\n  return label;',
           },
@@ -188,7 +181,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_confirmation',
           position: { x: 150, y: 480 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
           },
@@ -208,7 +200,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'schedule_followup',
           position: { x: 150, y: 600 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '3 day',
           },
@@ -247,7 +238,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'capture_cart',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const { cartId, userId, items, email } = event.payload;\n  const cartTotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);\n  return { cartId, userId, items, email, cartTotal };',
           },
@@ -258,7 +248,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_for_purchase',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             eventType: 'cart-purchased',
             timeout: '2 hour',
@@ -270,7 +259,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'check_purchased',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             branches: [
               { label: 'true', condition: '{{wait_for_purchase}}.purchased === true' },
@@ -284,7 +272,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'no_action',
           position: { x: 150, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return { status: "already-purchased", cartId: {{capture_cart.cartId}} };',
           },
@@ -295,7 +282,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_reminder',
           position: { x: 450, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
           },
@@ -342,7 +328,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'attempt_charge',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '30 seconds', backoff: 'exponential' },
             timeout: '30 seconds',
@@ -363,7 +348,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'check_charge',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             branches: [
               { label: 'true', condition: '{{attempt_charge}}.status === "succeeded"' },
@@ -377,7 +361,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'confirm_renewal',
           position: { x: 150, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return {\n    subscriptionId: event.payload.subscriptionId,\n    status: "renewed",\n    nextBillingDate: new Date(Date.now() + 30 * 86400000).toISOString(),\n  };',
           },
@@ -388,7 +371,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_dunning',
           position: { x: 450, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 2, delay: '5 seconds', backoff: 'constant' },
           },
@@ -438,7 +420,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_welcome',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
           },
@@ -458,7 +439,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_day_1',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '1 day',
           },
@@ -469,7 +449,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_tips',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
           },
@@ -489,7 +468,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_day_3',
           position: { x: 300, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '3 day',
           },
@@ -500,7 +478,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_checkin',
           position: { x: 300, y: 480 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
           },
@@ -547,7 +524,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_for_delivery',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '5 day',
           },
@@ -558,7 +534,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_survey',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
           },
@@ -578,7 +553,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_for_response',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             eventType: 'survey-response',
             timeout: '7 day',
@@ -590,7 +564,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'store_feedback',
           position: { x: 300, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const rating = {{wait_for_response.rating}} ?? null;\n  const comment = {{wait_for_response.comment}} ?? "";\n  return {\n    orderId: event.payload.orderId,\n    userId: event.payload.userId,\n    rating,\n    comment,\n    collectedAt: new Date().toISOString(),\n  };',
           },
@@ -631,7 +604,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'fetch_source_data',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
             timeout: '60 seconds',
@@ -651,7 +623,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'transform_data',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const records = {{fetch_source_data.data}} ?? [];\n  const cleaned = records\n    .filter((r) => r.status === "active")\n    .map((r) => ({\n      id: r.id,\n      name: r.name.trim().toLowerCase(),\n      value: Math.round(r.value * 100) / 100,\n      updatedAt: new Date().toISOString(),\n    }));\n  return { records: cleaned, count: cleaned.length };',
           },
@@ -662,7 +633,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'store_results',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const { records } = {{transform_data}};\n  // Batch insert into D1\n  const stmt = env.DB.prepare(\n    "INSERT INTO records (id, name, value, updated_at) VALUES (?, ?, ?, ?)"\n  );\n  const batch = records.map((r) =>\n    stmt.bind(r.id, r.name, r.value, r.updatedAt)\n  );\n  await env.DB.batch(batch);\n  return { inserted: records.length };',
           },
@@ -673,7 +643,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_interval',
           position: { x: 300, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '1 hour',
           },
@@ -684,7 +653,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'send_report',
           position: { x: 300, y: 480 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 2, delay: '5 seconds', backoff: 'constant' },
           },
@@ -728,7 +696,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'prepare_batch',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const items = event.payload.items ?? [];\n  const batchSize = Math.ceil(items.length / 2);\n  return {\n    usBatch: items.slice(0, batchSize),\n    euBatch: items.slice(batchSize),\n    totalItems: items.length,\n  };',
           },
@@ -739,7 +706,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'fan_out',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {},
         },
         {
@@ -748,7 +714,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'process_region_us',
           position: { x: 150, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
             timeout: '120 seconds',
@@ -769,7 +734,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'process_region_eu',
           position: { x: 450, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
             timeout: '120 seconds',
@@ -790,7 +754,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'aggregate_results',
           position: { x: 300, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const usResults = {{process_region_us}} ?? [];\n  const euResults = {{process_region_eu}} ?? [];\n  const merged = [...usResults, ...euResults];\n  return {\n    totalProcessed: merged.length,\n    results: merged,\n    completedAt: new Date().toISOString(),\n  };',
           },
@@ -829,7 +792,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'parse_webhook',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  const { url, payload, secret } = event.payload;\n  if (!url || !payload) {\n    throw new Error("Missing required fields: url and payload");\n  }\n  const signature = await crypto.subtle.sign(\n    "HMAC",\n    secret,\n    new TextEncoder().encode(JSON.stringify(payload))\n  );\n  return { url, payload, signature: btoa(String.fromCharCode(...new Uint8Array(signature))) };',
           },
@@ -840,7 +802,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'deliver_webhook',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 5, delay: '1 second', backoff: 'exponential' },
             timeout: '30 seconds',
@@ -861,7 +822,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'check_delivery',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             branches: [
               {
@@ -879,7 +839,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'log_success',
           position: { x: 100, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return {\n    webhookId: {{parse_webhook.url}},\n    delivered: true,\n    status: {{deliver_webhook.status}},\n    completedAt: new Date().toISOString(),\n  };',
           },
@@ -890,7 +849,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'rate_limit_wait',
           position: { x: 300, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '60 second',
           },
@@ -901,7 +859,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'backoff_wait',
           position: { x: 500, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             duration: '30 second',
           },
@@ -912,7 +869,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'log_failure',
           position: { x: 500, y: 480 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return {\n    webhookId: {{parse_webhook.url}},\n    delivered: false,\n    status: {{deliver_webhook.status}},\n    error: "Delivery failed after retries",\n    failedAt: new Date().toISOString(),\n  };',
           },
@@ -956,7 +912,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_for_approval',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             eventType: 'approval',
             timeout: '48 hour',
@@ -968,7 +923,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'check_approval',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             branches: [
               { label: 'true', condition: '{{wait_for_approval}}.approved === true' },
@@ -982,7 +936,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'process_approved',
           position: { x: 150, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return {\n    status: "approved",\n    processedAt: new Date().toISOString(),\n    approver: {{wait_for_approval.approvedBy}},\n    requestId: event.payload.id,\n  };',
           },
@@ -993,7 +946,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'handle_rejected',
           position: { x: 450, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return {\n    status: "rejected",\n    rejectedAt: new Date().toISOString(),\n    reason: {{wait_for_approval.reason}} ?? "No reason provided",\n    requestId: event.payload.id,\n  };',
           },
@@ -1030,7 +982,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'notify_oncall',
           position: { x: 300, y: 0 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
           },
@@ -1047,7 +998,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'wait_for_ack',
           position: { x: 300, y: 120 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             eventType: 'incident-ack',
             timeout: '15 minute',
@@ -1059,7 +1009,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'check_ack',
           position: { x: 300, y: 240 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             branches: [
               { label: 'true', condition: '{{wait_for_ack}}.acknowledged === true' },
@@ -1073,7 +1022,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'record_ack',
           position: { x: 150, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           data: {
             code: '  return {\n    instanceId: event.instanceId,\n    status: "acknowledged",\n    acknowledgedBy: {{wait_for_ack.acknowledgedBy}},\n    acknowledgedAt: new Date().toISOString(),\n  };',
           },
@@ -1084,7 +1032,6 @@ export const workflowTemplates: WorkflowTemplate[] = [
           name: 'escalate',
           position: { x: 450, y: 360 },
           version: '1.0.0',
-          provider: 'cloudflare',
           config: {
             retries: { limit: 3, delay: '5 seconds', backoff: 'exponential' },
           },

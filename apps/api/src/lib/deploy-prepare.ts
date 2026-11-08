@@ -77,6 +77,16 @@ export async function prepareDeploy(
     return { error: 'Version is locked', status: 400 }
   }
 
+  // The raw IR is the only place a v2 workflow's `trigger.cron` still lives;
+  // it was removed from the current schema with no deployment-config row to
+  // hold it. Seed it once, while loading an old version for deploy.
+  const rawVersion =
+    version ??
+    (workflow.currentVersionId
+      ? await db.getWorkflowVersionById(workflow.currentVersionId)
+      : undefined)
+  const legacyCron = cronTriggerFromIr(rawVersion?.ir)
+
   // Initial adapter for config schema validation (no installed-node templates yet)
   const initialAdapter = resolveProvider(connection.provider, {
     deployer: input.deployer,
@@ -90,6 +100,7 @@ export async function prepareDeploy(
     connectionId,
     workflow,
     adapter: initialAdapter,
+    ...(legacyCron && { legacyCron }),
   })
   if ('error' in resolvedConfig) {
     return resolvedConfig
@@ -175,6 +186,7 @@ interface ResolveConfigInput {
   connectionId: string
   workflow: Workflow
   adapter: WorkflowProvider
+  legacyCron?: string
 }
 
 type ResolvedConfig = { config: unknown } | DeployPrepareError
@@ -201,7 +213,7 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
     delete storedConfig.triggerCode
     const parsed = adapter.deploymentConfigSchema.safeParse(storedConfig)
     if (parsed.success) {
-      return { config: parsed.data }
+      return { config: withLegacyCron(parsed.data, adapter, input.legacyCron) }
     }
     // Stored config is stale/invalid — fall through to legacy/defaults
   }
@@ -211,12 +223,14 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
   if (legacyConfig) {
     const parsed = adapter.deploymentConfigSchema.safeParse(legacyConfig)
     if (parsed.success) {
-      return { config: parsed.data }
+      return { config: withLegacyCron(parsed.data, adapter, input.legacyCron) }
     }
   }
 
   // 4. Provider defaults
-  return { config: adapter.getDefaultDeploymentConfig() }
+  return {
+    config: withLegacyCron(adapter.getDefaultDeploymentConfig(), adapter, input.legacyCron),
+  }
 }
 
 function normalizeLegacyConfig(workflow: Workflow): unknown | undefined {
@@ -228,4 +242,32 @@ function normalizeLegacyConfig(workflow: Workflow): unknown | undefined {
       routes: [{ pattern: legacy.route.pattern, zoneName: legacy.route.zoneName }],
     }),
   }
+}
+
+/** The raw `trigger.cron` of a pre-v3 document, if it still carries one. */
+export function cronTriggerFromIr(irText: string | undefined): string | undefined {
+  if (!irText) return undefined
+  try {
+    const doc = JSON.parse(irText) as { trigger?: { type?: unknown; expression?: unknown } }
+    return doc.trigger?.type === 'cron' && typeof doc.trigger.expression === 'string'
+      ? doc.trigger.expression
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function withLegacyCron(
+  config: unknown,
+  adapter: WorkflowProvider,
+  cron: string | undefined,
+): unknown {
+  const key = adapter.capabilities?.scheduleConfigKey
+  if (!cron || !key || config === null || typeof config !== 'object' || Array.isArray(config)) {
+    return config
+  }
+  const value = config as Record<string, unknown>
+  const current = value[key]
+  if (Array.isArray(current) && current.length > 0) return config
+  return { ...value, [key]: [cron] }
 }

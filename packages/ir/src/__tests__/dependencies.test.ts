@@ -64,7 +64,7 @@ describe('assertRegistryDependencies', () => {
 
 describe('validateArtifact runtime.dependencies gate', () => {
   const baseIR = {
-    irVersion: 2,
+    irVersion: 3,
     metadata: { name: 'DepGate', version: 1, createdAt: '', updatedAt: '' },
     entryNodeId: 'a',
     nodes: [

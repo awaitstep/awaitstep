@@ -26,7 +26,7 @@ const baseState = {
   triggerCode: '',
   dependencies: {},
   workflowEnvVars: [],
-  runtimeBindings: [],
+  runtimeResources: [],
 }
 
 describe('buildIRFromState — runtime block', () => {
@@ -45,7 +45,7 @@ describe('buildIRFromState — runtime block', () => {
   it('omits runtime entirely when the workflow has none', () => {
     const ir = buildIRFromState(baseState as never)
     expect('runtime' in ir).toBe(false)
-    expect(ir.irVersion).toBe(2)
+    expect(ir.irVersion).toBe(3)
   })
 
   it('emits a runtime block with env declarations (never values) and bindings', () => {
@@ -55,11 +55,11 @@ describe('buildIRFromState — runtime block', () => {
         { name: 'SECRET_API_KEY', value: 'shh' },
         { name: 'REGION', value: 'eu' },
       ],
-      runtimeBindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }],
+      runtimeResources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }],
     } as never) as { runtime?: Record<string, unknown> }
     expect(ir.runtime).toEqual({
       env: [{ name: 'API_KEY', secret: true }, { name: 'REGION' }],
-      bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }],
+      resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }],
     })
     expect(JSON.stringify(ir)).not.toContain('shh')
   })

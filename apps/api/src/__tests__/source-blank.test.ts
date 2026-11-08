@@ -247,9 +247,10 @@ describe('the source of a workflow with no saved version (real SQLite database)'
       files: { path: string; hash?: string }[]
     }
     expect(after.versionId).toEqual(expect.any(String))
-    expect(after.entry).toBe('worker.ts')
+    expect(after.entry).toBe('awaitstep/workflow.ts')
     const paths = after.files.map((f) => f.path)
-    expect(paths).toContain('worker.ts')
+    expect(paths).not.toContain('worker.ts')
+    expect(paths).toContain('awaitstep/workflow.ts')
     expect(paths).toContain('lib/a.ts')
     expect(after.files.find((f) => f.path === 'lib/a.ts')?.hash).toBe(
       contentHash('export const a = 1\n'),

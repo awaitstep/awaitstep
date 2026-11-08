@@ -240,12 +240,10 @@ describe('project file routes', () => {
     expect(runtime.files).toEqual([{ path: 'handlers.ts', source: handlers }])
     expect(runtime.triggerCode).toBeUndefined()
 
-    // Codegen compiles it into the entry; the bundle carries it as a
-    // handlers input, never as a module.
+    // The presentation view shows the portable module plus the person's own
+    // handlers.ts. Compiling it into an entry is a deploy concern.
     const bundle = await (await app.request(url('/api/workflows/wf-1/source'))).json()
-    const entry = bundle.files.find((f: { path: string }) => f.path === bundle.entry)
-    expect(entry.source).toContain('new Response("file")')
-    expect(entry.source).not.toContain('new Response("old")')
+    expect(bundle.entry).toBe('awaitstep/workflow.ts')
     expect(
       bundle.files.map((f: { role: string; path: string }) => `${f.role}:${f.path}`),
     ).toContain('handlers:handlers.ts')
@@ -254,7 +252,9 @@ describe('project file routes', () => {
     const handlersFile = bundle.files.find((f: { path: string }) => f.path === 'handlers.ts')
     const stored = await (await app.request(url('/api/workflows/wf-1/files/handlers.ts'))).json()
     expect(handlersFile.hash).toBe(stored.hash)
-    expect(entry.hash).toBeUndefined()
+    expect(
+      bundle.files.find((f: { path: string }) => f.path === 'awaitstep/workflow.ts').hash,
+    ).toBeUndefined()
   })
 
   it('creates only when asked to with If-None-Match', async () => {
@@ -351,13 +351,14 @@ describe('project file routes', () => {
     // The legacy setting is not consulted once modules exist.
     expect(full.workflow.triggerCode).toBeNull()
 
-    // The generated entry delegates to the module and keeps the default fetch.
+    // The presentation view shows the portable module and the project's
+    // handler modules; provider entry wiring is a deploy concern.
     await saveVersion(app)
     const bundle = await (await app.request(url('/api/workflows/wf-1/source'))).json()
-    const entry = bundle.files.find((f: { path: string }) => f.path === bundle.entry)
-    expect(entry.source).toContain('import $$queue_orders from "./handlers/queue/orders.js";')
-    expect(entry.source).toContain('case "orders":')
-    expect(entry.source).not.toContain('legacy')
+    expect(bundle.entry).toBe('awaitstep/workflow.ts')
+    expect(bundle.files.map((f: { path: string }) => f.path)).toEqual(
+      expect.arrayContaining(['handlers/queue/orders.ts', 'handlers/util.ts']),
+    )
   })
 
   it('converts the annotation file to handler modules in one request, folding its facts into stored deployment configs', async () => {

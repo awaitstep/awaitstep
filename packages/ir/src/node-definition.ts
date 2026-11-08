@@ -64,7 +64,8 @@ export type Category =
   | 'Customer Support'
   | 'Forms'
 
-export type Provider = 'cloudflare' | 'inngest' | 'temporal' | 'stepfunctions'
+/** Provider id; providers register their own ids, so the shared type stays open. */
+export type Provider = string
 
 export interface RuntimeHints {
   defaultTimeout?: string

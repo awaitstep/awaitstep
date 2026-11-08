@@ -61,12 +61,9 @@ describe('validateNodeData', () => {
     ).toContain('count >= 1')
   })
 
-  it('keeps the sub-workflow identity rules', () => {
+  it('requires a sub-workflow target, not a provider export name', () => {
     const errors = validateNodeData(makeNode('sub_workflow', {}))
-    expect(errors.map((e) => e.path)).toEqual([
-      'nodes.n1.data.workflowId',
-      'nodes.n1.data.workflowName',
-    ])
+    expect(errors.map((e) => e.path)).toEqual(['nodes.n1.data.workflowId'])
   })
 
   it('skips custom (non-builtin) node types entirely', () => {

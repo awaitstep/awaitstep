@@ -31,8 +31,11 @@ export function useNodeTemplates(): TemplateResolver {
 
   return useMemo<TemplateResolver>(
     () => ({
-      getTemplate(nodeType: string, provider: string): string | undefined {
-        return templates[nodeType]?.[provider]
+      getTemplate(nodeType: string, provider?: string): string | undefined {
+        if (!Object.hasOwn(templates, nodeType)) return undefined
+        const byProvider = templates[nodeType]!
+        if (!provider) return Object.values(byProvider)[0]
+        return Object.hasOwn(byProvider, provider) ? byProvider[provider] : undefined
       },
     }),
     [templates],

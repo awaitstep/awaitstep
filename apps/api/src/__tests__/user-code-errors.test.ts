@@ -85,11 +85,13 @@ describe('a mistake in code the user wrote', () => {
     expect(problem!.message).toMatch(/line \d+/)
   })
 
-  it('still lets the workspace open, with the problem attached', async () => {
+  it('opens the workspace and shows the handler file as written', async () => {
     await seed()
     const res = await app.request(url('/api/workflows/wf-1/source'))
-    // No bundle to show, but a 4xx naming the file — never a 500.
-    expect(res.status).toBe(422)
-    expect((await res.json()).error).toContain('@fetch')
+    // The annotation file is user-owned; the presentation view returns it
+    // rather than compiling it into an entry.
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { files: { path: string }[] }
+    expect(body.files.some((file) => file.path === 'handlers.ts')).toBe(true)
   })
 })

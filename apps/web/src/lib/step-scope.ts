@@ -8,7 +8,7 @@ import {
   sanitizeIdentifier,
   upstreamVarNamesOf,
 } from '@awaitstep/codegen'
-import { exportPlan, nodeYieldsValue } from '@awaitstep/provider-cloudflare/codegen'
+import { exportPlan, nodeYieldsValue } from '@awaitstep/codegen'
 
 export interface StepScope {
   /** The node's variable name in generated code: how later steps and the response name it. */

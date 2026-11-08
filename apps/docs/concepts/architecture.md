@@ -1,6 +1,6 @@
 # Architecture
 
-AwaitStep is a visual builder that compiles a canvas into one of two Cloudflare artifact kinds — **workflows** (durable, instance-based, `WorkflowEntrypoint`) or **functions** (stateless, fetch-only Workers). The system is divided into four layers: a browser-based frontend, an edge API, a set of shared packages, and the runtime that executes deployed artifacts.
+AwaitStep is a visual builder that compiles a canvas into one of two artifact kinds — **workflows** (durable, instance-based, a portable `defineWorkflow` module) or **functions** (stateless, request-scoped, a portable `runGraph` module). A provider adapter supplies the deploy bootstrap; Cloudflare is the adapter shipped today. <Badge type="warning" text="Cloudflare Only" /> The system is divided into four layers: a browser-based frontend, an edge API, a set of shared packages, and the runtime that executes deployed artifacts.
 
 ## System Overview
 
@@ -86,7 +86,7 @@ Adding a new provider (e.g., Inngest, Temporal) only requires a new `packages/pr
 
 **IR as the source of truth.** Generated code is never stored in the database. The IR is the only persistent representation of an artifact. Code is regenerated on every deploy.
 
-**Single graph, two artifact kinds.** Workflows and functions share the same node graph and the same per-node generators. Only the wrapper differs — `WorkflowEntrypoint` class vs `export default { fetch }` — and a small set of nodes (`sleep`, `sleep_until`, `wait_for_event`) are rejected for scripts at validation time.
+**Single graph, two artifact kinds.** Workflows and functions share the same node graph and the same provider-neutral per-node generators. Only the wrapper differs — `defineWorkflow` vs `runGraph`, each wrapped by the provider adapter — and a small set of nodes (`sleep`, `sleep_until`, `wait_for_event`) are rejected for scripts at validation time.
 
 **Provider isolation.** All Cloudflare-specific logic lives in `@awaitstep/provider-cloudflare`. API routes call `WorkflowProvider` methods — they never import from the provider package directly.
 

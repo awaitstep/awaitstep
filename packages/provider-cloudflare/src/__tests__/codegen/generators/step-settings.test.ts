@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { createGenerationContext } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { appliedStepSettings } from '../../../codegen/generators/step-settings.js'
-import { generateStep } from '../../../codegen/generators/step.js'
-import { generateHttp } from '../../../codegen/generators/http.js'
+import { appliedStepSettings } from '@awaitstep/codegen'
+import { generateStep } from '@awaitstep/codegen'
+import { generateHttp } from '@awaitstep/codegen'
 import { generateSubScript } from '../../../codegen/generators/sub-script.js'
 import { generateSubWorkflow } from '../../../codegen/generators/sub-workflow.js'
-import { generateWaitForEvent } from '../../../codegen/generators/wait-for-event.js'
-import { generateCustomNode } from '../../../codegen/generators/custom.js'
-import { generateStepConfig } from '../../../codegen/generators/config.js'
+import { generateWaitForEvent } from '@awaitstep/codegen'
+import { generateCustomNode } from '@awaitstep/codegen'
+import { generateStepConfig } from '@awaitstep/codegen'
 
 const ctx = createGenerationContext([])
 

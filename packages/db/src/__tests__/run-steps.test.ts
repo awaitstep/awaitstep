@@ -208,9 +208,16 @@ describe('getRunForSync', () => {
   it('returns one run with the same joined context, scoped to its workflow', async () => {
     const { adapter, sqlite } = createTestDb()
     seedRun(sqlite, 'run-1', 'complete')
+    sqlite
+      .prepare(
+        `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, status, created_at)
+         VALUES ('d-1', 'wf-1', 'v-1', 'conn-1', 'my-deployed-flow', 'success', ?)`,
+      )
+      .run(now)
     const entry = await adapter.getRunForSync('run-1', 'wf-1')
     expect(entry?.run.id).toBe('run-1')
     expect(entry?.workflowName).toBe('My Flow')
+    expect(entry?.deployedName).toBe('my-deployed-flow')
     expect(entry?.place).toEqual({
       organizationId: 'org-1',
       orgSlug: 'acme',

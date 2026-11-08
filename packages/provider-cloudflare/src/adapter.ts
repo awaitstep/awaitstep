@@ -18,7 +18,6 @@ import { compileBundle } from './compile-bundle.js'
 import { generateScriptBundle, generateWorkflowBundle } from './codegen/generate.js'
 import {
   bundleEntry,
-  describeBindingKind,
   describeProvider,
   importSpecifiers,
   providerFromSpecifier,
@@ -37,13 +36,20 @@ import type {
   WorkflowRunDetail,
   LocalDevSession,
   LocalDevOptions,
+  ProcessLogEntry,
   TemplateResolver,
   RuntimeRequirement,
 } from '@awaitstep/codegen'
 import { splitEnvVars } from './env.js'
 import type { WranglerDeployer } from './deploy/deployer.js'
-import { startLocalDev } from './local-dev.js'
-import { sanitizedWorkflowName } from './naming.js'
+import {
+  LOCAL_DEV_PORT,
+  isPortListening,
+  readLogs,
+  startLocalDev,
+  stopLocalDev,
+} from './local-dev.js'
+import { workerName, sanitizedWorkflowName } from './naming.js'
 import { mapCFStatus } from './status-map.js'
 import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
@@ -53,6 +59,7 @@ import {
   detectBindings,
   validateBindingDeclarations,
   validateSubScriptBindings,
+  validateSubWorkflowBindings,
   type BindingRequirement,
 } from './codegen/bindings.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
@@ -116,9 +123,35 @@ const CLOUDFLARE_BINDING_KINDS = [
   'browser',
 ] as const
 
+const BINDING_KIND_LABELS: Record<string, string> = {
+  kv: 'KV namespace',
+  d1: 'D1 database',
+  r2: 'R2 bucket',
+  queue: 'queue',
+  service: 'service binding',
+  workflow: 'workflow binding',
+  ai: 'Workers AI binding',
+  vectorize: 'Vectorize index',
+  analytics_engine: 'Analytics Engine dataset',
+  hyperdrive: 'Hyperdrive config',
+  browser: 'Browser Rendering binding',
+}
+
 export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
   readonly name = 'cloudflare'
+  readonly capabilities = {
+    id: 'cloudflare',
+    label: 'Cloudflare',
+    handlerKinds: ['fetch', 'scheduled', 'queue'] as const,
+    queueNamePattern: '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$',
+    importSchemes: ['cloudflare', 'workerd'] as const,
+    bindingKinds: CLOUDFLARE_BINDING_KINDS,
+    bindingKindLabels: BINDING_KIND_LABELS,
+    scheduleConfigKey: 'cronTriggers',
+    runUrlTemplate: 'https://{deploymentId}.workers.dev',
+  }
   readonly supportedBindingKinds = CLOUDFLARE_BINDING_KINDS
+  readonly importSchemes = ['cloudflare', 'workerd'] as const
   readonly deploymentConfigSchema = cloudflareDeploymentConfigSchema
   readonly deploymentConfigUiSchema = cloudflareDeploymentConfigUiSchema
   private templateResolver?: TemplateResolver
@@ -145,7 +178,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         kind: 'binding',
         id: binding.type,
         name: binding.name,
-        label: `${describeBindingKind(binding.type)} "${binding.name}"`,
+        label: `${BINDING_KIND_LABELS[binding.type] ?? binding.type} "${binding.name}"`,
       })
     }
     for (const binding of getSubWorkflowBindings(ir.nodes)) {
@@ -238,7 +271,24 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const errors: ValidationError[] = result.ok ? [] : [...result.errors]
     errors.push(...validateBindingDeclarations(ir as unknown as WorkflowIR))
     errors.push(...validateSubScriptBindings(ir))
+    errors.push(...validateSubWorkflowBindings(ir))
     return errors.length > 0 ? { ok: false, errors } : { ok: true, value: undefined }
+  }
+
+  isInternalEnvVar(name: string): boolean {
+    return name.endsWith('_BINDING_ID')
+  }
+
+  deploymentName(workflowId: string): string {
+    return workerName(workflowId)
+  }
+
+  validateCredentials(credentials: Record<string, string>) {
+    if (/^[a-f0-9]{32}$/i.test(credentials.accountId ?? '')) return null
+    return {
+      field: 'accountId',
+      error: 'An account ID is 32 letters and digits (0–9, a–f)',
+    }
   }
 
   async verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult> {
@@ -492,12 +542,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const triggerCodeForAnnotations = config.options?.['triggerCode'] as string | undefined
     const modules = projectHandlerModules(bundle.files)
     const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig, modules)
-    const cronTriggers = buildCronTriggers(
-      triggerCodeForAnnotations,
-      deploymentConfig,
-      modules,
-      workflowCronTrigger(config.options?.['ir'] as ArtifactIR | undefined),
-    )
+    const cronTriggers = buildCronTriggers(triggerCodeForAnnotations, deploymentConfig, modules)
     if (hasHandlerModules(modules)) {
       const problem = scheduleProblem({
         hasScheduledModule: modules.scheduled !== undefined,
@@ -617,6 +662,19 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     return toRunDetail(await api.getInstanceStatus(workflowName, instanceId))
   }
 
+  async controlRun(
+    action: 'pause' | 'resume' | 'terminate',
+    input: { workflowName: string; instanceId: string; config: ProviderConfig },
+  ): Promise<void> {
+    const api = new CloudflareAPI(
+      input.config.credentials as { accountId: string; apiToken: string },
+    )
+    const name = sanitizedWorkflowName(input.workflowName)
+    if (action === 'pause') return api.pauseInstance(name, input.instanceId)
+    if (action === 'resume') return api.resumeInstance(name, input.instanceId)
+    return api.terminateInstance(name, input.instanceId)
+  }
+
   async destroy(
     deploymentId: string,
     config: ProviderConfig,
@@ -634,6 +692,38 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       }
       return { success: false, error: message }
     }
+  }
+
+  async stopLocalDev(): Promise<void> {
+    await stopLocalDev()
+  }
+
+  async triggerLocalDev(body: unknown): Promise<{ status: number; data: unknown }> {
+    if (!(await isPortListening(LOCAL_DEV_PORT))) {
+      return { status: 400, data: { error: 'No active session — start local dev first' } }
+    }
+    const response = await fetch(`http://localhost:${LOCAL_DEV_PORT}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await response.json().catch(() => null)
+    return { status: response.status, data: data ?? { status: response.status } }
+  }
+
+  async localDevInstance(instanceId: string): Promise<{ status: number; data: unknown }> {
+    if (!(await isPortListening(LOCAL_DEV_PORT))) {
+      return { status: 400, data: { error: 'No active session' } }
+    }
+    const response = await fetch(
+      `http://localhost:${LOCAL_DEV_PORT}?instanceId=${encodeURIComponent(instanceId)}`,
+    )
+    const data = await response.json().catch(() => null)
+    return { status: response.status, data: data ?? { status: response.status } }
+  }
+
+  async readLocalDevLogs(since?: number): Promise<ProcessLogEntry[]> {
+    return readLogs(since)
   }
 
   async startLocalDev(bundle: GeneratedBundle, options: LocalDevOptions): Promise<LocalDevSession> {
@@ -750,38 +840,23 @@ export function buildQueueConsumers(
 }
 
 /**
- * Returns the union of cron expressions from `@scheduled` annotations and
- * any explicit `deploymentConfig.cronTriggers`, deduped while preserving the
- * order in which they first appear (annotation crons first). Returns
- * undefined when neither source contributes any cron, so the wrangler config
- * omits the `triggers` block entirely.
+ * Returns the union of cron expressions from legacy `@scheduled` annotations
+ * and explicit `deploymentConfig.cronTriggers`, deduped while preserving the
+ * order in which they first appear. Returns undefined when neither source
+ * contributes any cron, so the wrangler config omits `triggers` entirely.
  *
  * Annotation parse errors are silently swallowed here — they're already
  * surfaced by the codegen path that runs first.
  */
-/** The cron expression a workflow's own trigger declares, if any. */
-export function workflowCronTrigger(ir: ArtifactIR | undefined): string | undefined {
-  return ir && ir.kind !== 'script' && ir.trigger?.type === 'cron'
-    ? ir.trigger.expression
-    : undefined
-}
-
 export function buildCronTriggers(
   triggerCode: string | undefined,
   deploymentConfig: CloudflareDeploymentConfig | undefined,
   modules: ProjectHandlerModules = { queues: [] },
-  workflowCron?: string,
 ): string[] | undefined {
   const seen = new Set<string>()
   const out: string[] = []
-  // With handler modules the schedules are declared, never read from code.
-  // The workflow's own cron trigger counts once handlers/scheduled.ts
-  // exists to run it — the annotation model ignored it, and a project that
-  // only adds a queue consumer must keep deploying as before.
-  if (modules.scheduled !== undefined && workflowCron) {
-    seen.add(workflowCron)
-    out.push(workflowCron)
-  }
+  // With handler modules the schedules are declared in the deployment
+  // config, never read from code.
   if (triggerCode && !hasHandlerModules(modules)) {
     try {
       const parsed = parseAnnotations(triggerCode)

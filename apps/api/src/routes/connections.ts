@@ -10,7 +10,7 @@ import { apiKeyLevel, apiKeyProjectHome, apiKeyProjectScopes } from '../middlewa
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
-import { BAD_ACCOUNT_ID, badAccountId, parseTokenStatus } from '../lib/connection-fields.js'
+import { credentialError, parseTokenStatus } from '../lib/connection-fields.js'
 
 const projectsFields = {
   /** Serves every project, including ones created later. */
@@ -86,7 +86,8 @@ export function createConnectionRoutes() {
     const body = c.req.valid('json')
     const provider = providerNamed(body.provider)
     if (!provider) return c.json({ error: `Unsupported provider: ${body.provider}` }, 400)
-    if (badAccountId(body.provider, body.credentials)) return c.json(BAD_ACCOUNT_ID, 400)
+    const invalid = credentialError(body.provider, body.credentials)
+    if (invalid) return c.json(invalid, 400)
 
     // "Check token and connect": nothing is stored for a token the provider refuses.
     const check = await checkCredentialsGated(c, provider, body.credentials)
@@ -160,14 +161,9 @@ export function createConnectionRoutes() {
     if (body.credentials) {
       const merged = { ...parseCredentials(before.credentials), ...body.credentials }
       // Stored credentials that can't be read (another encryption key) lose the
-      // account in the merge: ask for it rather than store a token without one.
-      if (before.provider === 'cloudflare' && !merged.accountId) {
-        return c.json(
-          { error: 'Enter the account ID again with the new token', field: 'accountId' },
-          400,
-        )
-      }
-      if (badAccountId(before.provider, merged)) return c.json(BAD_ACCOUNT_ID, 400)
+      // account in the merge: the provider's credential rule asks for it again.
+      const invalid = credentialError(before.provider, merged)
+      if (invalid) return c.json(invalid, 400)
       const provider = providerNamed(before.provider)
       if (!provider) return c.json({ error: `Unsupported provider: ${before.provider}` }, 400)
       const check = await checkCredentialsGated(c, provider, merged)

@@ -8,7 +8,7 @@ The most common workflow pattern is a series of steps that run one after another
 
 ## How it works
 
-Every node on the canvas is compiled to a `step.do()` call inside a Cloudflare `WorkflowEntrypoint`. Steps execute in the order determined by the edges connecting them. If a step throws, execution stops and the platform retries according to the step's retry configuration.
+Every node on the canvas is compiled to a `flow.step()` call in a provider-neutral `defineWorkflow` module. Steps execute in the order determined by the edges connecting them. If a step throws, execution stops and the provider retries according to the step's retry configuration. On Cloudflare, the adapter wraps the module in a `WorkflowEntrypoint` class. <Badge type="warning" text="Cloudflare Only" />
 
 ## Example: Validate and send email
 
@@ -27,17 +27,23 @@ The workflow below has two steps:
 ### Generated TypeScript
 
 ```typescript
-import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers'
+import { defineWorkflow, durableStep } from '#awaitstep/runtime'
+import type { Env } from './env.js'
 
-export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
-  async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
-    const validate_input = await step.do('Validate Input', async () => {
+export default defineWorkflow<Env>({
+  id: 'my-workflow',
+  async run(flow) {
+    const env = flow.env
+    const event = flow.event
+    const step = durableStep(flow)
+
+    const validate_input = await flow.step('validate-input', async () => {
       const userId = event.payload?.userId
       if (!userId) throw new Error('userId is required')
       return { userId, email: `user-${userId}@example.com` }
     })
 
-    await step.do('Send Email', async () => {
+    await flow.step('send-email', async () => {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -53,8 +59,8 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
       })
       if (!res.ok) throw new Error(`Resend error: ${res.status}`)
     })
-  }
-}
+  },
+})
 ```
 
 ## Key points
@@ -69,8 +75,8 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 Open the step's config drawer and set **Retry Limit**, **Retry Delay**, and optionally **Backoff**.
 
 ```typescript
-const my_step = await step.do(
-  'My Step',
+const my_step = await flow.step(
+  'my-step',
   {
     retries: { limit: 3, delay: '10 seconds', backoff: 'exponential' },
   },
@@ -85,7 +91,7 @@ const my_step = await step.do(
 The trigger payload is available on `event.payload` inside any step:
 
 ```typescript
-const my_step = await step.do('Read Payload', async () => {
+const my_step = await flow.step('read-payload', async () => {
   return { orderId: event.payload?.orderId }
 })
 ```

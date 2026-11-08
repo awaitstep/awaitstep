@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { AWAITSTEP_MODULES_DTS } from '../monaco/awaitstep-modules'
+import { AWAITSTEP_MODULES_DTS, CLOUDFLARE_MODULES_DTS } from '../monaco/awaitstep-modules'
 
 describe('awaitstep module ambient types', () => {
-  it('declares both generated import prefixes for every editor', () => {
+  it('declares the neutral modules everywhere and provider primitives only in the provider pack', () => {
     expect(AWAITSTEP_MODULES_DTS).toContain("declare module '#awaitstep/runtime'")
-    expect(AWAITSTEP_MODULES_DTS).toContain("declare module '#awaitstep/cloudflare'")
+    expect(AWAITSTEP_MODULES_DTS).not.toContain("declare module '#awaitstep/cloudflare'")
+    expect(CLOUDFLARE_MODULES_DTS).toContain("declare module '#awaitstep/cloudflare'")
   })
 
   it('carries the real authoring and provider primitive signatures', () => {
@@ -12,7 +13,7 @@ describe('awaitstep module ambient types', () => {
     // declarations are what give `#awaitstep/*` imports completion/hover.
     expect(AWAITSTEP_MODULES_DTS).toContain('export function defineWorkflow')
     expect(AWAITSTEP_MODULES_DTS).toContain('export function durableStep')
-    expect(AWAITSTEP_MODULES_DTS).toContain('export function kv')
-    expect(AWAITSTEP_MODULES_DTS).toContain('export function service')
+    expect(CLOUDFLARE_MODULES_DTS).toContain('export function kv')
+    expect(CLOUDFLARE_MODULES_DTS).toContain('export function service')
   })
 })

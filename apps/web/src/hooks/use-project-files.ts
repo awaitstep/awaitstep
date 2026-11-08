@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import type { HandlerTarget } from '@awaitstep/provider-cloudflare/codegen'
+import type { HandlerTarget } from '@awaitstep/codegen'
 import { actionToast, failureLine } from '../lib/action-toast'
 import type { SourceFile, WorkflowFull } from '../lib/api-client'
 import type { StepPlacement } from '@awaitstep/codegen'

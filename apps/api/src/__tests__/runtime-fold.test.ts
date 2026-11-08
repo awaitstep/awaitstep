@@ -66,21 +66,21 @@ describe('foldWorkflowRuntime', () => {
       ...baseIr,
       runtime: {
         triggerCode: 'from-import',
-        bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }],
+        resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }],
       },
     }
     const folded = foldWorkflowRuntime(ir, workflow({}))
     expect(folded.runtime?.triggerCode).toBe('from-import')
-    expect(folded.runtime?.bindings).toEqual([{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }])
+    expect(folded.runtime?.resources).toEqual([{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }])
   })
 
   it('bindings always survive the fold — no column counterpart exists', () => {
     const ir: ArtifactIR = {
       ...baseIr,
-      runtime: { bindings: [{ name: 'DB_MAIN', type: 'd1' }] },
+      runtime: { resources: [{ name: 'DB_MAIN', kind: 'd1' }] },
     }
     const folded = foldWorkflowRuntime(ir, workflow({ triggerCode: 'code' }))
-    expect(folded.runtime?.bindings).toEqual([{ name: 'DB_MAIN', type: 'd1' }])
+    expect(folded.runtime?.resources).toEqual([{ name: 'DB_MAIN', kind: 'd1' }])
     expect(folded.runtime?.triggerCode).toBe('code')
   })
 

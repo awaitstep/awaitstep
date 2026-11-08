@@ -6,6 +6,10 @@ title: AI Agent Loop
 
 Generates content with an AI model, evaluates the output against a quality gate, and retries with a refined prompt if the quality threshold is not met.
 
+::: warning Cloudflare Only
+The generated code in this template is the Cloudflare adapter's output. The workflow module it wraps is provider-neutral.
+:::
+
 ## Workflow structure
 
 ```mermaid

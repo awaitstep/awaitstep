@@ -23,7 +23,7 @@ function node(
 function graph(nodes: WorkflowNode[], edges: Edge[], entryNodeId = nodes[0]?.id ?? ''): ArtifactIR {
   return {
     kind: 'workflow',
-    irVersion: 2,
+    irVersion: 3,
     metadata: {
       name: 'Test',
       version: 1,

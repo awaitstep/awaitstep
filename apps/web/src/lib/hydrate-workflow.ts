@@ -1,6 +1,6 @@
 import { normalizeStepModules } from '@awaitstep/codegen'
 import { loadArtifact } from '@awaitstep/ir'
-import type { WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
+import type { ArtifactIR, WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
 import { secretDisplayName } from './env-var-parser'
 import type { WorkflowSummary, WorkflowVersion, WorkflowFull, VersionSummary } from './api-client'
 import { toFlowType } from '../stores/workflow-store'
@@ -55,7 +55,7 @@ export function buildWorkflowStoreState(
     triggerCode: '',
     // Must reset on every hydrate — a leftover value from the previously
     // opened workflow would leak into this workflow's exported runtime.
-    runtimeBindings: [],
+    runtimeResources: [],
     deployConfig: {},
     validationResult: null,
     simulationResult: null,
@@ -128,11 +128,13 @@ export function buildWorkflowStoreState(
     }
     let irNodes: WorkflowNode[] | undefined
     let irEdges: unknown[] | undefined
+    let migrated: ArtifactIR | undefined
     if (raw !== null && typeof raw === 'object') {
       const loaded = loadArtifact(raw)
       if (loaded.ok) {
         // A version saved before steps were modules opens as modules, so the
         // editor shows the function and the next save stores it.
+        migrated = loaded.value
         irNodes = normalizeStepModules(loaded.value).nodes
         irEdges = loaded.value.edges
       } else {
@@ -147,8 +149,15 @@ export function buildWorkflowStoreState(
       }
     }
     if (irNodes && irEdges) {
+      // A Call Script node saved before the generic field existed carries
+      // `workerName`; surface it as `scriptId` so the config panel shows it.
+      const hydratedNodes = irNodes.map((irNode: WorkflowNode) =>
+        irNode.type === 'sub_script' && !irNode.data.scriptId && irNode.data.workerName
+          ? { ...irNode, data: { ...irNode.data, scriptId: irNode.data.workerName } }
+          : irNode,
+      )
       state.graphHash = options.graphHash ?? null
-      state.nodes = irNodes.map((irNode: WorkflowNode, i: number) => ({
+      state.nodes = hydratedNodes.map((irNode: WorkflowNode, i: number) => ({
         id: irNode.id,
         type: toFlowType(irNode.type),
         position: irNode.position ?? fallbackPosition(i),
@@ -156,7 +165,7 @@ export function buildWorkflowStoreState(
       }))
       state.edges = irEdges
       const wanted = [options.selectNodeId, options.keepSelectedNodeId].find(
-        (id) => id && irNodes.some((n) => n.id === id),
+        (id) => id && hydratedNodes.some((n) => n.id === id),
       )
       if (wanted) {
         state.selectedNodeId = wanted
@@ -171,8 +180,11 @@ export function buildWorkflowStoreState(
     }
     // Runtime block: columns win while dual-write is active (they are updated
     // on every save); runtime fills in for pure-IR imports with empty columns.
-    if (raw !== null && typeof raw === 'object' && 'runtime' in (raw as object)) {
-      const runtime = (raw as { runtime?: WorkflowRuntime }).runtime
+    if (
+      migrated?.runtime !== undefined ||
+      (raw !== null && typeof raw === 'object' && 'runtime' in (raw as object))
+    ) {
+      const runtime = migrated?.runtime ?? (raw as { runtime?: WorkflowRuntime }).runtime
       if (runtime) {
         if (!state.triggerCode && runtime.triggerCode && !options.handlerModules) {
           state.triggerCode = runtime.triggerCode
@@ -193,7 +205,7 @@ export function buildWorkflowStoreState(
             value: '',
           }))
         }
-        if (runtime.bindings) state.runtimeBindings = runtime.bindings
+        if (runtime.resources) state.runtimeResources = runtime.resources
       }
     }
   }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { generateSleep, generateSleepUntil } from '../../../codegen/generators/sleep.js'
+import { generateSleep, generateSleepUntil } from '@awaitstep/codegen'
 
 describe('generateSleep', () => {
   it('generates sleep with string duration under the node-id label', () => {

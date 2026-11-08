@@ -11,6 +11,7 @@ import { wranglerCommand, wranglerEnv } from './wrangler-exec.js'
 const execAsync = promisify(exec)
 
 export const LOCAL_DEV_PORT = 8787
+let activeChild: ChildProcess | null = null
 const LOCAL_DEV_DIR = join(tmpdir(), 'awaitstep-local-dev')
 const LOG_FILE = join(LOCAL_DEV_DIR, 'output.log')
 const MAX_LOG_LINES = 500
@@ -65,7 +66,7 @@ export async function startLocalDev(
   bundle: GeneratedBundle,
   options: LocalDevOptions,
 ): Promise<{ port: number; url: string; pid: number }> {
-  await killPort(LOCAL_DEV_PORT)
+  await stopLocalDev()
 
   // Wipe and recreate fixed deploy dir
   await rm(LOCAL_DEV_DIR, { recursive: true, force: true }).catch(() => {})
@@ -82,7 +83,7 @@ export async function startLocalDev(
   const wrangler = wranglerCommand()
   const child = spawn(
     wrangler.command,
-    [...wrangler.args, 'dev', '--port', String(LOCAL_DEV_PORT), '--ip', '0.0.0.0'],
+    [...wrangler.args, 'dev', '--port', String(LOCAL_DEV_PORT), '--ip', '127.0.0.1'],
     {
       cwd: LOCAL_DEV_DIR,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -90,6 +91,11 @@ export async function startLocalDev(
       env: wranglerEnv(),
     },
   )
+
+  activeChild = child
+  child.on('exit', () => {
+    if (activeChild === child) activeChild = null
+  })
 
   const logs: ProcessLogEntry[] = []
   let externalUrl = ''
@@ -130,12 +136,22 @@ export async function startLocalDev(
     // The group includes npx and anything it spawned, so this also stops a
     // wrangler that had not bound the port yet.
     killProcessGroup(child)
+    if (activeChild === child) activeChild = null
     throw err
   }
   // Wait briefly for wrangler to print the additional IP lines after "Ready on"
   await new Promise((r) => setTimeout(r, 1000))
 
   return { port: LOCAL_DEV_PORT, url: externalUrl || fallbackUrl, pid: child.pid! }
+}
+
+/** Stop the process this host started; never kills whatever else owns the port. */
+export async function stopLocalDev(): Promise<void> {
+  const child = activeChild
+  activeChild = null
+  if (!child) return
+  killProcessGroup(child)
+  await new Promise((resolve) => setTimeout(resolve, 300))
 }
 
 function killProcessGroup(child: ChildProcess): void {

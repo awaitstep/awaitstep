@@ -259,15 +259,7 @@ export function validateNodeData(
     if (!node.data.workflowId || typeof node.data.workflowId !== 'string') {
       errors.push({
         path: `nodes.${node.id}.data.workflowId`,
-        message: `Sub-workflow node "${node.name}" requires a script name (workflowId)`,
-        nodeId: node.id,
-      })
-    }
-
-    if (!node.data.workflowName || typeof node.data.workflowName !== 'string') {
-      errors.push({
-        path: `nodes.${node.id}.data.workflowName`,
-        message: `Sub-workflow node "${node.name}" requires a workflowName`,
+        message: `Sub-workflow node "${node.name}" requires a target workflow (workflowId)`,
         nodeId: node.id,
       })
     }

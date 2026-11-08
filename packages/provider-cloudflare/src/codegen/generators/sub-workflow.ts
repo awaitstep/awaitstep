@@ -1,6 +1,11 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { derivedStepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
 
+/**
+ * @deprecated The builtin set now uses the provider-neutral generator in
+ * `@awaitstep/codegen`; this Cloudflare-shaped emitter is kept for callers
+ * that build bundles directly and is not registered.
+ */
 export function generateSubWorkflow(
   node: WorkflowNode,
   ctx: GenerationContext,
@@ -95,9 +100,14 @@ export function getSubWorkflowBindings(
     if (node.type !== 'sub_workflow') continue
     const className = String(node.data.workflowName ?? '')
     const scriptName = String(node.data.workflowId ?? '')
-    if (!className || !scriptName) continue
-    const binding = classNameToUpperSnake(className)
-    if (seen.has(binding)) continue
+    const params = recordOf(node.data.params)?.['cf']
+    const explicit =
+      params && typeof params === 'object' ? (params as Record<string, unknown>).binding : undefined
+    const binding =
+      typeof explicit === 'string' && explicit.trim().length > 0
+        ? explicit.trim()
+        : className && classNameToUpperSnake(className)
+    if (!binding || seen.has(binding)) continue
     seen.add(binding)
     bindings.push({
       binding,
@@ -107,4 +117,10 @@ export function getSubWorkflowBindings(
     })
   }
   return bindings
+}
+
+function recordOf(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
 }

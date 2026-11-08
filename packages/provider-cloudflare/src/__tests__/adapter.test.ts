@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
-import { bundleEntry } from '@awaitstep/codegen'
+import { providerEntrySource } from './codegen/bundle-source.js'
 import { CloudflareWorkflowsAdapter, buildQueueConsumers, buildCronTriggers } from '../adapter.js'
 import type { WranglerDeployer } from '../deploy/deployer.js'
 
@@ -80,16 +80,16 @@ describe('CloudflareWorkflowsAdapter', () => {
       const bundle = adapter.generate(simpleIR)
       expect(bundle.entry).toBe('worker.ts')
       expect(bundle.primary).toBe('awaitstep/workflow.ts')
-      expect(bundleEntry(bundle).source).toContain('WorkflowEntrypoint')
-      expect(bundleEntry(bundle).source).toContain('class TestWorkflow')
+      expect(providerEntrySource(bundle)).toContain('WorkflowEntrypoint')
+      expect(providerEntrySource(bundle)).toContain('class TestWorkflow')
       const workflow = bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!
       expect(workflow.source).toContain('flow.step("step-1"')
     })
 
     it('uses default trigger code when no triggerCode provided', () => {
       const bundle = adapter.generate(simpleIR)
-      expect(bundleEntry(bundle).source).toContain('const params = await request.json()')
-      expect(bundleEntry(bundle).source).toContain(
+      expect(providerEntrySource(bundle)).toContain('const params = await request.json()')
+      expect(providerEntrySource(bundle)).toContain(
         'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
       )
     })
@@ -103,9 +103,9 @@ describe('CloudflareWorkflowsAdapter', () => {
         options: { triggerCode: customTrigger },
       }
       const bundle = adapter.generate(simpleIR, config)
-      expect(bundleEntry(bundle).source).toContain('const { name } = await request.json()')
-      expect(bundleEntry(bundle).source).toContain('env.WORKFLOW.create({ name })')
-      expect(bundleEntry(bundle).source).not.toContain(
+      expect(providerEntrySource(bundle)).toContain('const { name } = await request.json()')
+      expect(providerEntrySource(bundle)).toContain('env.WORKFLOW.create({ name })')
+      expect(providerEntrySource(bundle)).not.toContain(
         'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
       )
     })
@@ -442,7 +442,7 @@ describe('Cloudflare capability requirements', () => {
   it('reports a declared binding as a requirement', () => {
     const ir: WorkflowIR = {
       ...simpleIR,
-      runtime: { bindings: [{ name: 'USERS', type: 'kv' }] },
+      runtime: { resources: [{ name: 'USERS', kind: 'kv' }] },
     }
     expect(adapter.requirements(ir)).toContainEqual({
       kind: 'binding',

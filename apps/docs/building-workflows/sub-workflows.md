@@ -15,78 +15,76 @@ The **Sub-Workflow** node spawns a separate deployed workflow as a child of the 
 
 ## Configuration
 
-| Field               | Required | Description                                                                                   |
-| ------------------- | -------- | --------------------------------------------------------------------------------------------- |
-| Script Name         | Yes      | The deployed worker name of the child workflow (e.g. `awaitstep-abc123` or `my-order-worker`) |
-| Class Name          | Yes      | The exported workflow class name in the child worker (e.g. `OrderFulfillment`)                |
-| Input               | No       | Expression to pass as the child's trigger payload                                             |
-| Wait for Completion | Yes      | Whether to pause the parent until the child finishes                                          |
+| Field               | Required | Description                                                                    |
+| ------------------- | -------- | ------------------------------------------------------------------------------ |
+| Workflow            | Yes      | The target workflow's AwaitStep id or deployed name.                           |
+| Export name         | No       | Provider export name, where the provider has one (Cloudflare: class name).     |
+| Input               | No       | Expression to pass as the child's trigger payload.                             |
+| Wait for Completion | Yes      | Whether to pause the parent until the child finishes.                          |
+| Provider params     | No       | Provider-scoped settings, e.g. `{ "cf": { "binding": "ORDER_FULFILLMENT" } }`. |
 
-### Script Name
+The node is provider-neutral. The generated code calls the runtime's platform
+adapter (`flow.startWorkflow`, `flow.workflowStatus`); the provider decides how
+to start the child and read its status.
 
-This is the **Worker script name** where the child workflow is deployed. For workflows managed by AwaitStep, copy the worker name from the Cloudflare dashboard or from the deployment details (e.g. `awaitstep-jaegvout2dqdgioi4tuvg`). For external workflows not managed by AwaitStep, use whatever name you deployed the worker as (e.g. `my-order-worker`).
+### Cloudflare specifics
 
-### Class Name
-
-This is the **exported class name** of the workflow in the child worker's source code. For example, if the child workflow exports `class OrderFulfillment extends WorkflowEntrypoint`, enter `OrderFulfillment`.
-
-The class name is used to derive the Cloudflare binding fields:
-
-| Derived field | Example                  |
-| ------------- | ------------------------ |
-| `binding`     | `ORDER_FULFILLMENT`      |
-| `name`        | `Order-Fulfillment`      |
-| `class_name`  | `OrderFulfillment`       |
-| `script_name` | (your Script Name value) |
+On Cloudflare the adapter derives a workflow binding from the **export name**
+(`OrderFulfillment` → `ORDER_FULFILLMENT`) unless `params.cf.binding` names it
+explicitly. The child must be deployed before the parent.
 
 ## Generated code
 
 ### With `waitForCompletion: true` (default)
 
 ```typescript
-// Step 1: Create the child workflow instance
-const process_order_instance = await step.do('Create OrderFulfillment', async () => {
-  const instance = await env.ORDER_FULFILLMENT.create({
-    id: crypto.randomUUID(),
-    params: { orderId: fetch_order.id, userId: fetch_order.userId },
-  })
-  return { instanceId: instance.id }
-})
+const order_instance = await flow.step('order--create', () =>
+  flow.startWorkflow({
+    workflow: 'order-fulfillment',
+    exportName: 'OrderFulfillment',
+    input: { orderId: fetch_order.id, userId: fetch_order.userId },
+    waitForCompletion: true,
+    timeout: '5 minutes',
+  }),
+)
 
-// Step 2: Poll until the child completes
-const process_order = await step.do(
-  'Await OrderFulfillment',
-  {
-    retries: { limit: 60, delay: '5 seconds', backoff: 'linear' },
-  },
+const order = await flow.step(
+  'order--await',
+  { retries: { limit: 60, delay: '5 seconds', backoff: 'linear' } },
   async () => {
-    const instance = await env.ORDER_FULFILLMENT.get(process_order_instance.instanceId)
-    const status = await instance.status()
-    if (status.status === 'complete') return status.output
-    if (status.status === 'errored')
-      throw new NonRetryableError(status.error?.message ?? 'Sub-workflow failed')
+    const status = await flow.workflowStatus(order_instance.instanceId, {
+      workflow: 'order-fulfillment',
+      exportName: 'OrderFulfillment',
+    })
+    if (status.status === 'complete' || status.status === 'succeeded') return status.output
+    if (status.status === 'errored') throw new Error(status.error?.message ?? 'Sub-workflow failed')
     throw new Error('Still running')
   },
 )
 ```
 
-The polling step retries up to 60 times with a 5-second linear backoff — giving the child up to 5 minutes to complete. Increase these values for longer-running children.
+The polling step retries up to 60 times with a 5-second linear backoff — giving
+the child up to 5 minutes to complete. Increase these values for longer-running
+children. A provider adapter may throw a non-retryable error for a terminal
+failure, so a failed child is not polled again.
 
 ### With `waitForCompletion: false`
 
 ```typescript
-const process_order_instance = await step.do('Create OrderFulfillment', async () => {
-  const instance = await env.ORDER_FULFILLMENT.create({
-    id: crypto.randomUUID(),
-    params: { orderId: fetch_order.id },
-  })
-  return { instanceId: instance.id }
-})
+const order_instance = await flow.step('order--create', () =>
+  flow.startWorkflow({
+    workflow: 'order-fulfillment',
+    exportName: 'OrderFulfillment',
+    input: { orderId: fetch_order.id },
+    waitForCompletion: false,
+  }),
+)
 ```
 
-The parent continues immediately after creating the child instance. Use this for fire-and-forget scenarios.
+The parent continues immediately after creating the child instance. Use this for
+fire-and-forget scenarios.
 
-## Wrangler bindings
+## Wrangler bindings <Badge type="warning" text="Cloudflare Only" />
 
 AwaitStep automatically generates the full Cloudflare Workflow binding in `wrangler.json` at deploy time. For a sub-workflow with class name `OrderFulfillment` and script name `awaitstep-abc123`, the generated binding is:
 

@@ -7,7 +7,7 @@ import {
   type TestSessionRunner,
 } from '@awaitstep/codegen'
 import { buildFileManifest } from '@awaitstep/ir'
-import { splitEnvVars } from '@awaitstep/provider-cloudflare'
+import { splitEnvVars } from '@awaitstep/codegen'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
 import {
@@ -192,7 +192,9 @@ export async function startTestSession(
   }
 
   const { vars, secrets } = prepared.envVars
-    ? splitEnvVars(prepared.envVars)
+    ? splitEnvVars(prepared.envVars, {
+        exclude: (name) => prepared.adapter.isInternalEnvVar?.(name) ?? false,
+      })
     : { vars: {}, secrets: {} }
 
   let started: { processId: string; port: number }

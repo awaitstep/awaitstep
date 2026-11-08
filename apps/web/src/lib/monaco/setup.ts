@@ -1,7 +1,6 @@
 import type { Monaco } from '@monaco-editor/react'
 import { AWAITSTEP_MODULES_DTS } from './awaitstep-modules'
 import { remeasureWhenCodeFontLoads } from './code-font'
-import { CF_RUNTIME_DTS } from './cf-runtime-dts'
 import type { LanguageHosts } from './project-libs'
 import { defineAwaitstepThemes } from './theme'
 
@@ -21,13 +20,11 @@ export const MUTED_DIAGNOSTIC_CODES = [1108, 1206, 1434, 2307]
 
 const UNRESOLVED_IMPORT_CODE = 2307
 
-const CF_RUNTIME_LIB_URI = 'file:///awaitstep/cf-runtime.d.ts'
 const AWAITSTEP_MODULES_LIB_URI = 'file:///awaitstep/awaitstep-modules.d.ts'
 
-// Platform modules that only exist at runtime: `cloudflare:workers` has a
-// real declaration above; everything else under those schemes resolves to
-// `any` instead of "Cannot find module".
-const PLATFORM_MODULES_DTS = "declare module 'node:*';\ndeclare module 'cloudflare:*';\n"
+// Node built-ins have no browser declarations; a provider pack adds its own
+// runtime scheme (e.g. `cloudflare:*`) only when the project uses it.
+const PLATFORM_MODULES_DTS = "declare module 'node:*';\n"
 const PLATFORM_MODULES_LIB_URI = 'file:///awaitstep/platform-modules.d.ts'
 
 let configured = false
@@ -61,11 +58,13 @@ function baseCompilerOptions(ts: Monaco['languages']['typescript']) {
 
 /**
  * The single Monaco configuration: one compiler config, semantic + syntax
- * validation enabled, and the shared Cloudflare runtime ambient types.
- * Idempotent — safe as `beforeMount` on every editor, and every other
- * entry point in this module calls it first, so a workspace that layers
- * project options before its first editor mounts is never reset by that
- * mount. Per-workflow types layer on top via context-dts.ts.
+ * validation enabled, and the provider-neutral AwaitStep module types.
+ * Provider runtime types layer on top via provider-types.ts only when the
+ * project uses that provider's syntax. Idempotent — safe as `beforeMount`
+ * on every editor, and every other entry point in this module calls it
+ * first, so a workspace that layers project options before its first editor
+ * mounts is never reset by that mount. Per-workflow types layer on top via
+ * context-dts.ts.
  */
 export function configureMonaco(monaco: Monaco): void {
   if (configured) return
@@ -78,7 +77,6 @@ export function configureMonaco(monaco: Monaco): void {
     defaults.setCompilerOptions(baseCompilerOptions(ts))
     defaults.setDiagnosticsOptions(diagnosticsOptions(false))
     defaults.setEagerModelSync(true)
-    defaults.addExtraLib(CF_RUNTIME_DTS, CF_RUNTIME_LIB_URI)
     defaults.addExtraLib(AWAITSTEP_MODULES_DTS, AWAITSTEP_MODULES_LIB_URI)
     defaults.addExtraLib(PLATFORM_MODULES_DTS, PLATFORM_MODULES_LIB_URI)
   }

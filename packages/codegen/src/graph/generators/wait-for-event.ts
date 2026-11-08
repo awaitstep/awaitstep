@@ -1,12 +1,12 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { stepLabel, type GenerationContext } from '@awaitstep/codegen'
+import { stepLabel, type GenerationContext } from '../internal.js'
 
 export function generateWaitForEvent(node: WorkflowNode, ctx: GenerationContext): string {
   const eventType = String(node.data.eventType ?? '')
   const timeout = node.data.timeout
 
   const timeoutPart = timeout
-    ? `, timeout: ${typeof timeout === 'string' ? `"${timeout}"` : timeout}`
+    ? `, timeout: ${typeof timeout === 'string' ? JSON.stringify(timeout) : timeout}`
     : ''
 
   return `const ${ctx.varName(node.id)} = await flow.waitForEvent("${stepLabel(node)}", {

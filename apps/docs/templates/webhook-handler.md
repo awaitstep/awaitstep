@@ -6,6 +6,10 @@ title: Webhook Handler
 
 Receives an incoming HTTP webhook, validates the signature, processes the payload durably, and acknowledges the sender.
 
+::: warning Cloudflare Only
+The generated code in this template is the Cloudflare adapter's output. The workflow module it wraps is provider-neutral.
+:::
+
 ## Why use a workflow for webhooks?
 
 A plain Worker can receive a webhook and return a 200 immediately, but if downstream processing fails, the event is lost. Wrapping webhook processing in a Cloudflare Workflow gives you automatic retries, durable state, and a full execution trace.

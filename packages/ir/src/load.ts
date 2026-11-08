@@ -21,7 +21,13 @@ export function loadArtifact(input: string | unknown): Result<ArtifactIR, Valida
     }
   }
 
-  const migrated = migrateArtifact(raw)
+  let migrated: unknown
+  try {
+    migrated = migrateArtifact(raw)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { ok: false, errors: [{ path: '', message: `Invalid IR: ${message}` }] }
+  }
   const result = artifactIRSchema.safeParse(migrated)
   if (!result.success) {
     return {

@@ -1,6 +1,6 @@
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
-import type { GenerateMode, GenerationContext } from '@awaitstep/codegen'
-import { CONTAINER_TYPES, collectChain, computeInDegree } from '@awaitstep/codegen'
+import type { GenerateMode, GenerationContext } from '../internal.js'
+import { CONTAINER_TYPES, collectChain, computeInDegree } from '../internal.js'
 import { prepareContainerContext, inlineChain } from './container-utils.js'
 
 export { CONTAINER_TYPES, collectChain, computeInDegree }

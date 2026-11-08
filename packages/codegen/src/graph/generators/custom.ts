@@ -6,7 +6,7 @@ import {
   indent,
   type GenerateMode,
   type GenerationContext,
-} from '@awaitstep/codegen'
+} from '../internal.js'
 import { generateStepConfig } from './config.js'
 
 export function extractTemplateBody(source: string): string {

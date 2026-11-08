@@ -1,30 +1,27 @@
 import type { NodeDefinition } from '../node-definition.js'
 
 /**
- * Calls another deployed Worker (kind: 'script') via a Cloudflare service
- * binding. Same datacenter, no public network round-trip. Generates an
- * `env.<BINDING>.fetch(url, { method, headers, body })` call wrapped in a
- * step.do (workflow mode) or a bare await (script mode).
- *
- * The user supplies the deployed worker name (free text, like sub_workflow's
- * workflowId). The env binding name is auto-derived: `awaitstep-my-script` →
- * `MY_SCRIPT`.
+ * Calls another deployed function/script through the provider adapter. The
+ * node is provider-neutral: generated code calls `flow.callScript(...)`, and
+ * the provider's `PlatformHost` maps it to a service binding, an HTTP call, or
+ * whatever its runtime uses. Provider-specific settings live under
+ * `params.<provider>`; the Cloudflare adapter reads `params.cf.binding`.
  */
 export const subScriptDefinition: NodeDefinition = {
   id: 'sub_script',
   name: 'Call Script',
   version: '1.0.0',
-  description: 'Call another deployed script via Cloudflare service binding.',
+  description: 'Call another deployed function/script.',
   category: 'Control Flow',
   author: 'awaitstep',
   license: 'Apache-2.0',
   configSchema: {
-    workerName: {
+    scriptId: {
       type: 'string',
-      label: 'Worker Name',
+      label: 'Script',
       required: true,
-      description: 'The deployed worker name (e.g. awaitstep-my-script).',
-      placeholder: 'awaitstep-my-script',
+      description: 'The target script’s AwaitStep id or deployed name.',
+      placeholder: 'my-script',
     },
     method: {
       type: 'select',
@@ -65,11 +62,17 @@ export const subScriptDefinition: NodeDefinition = {
       placeholder: '5 minutes',
       validation: { format: 'duration' },
     },
+    params: {
+      type: 'json',
+      label: 'Provider params',
+      description:
+        'Provider-scoped settings, e.g. { "cf": { "binding": "MY_SCRIPT" } }. Other providers read their own key.',
+    },
   },
   outputSchema: {
     status: { type: 'number', description: 'HTTP status code' },
     body: { type: 'string', description: 'Response body as text' },
     headers: { type: 'object', description: 'Response headers' },
   },
-  providers: ['cloudflare'],
+  providers: ['cloudflare', 'inngest', 'temporal', 'stepfunctions'],
 }

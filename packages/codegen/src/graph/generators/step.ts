@@ -8,7 +8,7 @@ import {
   normalizeStepModule,
   stepReturnsValue,
   type GenerationContext,
-} from '@awaitstep/codegen'
+} from '../internal.js'
 import { generateStepConfig } from './config.js'
 
 /**

@@ -384,14 +384,21 @@ export function validateWorkflowForPublish(
         break
       }
 
+      case 'sub_workflow': {
+        const workflow = String(ir.data.workflowName ?? '')
+        const explicit = (ir.data.params as { cf?: { binding?: unknown } } | undefined)?.cf?.binding
+        if (!workflow.trim() && typeof explicit !== 'string') {
+          add('warning', id, name, 'Select a workflow to deploy.')
+        }
+        break
+      }
+
       case 'sub_script': {
         // A warning, not an error: an unconfigured node must stay saveable
         // mid-authoring. The deploy refuses it — the provider derives an Env
-        // binding from the worker name and cannot do that from nothing.
-        const workerName = String(ir.data.workerName ?? '')
-        if (!workerName.trim()) {
-          add('warning', id, name, 'Select a worker to deploy.')
-        }
+        // binding from the script name and cannot do that from nothing.
+        const script = String(ir.data.scriptId ?? ir.data.workerName ?? '')
+        if (!script.trim()) add('warning', id, name, 'Select a script to deploy.')
         break
       }
 

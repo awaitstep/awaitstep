@@ -632,7 +632,7 @@ export const endpoints: EndpointDef[] = [
     group: 'Connections',
     method: 'POST',
     path: '/api/connections/verify-token',
-    label: 'Check a Cloudflare token',
+    label: 'Check a provider token',
     permission: 'connections:read',
     belowPermission: 'workflows:read',
     params: [],
@@ -870,6 +870,17 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
 
+  // Providers
+  {
+    id: 'list-providers',
+    group: 'Providers',
+    method: 'GET',
+    path: '/api/providers',
+    label: 'List provider capabilities',
+    permission: 'workflows:read',
+    params: [],
+    hasBody: false,
+  },
   // Nodes
   {
     id: 'list-nodes',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { wrapModuleCalls } from '../../codegen/generate-helpers.js'
+import { wrapModuleCalls } from '@awaitstep/codegen'
 
 describe('wrapModuleCalls', () => {
   it('wraps a module call that would outgrow the line once indented, keeping the call whole', () => {

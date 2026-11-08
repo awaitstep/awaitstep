@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { generateRace as generateRaceImpl } from '../../../codegen/generators/race.js'
+import { generateRace as generateRaceImpl } from '@awaitstep/codegen'
 import { recurseWithTestCtx as generateNodeCode } from '../test-context.js'
 
 const generateRace = (

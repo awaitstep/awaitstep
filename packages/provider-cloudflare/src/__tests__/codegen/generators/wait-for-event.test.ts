@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { generateWaitForEvent as generateWaitForEventImpl } from '../../../codegen/generators/wait-for-event.js'
+import { generateWaitForEvent as generateWaitForEventImpl } from '@awaitstep/codegen'
 
 const generateWaitForEvent = (node: Parameters<typeof generateWaitForEventImpl>[0]) =>
   generateWaitForEventImpl(node, ctx)

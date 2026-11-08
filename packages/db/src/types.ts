@@ -396,6 +396,8 @@ export interface RunStepsResult {
 export interface ActiveRunForSync {
   run: WorkflowRun
   workflowName: string
+  /** The deployed service name; null before a deployment row exists. */
+  deployedName?: string | null
   configSnapshot: string | null
   /** Where the workflow lives, for the Inbox when a run fails. Null parts where none is set. */
   place: {

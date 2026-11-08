@@ -34,6 +34,18 @@ function recordingHost(): RecordingHost {
       calls.push(`wait:${name}:${options.type}`)
       return Promise.resolve('event' as T)
     },
+    startWorkflow(options) {
+      calls.push(`start:${options.workflow}`)
+      return Promise.resolve({ instanceId: 'child-1' })
+    },
+    workflowStatus(instanceId, options) {
+      calls.push(`status:${instanceId}:${options.workflow}`)
+      return Promise.resolve({ status: 'complete', output: { ok: true } })
+    },
+    callScript(options) {
+      calls.push(`call:${options.script}:${options.method}`)
+      return Promise.resolve({ ok: true })
+    },
   }
   return { host, calls }
 }
@@ -137,6 +149,21 @@ describe('createWorkflowContext', () => {
     expect(value).toBe('event')
     expect(calls).toEqual(['wait:approval:lead.approved'])
   })
+
+  it('delegates platform calls to the host', async () => {
+    const { host, calls } = recordingHost()
+    const flow = createWorkflowContext({ env, event, host })
+    await expect(flow.startWorkflow({ workflow: 'child' })).resolves.toEqual({
+      instanceId: 'child-1',
+    })
+    await expect(
+      flow.workflowStatus('child-1', { workflow: 'child', params: { cf: { binding: 'CHILD' } } }),
+    ).resolves.toMatchObject({ status: 'complete' })
+    await expect(
+      flow.callScript({ script: 'pricing', method: 'GET', params: { cf: { binding: 'PRICING' } } }),
+    ).resolves.toEqual({ ok: true })
+    expect(calls).toEqual(['start:child', 'status:child-1:child', 'call:pricing:GET'])
+  })
 })
 
 describe('durableStep', () => {
@@ -177,6 +204,30 @@ describe('emitted runtime source', () => {
   it('has no imports, so it can be emitted into a bundle as-is', () => {
     expect(RUNTIME_MODULE_SOURCE).not.toMatch(/^\s*import\b/m)
     expect(RUNTIME_MODULE_SOURCE).not.toMatch(/\brequire\s*\(/)
+  })
+})
+
+describe('createInlineHost platform calls', () => {
+  it('rejects a platform call without an adapter', async () => {
+    const host = createInlineHost()
+    await expect(host.startWorkflow({ workflow: 'child' })).rejects.toThrow(
+      'startWorkflow is not available in a function',
+    )
+    await expect(host.callScript({ script: 'pricing' })).rejects.toThrow(
+      'callScript is not available in a function',
+    )
+  })
+
+  it('delegates to the supplied platform', async () => {
+    const host = createInlineHost({
+      startWorkflow: () => Promise.resolve({ instanceId: 'child-1' }),
+      workflowStatus: () => Promise.resolve({ status: 'complete', output: 'ok' }),
+      callScript: () => Promise.resolve({ price: 1 }),
+    })
+    await expect(host.startWorkflow({ workflow: 'child' })).resolves.toEqual({
+      instanceId: 'child-1',
+    })
+    await expect(host.callScript({ script: 'pricing' })).resolves.toEqual({ price: 1 })
   })
 })
 

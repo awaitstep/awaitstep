@@ -89,6 +89,7 @@ export const PACKAGE_MANIFEST_PATH = 'package.json'
  * When present it is the trigger-code source and replaces the legacy
  * trigger-code setting.
  */
+/** @deprecated v1 annotation entry; converted to handler modules. */
 export const PROJECT_HANDLERS_PATH = 'handlers.ts'
 
 /** The project's handlers.ts source, or undefined when the project has none. */
@@ -117,7 +118,10 @@ export const HANDLER_QUEUE_DIR = 'handlers/queue/'
  */
 export const HANDLER_SHARED_PATH = 'handlers/shared.ts'
 
-/** Cloudflare's queue-name rule: lowercase alphanumerics and hyphens, 1–63 characters. */
+/**
+ * The portable queue-name shape: lowercase alphanumerics and hyphens. A
+ * provider may validate a stricter or different rule at deploy time.
+ */
 export const QUEUE_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
 
 export type HandlerEntry =
@@ -519,6 +523,8 @@ export function parsePackageManifest(source: string): PackageManifest | null {
 
 // Runtime built-ins: no filesystem behind them, and refusing them would stop
 // projects that map one (`"#kv": "cloudflare:workers"`) from deploying.
+// Provider runtime schemes are external; URL schemes are refused below.
+// A new provider registers its scheme here.
 const BUILTIN_SCHEME = /^(?:node|cloudflare|workerd):/
 const URL_SCHEME = /^[A-Za-z][\w+.-]*:/
 // Shapes that stay inside the project but no resolver should be handed —

@@ -13,7 +13,8 @@ import {
 } from '../../codegen/handler-modules.js'
 import { generateScriptBundle, generateWorkflowBundle } from '../../codegen/generate.js'
 import { generateScript } from '../../codegen/generate-script.js'
-import { buildCronTriggers, buildQueueConsumers, workflowCronTrigger } from '../../adapter.js'
+import { providerEntrySource } from './bundle-source.js'
+import { buildCronTriggers, buildQueueConsumers } from '../../adapter.js'
 
 function node(id: string, name: string, data: Record<string, unknown>): WorkflowNode {
   return {
@@ -93,7 +94,7 @@ describe('handlerWiring / handlerDelegates', () => {
       nodes: [node('step', 'queue orders', { code: 'return 1;' })],
       runtime: { files: [files[1]!] },
     })
-    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const worker = providerEntrySource(bundle)
     const imported = [...worker.matchAll(/^import (\S+) from/gm)].map((m) => m[1]!)
     expect(new Set(imported).size).toBe(imported.length)
     expect(imported).toContain('$$queue_orders')
@@ -113,7 +114,7 @@ describe('generated entries with handler modules', () => {
       { ...baseIr, runtime: { files } },
       { triggerCode: '@fetch function handler() { return new Response("annotation") }' },
     )
-    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const worker = providerEntrySource(bundle)
     expect(worker).toContain('import $$fetchHandler from "./handlers/fetch.js";')
     expect(worker).toContain('$$fetchHandler({ request, env, execution')
     expect(worker).toContain('case "orders":')
@@ -123,7 +124,7 @@ describe('generated entries with handler modules', () => {
     // The retention lives in the workflow module. The handlers start
     // instances there, so the worker needs none of it and exports nothing
     // but its handlers: nothing imports the worker.
-    expect(worker).toContain('import workflow from "./awaitstep/workflow.js";')
+    expect(worker).toContain('import workflow from "#awaitstep/workflow";')
     expect(worker).not.toContain('AWAITSTEP_RETENTION')
     expect(worker).not.toMatch(/^export \{/m)
     expect(worker).not.toContain('"annotation"')
@@ -136,10 +137,8 @@ describe('generated entries with handler modules', () => {
 
   it('imports the retention into a workflow worker only when its inline default fetch creates instances', () => {
     const inline = generateWorkflowBundle(baseIr)
-    const worker = inline.files.find((f) => f.path === 'worker.ts')!.source
-    expect(worker).toContain(
-      'import workflow, { AWAITSTEP_RETENTION } from "./awaitstep/workflow.js";',
-    )
+    const worker = providerEntrySource(inline)
+    expect(worker).toContain('import workflow, { AWAITSTEP_RETENTION } from "#awaitstep/workflow";')
     expect(worker).toContain('retention: AWAITSTEP_RETENTION')
     expect(worker).not.toMatch(/^export \{/m)
   })
@@ -149,7 +148,7 @@ describe('generated entries with handler modules', () => {
       ...baseIr,
       runtime: { files: [files[1]!] },
     })
-    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const worker = providerEntrySource(bundle)
     expect(worker).toContain('async fetch(request, env, ctx): Promise<Response>')
     expect(worker).toContain('env.WORKFLOW.create')
     expect(worker).toContain('case "orders":')
@@ -158,7 +157,7 @@ describe('generated entries with handler modules', () => {
 
   it('leaves an annotation-only workflow byte-for-byte as before', () => {
     const bundle = generateWorkflowBundle(baseIr)
-    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const worker = providerEntrySource(bundle)
     expect(worker).not.toContain('const AWAITSTEP_RETENTION')
     expect(bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!.source).toContain(
       'export const AWAITSTEP_RETENTION',
@@ -176,18 +175,18 @@ describe('generated entries with handler modules', () => {
       runtime: { files: [files[0]!] },
     }
     const bundle = generateScriptBundle(scriptIr)
-    const worker = bundle.files.find((f) => f.path === 'worker.ts')!.source
+    const worker = providerEntrySource(bundle)
     const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
     expect(graph).toContain('export async function runGraph(')
     expect(graph).not.toContain('handlers/')
     // The handler module runs the graph, so the worker does not import it.
-    expect(worker).toContain('import { type Env } from "./awaitstep/function.js";')
+    expect(worker).toContain('import { type Env } from "#awaitstep/function";')
     expect(worker).not.toContain('runGraph')
     expect(worker).toContain('$$fetchHandler({ request, env, execution')
     expect(worker).not.toMatch(/^export \{/m)
     // Without a handler module the default fetch is inline and calls the imported runGraph.
     const plain = generateScript({ ...scriptIr, runtime: {} })
-    expect(plain).toContain('import { runGraph, type Env } from "./awaitstep/function.js";')
+    expect(plain).toContain('import { runGraph, type Env } from "#awaitstep/function";')
     expect(plain).toContain('const graph = await runGraph(env, event)')
     expect(plain).not.toContain('$$fetchHandler')
     expect(plain).not.toMatch(/^export \{/m)
@@ -199,7 +198,7 @@ describe('generated entries with handler modules', () => {
       },
       { triggerCode: '// runGraph is not called here\nreturn new Response("runGraph")' },
     )
-    expect(commented).toContain('import { type Env } from "./awaitstep/function.js";')
+    expect(commented).toContain('import { type Env } from "#awaitstep/function";')
   })
 })
 
@@ -221,19 +220,14 @@ describe('deploy derivation with handler modules', () => {
 
   it('schedules are declared: the deployment config, plus the workflow cron once a scheduled module exists', () => {
     const annotated = '@scheduled function tick(controller, env, ctx) {\n  @crons ["* * * * *"]\n}'
-    expect(
-      buildCronTriggers(annotated, { cronTriggers: ['0 * * * *'] }, modules, '0 2 * * *'),
-    ).toEqual(['0 2 * * *', '0 * * * *'])
-    // A project that only consumes a queue keeps deploying as before: its
-    // canvas cron trigger stays inert until handlers/scheduled.ts exists.
+    expect(buildCronTriggers(annotated, { cronTriggers: ['0 * * * *'] }, modules)).toEqual([
+      '0 * * * *',
+    ])
+    // A project that only consumes a queue has no schedule to deploy.
     const queueOnly = projectHandlerModules([files[1]!])
-    expect(buildCronTriggers(annotated, undefined, queueOnly, '0 2 * * *')).toBeUndefined()
-    // The annotation model is untouched.
+    expect(buildCronTriggers(annotated, undefined, queueOnly)).toBeUndefined()
+    // The legacy annotation model is untouched for a project without modules.
     expect(buildCronTriggers(annotated, undefined)).toEqual(['* * * * *'])
-    expect(
-      workflowCronTrigger({ ...baseIr, trigger: { type: 'cron', expression: '0 2 * * *' } }),
-    ).toBe('0 2 * * *')
-    expect(workflowCronTrigger({ ...baseIr, trigger: { type: 'http' } })).toBeUndefined()
   })
 
   it('names the missing half of a schedule setup', () => {

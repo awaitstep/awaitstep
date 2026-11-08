@@ -75,13 +75,14 @@ const branchNodeDataSchema = z
 
 const httpRequestNodeDataSchema = z
   .object({
-    method: z.string().optional(),
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']).optional(),
     url: z.string().optional(),
     headers: openRecordSchema.optional(),
     queryParams: openRecordSchema.optional(),
     body: z.string().optional(),
     retryLimit: z.number().optional(),
     timeout: z.string().optional(),
+    params: openRecordSchema.optional(),
   })
   .catchall(z.unknown())
 
@@ -112,18 +113,21 @@ const subWorkflowNodeDataSchema = z
     input: z.string().optional(),
     waitForCompletion: z.boolean().optional(),
     timeout: z.string().optional(),
+    params: openRecordSchema.optional(),
   })
   .catchall(z.unknown())
 
 const subScriptNodeDataSchema = z
   .object({
+    scriptId: z.string().optional(),
     workerName: z.string().optional(),
-    method: z.string().optional(),
+    method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']).optional(),
     url: z.string().optional(),
     headers: openRecordSchema.optional(),
     body: z.string().optional(),
     retryLimit: z.number().optional(),
     timeout: z.string().optional(),
+    params: openRecordSchema.optional(),
   })
   .catchall(z.unknown())
 
@@ -154,7 +158,7 @@ export const workflowNodeSchema = z.object({
   name: z.string().min(1).max(256),
   position: positionSchema.optional(),
   version: z.string().min(1),
-  provider: z.string().min(1),
+  provider: z.string().min(1).optional(),
   data: z.record(z.string(), z.unknown()),
   config: stepConfigSchema.optional(),
 })
@@ -174,37 +178,6 @@ export const workflowMetadataSchema = z.object({
   updatedAt: z.string(),
 })
 
-const httpTriggerSchema = z.object({
-  type: z.literal('http'),
-  path: z.string().optional(),
-  method: z.enum(['GET', 'POST', 'PUT', 'DELETE']).optional(),
-})
-
-const cronTriggerSchema = z.object({
-  type: z.literal('cron'),
-  expression: z.string().min(1),
-})
-
-const eventTypePattern = /^[a-zA-Z0-9_-]+$/
-
-const eventTriggerSchema = z.object({
-  type: z.literal('event'),
-  eventType: z.string().min(1).max(100).regex(eventTypePattern, {
-    error: 'Event type must be alphanumeric with hyphens and underscores only',
-  }),
-})
-
-const manualTriggerSchema = z.object({
-  type: z.literal('manual'),
-})
-
-export const triggerConfigSchema = z.discriminatedUnion('type', [
-  httpTriggerSchema,
-  cronTriggerSchema,
-  eventTriggerSchema,
-  manualTriggerSchema,
-])
-
 const envDeclarationSchema = z
   .object({
     name: z.string().min(1),
@@ -214,10 +187,11 @@ const envDeclarationSchema = z
   })
   .catchall(z.unknown())
 
-const bindingDeclarationSchema = z
+const resourceDeclarationSchema = z
   .object({
     name: z.string().min(1),
-    type: z.string().min(1),
+    kind: z.string().min(1),
+    provider: z.string().min(1).optional(),
     resourceId: z.string().optional(),
     resourceName: z.string().optional(),
   })
@@ -233,7 +207,7 @@ export const workflowRuntimeSchema = z
     triggerCode: z.string().optional(),
     dependencies: z.record(z.string(), z.string()).optional(),
     env: z.array(envDeclarationSchema).optional(),
-    bindings: z.array(bindingDeclarationSchema).optional(),
+    resources: z.array(resourceDeclarationSchema).optional(),
     files: z.array(projectFileSchema).optional(),
   })
   .catchall(z.unknown())
@@ -241,18 +215,16 @@ export const workflowRuntimeSchema = z
 export const workflowIRSchema = z.object({
   kind: z.literal('workflow').optional(),
   // Absent on v1 documents — see migrate.ts.
-  irVersion: z.literal(2).optional(),
+  irVersion: z.literal(3).optional(),
   metadata: workflowMetadataSchema,
   nodes: z.array(workflowNodeSchema).min(1),
   edges: z.array(edgeSchema),
   entryNodeId: nodeIdSchema,
-  trigger: triggerConfigSchema.optional(),
   runtime: workflowRuntimeSchema.optional(),
 })
 
 export const scriptIRSchema = workflowIRSchema.extend({
   kind: z.literal('script'),
-  trigger: httpTriggerSchema,
 })
 
 // Plain union (not discriminated) so legacy workflow IRs persisted without a

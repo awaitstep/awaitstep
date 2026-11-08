@@ -1,10 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import {
-  prepareContainerContext,
-  indentCode,
-  getForkTargets,
-} from '../../../codegen/generators/container-utils.js'
+import { prepareContainerContext, indentCode, getForkTargets } from '@awaitstep/codegen'
 
 const V = '1.0.0'
 const P = 'cloudflare'

@@ -1189,7 +1189,7 @@ const mockDb: DatabaseAdapter = {
     })
   },
   async listDeployTargets() {
-    return notMocked('listDeployTargets')
+    return []
   },
 
   // Runs

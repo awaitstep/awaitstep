@@ -14,8 +14,10 @@ export interface RuntimeRequirement {
   kind: 'provider' | 'binding'
   /** Provider id (`cloudflare`) for `provider`, binding kind (`kv`) for `binding`. */
   id: string
-  /** Declared binding name, for `binding`. */
+  /** Declared resource name, for `binding`. */
   name?: string
+  /** Provider scoping a resource kind, when the declaration names one. */
+  provider?: string
   /** The import specifier that introduced a provider requirement. */
   import?: string
   /** Human label for diagnostics, e.g. `KV namespace "USERS"`. */
@@ -36,6 +38,8 @@ export interface RequirementSupport {
 export interface RequirementTarget {
   readonly name: string
   readonly supportedBindingKinds?: readonly string[]
+  /** Runtime import schemes this provider owns (`cloudflare:`, `workerd:`). */
+  readonly importSchemes?: readonly string[]
   supportsRequirement?(requirement: RuntimeRequirement): RequirementSupport
 }
 
@@ -45,32 +49,14 @@ export interface UnsupportedRequirement {
   reason: string
 }
 
-const PROVIDER_LABELS: Readonly<Record<string, string>> = {
-  cloudflare: 'Cloudflare',
+/** The display name of a provider: its id unless the caller supplies a label. */
+export function describeProvider(provider: string, label?: string): string {
+  return label ?? provider
 }
 
-const BINDING_LABELS: Readonly<Record<string, string>> = {
-  kv: 'KV namespace',
-  d1: 'D1 database',
-  r2: 'R2 bucket',
-  queue: 'queue',
-  service: 'service binding',
-  workflow: 'workflow binding',
-  ai: 'Workers AI binding',
-  vectorize: 'Vectorize index',
-  analytics_engine: 'Analytics Engine dataset',
-  hyperdrive: 'Hyperdrive config',
-  browser: 'Browser Rendering binding',
-}
-
-/** The display name of a binding kind, falling back to the kind itself. */
-export function describeBindingKind(kind: string): string {
-  return BINDING_LABELS[kind] ?? kind
-}
-
-/** The display name of a provider, falling back to its id. */
-export function describeProvider(provider: string): string {
-  return PROVIDER_LABELS[provider] ?? provider
+/** The display name of a resource kind, for a provider that contributes labels. */
+export function describeBindingKind(kind: string, label?: string): string {
+  return label ?? kind
 }
 
 /** The provider a `#awaitstep/<provider>` import requires, or null for core runtime. */
@@ -89,7 +75,10 @@ export function providerFromAwaitstepImport(specifier: string): string | null {
  * just as Cloudflare-only as a KV primitive.
  */
 export function providerFromSpecifier(specifier: string): string | null {
-  if (specifier.startsWith('cloudflare:')) return 'cloudflare'
+  const scheme = /^([a-z][a-z0-9-]*):/.exec(specifier)?.[1]
+  if (scheme && !['node', 'http', 'https', 'data', 'file', 'mailto'].includes(scheme)) {
+    return scheme
+  }
   return providerFromAwaitstepImport(specifier)
 }
 
@@ -149,14 +138,15 @@ export function collectRuntimeRequirements(ir: ArtifactIR): RuntimeRequirement[]
     }
   }
 
-  for (const binding of ir.runtime?.bindings ?? []) {
-    const key = `binding:${binding.type}:${binding.name}`
+  for (const binding of ir.runtime?.resources ?? []) {
+    const key = `binding:${binding.kind}:${binding.name}`
     if (requirements.has(key)) continue
     requirements.set(key, {
       kind: 'binding',
-      id: binding.type,
+      id: binding.kind,
       name: binding.name,
-      label: `${describeBindingKind(binding.type)} "${binding.name}"`,
+      ...(binding.provider && { provider: binding.provider }),
+      label: `${describeBindingKind(binding.kind)} "${binding.name}"`,
     })
   }
 
@@ -206,9 +196,12 @@ function defaultSupport(
   target: RequirementTarget,
 ): RequirementSupport {
   if (requirement.kind === 'provider') {
-    return requirement.id === target.name
+    return requirement.id === target.name || target.importSchemes?.includes(requirement.id)
       ? { supported: true }
       : { supported: false, reason: `requires the ${requirement.id} provider` }
+  }
+  if (requirement.provider && requirement.provider !== target.name) {
+    return { supported: false, reason: `requires the ${requirement.provider} provider` }
   }
   const kinds = target.supportedBindingKinds ?? []
   return kinds.includes(requirement.id)

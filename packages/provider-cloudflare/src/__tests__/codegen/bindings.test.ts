@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   detectBindings,
+  validateSubWorkflowBindings,
   deriveQueueName,
   toCFQueueName,
   validateBindingDeclarations,
@@ -451,9 +452,9 @@ describe('detectBindings — runtime declarations', () => {
     const ir = {
       ...baseIr,
       runtime: {
-        bindings: [
-          { name: 'KV_CACHE', type: 'kv', resourceId: 'kv-123' },
-          { name: 'MY_QUEUE', type: 'queue' },
+        resources: [
+          { name: 'KV_CACHE', kind: 'kv', resourceId: 'kv-123' },
+          { name: 'MY_QUEUE', kind: 'queue' },
         ],
       },
     }
@@ -473,7 +474,7 @@ describe('detectBindings — runtime declarations', () => {
   })
 
   it('an empty declarations array also falls back to inference', () => {
-    const ir = { ...baseIr, runtime: { bindings: [] } }
+    const ir = { ...baseIr, runtime: { resources: [] } }
     expect(detectBindings(ir as never).length).toBeGreaterThan(0)
   })
 
@@ -481,13 +482,49 @@ describe('detectBindings — runtime declarations', () => {
     const ir = {
       ...baseIr,
       runtime: {
-        bindings: [
-          { name: 'KV_CACHE', type: 'kv' },
-          { name: 'KV_CACHE', type: 'kv', resourceId: 'later' },
+        resources: [
+          { name: 'KV_CACHE', kind: 'kv' },
+          { name: 'KV_CACHE', kind: 'kv', resourceId: 'later' },
         ],
       },
     }
     expect(detectBindings(ir as never)).toHaveLength(1)
+  })
+})
+
+describe('validateSubWorkflowBindings', () => {
+  const ir = (data: Record<string, unknown>) =>
+    ({
+      nodes: [
+        {
+          id: 'call',
+          type: 'sub_workflow',
+          name: 'Call child',
+          version: '1.0.0',
+          data,
+        },
+      ],
+      edges: [],
+    }) as never
+
+  it('requires an export name (or an explicit binding) for Cloudflare', () => {
+    const errors = validateSubWorkflowBindings(ir({ workflowId: 'wf_child' }))
+    expect(errors).toHaveLength(1)
+    expect(errors[0]!.path).toBe('nodes.call.data.workflowName')
+  })
+
+  it('accepts an explicit provider binding without an export name', () => {
+    expect(
+      validateSubWorkflowBindings(
+        ir({ workflowId: 'wf_child', params: { cf: { binding: 'CHILD_WORKFLOW' } } }),
+      ),
+    ).toEqual([])
+  })
+
+  it('accepts a named child workflow', () => {
+    expect(
+      validateSubWorkflowBindings(ir({ workflowId: 'wf_child', workflowName: 'ChildFlow' })),
+    ).toEqual([])
   })
 })
 
@@ -498,24 +535,24 @@ describe('validateBindingDeclarations', () => {
       entryNodeId: 'n1',
       nodes: [],
       edges: [],
-      runtime: { bindings },
+      runtime: { resources: bindings },
     }) as never
 
   it('accepts valid declarations and IRs without any', () => {
-    expect(validateBindingDeclarations(ir([{ name: 'KV_CACHE', type: 'kv' }]))).toEqual([])
+    expect(validateBindingDeclarations(ir([{ name: 'KV_CACHE', kind: 'kv' }]))).toEqual([])
     expect(validateBindingDeclarations({ nodes: [], edges: [] } as never)).toEqual([])
   })
 
   it('rejects names that are not valid identifiers', () => {
-    const errors = validateBindingDeclarations(ir([{ name: 'my-cache', type: 'kv' }]))
+    const errors = validateBindingDeclarations(ir([{ name: 'my-cache', kind: 'kv' }]))
     expect(errors).toHaveLength(1)
     expect(errors[0].message).toContain('valid identifier')
   })
 
   it('rejects unknown binding types', () => {
-    const errors = validateBindingDeclarations(ir([{ name: 'THING', type: 'durable_object' }]))
+    const errors = validateBindingDeclarations(ir([{ name: 'THING', kind: 'durable_object' }]))
     expect(errors).toHaveLength(1)
-    expect(errors[0].message).toContain('unknown type')
+    expect(errors[0].message).toContain('unknown kind')
   })
 })
 
@@ -574,13 +611,13 @@ describe('validateSubScriptBindings', () => {
     const errors = validateSubScriptBindings(ir([{ id: 'a', name: 'Call', workerName: '' }]))
     expect(errors).toHaveLength(1)
     expect(errors[0]!.nodeId).toBe('a')
-    expect(errors[0]!.message).toContain('no worker selected')
+    expect(errors[0]!.message).toContain('no script selected')
   })
 
   it('treats a whitespace-only name as nothing selected', () => {
     const errors = validateSubScriptBindings(ir([{ id: 'a', name: 'Call', workerName: '   ' }]))
     expect(errors).toHaveLength(1)
-    expect(errors[0]!.message).toContain('no worker selected')
+    expect(errors[0]!.message).toContain('no script selected')
   })
 
   it('reports a name that cannot produce a binding at all', () => {

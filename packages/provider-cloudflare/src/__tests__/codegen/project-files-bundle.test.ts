@@ -44,6 +44,8 @@ describe('project files in generated bundles', () => {
       'entry:worker.ts',
       'module:awaitstep/workflow.ts',
       'module:awaitstep/env.ts',
+      'module:awaitstep/entry.ts',
+      'module:awaitstep/platform.ts',
       'module:steps/fetch.ts',
       'module:awaitstep/runtime.ts',
       'module:config/retry.ts',
@@ -62,6 +64,8 @@ describe('project files in generated bundles', () => {
       'worker.ts',
       'awaitstep/workflow.ts',
       'awaitstep/env.ts',
+      'awaitstep/entry.ts',
+      'awaitstep/platform.ts',
       'steps/fetch.ts',
       'awaitstep/runtime.ts',
       'config/retry.ts',
@@ -70,6 +74,8 @@ describe('project files in generated bundles', () => {
       'worker.ts',
       'awaitstep/workflow.ts',
       'awaitstep/env.ts',
+      'awaitstep/entry.ts',
+      'awaitstep/platform.ts',
       'steps/fetch.ts',
       'awaitstep/runtime.ts',
       'config/retry.ts',
@@ -94,6 +100,7 @@ describe('project files in generated bundles', () => {
     expect(scriptBundle.files.map((f) => `${f.role}:${f.path}`)).toEqual([
       'entry:worker.ts',
       'module:awaitstep/function.ts',
+      'module:awaitstep/entry.ts',
       'module:steps/fetch.ts',
       'module:awaitstep/runtime.ts',
       'module:config/retry.ts',
@@ -111,7 +118,7 @@ describe('project files in generated bundles', () => {
     expect(withHandlers.files.map((f) => `${f.role}:${f.path}`)).toContain('handlers:handlers.ts')
     expect(bundleDeployFiles(withHandlers).map((f) => f.path)).not.toContain('handlers.ts')
     expect(bundleCodeFiles(withHandlers).map((f) => f.path)).not.toContain('handlers.ts')
-    expect(withHandlers.files.find((f) => f.path === 'worker.ts')?.source).toContain(
+    expect(withHandlers.files.find((f) => f.path === 'awaitstep/entry.ts')?.source).toContain(
       'new Response("file")',
     )
   })

@@ -45,7 +45,6 @@ const doc: ArtifactIR = {
     { id: 'e2', source: 'charge', target: 'nap' },
   ],
   entryNodeId: 'validate',
-  trigger: { type: 'http' },
   runtime: {
     env: [{ name: 'KEY', secret: true }],
     files: [{ path: 'lib/x.ts', source: 'export const x = 1' }],
@@ -185,7 +184,6 @@ describe('createStepSaver', () => {
     expect(ir.runtime).toEqual({ env: doc.runtime!.env, triggerCode: 'legacy' })
     expect(ir.metadata).toEqual(metadata)
     expect(ir.edges).toEqual(doc.edges)
-    expect(ir.trigger).toEqual(doc.trigger)
     expect(h.refresh).toHaveBeenCalledTimes(1)
     expect(h.notify.error).not.toHaveBeenCalled()
   })

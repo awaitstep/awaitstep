@@ -1,6 +1,6 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepSourcePath } from '@awaitstep/ir'
-import { GenerateInputError, type GeneratedFile } from '@awaitstep/codegen'
+import { GenerateInputError, type GeneratedFile } from './internal.js'
 
 /**
  * Refuses a bundle whose project files include one at a step's own path: the

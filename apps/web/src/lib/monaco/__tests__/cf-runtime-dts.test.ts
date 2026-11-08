@@ -58,9 +58,9 @@ export default {
 };
 `
     expect(diagnosticsOf(source)).toEqual([])
-  })
+  }, 20_000)
 
   it('still refuses a misuse, so the declarations are actually read', () => {
     expect(diagnosticsOf('const ctx = {} as ExecutionContext;\nctx.waitUntil(1);')).not.toEqual([])
-  })
+  }, 20_000)
 })

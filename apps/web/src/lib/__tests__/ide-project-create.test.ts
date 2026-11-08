@@ -133,11 +133,13 @@ describe('project usage', () => {
 })
 
 describe('New menu availability', () => {
+  const menu = (existing: Iterable<string>) =>
+    handlerMenuItems(existing, ['fetch', 'scheduled', 'queue'])
   const byId = (items: ReturnType<typeof handlerMenuItems>) =>
     Object.fromEntries(items.map((i) => [i.id, i.disabledReason]))
 
   it('offers every handler in a project without any', () => {
-    expect(byId(handlerMenuItems(['lib/a.ts']))).toEqual({
+    expect(byId(menu(['lib/a.ts']))).toEqual({
       fetch: null,
       scheduled: null,
       queue: null,
@@ -146,27 +148,25 @@ describe('New menu availability', () => {
   })
 
   it('disables a handler that exists, saying which file', () => {
-    const reasons = byId(handlerMenuItems(['handlers/fetch.ts', 'handlers/shared.ts']))
+    const reasons = byId(menu(['handlers/fetch.ts', 'handlers/shared.ts']))
     expect(reasons.fetch).toBe('fetch.ts exists')
     expect(reasons.shared).toBe('shared.ts exists')
     expect(reasons.scheduled).toBeNull()
   })
 
   it('treats another extension of the same handler as existing', () => {
-    expect(byId(handlerMenuItems(['handlers/scheduled.mjs'])).scheduled).toBe(
-      'scheduled.mjs exists',
-    )
+    expect(byId(menu(['handlers/scheduled.mjs'])).scheduled).toBe('scheduled.mjs exists')
   })
 
   it('disables handler modules while handlers.ts is in use, but not shared helpers', () => {
-    const reasons = byId(handlerMenuItems(['handlers.ts']))
+    const reasons = byId(menu(['handlers.ts']))
     expect(reasons.fetch).toBe('handlers.ts is in use')
     expect(reasons.queue).toBe('handlers.ts is in use')
     expect(reasons.shared).toBeNull()
   })
 
   it('asks for a name for queue consumers and writes the rest directly', () => {
-    const items = handlerMenuItems([])
+    const items = menu([])
     expect(items.find((i) => i.id === 'queue')).toMatchObject({ prompt: 'handlers/queue/' })
     expect(items.find((i) => i.id === 'fetch')).toMatchObject({ path: 'handlers/fetch.ts' })
   })
@@ -184,7 +184,9 @@ describe('New menu availability', () => {
 describe('shared helpers availability', () => {
   it('is taken by a shared module in any compiled extension, not just shared.ts', () => {
     const shared = (existing: string[]) =>
-      handlerMenuItems(existing).find((item) => item.id === 'shared')?.disabledReason
+      handlerMenuItems(existing, ['fetch', 'scheduled', 'queue']).find(
+        (item) => item.id === 'shared',
+      )?.disabledReason
     expect(shared([])).toBeNull()
     expect(shared(['handlers/shared.ts'])).toBe('shared.ts exists')
     expect(shared(['handlers/shared.js'])).toBe('shared.js exists')

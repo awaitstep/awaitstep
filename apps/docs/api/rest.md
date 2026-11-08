@@ -198,7 +198,7 @@ Delete a workflow and all its versions, deployments, and runs.
 
 ## Functions
 
-Functions are workflows with `kind: "script"`. They share the same routes (POST `/workflows` to create, PATCH to update, DELETE to remove, POST `/versions` to compile a new version, POST `/deploy` to deploy) but compile to a fetch-only Cloudflare Worker instead of a `WorkflowEntrypoint` class.
+Functions are workflows with `kind: "script"`. They share the same routes (POST `/workflows` to create, PATCH to update, DELETE to remove, POST `/versions` to compile a new version, POST `/deploy` to deploy) but compile to a `runGraph` module instead of a `defineWorkflow` module. The Cloudflare adapter wraps the former in a fetch handler and the latter in a `WorkflowEntrypoint` class. <Badge type="warning" text="Cloudflare Only" />
 
 ### Constraints
 
@@ -538,7 +538,7 @@ Delete a connection.
 
 ## Environment Variables
 
-A variable is set at one of three **levels** — the organization, a project, or one workspace — and a workflow's `{{global.env.NAME}}` references resolve against its own workspace, then its project, then the organization: the closest level wins. Every call is addressed at a level in the query, as keys are: `?org=` the organization's own, `&project=` a project's own, `&workspace=` a workspace's own. A key's pin is its address. Anyone who can open the level reads its variables; setting, editing and deleting them is for whoever manages the level (org owners and admins, project admins, that workspace's admins). A name already set at the level answers `409`; secret values are masked in every read.
+A variable is set at one of three **levels** — the organization, a project, or one workspace — and a workflow's <code v-pre>{{global.env.NAME}}</code> references resolve against its own workspace, then its project, then the organization: the closest level wins. Every call is addressed at a level in the query, as keys are: `?org=` the organization's own, `&project=` a project's own, `&workspace=` a workspace's own. A key's pin is its address. Anyone who can open the level reads its variables; setting, editing and deleting them is for whoever manages the level (org owners and admins, project admins, that workspace's admins). A name already set at the level answers `409`; secret values are masked in every read.
 
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/env-vars</span> <span class="api-scope">resources:read</span> <span class="api-scope">variables:read</span>
 

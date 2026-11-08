@@ -1,8 +1,8 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { RESERVED_EXPRESSION_REFS, resolveExpressions, scanExpressions } from '@awaitstep/ir'
-import type { GenerateMode, TemplateResolver, StepKind } from '@awaitstep/codegen'
-import type { GenerationContext, GeneratorLookup } from '@awaitstep/codegen'
-import { GenerateInputError, childContext } from '@awaitstep/codegen'
+import type { GenerateMode, TemplateResolver, StepKind } from './internal.js'
+import type { GenerationContext, GeneratorLookup } from './internal.js'
+import { GenerateInputError, childContext } from './internal.js'
 import {
   generateCustomNode,
   generateCustomNodeModule,
@@ -10,8 +10,7 @@ import {
 } from './generators/custom.js'
 import { CONTAINER_TYPES } from './generators/branch.js'
 import { builtinGenerators } from './generator-registry.js'
-import type { BindingType } from './bindings.js'
-export { extractImports } from './imports.js'
+export { extractImports } from '../imports.js'
 
 /**
  * Collects env-var names referenced through `{{env.NAME}}` expressions in
@@ -42,26 +41,6 @@ const JS_IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/
 /** Interface-field form of an env-var name, quoted when not a valid identifier. */
 export function envFieldName(name: string): string {
   return JS_IDENTIFIER_PATTERN.test(name) ? name : JSON.stringify(name)
-}
-
-/**
- * Cloudflare Worker `Env` interface field type for each detected binding kind.
- * `secret` and `variable` are intentionally `null` — they're emitted as
- * `string` fields alongside other string env vars, not as typed bindings.
- */
-export const CF_ENV_TYPE: Record<BindingType, string | null> = {
-  kv: 'KVNamespace',
-  d1: 'D1Database',
-  r2: 'R2Bucket',
-  queue: 'Queue<unknown>',
-  service: 'Fetcher',
-  ai: 'Ai',
-  vectorize: 'VectorizeIndex',
-  analytics_engine: 'AnalyticsEngineDataset',
-  hyperdrive: 'Hyperdrive',
-  browser: 'Fetcher',
-  secret: null,
-  variable: null,
 }
 
 /**

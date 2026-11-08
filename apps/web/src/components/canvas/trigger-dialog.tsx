@@ -13,6 +13,7 @@ import { Tile } from '../ui/tile'
 import { runAction, failureLine } from '../../lib/action-toast'
 import { copyToClipboard } from '../../lib/utils'
 import { useApi, useQueries } from '../../contexts/api-client-context'
+import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 
 interface WorkflowOption {
   id: string
@@ -35,6 +36,8 @@ export function TriggerDialog({
 }: TriggerDialogProps) {
   const api = useApi()
   const queries = useQueries()
+  const capabilities = useProviderCapabilities()
+  const runUrlTemplate = capabilities[0]?.runUrlTemplate
   const queryClient = useQueryClient()
   const goTo = useGoTo()
   const scope = useItemSlugs()
@@ -105,16 +108,17 @@ export function TriggerDialog({
   }, [api, connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, goTo, scope])
 
   const handleCopyCurl = useCallback(() => {
-    if (!deploymentId) return
+    if (!deploymentId || !runUrlTemplate) return
     const trimmed = paramsJson.trim()
     const hasParams = trimmed && trimmed !== '{}'
+    const runUrl = runUrlTemplate.replace('{deploymentId}', deploymentId)
     const curl = hasParams
-      ? `curl -X POST https://${deploymentId}.workers.dev \\\n  -H "Content-Type: application/json" \\\n  -d '${trimmed}'`
-      : `curl -X POST https://${deploymentId}.workers.dev`
+      ? `curl -X POST ${runUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '${trimmed}'`
+      : `curl -X POST ${runUrl}`
     copyToClipboard(curl)
     setCurlCopied(true)
     setTimeout(() => setCurlCopied(false), 2000)
-  }, [deploymentId, paramsJson])
+  }, [deploymentId, paramsJson, runUrlTemplate])
 
   function handleOpenChange(v: boolean) {
     if (!v && !triggering) onClose()
@@ -218,7 +222,9 @@ export function TriggerDialog({
               </button>
             </div>
             <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
-              {`curl -X POST https://${deploymentId}.workers.dev`}
+              {runUrlTemplate
+                ? `curl -X POST ${runUrlTemplate.replace('{deploymentId}', deploymentId ?? '')}`
+                : 'Deployment URL unavailable'}
             </pre>
           </div>
         )}

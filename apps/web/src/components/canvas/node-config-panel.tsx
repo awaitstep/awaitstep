@@ -82,11 +82,12 @@ export function validateNode(node: WorkflowNode, expectedFunctionName?: string):
       break
     }
     case 'sub_workflow':
-      if (!String(node.data.workflowId ?? '').trim()) errors.push('Script name is required')
-      if (!String(node.data.workflowName ?? '').trim()) errors.push('Workflow name is required')
+      if (!String(node.data.workflowId ?? '').trim()) errors.push('Workflow is required')
       break
     case 'sub_script':
-      if (!String(node.data.workerName ?? '').trim()) errors.push('Worker name is required')
+      if (!String(node.data.scriptId ?? node.data.workerName ?? '').trim()) {
+        errors.push('Script is required')
+      }
       if (!String(node.data.url ?? '').trim()) errors.push('URL is required')
       break
   }
@@ -146,9 +147,9 @@ function NodeConfigBody() {
   // `nodes` and `edges` inside are the ones it was built from.
   const scope = useMemo(() => {
     if (!selectedNodeId) return null
-    const { metadata, workflowEnvVars, runtimeBindings } = useWorkflowStore.getState()
+    const { metadata, workflowEnvVars, runtimeResources } = useWorkflowStore.getState()
     return stepScope(
-      buildIRFromState({ metadata, workflowEnvVars, runtimeBindings, nodes, edges, kind }),
+      buildIRFromState({ metadata, workflowEnvVars, runtimeResources, nodes, edges, kind }),
       selectedNodeId,
       kind,
     )

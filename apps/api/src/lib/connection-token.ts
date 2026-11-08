@@ -5,16 +5,15 @@ import type { Connection, ConnectionTokenCheck, DatabaseAdapter } from '@awaitst
 import type { AppEnv } from '../types.js'
 import { createLogger } from './logger.js'
 import { resolveProvider } from './provider-resolver.js'
+import { providerIds } from './provider-registry.js'
 import { noticeGroup, sendNotice } from './notify.js'
 import { abandonVerifyGate, closeVerifyGate, openVerifyGate } from './verify-lockout.js'
 
 const log = createLogger('connection-token')
 
-const PROVIDER_LABELS: Record<string, string> = { cloudflare: 'Cloudflare' }
-
 /** The provider's display name: what lockout audit rows and messages say. */
 export function providerLabel(provider: string): string {
-  return PROVIDER_LABELS[provider] ?? provider
+  return providerNamed(provider)?.capabilities?.label ?? provider
 }
 
 /** The provider by name, or null when this build has none by that name. */
@@ -113,27 +112,28 @@ export async function recheckConnectionTokens(
   db: DatabaseAdapter,
   now = new Date(),
 ): Promise<number> {
-  const provider = providerNamed('cloudflare')
-  if (!provider?.inspectCredentials) return 0
-  const due = await db.connectionsDueForTokenCheck(
-    provider.name,
-    new Date(now.getTime() - TOKEN_RECHECK_MS).toISOString(),
-    TOKEN_CHECKS_PER_TICK,
-  )
   const checkedAt = now.toISOString()
-  // Each row on its own: one failing write never costs the others their check.
-  const stored = await Promise.all(
-    due.map((connection) =>
-      recheckOne(db, provider, connection, checkedAt, now).catch((err: unknown) => {
-        log.error('Token re-check failed', {
-          connectionId: connection.id,
-          error: err instanceof Error ? err.message : String(err),
-        })
-        return false
-      }),
-    ),
-  )
-  return stored.filter(Boolean).length
+  const dueSince = new Date(now.getTime() - TOKEN_RECHECK_MS).toISOString()
+  let stored = 0
+  for (const id of providerIds()) {
+    const provider = providerNamed(id)
+    if (!provider?.inspectCredentials) continue
+    const due = await db.connectionsDueForTokenCheck(provider.name, dueSince, TOKEN_CHECKS_PER_TICK)
+    // Each row on its own: one failing write never costs the others their check.
+    const results = await Promise.all(
+      due.map((connection) =>
+        recheckOne(db, provider, connection, checkedAt, now).catch((err: unknown) => {
+          log.error('Token re-check failed', {
+            connectionId: connection.id,
+            error: err instanceof Error ? err.message : String(err),
+          })
+          return 0
+        }),
+      ),
+    )
+    stored += results.filter(Boolean).length
+  }
+  return stored
 }
 
 async function recheckOne(

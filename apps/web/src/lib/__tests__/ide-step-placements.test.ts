@@ -218,7 +218,6 @@ describe('placementChoices × insertStep', () => {
       nodes: nodes.map((n, i) => ({ ...n, position: { x: 0, y: i * 80 } })),
       edges,
       entryNodeId: 'a',
-      trigger: { type: 'http' },
     }
     const choices = placementChoices(g.rows, g.nodes, g.edges)
     expect(choices.length).toBeGreaterThan(0)

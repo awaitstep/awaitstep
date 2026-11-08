@@ -6,6 +6,10 @@ title: Order Processing
 
 A payment pipeline that charges a card, handles failures with a branch, sends a receipt on success, and notifies the team on failure.
 
+::: warning Cloudflare Only
+The generated code in this template is the Cloudflare adapter's output. The workflow module it wraps is provider-neutral.
+:::
+
 ## Workflow structure
 
 ```mermaid

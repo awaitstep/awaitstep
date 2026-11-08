@@ -2,17 +2,15 @@ import { useMemo } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import {
-  FUNCTION_MODULE_PATH,
-  generateScriptBundle,
-  generateWorkflowBundle,
-} from '@awaitstep/provider-cloudflare/codegen'
+  generateUniversalFunctionBundle,
+  generateUniversalWorkflowBundle,
+  UNIVERSAL_FUNCTION_PATH,
+  UNIVERSAL_WORKFLOW_PATH,
+} from '@awaitstep/codegen'
 import { buildIRFromState } from '../lib/build-ir'
 import { splitSecretName } from '../lib/env-var-parser'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { useNodeTemplates } from './use-node-templates'
-
-/** The portable graph module every workflow bundle carries. */
-const WORKFLOW_MODULE_PATH = 'awaitstep/workflow.ts'
 
 export interface GeneratedEntry {
   /** The file to show: `awaitstep/workflow.ts` or `awaitstep/function.ts`. */
@@ -27,20 +25,22 @@ export interface GeneratedEntry {
  * now — drafts included, because the preview is for the graph on screen, not
  * the last saved version.
  *
- * The bundle is generated the same way the server does it, so the file names,
- * imports and step bodies match the code workspace. Generation can fail while
- * the canvas is mid-edit (a branch with no arms, a step with bad code); the
- * error is shown in place of the preview rather than thrown at the editor.
+ * The bundle is generated the same way the server's presentation view does,
+ * so the file names, imports and step bodies match the code workspace. It is
+ * always provider-neutral; provider entries and platform adapters are deploy
+ * artifacts. Generation can fail while the canvas is mid-edit (a branch with no arms, a
+ * step with bad code); the error is shown in place of the preview rather than
+ * thrown at the editor.
  */
 export function useGeneratedEntry(): GeneratedEntry {
-  const { metadata, nodes, edges, kind, workflowEnvVars, runtimeBindings } = useWorkflowStore(
+  const { metadata, nodes, edges, kind, workflowEnvVars, runtimeResources } = useWorkflowStore(
     useShallow((s) => ({
       metadata: s.metadata,
       nodes: s.nodes,
       edges: s.edges,
       kind: s.kind,
       workflowEnvVars: s.workflowEnvVars,
-      runtimeBindings: s.runtimeBindings,
+      runtimeResources: s.runtimeResources,
     })),
   )
   const templateResolver = useNodeTemplates()
@@ -51,7 +51,7 @@ export function useGeneratedEntry(): GeneratedEntry {
       const name = splitSecretName(variable.name).name.trim()
       return name ? [name] : []
     })
-    const entryPath = kind === 'script' ? FUNCTION_MODULE_PATH : WORKFLOW_MODULE_PATH
+    const entryPath = kind === 'script' ? UNIVERSAL_FUNCTION_PATH : UNIVERSAL_WORKFLOW_PATH
     try {
       const ir = buildIRFromState({
         metadata,
@@ -59,17 +59,23 @@ export function useGeneratedEntry(): GeneratedEntry {
         edges,
         kind,
         workflowEnvVars,
-        runtimeBindings,
+        runtimeResources,
       })
       if (kind === 'script') {
-        const bundle = generateScriptBundle(ir as ScriptIR, { templateResolver, envVarNames })
+        const bundle = generateUniversalFunctionBundle(ir as ScriptIR, {
+          templateResolver,
+          envVarNames,
+        })
         return {
           path: entryPath,
           source: bundle.files.find((file) => file.path === entryPath)?.source ?? null,
           error: null,
         }
       }
-      const bundle = generateWorkflowBundle(ir as WorkflowIR, { templateResolver, envVarNames })
+      const bundle = generateUniversalWorkflowBundle(ir as WorkflowIR, {
+        templateResolver,
+        envVarNames,
+      })
       const path = bundle.primary ?? entryPath
       return {
         path,
@@ -83,5 +89,5 @@ export function useGeneratedEntry(): GeneratedEntry {
         error: error instanceof Error ? error.message : 'The graph could not be generated.',
       }
     }
-  }, [metadata, nodes, edges, kind, workflowEnvVars, runtimeBindings, templateResolver])
+  }, [metadata, nodes, edges, kind, workflowEnvVars, runtimeResources, templateResolver])
 }

@@ -5,6 +5,7 @@ import {
   deriveReadOnlyState,
   deriveDeploymentState,
 } from '../hydrate-workflow'
+import { buildIRFromState } from '../build-ir'
 import type { WorkflowSummary, WorkflowVersion, WorkflowFull, VersionSummary } from '../api-client'
 
 const baseWorkflow: WorkflowSummary = {
@@ -366,17 +367,29 @@ describe('buildWorkflowStoreState', () => {
     expect(result.workflowEnvVars).toEqual([{ name: 'FROM_COLUMN', value: 'x' }])
   })
 
-  it('resets runtimeBindings on every hydrate — no leak across workflows', () => {
+  it('resets runtimeResources on every hydrate — no leak across workflows', () => {
     const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)
-    expect(result.runtimeBindings).toEqual([])
+    expect(result.runtimeResources).toEqual([])
   })
 
-  it('loads binding declarations into runtimeBindings', () => {
+  it('migrates v2 runtime.bindings into runtimeResources before the next save', () => {
     const ir = JSON.parse(baseVersion.ir)
     ir.runtime = { bindings: [{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }] }
     const version = { ...baseVersion, ir: JSON.stringify(ir) }
     const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
-    expect(result.runtimeBindings).toEqual([{ name: 'KV_CACHE', type: 'kv', resourceId: 'abc' }])
+    expect(result.runtimeResources).toEqual([{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }])
+    const saved = buildIRFromState(result as never) as {
+      runtime?: { resources?: unknown }
+    }
+    expect(saved.runtime?.resources).toEqual([{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }])
+  })
+
+  it('loads binding declarations into runtimeResources', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.runtime = { resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }] }
+    const version = { ...baseVersion, ir: JSON.stringify(ir) }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    expect(result.runtimeResources).toEqual([{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }])
   })
 
   it('ignores IR that is not even array-shaped', () => {

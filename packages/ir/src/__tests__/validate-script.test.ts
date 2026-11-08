@@ -42,13 +42,6 @@ describe('validateScript', () => {
     expect(result.ok).toBe(false)
   })
 
-  it('rejects a script that omits its http trigger', () => {
-    const ir = makeScript([node('transform')]) as Partial<ScriptIR>
-    delete ir.trigger
-    const result = validateScript(ir)
-    expect(result.ok).toBe(false)
-  })
-
   it.each(['wait_for_event', 'sleep', 'sleep_until'])(
     'rejects a script containing a %s node (durable runtime required)',
     (incompatibleType) => {

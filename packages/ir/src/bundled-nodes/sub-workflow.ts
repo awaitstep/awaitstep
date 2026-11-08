@@ -4,24 +4,23 @@ export const subWorkflowDefinition: NodeDefinition = {
   id: 'sub_workflow',
   name: 'Sub-Workflow',
   version: '1.0.0',
-  description: 'Trigger another workflow by ID, optionally waiting for completion.',
+  description: 'Call another deployed workflow, optionally waiting for completion.',
   category: 'Control Flow',
   author: 'awaitstep',
   license: 'Apache-2.0',
   configSchema: {
     workflowId: {
       type: 'string',
-      label: 'Script Name',
+      label: 'Workflow',
       required: true,
-      description: 'The deployed worker name (e.g. awaitstep-abc123 or my-worker).',
-      placeholder: 'awaitstep-abc123',
+      description: 'The target workflow’s AwaitStep id or deployed name.',
+      placeholder: 'onboarding-workflow',
     },
     workflowName: {
       type: 'string',
-      label: 'Class Name',
-      required: true,
+      label: 'Export name',
       description:
-        'The exported workflow class name in the child worker (e.g. OnboardingWorkflow).',
+        'Provider export name, where the provider has one (Cloudflare: the exported workflow class).',
       placeholder: 'OnboardingWorkflow',
     },
     input: {
@@ -42,6 +41,12 @@ export const subWorkflowDefinition: NodeDefinition = {
       default: '5 minutes',
       placeholder: '5 minutes',
       validation: { format: 'duration' },
+    },
+    params: {
+      type: 'json',
+      label: 'Provider params',
+      description:
+        'Provider-scoped settings, e.g. { "cf": { "binding": "ONBOARDING_WORKFLOW" } }. Other providers read their own key.',
     },
   },
   outputSchema: {

@@ -13,20 +13,19 @@ type ArtifactIR = WorkflowIR | ScriptIR
 
 interface WorkflowIR {
   kind?: 'workflow' // Optional — absent = workflow (back-compat with legacy IRs)
+  irVersion?: 3 // Absent on older documents; loadIR migrates them
   metadata: WorkflowMetadata
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: string
-  trigger?: TriggerConfig
 }
 
-interface ScriptIR extends Omit<WorkflowIR, 'kind' | 'trigger'> {
-  kind: 'script' // Required
-  trigger: HttpTriggerConfig // Required — scripts are HTTP-only
+interface ScriptIR extends Omit<WorkflowIR, 'kind'> {
+  kind: 'script' // Required; the kind is the HTTP entry
 }
 ```
 
-The `kind` discriminator decides which artifact compiles. Workflows produce a `WorkflowEntrypoint` class; scripts produce a fetch-only Worker. Validation dispatches via `validateArtifact(ir)` (or call `validateIR` / `validateScript` directly).
+The `kind` discriminator decides which artifact compiles. Workflows produce a portable `defineWorkflow` module; scripts produce a portable `runGraph` module. The provider adapter adds the deploy bootstrap — a `WorkflowEntrypoint` class or a fetch handler on Cloudflare. <Badge type="warning" text="Cloudflare Only" /> Validation dispatches via `validateArtifact(ir)` (or call `validateIR` / `validateScript` directly).
 
 ## WorkflowMetadata
 
@@ -49,7 +48,7 @@ interface WorkflowNode {
   name: string // Display name shown on the canvas
   position: { x: number; y: number } // Canvas position (cosmetic only)
   version: string // Node definition version (semver)
-  provider: string // Execution provider (e.g. "cloudflare")
+  provider?: string // Optional authoring hint; provider compatibility comes from the node definition
   data: Record<string, unknown> // Node-specific config (matches configSchema)
   config?: StepConfig // Optional retry/timeout overrides
 }
@@ -164,9 +163,8 @@ Nodes marked ❌ for script require a durable runtime and are rejected by `valid
     }
   ],
   "entryNodeId": "parse_order",
-  "trigger": {
-    "type": "http",
-    "method": "POST"
+  "runtime": {
+    "resources": [{ "name": "RESEND", "kind": "service", "provider": "cloudflare" }]
   }
 }
 ```
@@ -198,5 +196,9 @@ The platform validates the IR (schema + expression references + cycle detection)
 
 When `kind === "script"`, additional constraints apply:
 
-- `trigger.type` must be `"http"`. Cron, event, and manual triggers are rejected.
 - `nodes` must not include `sleep`, `sleep_until`, or `wait_for_event`.
+- A script has no trigger block; its kind is its HTTP entry.
+
+## Runtime resources
+
+`runtime.resources` declares the provider-scoped resources a workflow needs (KV, D1, R2, queues, service bindings, …). Each entry has a `name`, a provider-owned `kind`, an optional `provider`, and optional `resourceId`/`resourceName`. Older documents may carry the v2 `runtime.bindings` shape (`{ name, type }`); `loadArtifact` migrates it to `resources` (`type` → `kind`).

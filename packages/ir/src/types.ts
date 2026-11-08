@@ -131,18 +131,27 @@ export type BreakNodeData = {
 }
 
 export type SubWorkflowNodeData = {
-  /** Deployed worker name of the child workflow. */
+  /** Target workflow: its AwaitStep id or deployed name. */
   workflowId?: string
-  /** Exported class name of the child workflow. */
+  /** Provider export name (Cloudflare: the exported workflow class). */
   workflowName?: string
   /** JS expression passed as the child's params. */
   input?: string
   /** Only literal `false` disables waiting. */
   waitForCompletion?: boolean
   timeout?: string
+  /**
+   * Provider-scoped settings, keyed by provider id. A provider reads only its
+   * own key; the shared fields above stay provider-neutral. Example:
+   * `{ cf: { binding: "ONBOARDING_WORKFLOW" } }`.
+   */
+  params?: Record<string, unknown>
 }
 
 export type SubScriptNodeData = {
+  /** Target function: its AwaitStep id or deployed name. */
+  scriptId?: string
+  /** Legacy Cloudflare deployed-worker name; `scriptId` wins when set. */
   workerName?: string
   method?: HttpMethod
   url?: string
@@ -150,6 +159,8 @@ export type SubScriptNodeData = {
   body?: string
   retryLimit?: number
   timeout?: string
+  /** Provider-scoped settings, keyed by provider id. */
+  params?: Record<string, unknown>
 }
 
 /** No declared fields — race fan-out is edge-driven. */
@@ -184,7 +195,8 @@ export interface WorkflowNode {
    */
   position?: Position
   version: string
-  provider: string
+  /** Authoring provider hint; provider compatibility belongs to the node definition. */
+  provider?: string
   data: Record<string, unknown>
   config?: StepConfig
 }
@@ -231,48 +243,6 @@ export interface WorkflowMetadata {
   updatedAt: string
 }
 
-export type TriggerType = 'http' | 'cron' | 'event' | 'manual'
-
-export interface HttpTriggerConfig {
-  type: 'http'
-  path?: string
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
-}
-
-export interface CronTriggerConfig {
-  type: 'cron'
-  expression: string
-}
-
-export interface EventTriggerConfig {
-  type: 'event'
-  eventType: string
-}
-
-export interface ManualTriggerConfig {
-  type: 'manual'
-}
-
-export type TriggerConfig =
-  HttpTriggerConfig | CronTriggerConfig | EventTriggerConfig | ManualTriggerConfig
-
-/**
- * Well-known resource binding kinds. Open-ended so providers can extend
- * without editing the IR package; provider validation owns the closed set.
- */
-export type BindingKind =
-  | 'kv'
-  | 'd1'
-  | 'r2'
-  | 'queue'
-  | 'service'
-  | 'ai'
-  | 'vectorize'
-  | 'analytics_engine'
-  | 'hyperdrive'
-  | 'browser'
-  | (string & {})
-
 /**
  * Declares that the workflow reads an environment variable. Declarations
  * carry metadata only — values stay in the platform's env-var store and are
@@ -285,19 +255,26 @@ export interface EnvDeclaration {
   description?: string
 }
 
-/** Declares a resource binding the workflow uses (KV namespace, D1 database, ...). */
-export interface BindingDeclaration {
+/**
+ * A resource the workflow needs from its runtime: a KV namespace, a queue, a
+ * database, a service binding, … The `kind` is provider-scoped; providers own
+ * the catalog and validation. `provider` scopes the requirement when a
+ * workflow names a provider-only resource.
+ */
+export interface ResourceDeclaration {
   name: string
-  type: BindingKind
-  /** Provider resource id (e.g. KV namespace id). Required by some kinds at deploy. */
+  kind: string
+  /** Provider that owns this kind; absent for a provider-neutral resource. */
+  provider?: string
+  /** Provider resource id (e.g. a KV namespace id). Required by some kinds at deploy. */
   resourceId?: string
   /** Human-readable resource name, for display and provisioning flows. */
   resourceName?: string
 }
 
 /**
- * Everything beyond the node graph that a deployable workflow needs — trigger
- * code, npm dependencies, env-var declarations, and resource bindings. With
+ * Everything beyond the node graph that a deployable workflow needs — legacy
+ * trigger code, npm dependencies, env-var declarations and resources. With
  * this block present, a workflow is fully described by its IR: exports are
  * self-contained and nothing lives only in database columns.
  */
@@ -313,12 +290,16 @@ export interface ProjectFile {
 }
 
 export interface WorkflowRuntime {
-  /** Worker entry code (the annotated @fetch/@queue/@scheduled source). */
+  /**
+   * @deprecated v1 annotation entry source. Retained only so old versions can
+   * be converted; new projects use handler modules.
+   */
   triggerCode?: string
   /** npm dependencies bundled at deploy: name → semver range. */
   dependencies?: Record<string, string>
   env?: EnvDeclaration[]
-  bindings?: BindingDeclaration[]
+  /** Resources the workflow needs; provider-owned kinds. */
+  resources?: ResourceDeclaration[]
   /** Reusable modules the user (or an agent) wrote; snapshotted per version. */
   files?: ProjectFile[]
 }
@@ -328,7 +309,7 @@ export interface WorkflowRuntime {
  * `migrateArtifact` (migrate.ts) lazily upgrades them at load time — stored
  * rows are never rewritten in place.
  */
-export const IR_VERSION = 2 as const
+export const IR_VERSION = 3 as const
 
 export interface WorkflowIR {
   /**
@@ -343,7 +324,6 @@ export interface WorkflowIR {
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: NodeId
-  trigger?: TriggerConfig
   /** Absent on legacy documents — folded in from workflow columns at load. */
   runtime?: WorkflowRuntime
 }
@@ -356,7 +336,6 @@ export interface ScriptIR {
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: NodeId
-  trigger: HttpTriggerConfig
   /** Absent on legacy documents — folded in from workflow columns at load. */
   runtime?: WorkflowRuntime
 }

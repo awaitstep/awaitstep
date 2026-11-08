@@ -9,7 +9,7 @@ import {
   stepLabel,
   type GenerateMode,
   type GenerationContext,
-} from '@awaitstep/codegen'
+} from '../internal.js'
 import { collectChain } from './branch.js'
 import { enterLoop, exitLoop } from './break.js'
 import { groupChain } from '../coalesce.js'

@@ -190,7 +190,7 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({
 }: NodeProps<FlowNode>) {
   const node = data.irNode
   if (node.type !== 'sub_workflow') return null
-  const workflowName = String(node.data.workflowName ?? '')
+  const workflowLabel = String(node.data.workflowName ?? node.data.workflowId ?? '')
   const wait = node.data.waitForCompletion !== false
   return (
     <NodeBase
@@ -199,9 +199,9 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({
       accent="bg-node-sub/15 text-node-sub"
       selected={selected}
     >
-      {workflowName && (
+      {workflowLabel && (
         <span className="font-mono">
-          {workflowName}
+          {workflowLabel}
           {wait ? '' : ' (fire & forget)'}
         </span>
       )}
@@ -212,7 +212,7 @@ export const SubWorkflowNode = memo(function SubWorkflowNode({
 export const SubScriptNode = memo(function SubScriptNode({ data, selected }: NodeProps<FlowNode>) {
   const node = data.irNode
   if (node.type !== 'sub_script') return null
-  const workerName = String(node.data.workerName ?? '')
+  const scriptName = String(node.data.scriptId ?? node.data.workerName ?? '')
   const method = String(node.data.method ?? 'POST')
   return (
     <NodeBase
@@ -221,9 +221,9 @@ export const SubScriptNode = memo(function SubScriptNode({ data, selected }: Nod
       accent="bg-node-sub/15 text-node-sub"
       selected={selected}
     >
-      {workerName && (
+      {scriptName && (
         <span className="font-mono">
-          {method} → {workerName}
+          {method} → {scriptName}
         </span>
       )}
     </NodeBase>

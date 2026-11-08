@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateBreak, enterLoop, exitLoop } from '../../../codegen/generators/break.js'
+import { generateBreak, enterLoop, exitLoop } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
 
 const V = '1.0.0'

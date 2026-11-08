@@ -30,8 +30,10 @@ export function buildNodeRegistry(data: RegistryFile): AppNodeRegistry {
   }
 
   const templateResolver: TemplateResolver = {
-    getTemplate(nodeType: string, provider: string): string | undefined {
-      return templates.get(nodeType)?.get(provider)
+    getTemplate(nodeType: string, provider?: string): string | undefined {
+      const byProvider = templates.get(nodeType)
+      if (!byProvider) return undefined
+      return provider ? byProvider.get(provider) : byProvider.values().next().value
     },
   }
 
@@ -43,7 +45,7 @@ export function createMergedNodeRegistry(
   installedNodes: InstalledNode[],
 ): AppNodeRegistry {
   const registry = new NodeRegistry()
-  const mergedTemplates: Record<string, Record<string, string>> = {}
+  const mergedTemplates: Record<string, Record<string, string>> = Object.create(null)
 
   // Start with builtins
   if (base) {
@@ -65,8 +67,11 @@ export function createMergedNodeRegistry(
   }
 
   const templateResolver: TemplateResolver = {
-    getTemplate(nodeType: string, provider: string): string | undefined {
-      return mergedTemplates[nodeType]?.[provider]
+    getTemplate(nodeType: string, provider?: string): string | undefined {
+      if (!Object.hasOwn(mergedTemplates, nodeType)) return undefined
+      const byProvider = mergedTemplates[nodeType]!
+      if (!provider) return Object.values(byProvider)[0]
+      return Object.hasOwn(byProvider, provider) ? byProvider[provider] : undefined
     },
   }
 

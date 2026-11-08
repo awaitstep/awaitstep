@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { collectEnvRefNames } from '../../codegen/generate-helpers.js'
+import { collectEnvRefNames } from '@awaitstep/codegen'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
 /** Every file of the bundle as one text. */

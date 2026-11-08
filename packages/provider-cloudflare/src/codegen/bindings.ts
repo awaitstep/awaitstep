@@ -95,21 +95,21 @@ export function detectBindings(
   ir: WorkflowIR,
   envBindings?: Array<{ name: string; type: string }>,
 ): BindingRequirement[] {
-  // Declared bindings (ir.runtime.bindings) are authoritative: the workflow
+  // Declared resources (ir.runtime.resources) are authoritative: the workflow
   // says exactly what it uses and carries resource ids in the declaration —
   // no regex inference, no <NAME>_BINDING_ID env smuggling. The scan below
   // remains the legacy fallback for IRs that predate declarations.
-  const declared = ir.runtime?.bindings
+  const declared = ir.runtime?.resources
   if (declared && declared.length > 0) {
     const seen = new Set<string>()
     const out: BindingRequirement[] = []
     for (const d of declared) {
-      const key = `${d.type}:${d.name}`
+      const key = `${d.kind}:${d.name}`
       if (seen.has(key)) continue
       seen.add(key)
       out.push({
         name: d.name,
-        type: d.type as BindingType,
+        type: d.kind as BindingType,
         source: 'declaration',
         ...(d.resourceId !== undefined && { resourceId: d.resourceId }),
       })
@@ -193,21 +193,79 @@ const KNOWN_BINDING_TYPES = new Set<string>([
  * must be kinds this provider can provision. Declarations are new surface, so
  * strict validation here cannot reject any stored legacy workflow.
  */
+/** Cloudflare's workflow binding name for a class/export name. */
+function workflowBindingName(name: string): string {
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1_$2')
+    .toUpperCase()
+}
+
+/**
+ * Cloudflare derives a Workflow binding from the child's export name. A node
+ * with only an AwaitStep id cannot be wired, even though the neutral IR only
+ * requires the id.
+ */
+export function validateSubWorkflowBindings(ir: ArtifactIR): ValidationError[] {
+  const errors: ValidationError[] = []
+  const claimed = new Map<string, { nodeName: string; workflowName: string }>()
+
+  for (const node of ir.nodes) {
+    if (node.type !== 'sub_workflow') continue
+    const params = node.data.params as Record<string, unknown> | undefined
+    const cf =
+      params?.cf && typeof params.cf === 'object'
+        ? (params.cf as Record<string, unknown>)
+        : undefined
+    const explicit = typeof cf?.binding === 'string' ? cf.binding.trim() : ''
+    const workflowName = String(node.data.workflowName ?? '').trim()
+    const binding = explicit || (workflowName ? workflowBindingName(workflowName) : '')
+
+    if (!binding) {
+      errors.push({
+        path: `nodes.${node.id}.data.workflowName`,
+        message: `Call Workflow node "${node.name}" has no workflow selected — choose the deployed workflow (or set params.cf.binding)`,
+        nodeId: node.id,
+      })
+      continue
+    }
+
+    const prior = claimed.get(binding)
+    if (prior && prior.workflowName !== workflowName) {
+      errors.push({
+        path: `nodes.${node.id}.data.workflowName`,
+        message: `Call Workflow nodes "${prior.nodeName}" and "${node.name}" both map to the Env binding "${binding}" — rename one of the workflows`,
+        nodeId: node.id,
+      })
+      continue
+    }
+    claimed.set(binding, { nodeName: node.name, workflowName })
+  }
+
+  return errors
+}
+
 export function validateSubScriptBindings(ir: ArtifactIR): ValidationError[] {
   const errors: ValidationError[] = []
   const claimed = new Map<string, { nodeName: string; workerName: string }>()
 
   for (const node of ir.nodes) {
     if (node.type !== 'sub_script') continue
-    const workerName = String(node.data.workerName ?? '')
-    const binding = workerNameToBinding(workerName)
+    const params = node.data.params as Record<string, unknown> | undefined
+    const cf =
+      params?.cf && typeof params.cf === 'object'
+        ? (params.cf as Record<string, unknown>)
+        : undefined
+    const explicit = typeof cf?.binding === 'string' ? cf.binding.trim() : ''
+    const workerName = String(node.data.scriptId ?? node.data.workerName ?? '')
+    const binding = explicit || workerNameToBinding(workerName)
 
     if (!binding) {
       errors.push({
-        path: `nodes.${node.id}.data.workerName`,
+        path: `nodes.${node.id}.data.scriptId`,
         message: workerName.trim()
-          ? `Call Script node "${node.name}" cannot use worker "${workerName}": the name has no letters or digits to build an Env binding from`
-          : `Call Script node "${node.name}" has no worker selected`,
+          ? `Call Script node "${node.name}" cannot use script "${workerName}": the name has no letters or digits to build an Env binding from`
+          : `Call Script node "${node.name}" has no script selected`,
         nodeId: node.id,
       })
       continue
@@ -216,10 +274,10 @@ export function validateSubScriptBindings(ir: ArtifactIR): ValidationError[] {
     const prior = claimed.get(binding)
     if (prior && prior.workerName !== workerName) {
       // Both nodes would read `env.<binding>`, but only one service binding is
-      // emitted — one of them would silently call the other's worker.
+      // emitted — one of them would silently call the other's function.
       errors.push({
-        path: `nodes.${node.id}.data.workerName`,
-        message: `Call Script nodes "${prior.nodeName}" and "${node.name}" both map to the Env binding "${binding}" ("${prior.workerName}" and "${workerName}") — rename one of the workers`,
+        path: `nodes.${node.id}.data.scriptId`,
+        message: `Call Script nodes "${prior.nodeName}" and "${node.name}" both map to the Env binding "${binding}" ("${prior.workerName}" and "${workerName}") — rename one of the scripts`,
         nodeId: node.id,
       })
       continue
@@ -232,17 +290,17 @@ export function validateSubScriptBindings(ir: ArtifactIR): ValidationError[] {
 
 export function validateBindingDeclarations(ir: WorkflowIR): ValidationError[] {
   const errors: ValidationError[] = []
-  for (const declaration of ir.runtime?.bindings ?? []) {
+  for (const declaration of ir.runtime?.resources ?? []) {
     if (!BINDING_NAME_PATTERN.test(declaration.name)) {
       errors.push({
-        path: 'runtime.bindings',
-        message: `Binding name "${declaration.name}" must be a valid identifier (letters, digits, underscores; not starting with a digit)`,
+        path: 'runtime.resources',
+        message: `Resource name "${declaration.name}" must be a valid identifier (letters, digits, underscores; not starting with a digit)`,
       })
     }
-    if (!KNOWN_BINDING_TYPES.has(declaration.type)) {
+    if (!KNOWN_BINDING_TYPES.has(declaration.kind)) {
       errors.push({
-        path: 'runtime.bindings',
-        message: `Binding "${declaration.name}" has unknown type "${declaration.type}" — supported: ${[...KNOWN_BINDING_TYPES].join(', ')}`,
+        path: 'runtime.resources',
+        message: `Resource "${declaration.name}" has unknown kind "${declaration.kind}" — supported: ${[...KNOWN_BINDING_TYPES].join(', ')}`,
       })
     }
   }

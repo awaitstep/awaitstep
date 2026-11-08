@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { StepConfig } from '@awaitstep/ir'
-import { generateStepConfig } from '../../../codegen/generators/config.js'
+import { generateStepConfig } from '@awaitstep/codegen'
 
 describe('generateStepConfig', () => {
   it('returns null for undefined config', () => {

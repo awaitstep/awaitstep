@@ -52,13 +52,14 @@ export const WORKFLOW_RUNTIME_IMPORT = `import { defineWorkflow, durableStep } f
  */
 export const FUNCTION_RUNTIME_IMPORT = `import { createInlineHost, createWorkflowContext, durableStep } from "${CORE_RUNTIME_IMPORT}";`
 
+/** The same import when the graph calls another artifact and needs the platform adapter. */
+export const FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM = `import { createInlineHost, createWorkflowContext, durableStep, type PlatformHost } from "${CORE_RUNTIME_IMPORT}";`
+
 /**
  * The import the provider bootstrap needs: the context factory and the types
  * its host adapter is declared against.
  */
-export const BOOTSTRAP_RUNTIME_IMPORT =
-  `import { createWorkflowContext, type StepAttempt, type StepConfig, ` +
-  `type WaitForEventOptions, type WorkflowHost } from "${CORE_RUNTIME_IMPORT}";`
+export const BOOTSTRAP_RUNTIME_IMPORT = `import { createWorkflowContext } from "${CORE_RUNTIME_IMPORT}";`
 
 /** The single-file (legacy) emitter runs the body inline, so it needs both halves. */
 export const FUSED_RUNTIME_IMPORT =
@@ -66,12 +67,83 @@ export const FUSED_RUNTIME_IMPORT =
   `type WaitForEventOptions, type WorkflowHost } from "${CORE_RUNTIME_IMPORT}";`
 
 /**
- * The Cloudflare half of the primitive contract: a {@link WorkflowHost} over
- * the runtime's `WorkflowStep`. Emitted into the entry so the workflow module
- * itself stays free of `cloudflare:*` imports.
+ * The Cloudflare platform adapter. The stable name is
+ * `createAwaitstepPlatform`; the generated entry never names Cloudflare. It
+ * reads the node's provider-scoped `params.cf` (a binding name, retention) and
+ * otherwise derives the binding from the export/script name.
+ *
+ * `retention` is baked in because a child workflow create needs the same
+ * retention the rest of the bundle uses.
  */
-export const CLOUDFLARE_HOST_HELPER = `function createCloudflareHost(step: WorkflowStep): WorkflowHost {
+export function cloudflarePlatformHelper(retention: string): string {
+  return `function cfParams(options: { params?: Record<string, unknown> }): Record<string, unknown> {
+  const cf = options.params?.cf;
+  return cf && typeof cf === "object" ? (cf as Record<string, unknown>) : {};
+}
+
+function cfBinding(options: { exportName?: string; workflow?: string; script?: string; params?: Record<string, unknown> }): string {
+  const explicit = cfParams(options).binding;
+  if (typeof explicit === "string" && explicit.length > 0) return explicit;
+  const source = options.exportName ?? options.script ?? options.workflow ?? "";
+  const base = source.replace(/^awaitstep-/i, "") || source;
+  return base
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+}
+
+export function createAwaitstepPlatform(env: Env): PlatformHost {
+  const bindings = env as unknown as Record<string, any>;
   return {
+    async startWorkflow(options) {
+      const cf = cfParams(options);
+      const retention = cf.retention ?? ${retention};
+      const instance = await bindings[cfBinding(options)].create({
+        id: crypto.randomUUID(),
+        ...(options.input !== undefined && { params: options.input }),
+        ...(retention !== undefined && { retention }),
+      });
+      return { instanceId: instance.id };
+    },
+    async workflowStatus(instanceId, options) {
+      const status = await bindings[cfBinding(options)].get(instanceId).status();
+      if (status.status === "errored") {
+        throw new NonRetryableError(status.error?.message ?? "Sub-workflow failed");
+      }
+      if (status.status === "terminated") {
+        throw new NonRetryableError("Sub-workflow was terminated");
+      }
+      return status;
+    },
+    async callScript(options) {
+      const response = await bindings[cfBinding(options)].fetch(options.url ?? "https://invoke/", {
+        method: options.method ?? "POST",
+        ...(options.headers !== undefined && { headers: options.headers }),
+        ...(options.body !== undefined && {
+          body: typeof options.body === "string" ? options.body : JSON.stringify(options.body),
+        }),
+      });
+      const text = await response.text();
+      try {
+        return JSON.parse(text);
+      } catch {
+        return text;
+      }
+    },
+  };
+}`
+}
+
+/**
+ * The Cloudflare host: the platform adapter plus the durable-step primitives.
+ * It lives in the provider entry module, not in the portable workflow module.
+ */
+export function cloudflareHostHelper(): string {
+  return `function createAwaitstepHost(step: WorkflowStep, env: Env): WorkflowHost {
+  return {
+    ...createAwaitstepPlatform(env),
     do<T>(name: string, config: StepConfig | undefined, fn: (ctx: StepAttempt) => T | Promise<T>): Promise<T> {
       const attempt = (ctx: { attempt: number }) => Promise.resolve(fn({ attempt: ctx.attempt }));
       return config ? step.do(name, config, attempt) : step.do(name, attempt);
@@ -87,3 +159,24 @@ export const CLOUDFLARE_HOST_HELPER = `function createCloudflareHost(step: Workf
     },
   };
 }`
+}
+
+/** Bundle path of the generated provider platform adapter. */
+export const PLATFORM_MODULE_PATH = 'awaitstep/platform.ts'
+
+/**
+ * The platform module the provider entry imports. It is provider-generated and
+ * only present in a deploy bundle; the portable workflow never names it.
+ */
+export function platformModuleFile(retention: string, envModule = '#awaitstep/env'): GeneratedFile {
+  return {
+    path: PLATFORM_MODULE_PATH,
+    source: `// Generated from @awaitstep/provider-cloudflare — do not edit.
+import type { PlatformHost } from "${CORE_RUNTIME_IMPORT}";
+import type { Env } from "${envModule}";
+
+${cloudflarePlatformHelper(retention)}
+`,
+    role: 'module',
+  }
+}

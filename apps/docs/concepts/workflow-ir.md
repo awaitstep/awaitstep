@@ -19,7 +19,6 @@ interface WorkflowIR {
   nodes: WorkflowNode[]
   edges: Edge[]
   entryNodeId: NodeId // ID of the first node to execute
-  trigger?: TriggerConfig // Optional — how the workflow is invoked
 }
 
 interface WorkflowMetadata {
@@ -58,40 +57,9 @@ interface Edge {
 }
 ```
 
-## Triggers
+## Triggering
 
-Triggers describe how a workflow run is initiated. If omitted, the workflow can only be started manually.
-
-```typescript
-type TriggerConfig =
-  | { type: 'http'; path?: string; method?: 'GET' | 'POST' | 'PUT' | 'DELETE' }
-  | { type: 'cron'; expression: string } // UNIX cron expression
-  | { type: 'event'; eventType: string } // e.g. "user-signup"
-  | { type: 'manual' }
-```
-
-### HTTP Trigger Example
-
-```json
-{
-  "trigger": {
-    "type": "http",
-    "path": "/webhooks/stripe",
-    "method": "POST"
-  }
-}
-```
-
-### Cron Trigger Example
-
-```json
-{
-  "trigger": {
-    "type": "cron",
-    "expression": "0 9 * * 1"
-  }
-}
-```
+The IR has no trigger block. HTTP, queue and schedule starts are handler modules (`handlers/fetch.ts`, `handlers/queue/<queue>.ts`, `handlers/scheduled.ts`) plus provider deployment configuration (for Cloudflare, `cronTriggers` and `queueConsumers`). A script's `kind` is its HTTP entry; it has no trigger either.
 
 ## Scripts vs Workflows
 
@@ -100,9 +68,8 @@ The `kind` discriminator on the IR distinguishes two artifact kinds. Both share 
 ```typescript
 type ArtifactIR = WorkflowIR | ScriptIR
 
-interface ScriptIR extends Omit<WorkflowIR, 'kind' | 'trigger'> {
-  kind: 'script' // Required
-  trigger: HttpTriggerConfig // Required — scripts are HTTP-only
+interface ScriptIR extends Omit<WorkflowIR, 'kind'> {
+  kind: 'script' // Required; the kind is the HTTP entry
 }
 ```
 
@@ -141,7 +108,7 @@ const result = validateArtifact(ir) // dispatches on ir.kind
 
 ### Sub-workflow nodes in scripts
 
-In script mode, `sub_workflow` is always fire-and-forget — there is no durable runtime to poll the child instance to completion. The generator emits a single `const X = await env.X.create({ id, params })` returning the WorkflowInstance handle; callers can read `.id` or `.status()` from the response directly.
+In script mode, `sub_workflow` is always fire-and-forget — there is no durable runtime to poll the child instance to completion. The generator emits a single `const X = await flow.startWorkflow({ ... })` returning the provider instance handle; callers can read its id from the response directly.
 
 ## Expression System
 
@@ -198,7 +165,6 @@ The IR validator checks that:
     "updatedAt": "2025-01-01T00:00:00Z"
   },
   "entryNodeId": "fetch_user",
-  "trigger": { "type": "manual" },
   "nodes": [
     {
       "id": "fetch_user",

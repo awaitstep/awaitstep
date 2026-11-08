@@ -41,7 +41,7 @@ export function findEntryNodeId(
 
 type BuildState = Pick<
   StoreState,
-  'metadata' | 'nodes' | 'edges' | 'kind' | 'workflowEnvVars' | 'runtimeBindings'
+  'metadata' | 'nodes' | 'edges' | 'kind' | 'workflowEnvVars' | 'runtimeResources'
 >
 
 /**
@@ -62,7 +62,7 @@ function buildRuntime(state: BuildState): WorkflowRuntime | undefined {
   })
   const runtime: WorkflowRuntime = {
     ...(env.length > 0 && { env }),
-    ...(state.runtimeBindings.length > 0 && { bindings: state.runtimeBindings }),
+    ...(state.runtimeResources.length > 0 && { resources: state.runtimeResources }),
   }
   return Object.keys(runtime).length > 0 ? runtime : undefined
 }
@@ -87,10 +87,6 @@ export function buildIRFromState(state: BuildState) {
     entryNodeId: findEntryNodeId(irNodes, irEdges),
     ...(runtime && { runtime }),
   }
-  // Scripts require both `kind: 'script'` and a `trigger` per ScriptIRSchema;
-  // default to HTTP since v1 only supports HTTP-triggered scripts.
-  if (state.kind === 'script') {
-    return { ...base, kind: 'script' as const, trigger: { type: 'http' as const } }
-  }
+  if (state.kind === 'script') return { ...base, kind: 'script' as const }
   return base
 }

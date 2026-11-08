@@ -1,5 +1,5 @@
 import type { WorkflowIR } from '@awaitstep/ir'
-import { isExportedName } from '@awaitstep/codegen'
+import { isExportedName } from './internal.js'
 
 export interface OutputConsumption {
   /**

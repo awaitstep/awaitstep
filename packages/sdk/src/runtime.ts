@@ -62,12 +62,64 @@ export interface WaitForEventOptions {
 export type StepCallback<T> = (ctx: StepAttempt) => T | Promise<T>
 
 /**
+ * A call to another deployed workflow. `workflow` is the provider's workflow
+ * identity; `exportName` names the exported workflow where the provider has
+ * one. `params` carries provider-scoped settings under a provider key, for
+ * example `{ cf: { binding: "ONBOARDING" } }`; a provider reads only its own.
+ */
+export interface WorkflowCallOptions {
+  readonly workflow: string
+  readonly exportName?: string
+  readonly input?: unknown
+  readonly waitForCompletion?: boolean
+  readonly timeout?: Duration
+  readonly params?: Record<string, unknown>
+}
+
+/** A call to another deployed function/script. `params` is provider-scoped. */
+export interface ScriptCallOptions {
+  readonly script: string
+  readonly method?: string
+  readonly url?: string
+  readonly headers?: Record<string, string>
+  readonly body?: unknown
+  readonly params?: Record<string, unknown>
+}
+
+/** The handle of a started workflow instance. */
+export interface WorkflowInstance {
+  readonly instanceId: string
+}
+
+/** One provider status reading for a workflow instance. */
+export interface WorkflowStatus {
+  /** Provider status word (`running`, `complete`, `errored`, …). */
+  readonly status: string
+  readonly output?: unknown
+  readonly error?: { readonly message?: string }
+}
+
+/**
+ * The cross-artifact half of a provider adapter: start another workflow, read
+ * its status, or call another deployed function. A generated workflow reaches
+ * these through `flow`; a provider bootstrap implements them over its own
+ * primitives.
+ */
+export interface PlatformHost {
+  startWorkflow(options: WorkflowCallOptions): Promise<WorkflowInstance>
+  workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus>
+  callScript(options: ScriptCallOptions): Promise<unknown>
+}
+
+/**
  * The authoring context a workflow's `run` receives.
  *
  * - `env` and `event` are the run's environment and trigger event.
  * - `step` is the only durable unit: state written inside it is persisted and
  *   the callback is retried according to its config.
  * - `sleep`, `sleepUntil` and `waitForEvent` are durable waits, not timers.
+ * - `startWorkflow`, `workflowStatus` and `callScript` are provider calls to
+ *   other deployed artifacts; the provider adapter supplies them.
  */
 export interface WorkflowContext<Env = Record<string, unknown>, Payload = unknown> {
   readonly env: Env
@@ -77,6 +129,9 @@ export interface WorkflowContext<Env = Record<string, unknown>, Payload = unknow
   sleep(name: string, duration: Duration): Promise<void>
   sleepUntil(name: string, at: Date | number | string): Promise<void>
   waitForEvent<T = unknown>(name: string, options: WaitForEventOptions): Promise<T>
+  startWorkflow(options: WorkflowCallOptions): Promise<WorkflowInstance>
+  workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus>
+  callScript(options: ScriptCallOptions): Promise<unknown>
 }
 
 /** One generated workflow. */
@@ -95,7 +150,7 @@ export interface WorkflowDefinition<Env = Record<string, unknown>, Payload = unk
  * The provider half of the contract: what a runtime has to be able to do.
  * One small adapter implements it per provider.
  */
-export interface WorkflowHost {
+export interface WorkflowHost extends PlatformHost {
   do<T>(name: string, config: StepConfig | undefined, fn: StepCallback<T>): Promise<T>
   sleep(name: string, duration: Duration): Promise<void>
   sleepUntil(name: string, at: Date | number): Promise<void>
@@ -137,6 +192,9 @@ export function createWorkflowContext<Env, Payload>(
     sleep: (name, duration) => host.sleep(name, duration),
     sleepUntil: async (name, at) => host.sleepUntil(name, toDate(name, at)),
     waitForEvent: (name, options) => host.waitForEvent(name, options),
+    startWorkflow: (options) => host.startWorkflow(options),
+    workflowStatus: (instanceId, options) => host.workflowStatus(instanceId, options),
+    callScript: (options) => host.callScript(options),
   }
 }
 
@@ -200,8 +258,20 @@ export function durableStep<Env, Payload>(flow: WorkflowContext<Env, Payload>): 
  * validation keeps those nodes out of a function, this covers a hand-written
  * call.
  */
-export function createInlineHost(): WorkflowHost {
+export function createInlineHost(platform?: PlatformHost): WorkflowHost {
   return {
+    startWorkflow(options: WorkflowCallOptions): Promise<WorkflowInstance> {
+      if (platform) return platform.startWorkflow(options)
+      return Promise.reject(notInFunction('startWorkflow', options.workflow))
+    },
+    workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus> {
+      if (platform) return platform.workflowStatus(instanceId, options)
+      return Promise.reject(notInFunction('workflowStatus', options.workflow))
+    },
+    callScript(options: ScriptCallOptions): Promise<unknown> {
+      if (platform) return platform.callScript(options)
+      return Promise.reject(notInFunction('callScript', options.script))
+    },
     async do<T>(name: string, config: StepConfig | undefined, fn: StepCallback<T>): Promise<T> {
       // `limit` counts retries, as on Cloudflare: `limit + 1` attempts in all,
       // capped — a request is not the place for a long campaign.

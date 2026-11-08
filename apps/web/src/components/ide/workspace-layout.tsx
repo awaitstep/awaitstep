@@ -3,7 +3,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import type { Layout, LayoutChangedMeta } from 'react-resizable-panels'
 import { useShallow } from 'zustand/react/shallow'
 import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
-import { FUNCTION_MODULE_PATH } from '@awaitstep/provider-cloudflare/codegen'
+import { FUNCTION_MODULE_PATH } from '@awaitstep/codegen'
 import type { WorkflowFull, WorkflowSource } from '../../lib/api-client'
 import { reviewOrder } from '../../lib/ide/review'
 import { deriveDeploymentState } from '../../lib/hydrate-workflow'
@@ -12,6 +12,7 @@ import type { useWorkspaceActions } from '../../hooks/use-workspace-actions'
 import type { WorkspaceData } from '../../hooks/use-workspace-data'
 import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
 import { scheduleMissing } from '../../lib/ide/schedule-gap'
+import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
 import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
@@ -83,6 +84,10 @@ export function WorkspaceLayout({
   dialogs,
 }: WorkspaceLayoutProps) {
   const access = useEditorAccess()
+  const capabilities = useProviderCapabilities()
+  const scheduleConfigKey = capabilities.find(
+    (capability) => capability.scheduleConfigKey,
+  )?.scheduleConfigKey
   const {
     isHistorical,
     readOnlyVersion,
@@ -168,7 +173,7 @@ export function WorkspaceLayout({
   const scheduleGap = scheduleMissing({
     hasScheduledModule: files.has(HANDLER_SCHEDULED_PATH),
     deployConfig: fullData.workflow.deployConfig,
-    ir: fullData.version?.ir,
+    ...(scheduleConfigKey && { scheduleConfigKey }),
   })
 
   const view = (

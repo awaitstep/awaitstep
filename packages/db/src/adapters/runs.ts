@@ -2,7 +2,7 @@ import { eq, desc, and, or, lt, notInArray } from 'drizzle-orm'
 import type { ActiveRunForSync, WorkflowRun } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
-import { latestDeploymentSnapshot } from './deployment-snapshot.js'
+import { latestDeploymentServiceName, latestDeploymentSnapshot } from './deployment-snapshot.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -32,6 +32,7 @@ export class RunsAdapter {
       .select({
         run: runs,
         workflowName: workflows.name,
+        deployedName: latestDeploymentServiceName(deployments, runs),
         configSnapshot: latestDeploymentSnapshot(deployments, runs),
         place: {
           organizationId: p.organizationId,

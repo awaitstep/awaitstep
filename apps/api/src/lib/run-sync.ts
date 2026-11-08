@@ -29,9 +29,6 @@ export interface RunSyncOptions {
  * credentials decrypt through the connections adapter, once per connection.
  */
 export async function syncActiveRuns(db: DatabaseAdapter, options?: RunSyncOptions): Promise<void> {
-  const provider = options?.provider ?? resolveProvider()
-  if (!provider.getRunDetail) return
-
   const active = await db.listActiveRunsForSync(options?.limit)
   const byConnection = new Map<string, ActiveRunForSync[]>()
   for (const entry of active) {
@@ -45,6 +42,8 @@ export async function syncActiveRuns(db: DatabaseAdapter, options?: RunSyncOptio
     try {
       const connection = await db.getProviderConnectionById(connectionId)
       if (!connection) continue
+      const provider = options?.provider ?? resolveProvider(connection.provider)
+      if (!provider.getRunDetail) continue
       const credentials = JSON.parse(connection.credentials) as Record<string, string>
       await Promise.all(
         group.map((entry) =>
@@ -78,12 +77,12 @@ export async function syncRunById(
   workflowId: string,
   options?: RunSyncOptions,
 ): Promise<WorkflowRunDetail | null> {
-  const provider = options?.provider ?? resolveProvider()
-  if (!provider.getRunDetail) return null
   const entry = await db.getRunForSync(runId, workflowId)
   if (!entry?.run.connectionId || !entry.run.instanceId) return null
   const connection = await db.getProviderConnectionById(entry.run.connectionId)
   if (!connection) return null
+  const provider = options?.provider ?? resolveProvider(connection.provider)
+  if (!provider.getRunDetail) return null
   const credentials = JSON.parse(connection.credentials) as Record<string, string>
   return syncRun(db, provider, connection.provider, credentials, entry, options?.emails)
 }
@@ -100,7 +99,7 @@ async function syncRun(
   const config: ProviderConfig = {
     provider: providerName,
     credentials,
-    options: { workflowName },
+    options: { workflowName: entry.deployedName ?? workflowName },
   }
   const detail = await provider.getRunDetail!(run.instanceId, config)
 

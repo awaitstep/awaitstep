@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isJsonLiteralBody } from '../../../codegen/generators/http-body.js'
+import { isJsonLiteralBody } from '@awaitstep/codegen'
 
 describe('isJsonLiteralBody', () => {
   it.each([

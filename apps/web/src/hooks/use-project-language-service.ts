@@ -9,6 +9,11 @@ import {
   setProjectDiagnostics,
 } from '../lib/monaco/setup'
 import { useTypeAcquisition } from '../lib/monaco/use-type-acquisition'
+import {
+  clearProviderTypePack,
+  providerTypeHintFromSources,
+  setProviderTypePackFor,
+} from '../lib/monaco/provider-types'
 import { useDebouncedValue } from './use-debounced-value'
 
 /** How long typing must pause before project-wide work (lib sync, type acquisition) runs. */
@@ -58,6 +63,19 @@ export function useProjectLanguageService(
   const project = useMemo(() => ({ workflowId, files }), [workflowId, files])
   const settled = useDebouncedValue(project, WORKER_SYNC_DELAY_MS)
   const settledFiles = settled.workflowId === workflowId ? settled.files : NO_FILES
+
+  // A project that uses a provider's syntax gets that provider's runtime
+  // types; an untouched project stays on the neutral pack.
+  const providerType = useMemo(
+    () => providerTypeHintFromSources([...settledFiles.values()].map((file) => file.source)),
+    [settledFiles],
+  )
+  useEffect(() => {
+    if (!monaco) return
+    const owner = `project:${workflowId}`
+    setProviderTypePackFor(owner, monaco, providerType)
+    return () => clearProviderTypePack(owner, monaco)
+  }, [monaco, workflowId, providerType])
 
   // JSON declarations and, in a mixed project, each language's files for
   // the other service.

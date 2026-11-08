@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { workflowSource } from './bundle-source.js'
-import { buildOutputConsumption } from '../../codegen/consumption.js'
+import { buildOutputConsumption } from '@awaitstep/codegen'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
 function node(

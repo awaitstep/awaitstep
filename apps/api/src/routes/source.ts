@@ -50,6 +50,7 @@ source.get('/:workflowId/source', async (c) => {
     nodeRegistry: c.get('nodeRegistry'),
     versionId,
     mode: 'read',
+    presentation: true,
   })
   if (isPrepareError(prepared)) {
     // Whatever was found before the failure travels with it — a bundle that

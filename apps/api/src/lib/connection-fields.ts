@@ -1,17 +1,20 @@
 import type { ConnectionTokenStatus, DeployConnections } from '@awaitstep/ir'
 import type { DeployTargetRow } from '@awaitstep/db'
+import { resolveProvider } from './provider-resolver.js'
+import { hasProvider } from './provider-registry.js'
 import { parseCredentials } from './connection-token.js'
 
-/** A Cloudflare account id: 32 hex digits. Anything else is refused before it is stored or sent. */
-const CLOUDFLARE_ACCOUNT_ID = /^[a-f0-9]{32}$/i
-
-export function badAccountId(provider: string, credentials: Record<string, string>): boolean {
-  return provider === 'cloudflare' && !CLOUDFLARE_ACCOUNT_ID.test(credentials.accountId ?? '')
-}
-
-export const BAD_ACCOUNT_ID = {
-  error: 'An account ID is 32 letters and digits (0–9, a–f)',
-  field: 'accountId',
+/** A provider's own credential-shape refusal, if it has one. */
+export function credentialError(
+  provider: string,
+  credentials: Record<string, string>,
+): { field: string; error: string } | null {
+  if (!hasProvider(provider)) {
+    return { field: 'provider', error: `Unsupported provider: ${provider}` }
+  }
+  // A validator that throws is a provider bug, not permission to store the
+  // credentials: let it surface as a 500/failure instead of failing open.
+  return resolveProvider(provider).validateCredentials?.(credentials) ?? null
 }
 
 export function parseTokenStatus(value: string): ConnectionTokenStatus {
@@ -30,6 +33,8 @@ export function deployConnections(
   deployedWith: DeployConnections['deployedWith'],
 ): DeployConnections {
   return {
+    defaultId: rows.find((row) => row.chosen)?.id ?? null,
+    deployedWith,
     connections: rows.map((row) => ({
       id: row.id,
       provider: row.provider,
@@ -39,7 +44,5 @@ export function deployConnections(
       tokenStatus: parseTokenStatus(row.tokenStatus),
       tokenExpiresAt: row.tokenExpiresAt,
     })),
-    defaultId: rows.find((row) => row.chosen)?.id ?? null,
-    deployedWith,
   }
 }

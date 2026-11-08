@@ -12,7 +12,7 @@ import {
   type Connection,
 } from '@xyflow/react'
 import type {
-  BindingDeclaration,
+  ResourceDeclaration,
   WorkflowNode,
   NodeType,
   WorkflowMetadata,
@@ -168,7 +168,7 @@ const getInitialWorkflowState = () => ({
   workflowEnvVars: [],
   dependencies: {},
   triggerCode: '',
-  runtimeBindings: [],
+  runtimeResources: [],
   deployConfig: {},
   validationResult: null,
   simulationResult: null,
@@ -195,8 +195,8 @@ interface WorkflowState {
   workflowEnvVars: WorkflowEnvVar[]
   dependencies: Record<string, string>
   triggerCode: string
-  /** Resource binding declarations round-tripped through ir.runtime.bindings. */
-  runtimeBindings: BindingDeclaration[]
+  /** Provider-scoped resources round-tripped through ir.runtime.resources. */
+  runtimeResources: ResourceDeclaration[]
   deployConfig: DeployConfig
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
@@ -258,7 +258,7 @@ function createDefaultNode(
   siblings: readonly WorkflowNode[],
 ): WorkflowNode {
   const id = nanoid()
-  const base = { id, type, position, name: `New ${type}`, version: '1.0.0', provider: 'cloudflare' }
+  const base = { id, type, position, name: `New ${type}`, version: '1.0.0' }
 
   switch (type) {
     case 'step': {
@@ -312,6 +312,7 @@ function createDefaultNode(
           input: '',
           waitForCompletion: true,
           timeout: '5 minutes',
+          params: {},
         },
       }
     case 'sub_script':
@@ -319,12 +320,13 @@ function createDefaultNode(
         ...base,
         name: 'Call Script',
         data: {
-          workerName: '',
+          scriptId: '',
           method: 'POST',
           url: 'https://invoke/',
           headers: {},
           body: '',
           retryLimit: 3,
+          params: {},
         },
       }
     default: {
@@ -343,7 +345,7 @@ function createDefaultNode(
  */
 type UndoableState = Pick<
   WorkflowState,
-  'kind' | 'metadata' | 'nodes' | 'edges' | 'dependencies' | 'triggerCode' | 'runtimeBindings'
+  'kind' | 'metadata' | 'nodes' | 'edges' | 'dependencies' | 'triggerCode' | 'runtimeResources'
 >
 
 const UNDO_LIMIT = 100
@@ -393,7 +395,7 @@ function undoableSlice(state: WorkflowState): UndoableState {
     edges: state.edges.map(undoableEdge),
     dependencies: state.dependencies,
     triggerCode: state.triggerCode,
-    runtimeBindings: state.runtimeBindings,
+    runtimeResources: state.runtimeResources,
   }
 }
 
@@ -443,7 +445,7 @@ function undoableEquality(past: UndoableState, current: UndoableState): boolean 
     sameEdges(past.edges, current.edges) &&
     past.dependencies === current.dependencies &&
     past.triggerCode === current.triggerCode &&
-    past.runtimeBindings === current.runtimeBindings
+    past.runtimeResources === current.runtimeResources
   )
 }
 

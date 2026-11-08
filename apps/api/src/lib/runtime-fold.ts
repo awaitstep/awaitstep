@@ -7,7 +7,7 @@ import {
   projectHandlerModules,
   projectHandlersSource,
 } from '@awaitstep/ir'
-import { handlerModuleScaffold } from '@awaitstep/provider-cloudflare'
+import { handlerModuleScaffold } from '@awaitstep/codegen'
 import type { Workflow } from '@awaitstep/db'
 import { parseDependencies } from './dependencies.js'
 
@@ -164,7 +164,7 @@ export function foldProjectFiles(
  * Dual-write-era precedence is field-level, column over runtime: every
  * current writer updates the columns on save, so a non-empty column is at
  * least as fresh as the runtime copy — while pure-IR imports (empty columns)
- * keep their runtime values, and `runtime.bindings` (no column counterpart)
+ * keep their runtime values, and `runtime.resources` (no column counterpart)
  * always survives. The columns are dropped in the Phase 2 cleanup migration,
  * after which this fold becomes a no-op.
  */

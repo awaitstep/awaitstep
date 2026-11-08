@@ -3,7 +3,7 @@ import type {
   DeployConnections,
   LiveDeployment,
 } from '@awaitstep/ir'
-import type { RuntimeRequirement, SourceDiagnostic } from '@awaitstep/codegen'
+import type { ProviderCapabilities, RuntimeRequirement, SourceDiagnostic } from '@awaitstep/codegen'
 import type { ApiWorkflowPageSummary } from './dashboard-api'
 import type {
   GeneratedFile,
@@ -145,7 +145,7 @@ export interface WorkflowSummary {
   /** Null when it has none: the API stores an empty description as null. */
   description?: string | null
   /**
-   * `'workflow'` (default) or `'script'`. Scripts are fetch-only Workers —
+   * `'workflow'` (default) or `'script'`. Scripts are fetch-only entries —
    * no durable runtime, no instance lifecycle, no Runs tab.
    */
   kind?: 'workflow' | 'script'
@@ -235,9 +235,9 @@ export interface WorkflowFull {
 }
 
 /**
- * A version's deployable source as `GET /workflows/:id/source` returns it:
- * a freshly generated read-only view of what would deploy (no manifest for
- * scripts).
+ * A version's presentation source as `GET /workflows/:id/source` returns it:
+ * the provider-neutral module, env, runtime, step and project files. Provider
+ * entries and platform adapters are deploy artifacts and are not part of it.
  */
 /**
  * Something wrong with the workflow that did not stop the source being
@@ -317,7 +317,7 @@ export interface ProjectListing {
 
 /**
  * What the annotations declared that modules cannot carry — provider-shaped;
- * these are the Cloudflare keys the UI knows how to describe.
+ * these are the provider credential keys the UI knows how to describe.
  */
 export interface HandlerDeclarations {
   crons?: string[]
@@ -599,6 +599,11 @@ export function createApiClient(scope: () => ApiScope) {
       return request(withProject(`/test-sessions/${pathSegment(sessionId)}`), {
         method: 'DELETE',
       })
+    },
+
+    /** Provider capabilities: handler kinds, queue rules, schedules, binding kinds. */
+    getProviders(): Promise<{ providers: ProviderCapabilities[] }> {
+      return request('/providers')
     },
 
     getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {

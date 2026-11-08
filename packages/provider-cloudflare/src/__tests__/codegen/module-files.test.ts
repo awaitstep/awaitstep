@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkflowNode } from '@awaitstep/ir'
 import { GenerateInputError } from '@awaitstep/codegen'
-import { assertStepPathsFree, moduleImportLine, modulePathOf } from '../../codegen/module-files.js'
+import { assertStepPathsFree, moduleImportLine, modulePathOf } from '@awaitstep/codegen'
 
 function step(id: string, name = id, inline = false): WorkflowNode {
   return {
@@ -20,9 +20,9 @@ describe('moduleImportLine', () => {
     expect(
       moduleImportLine(
         { path: 'steps/s-1.ts', source: '', role: 'module', binding: '$Fetch_data' },
-        '../',
+        '#app/',
       ),
-    ).toBe('import $Fetch_data from "../steps/s-1.js";')
+    ).toBe('import $Fetch_data from "#app/steps/s-1.js";')
     expect(moduleImportLine({ path: 'nodes/Mailer.ts', source: '', role: 'module' }, './')).toBe(
       'import $Mailer from "./nodes/Mailer.js";',
     )

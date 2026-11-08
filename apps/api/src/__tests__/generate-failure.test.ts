@@ -84,8 +84,10 @@ describe('a generator that fails for its own reasons', () => {
     expect(body.ok).toBeUndefined()
   })
 
-  it('is a 500 from a read of the source too', async () => {
+  it('does not run provider generation for a presentation read', async () => {
+    // The provider generator still throws (the check above proves it), but
+    // the IDE/source view is the portable module and never invokes it.
     const res = await app.request(url('/api/workflows/wf-1/source'))
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(200)
   })
 })

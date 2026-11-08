@@ -39,7 +39,6 @@ const doc: ArtifactIR = {
   ],
   edges: [{ id: 'e1', source: 'fetch', target: 'mail' }],
   entryNodeId: 'fetch',
-  trigger: { type: 'http' },
 }
 
 function versionRow(ir: ArtifactIR, graphHash: string): SavedVersion {

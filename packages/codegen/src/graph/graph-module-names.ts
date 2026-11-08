@@ -1,4 +1,4 @@
-import { maskNonCode } from '@awaitstep/codegen'
+import { maskNonCode } from './internal.js'
 
 /**
  * Which of `names` a piece of generated or trigger code uses as code (not in

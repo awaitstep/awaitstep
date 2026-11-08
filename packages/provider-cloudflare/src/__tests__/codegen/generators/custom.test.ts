@@ -8,7 +8,7 @@ import {
   resolveCtxEnv,
   resolveCtxInputs,
   generateCustomNode as generateCustomNodeImpl,
-} from '../../../codegen/generators/custom.js'
+} from '@awaitstep/codegen'
 
 describe('extractTemplateBody', () => {
   it('extracts the function body from a template', () => {

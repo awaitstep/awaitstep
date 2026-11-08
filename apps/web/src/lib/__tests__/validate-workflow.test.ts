@@ -787,7 +787,7 @@ describe('validateWorkflowForPublish', () => {
       const result = validateWorkflowForPublish(makeMetadata(), [callNode('')], [])
       const issue = result.issues.find((i) => i.nodeId === 'call')
       expect(issue).toMatchObject({ severity: 'warning' })
-      expect(issue!.message).toContain('Select a worker to deploy')
+      expect(issue!.message).toContain('Select a script to deploy')
       // Saving an unfinished node has to keep working; deploy is what refuses.
       expect(result.canPublish).toBe(true)
     })

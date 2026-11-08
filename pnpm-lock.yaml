@@ -544,6 +544,9 @@ importers:
       '@awaitstep/ir':
         specifier: workspace:*
         version: link:../ir
+      '@awaitstep/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       sucrase:
         specifier: ^3.35.1
         version: 3.35.1

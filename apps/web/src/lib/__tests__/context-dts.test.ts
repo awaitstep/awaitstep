@@ -17,7 +17,8 @@ function build(overrides: Partial<Parameters<typeof buildWorkflowContextDts>[0]>
       { id: 'n2', name: 'Summarize', type: 'google-gemini' },
     ],
     envVarNames: ['API_KEY'],
-    bindings: [{ name: 'CACHE', type: 'kv', resourceName: 'main cache' }],
+    bindings: [{ name: 'CACHE', kind: 'kv', resourceName: 'main cache' }],
+    providerTypes: 'cloudflare',
     resolveDefinition: (type) => (type === 'google-gemini' ? geminiDef : undefined),
     ...overrides,
   })
@@ -58,7 +59,7 @@ describe('buildWorkflowContextDts', () => {
   })
 
   it('types unmodeled binding kinds as any so method calls never squiggle', () => {
-    const dts = build({ bindings: [{ name: 'AI', type: 'ai' }] })
+    const dts = build({ bindings: [{ name: 'AI', kind: 'ai' }] })
     expect(dts).toContain('AI: any;')
     expect(dts).not.toContain('AI: unknown;')
   })

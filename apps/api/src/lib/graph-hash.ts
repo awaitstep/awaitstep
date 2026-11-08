@@ -24,7 +24,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * The part of an IR document the canvas owns — nodes, edges, trigger, node
+ * The part of an IR document the canvas owns — nodes, edges, node
  * code and settings — without what other writers rewrite on every save:
  * `metadata` comes from the workflow row, the `irVersion` stamp from
  * migration, and `runtime.files` / `triggerCode` / `dependencies` are the

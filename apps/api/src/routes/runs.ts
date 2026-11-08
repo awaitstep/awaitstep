@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { CloudflareAPI, sanitizedWorkflowName } from '@awaitstep/provider-cloudflare'
+import { resolveProvider } from '../lib/provider-resolver.js'
 import type { AppEnv } from '../types.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { zValidator } from '../lib/validation.js'
@@ -124,17 +124,27 @@ runs.post('/:workflowId/runs/:runId/pause', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getWorkflowRunById(c.req.param('runId'))
-  if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
+  const entry = await db.getRunForSync(c.req.param('runId'), workflow.id)
+  const run = entry?.run
+  if (!run) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
   const connection = await db.getProviderConnectionById(run.connectionId)
   if (!connection || connection.organizationId !== organizationId)
     return c.json({ error: 'Connection not found' }, 404)
 
-  const pauseCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const cfApi = new CloudflareAPI(pauseCreds)
-  await cfApi.pauseInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
+  const adapter = resolveProvider(connection.provider)
+  if (!adapter.controlRun) {
+    return c.json({ error: `${adapter.name} does not support run control` }, 501)
+  }
+  await adapter.controlRun('pause', {
+    workflowName: entry?.deployedName ?? workflow.name,
+    instanceId: run.instanceId,
+    config: {
+      provider: connection.provider,
+      credentials: JSON.parse(connection.credentials) as Record<string, string>,
+    },
+  })
   await db.updateRun(run.id, { status: 'paused' })
   return c.json({ ok: true })
 })
@@ -145,17 +155,27 @@ runs.post('/:workflowId/runs/:runId/resume', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getWorkflowRunById(c.req.param('runId'))
-  if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
+  const entry = await db.getRunForSync(c.req.param('runId'), workflow.id)
+  const run = entry?.run
+  if (!run) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
   const connection = await db.getProviderConnectionById(run.connectionId)
   if (!connection || connection.organizationId !== organizationId)
     return c.json({ error: 'Connection not found' }, 404)
 
-  const resumeCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const cfApi = new CloudflareAPI(resumeCreds)
-  await cfApi.resumeInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
+  const adapter = resolveProvider(connection.provider)
+  if (!adapter.controlRun) {
+    return c.json({ error: `${adapter.name} does not support run control` }, 501)
+  }
+  await adapter.controlRun('resume', {
+    workflowName: entry?.deployedName ?? workflow.name,
+    instanceId: run.instanceId,
+    config: {
+      provider: connection.provider,
+      credentials: JSON.parse(connection.credentials) as Record<string, string>,
+    },
+  })
   await db.updateRun(run.id, { status: 'running' })
   return c.json({ ok: true })
 })
@@ -166,20 +186,27 @@ runs.post('/:workflowId/runs/:runId/terminate', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getWorkflowRunById(c.req.param('runId'))
-  if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
+  const entry = await db.getRunForSync(c.req.param('runId'), workflow.id)
+  const run = entry?.run
+  if (!run) return c.json({ error: 'Run not found' }, 404)
   if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
 
   const connection = await db.getProviderConnectionById(run.connectionId)
   if (!connection || connection.organizationId !== organizationId)
     return c.json({ error: 'Connection not found' }, 404)
 
-  const terminateCreds = JSON.parse(connection.credentials) as {
-    accountId: string
-    apiToken: string
+  const adapter = resolveProvider(connection.provider)
+  if (!adapter.controlRun) {
+    return c.json({ error: `${adapter.name} does not support run control` }, 501)
   }
-  const cfApi = new CloudflareAPI(terminateCreds)
-  await cfApi.terminateInstance(sanitizedWorkflowName(workflow.name), run.instanceId)
+  await adapter.controlRun('terminate', {
+    workflowName: entry?.deployedName ?? workflow.name,
+    instanceId: run.instanceId,
+    config: {
+      provider: connection.provider,
+      credentials: JSON.parse(connection.credentials) as Record<string, string>,
+    },
+  })
   await db.updateRun(run.id, { status: 'terminated' })
   return c.json({ ok: true })
 })

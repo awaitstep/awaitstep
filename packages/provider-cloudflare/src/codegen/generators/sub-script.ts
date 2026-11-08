@@ -1,6 +1,6 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
-import { generateStepConfig } from './config.js'
+import { generateStepConfig } from '@awaitstep/codegen'
 
 /**
  * Generates code for a `sub_script` node: an HTTP-shaped call to another
@@ -12,6 +12,11 @@ import { generateStepConfig } from './config.js'
  *
  * In workflow mode, the call is wrapped in `flow.step(...)` for durability +
  * retries. In script mode, it's a bare `await env.X.fetch(...).then(r => r.json())`.
+ */
+/**
+ * @deprecated The builtin set now uses the provider-neutral generator in
+ * `@awaitstep/codegen`; this Cloudflare-shaped emitter is kept for callers
+ * that build bundles directly and is not registered.
  */
 export function generateSubScript(
   node: WorkflowNode,
@@ -109,14 +114,25 @@ export function getSubScriptBindings(
   const bindings: SubScriptBinding[] = []
   for (const node of nodes) {
     if (node.type !== 'sub_script') continue
-    const workerName = String(node.data.workerName ?? '')
-    if (!workerName) continue
-    const binding = workerNameToBinding(workerName)
+    const params = recordOf(node.data.params)?.['cf']
+    const explicit =
+      params && typeof params === 'object' ? (params as Record<string, unknown>).binding : undefined
+    const service = String(node.data.scriptId ?? node.data.workerName ?? '')
+    const binding =
+      typeof explicit === 'string' && explicit.trim().length > 0
+        ? explicit.trim()
+        : workerNameToBinding(service)
     if (!binding || seen.has(binding)) continue
     seen.add(binding)
-    bindings.push({ binding, service: workerName })
+    bindings.push({ binding, service })
   }
   return bindings
+}
+
+function recordOf(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
 }
 
 function toJsLiteral(value: unknown): string {

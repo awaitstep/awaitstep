@@ -111,6 +111,40 @@ describe('prepareDeploy', () => {
     expect(prepared.bundle).toBe(generated[0]!.bundle)
   })
 
+  it('carries a v2 workflow cron into the deployment config', async () => {
+    const legacy = {
+      ...validIR,
+      trigger: { type: 'cron', expression: '0 * * * *' },
+      runtime: {
+        files: [
+          {
+            path: 'handlers/scheduled.ts',
+            source: 'export default async function handler() { return undefined }\n',
+          },
+        ],
+      },
+    }
+    const v2 = await mockDb.createVersion({
+      id: 'v-2',
+      workflowId: 'wf-1',
+      ir: JSON.stringify(legacy),
+    })
+    await mockDb.updateWorkflow('wf-1', { currentVersionId: v2.id })
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+    })
+    expect(isDeployError(prepared)).toBe(false)
+    if (isDeployError(prepared)) return
+    expect(prepared.resolvedDeploymentConfig).toMatchObject({
+      cronTriggers: ['0 * * * *'],
+    })
+  })
+
   it('bakes the resolved deployment config into that one bundle', async () => {
     // Retention is the part of the deployment config that generation reads —
     // it becomes a const in the entry, so the bundle either carries the

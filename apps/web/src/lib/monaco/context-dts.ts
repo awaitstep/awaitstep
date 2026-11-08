@@ -6,14 +6,16 @@ import {
   propertyKey,
   stripExportPrefix,
 } from '@awaitstep/codegen'
-import type { BindingDeclaration, NodeDefinition } from '@awaitstep/ir'
+import type { NodeDefinition, ResourceDeclaration } from '@awaitstep/ir'
 
 export interface WorkflowTypeContextInput {
   kind: 'workflow' | 'script'
   nodes: { id: string; name: string; type: string }[]
   /** Declared env var names (values never reach the browser). */
   envVarNames: string[]
-  bindings: BindingDeclaration[]
+  bindings: ResourceDeclaration[]
+  /** Set when the editor has loaded that provider's type pack. */
+  providerTypes?: 'cloudflare' | null
   resolveDefinition: (nodeType: string) => NodeDefinition | undefined
 }
 
@@ -31,19 +33,22 @@ function comment(text: string): string {
 }
 
 /**
- * The workflow-specific ambient d.ts layered over the static Cloudflare
- * runtime types: a typed Env from declared env vars + bindings, one typed
- * const per node output (from the node definition's outputSchema, `any`
- * when a node declares none), and for scripts the runGraph signature with
- * its EXPORT_ outputs. Replaces v1's untyped `declare const env` and gives
- * node code editors hover/completions for upstream results.
+ * The workflow-specific ambient d.ts: a typed Env from declared env vars and
+ * resources, one typed const per node output (from the node definition's
+ * outputSchema, `any` when a node declares none), and for scripts the
+ * runGraph signature with its EXPORT_ outputs. Provider binding interfaces
+ * are only named when that provider's type pack is loaded; otherwise every
+ * resource is `any`, which keeps a neutral project callable.
  */
 export function buildWorkflowContextDts(input: WorkflowTypeContextInput): string {
   const lines: string[] = ['// Generated per-workflow ambient types — do not edit.', '']
 
+  const providerTypes = input.providerTypes ?? null
   lines.push('declare interface Env {')
-  lines.push('  /** The workflow binding generated for this canvas. */')
-  lines.push('  WORKFLOW: Workflow;')
+  if (providerTypes === 'cloudflare') {
+    lines.push('  /** The Cloudflare workflow binding generated for this canvas. */')
+    lines.push('  WORKFLOW: Workflow;')
+  }
   for (const name of input.envVarNames) {
     lines.push(`  ${propertyKey(name)}: string;`)
   }
@@ -51,7 +56,8 @@ export function buildWorkflowContextDts(input: WorkflowTypeContextInput): string
     // `any`, not `unknown`: kinds without a modeled interface (ai, vectorize,
     // hyperdrive, ...) must stay callable — with validation on, `unknown`
     // turns every method call into a TS2339 squiggle.
-    const type = BINDING_TYPE_BY_KIND[binding.type] ?? 'any'
+    const type =
+      providerTypes === 'cloudflare' ? (BINDING_TYPE_BY_KIND[binding.kind] ?? 'any') : 'any'
     if (binding.resourceName) lines.push(`  ${comment(binding.resourceName)}`)
     lines.push(`  ${propertyKey(binding.name)}: ${type};`)
   }
@@ -97,7 +103,7 @@ export function buildWorkflowContextDts(input: WorkflowTypeContextInput): string
 
 const WORKFLOW_CONTEXT_LIB_URI = 'file:///awaitstep/workflow-context.d.ts'
 
-let lastDts: string | undefined
+let last: { monaco: Monaco; dts: string } | undefined
 
 /**
  * Installs (or replaces) the per-workflow ambient lib. Content-compared so
@@ -105,9 +111,14 @@ let lastDts: string | undefined
  * unrelated fields) never churn the TypeScript worker.
  */
 export function setWorkflowTypeContext(monaco: Monaco, dts: string): void {
-  if (dts === lastDts) return
-  lastDts = dts
+  if (last && last.monaco === monaco && last.dts === dts) return
+  last = { monaco, dts }
   const ts = monaco.languages.typescript
   ts.typescriptDefaults.addExtraLib(dts, WORKFLOW_CONTEXT_LIB_URI)
   ts.javascriptDefaults.addExtraLib(dts, WORKFLOW_CONTEXT_LIB_URI)
+}
+
+/** Test/workspace reset: the next context is written even if it is identical. */
+export function resetWorkflowTypeContext(): void {
+  last = undefined
 }

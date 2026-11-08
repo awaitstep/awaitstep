@@ -6,6 +6,10 @@ title: Scheduled Report
 
 Fetches metrics from an API, generates a formatted report, and emails it to a distribution list. Trigger it via the API or from an external scheduler (e.g. a cron job that calls the AwaitStep API).
 
+::: warning Cloudflare Only
+The generated code in this template is the Cloudflare adapter's output. The workflow module it wraps is provider-neutral.
+:::
+
 ## Workflow structure
 
 ```mermaid

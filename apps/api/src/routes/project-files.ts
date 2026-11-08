@@ -221,6 +221,19 @@ projectFiles.put('/:workflowId/files/:path{.+}', zValidator('json', putFileSchem
  * stored handlers.ts, or the legacy trigger-code setting when the project
  * has no such file — the same precedence the generators apply.
  */
+/** The workflow's chosen deploy provider, else the only provider this build knows. */
+async function conversionAdapter(
+  db: DatabaseAdapter,
+  workflow: Workflow,
+): Promise<WorkflowProvider> {
+  // The annotation model predates connections; a project with none still
+  // converts through the build's default provider.
+  if (typeof db.listDeployTargets !== 'function') return resolveProvider()
+  const targets = await db.listDeployTargets(workflow.projectId, workflow.workspaceId ?? null)
+  const chosen = targets.find((target) => target.chosen) ?? targets[0]
+  return resolveProvider(chosen?.provider)
+}
+
 async function planConversion(
   db: DatabaseAdapter,
   adapter: WorkflowProvider,
@@ -285,7 +298,7 @@ projectFiles.get('/:workflowId/project/convert-handlers', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  const plan = await planConversion(db, resolveProvider(), workflow)
+  const plan = await planConversion(db, await conversionAdapter(db, workflow), workflow)
   if ('error' in plan) return c.json({ error: plan.error }, plan.status)
   return c.json({
     source: plan.origin,
@@ -313,7 +326,7 @@ projectFiles.post('/:workflowId/project/convert-handlers', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  const adapter = resolveProvider()
+  const adapter = await conversionAdapter(db, workflow)
 
   // One read of the version row: the legacy trigger-code lookup inside the
   // plan is what needs it, and handing the promise over keeps it in flight

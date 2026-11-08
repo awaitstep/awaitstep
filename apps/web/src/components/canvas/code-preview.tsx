@@ -18,8 +18,9 @@ interface CodePreviewProps {
  * The generated graph module, read-only, in a panel beside the canvas.
  *
  * It is generated from the graph on screen, so it moves with the canvas rather
- * than with the last save. The entry is where the graph runs: imports for every
- * step module, the `runGraph` body and the `Env` it needs.
+ * than with the last save. It is always the provider-neutral
+ * `awaitstep/workflow.ts` / `awaitstep/function.ts`; deploy entries and
+ * platform adapters are not shown here.
  *
  * The editor gets its own model, not the code workspace's project model: this
  * is a detached view of one generated file, and the workspace's language

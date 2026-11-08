@@ -102,7 +102,7 @@ export interface RunTimeline {
   rows: TimelineRow[]
   /** Width of the whole run window the bars are laid out against. */
   spanMs: number
-  /** Every durable step Cloudflare bills for (do, sleep, waitForEvent, rollback). */
+  /** Every durable step the provider bills for (do, sleep, waitForEvent, rollback). */
   billableSteps: number
 }
 

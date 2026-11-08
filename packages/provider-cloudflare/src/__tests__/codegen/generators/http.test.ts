@@ -2,7 +2,7 @@ import type { ScriptIR } from '@awaitstep/ir'
 import { describe, it, expect } from 'vitest'
 import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { generateHttp as generateHttpImpl } from '../../../codegen/generators/http.js'
+import { generateHttp as generateHttpImpl } from '@awaitstep/codegen'
 import { generateWorkflowBundle, generateScriptBundle } from '../../../codegen/generate.js'
 
 /** Every file of the bundle as one text. */
@@ -32,6 +32,27 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
     ...overrides,
   }
 }
+
+describe('generateHttp injection safety', () => {
+  it('emits header/query keys and the method as JSON literals', () => {
+    const key = 'x": (globalThis as any).pwned = true, "y'
+    const method = 'GET", (globalThis as any).pwned = true, "x'
+    const code = generateHttp(
+      makeNode({
+        data: {
+          url: 'https://api.example.com/data',
+          method,
+          headers: { [key]: 'v' },
+          queryParams: { [key]: 'q' },
+        },
+      }),
+    )
+    expect(code).toContain(JSON.stringify(key))
+    expect(code).toContain(JSON.stringify(method))
+    expect(code).not.toContain(`"${key}":`)
+    expect(code).not.toContain(`method: "${method}"`)
+  })
+})
 
 describe('generateHttp', () => {
   it('generates a basic GET request without options', () => {

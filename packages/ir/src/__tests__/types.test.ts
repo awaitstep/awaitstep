@@ -67,7 +67,7 @@ describe('type guards', () => {
 })
 
 describe('IR_VERSION', () => {
-  it('is 2', () => {
-    expect(IR_VERSION).toBe(2)
+  it('is 3', () => {
+    expect(IR_VERSION).toBe(3)
   })
 })

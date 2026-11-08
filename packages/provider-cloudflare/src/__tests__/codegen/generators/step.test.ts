@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { testCtx as ctx } from '../test-context.js'
 import type { WorkflowNode } from '@awaitstep/ir'
-import { generateStep as generateStepImpl } from '../../../codegen/generators/step.js'
+import { generateStep as generateStepImpl } from '@awaitstep/codegen'
 
 const generateStep = (node: Parameters<typeof generateStepImpl>[0]) => generateStepImpl(node, ctx)
 

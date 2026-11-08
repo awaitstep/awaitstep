@@ -9,7 +9,7 @@ import {
   stepReturnsValue,
   topologicalSort,
   type ArmBlock,
-} from '@awaitstep/codegen'
+} from './internal.js'
 
 /** Kinds that emit no value of their own, whatever their data says. */
 const VALUELESS_TYPES = new Set(['branch', 'try_catch', 'sleep', 'sleep_until', 'break'])

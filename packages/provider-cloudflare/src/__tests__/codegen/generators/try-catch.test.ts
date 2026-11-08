@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { generateTryCatch } from '../../../codegen/generators/try-catch.js'
+import { generateTryCatch } from '@awaitstep/codegen'
 import { recurseWithTestCtx as generateNodeCode, testCtx as ctx } from '../test-context.js'
 
 const V = '1.0.0'

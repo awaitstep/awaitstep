@@ -1,5 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { childContext, type GenerationContext } from '@awaitstep/codegen'
+import { childContext, type GenerationContext } from './internal.js'
 import { computeInDegree } from './generators/branch.js'
 import { generateStepGroup, resolveStepConfig } from './generators/step.js'
 

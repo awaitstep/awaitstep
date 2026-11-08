@@ -87,7 +87,7 @@ describe('a strict prepare', () => {
     expect(isPrepareError(prepared) && prepared.error).toBe('IR validation failed')
     expect(isPrepareError(prepared) && prepared.status).toBe(400)
     const details = isPrepareError(prepared) ? (prepared.details as { message: string }[]) : []
-    expect(details.some((d) => d.message.includes('no worker selected'))).toBe(true)
+    expect(details.some((d) => d.message.includes('no script selected'))).toBe(true)
   })
 
   it('names the file of code that will not compile', async () => {

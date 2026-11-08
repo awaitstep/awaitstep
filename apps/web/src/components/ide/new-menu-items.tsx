@@ -1,5 +1,6 @@
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { handlerMenuItems, rootConfigMenuItems, type NewMenuItem } from '../../lib/ide/project'
+import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 import { DropdownMenuItem, DropdownMenuSeparator } from '../ui/dropdown-menu'
 
 export interface NewMenuItemsProps {
@@ -20,7 +21,9 @@ export function NewMenuItems({
   onNewItem,
 }: NewMenuItemsProps) {
   const disabled = limitReason !== null
-  const handlers = handlerMenuItems(existing)
+  const capabilities = useProviderCapabilities()
+  const handlerKinds = [...new Set(capabilities.flatMap((c) => c.handlerKinds))]
+  const handlers = handlerMenuItems(existing, handlerKinds.length > 0 ? handlerKinds : ['fetch'])
   const configs = rootConfigMenuItems(existing)
   return (
     <>

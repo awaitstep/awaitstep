@@ -51,8 +51,8 @@ export type {
   WranglerDeployResult,
 } from './deploy/index.js'
 export { createBuiltinGeneratorRegistry, builtinGenerators } from './codegen/generator-registry.js'
-export { appliedStepSettings } from './codegen/generators/step-settings.js'
-export type { AppliedStepSettings } from './codegen/generators/step-settings.js'
+export { appliedStepSettings } from '@awaitstep/codegen'
+export type { AppliedStepSettings } from '@awaitstep/codegen'
 export { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 export { generateWranglerConfig, WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 export type { WranglerWorkflowConfig } from './wrangler-config.js'

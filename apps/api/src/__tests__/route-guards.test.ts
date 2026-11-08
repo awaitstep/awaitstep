@@ -46,7 +46,7 @@ function sessionOnly(method: string, path: string): boolean {
   if (/^\/api\/(notifications|releases)/.test(path)) return true
   // Your account: the person's own rows (B10).
   if (/^\/api\/account(\/|$)/.test(path)) return true
-  if (path === '/api/scope' || path === '/api/failing') return true
+  if (path === '/api/scope' || path === '/api/failing' || path === '/api/providers') return true
   // The org list, and an org's logo: set from the dashboard only.
   if (/^\/api\/orgs(\/|$)/.test(path)) return true
   if (/^\/api\/workspaces\/:id\/access-request/.test(path)) return true

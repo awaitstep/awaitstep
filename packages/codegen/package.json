@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@awaitstep/ir": "workspace:*",
+    "@awaitstep/sdk": "workspace:*",
     "sucrase": "^3.35.1"
   }
 }

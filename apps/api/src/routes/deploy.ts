@@ -4,7 +4,6 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { workerName } from '@awaitstep/provider-cloudflare'
 import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/codegen'
 import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
@@ -367,7 +366,7 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
     return c.json({ error: 'This workflow isn’t deployed with that connection' }, 404)
   }
 
-  const adapter = resolveProvider(undefined, {
+  const adapter = resolveProvider(connection.provider, {
     templateResolver: c.get('nodeRegistry')?.templateResolver,
   })
   // Stored deployment config carries instance retention for created runs.
@@ -384,7 +383,7 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
   }
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
-    provider: 'cloudflare',
+    provider: connection.provider,
     credentials: triggerCreds,
     options: {
       workflowName: workflow.name,
@@ -428,13 +427,13 @@ deploy.post(
 
     // Rows written after this (a deploy finishing meanwhile) describe a live worker.
     const startedAt = new Date().toISOString()
-    const name = workerName(workflow.id)
     const creds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-    const adapter = resolveProvider(undefined, {
+    const adapter = resolveProvider(connection.provider, {
       templateResolver: c.get('nodeRegistry')?.templateResolver,
     })
+    const name = adapter.deploymentName?.(workflow.id) ?? workflow.id
     const result = await adapter.destroy(name, {
-      provider: 'cloudflare',
+      provider: connection.provider,
       credentials: creds,
     })
 

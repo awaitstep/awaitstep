@@ -17,11 +17,8 @@ import {
   Plus,
 } from 'lucide-react'
 import { HANDLER_QUEUE_DIR, PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
-import {
-  deriveQueueName,
-  handlerModuleScaffold,
-  toCFQueueName,
-} from '@awaitstep/provider-cloudflare/codegen'
+import { handlerModuleScaffold } from '@awaitstep/codegen'
+import { deriveQueueName, toCFQueueName } from '@awaitstep/provider-cloudflare/codegen'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import {
   ApiError,
@@ -33,10 +30,11 @@ import {
   detectBindingsFromNodes,
   type ClientBinding,
   type ClientBindingType,
-} from '../../lib/detect-bindings-client'
+} from '@awaitstep/provider-cloudflare/codegen'
 import { cn } from '../../lib/utils'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { useApi, useQueries } from '../../contexts/api-client-context'
+import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 
 const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Database }> = {
   kv: { label: 'KV', icon: HardDrive },
@@ -105,6 +103,10 @@ async function convertIfLegacy(api: ApiClient, workflowId: string) {
 
 export function BindingsPanel() {
   const api = useApi()
+  const capabilities = useProviderCapabilities()
+  const supportsQueue = capabilities.some((capability) => capability.handlerKinds.includes('queue'))
+  const providerLabel =
+    capabilities.length === 1 ? capabilities[0]?.label : capabilities.map((c) => c.label).join(', ')
   const queries = useQueries()
   const [expanded, setExpanded] = useState(false)
   const nodes = useWorkflowStore((s) => s.nodes)
@@ -122,10 +124,16 @@ export function BindingsPanel() {
   })
   const consumedQueues = full?.handlers.consumedQueues ?? []
 
+  const supportedKinds = useMemo(
+    () => new Set(capabilities.flatMap((capability) => capability.bindingKinds)),
+    [capabilities],
+  )
   const bindings: ClientBinding[] = useMemo(() => {
-    if (nodes.length === 0) return []
-    return detectBindingsFromNodes(nodes as Parameters<typeof detectBindingsFromNodes>[0])
-  }, [nodes])
+    if (nodes.length === 0 || supportedKinds.size === 0) return []
+    return detectBindingsFromNodes(nodes as Parameters<typeof detectBindingsFromNodes>[0]).filter(
+      (binding) => supportedKinds.has(binding.type),
+    )
+  }, [nodes, supportedKinds])
 
   if (bindings.length === 0) return null
 
@@ -228,12 +236,23 @@ export function BindingsPanel() {
           <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
             {bindings.length}
           </span>
+          {providerLabel && (
+            <span
+              className="rounded bg-status-warning/10 px-1 py-px text-[10px] font-medium text-status-warning"
+              title={`These resources are supplied by ${providerLabel}`}
+            >
+              {providerLabel} only
+            </span>
+          )}
         </button>
 
         {expanded && (
           <div className="border-t border-border/50 px-3 py-2 space-y-1">
             {bindings.map((binding) => {
               const meta = BINDING_META[binding.type]
+              const label =
+                capabilities.find((capability) => capability.bindingKinds.includes(binding.type))
+                  ?.bindingKindLabels[binding.type] ?? meta.label
               const Icon = meta.icon
               const isQueue = binding.type === 'queue'
               const queue = isQueue ? queueOf(binding) : null
@@ -252,10 +271,11 @@ export function BindingsPanel() {
                     )}
                   >
                     <Icon className="h-3 w-3" />
-                    {meta.label}
+                    {label}
                   </span>
                   <span className="font-mono text-foreground/70">{binding.name}</span>
                   {isQueue &&
+                    supportsQueue &&
                     (alreadyConsumed ? (
                       <span className="text-muted-foreground/60 text-xs italic">consumed</span>
                     ) : (

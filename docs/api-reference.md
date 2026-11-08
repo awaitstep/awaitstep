@@ -105,7 +105,7 @@ Get a single workflow by ID.
 
 Get a workflow with its current version, all version summaries, and `liveDeployments`: what is live on each account, newest first (the same entries as `deployedWith` below). `handlers` reports the project's handler modules (`modules`, `consumedQueues`); while a project still has the legacy `handlers.ts` file, `workflow.triggerCode` carries its contents, and once it uses modules `triggerCode` is `null` (see [Project files](#project-files)).
 
-`version` is the highest-numbered version (or the one `?version=` names) and `graphHash` is its save precondition: send it back as `baseGraphHash` on `POST /versions` so a save made from this load is refused if the workflow changed meanwhile. `graphHash` is `null` while the workflow has no version. It covers the graph only — nodes, edges, trigger, node code and settings, `runtime.env`/`bindings` — not `metadata` or the project-file snapshot, so saving project files does not move it.
+`version` is the highest-numbered version (or the one `?version=` names) and `graphHash` is its save precondition: send it back as `baseGraphHash` on `POST /versions` so a save made from this load is refused if the workflow changed meanwhile. `graphHash` is `null` while the workflow has no version. It covers the graph only — nodes, edges, node code and settings, `runtime.env`/`resources` — not `metadata` or the project-file snapshot, so saving project files does not move it.
 
 **Permission:** `workflows:read`
 
@@ -254,7 +254,7 @@ Scripts run inside an `async fetch(request, env)` handler with no durable runtim
 
 | Constraint                 | Detail                                                                                                                                                                                                          |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Trigger must be HTTP       | Script IR requires `trigger: { type: "http" }`. Cron, event, and manual triggers are not allowed — invocation is always an HTTP request to the deployed Worker URL.                                             |
+| Trigger must be HTTP       | A script's `kind` is its HTTP entry; invocation is always an HTTP request to the deployed Worker URL.                                                                                                           |
 | No durable-runtime nodes   | `sleep`, `sleep_until`, and `wait_for_event` are rejected at validation time. They require a durable instance the script doesn't have. Use a workflow if you need any of these.                                 |
 | No `WORKFLOW` self-binding | The generated Worker has no Workflow binding to itself (it isn't a Workflow). Sub-workflow bindings (calls into other deployed workflows) and resource bindings (KV/D1/R2/etc.) are still detected and emitted. |
 | No instance lifecycle      | No Runs, no pause/resume/terminate. `POST /workflows/:id/trigger` returns 400 for scripts. Each HTTP request is a fresh invocation.                                                                             |
@@ -1431,11 +1431,10 @@ the deploy reads from them:
 | --------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `handlers/fetch.ts`         | `({ request, env, execution }: FetchContext<Env>) => Promise<Response>`             | the HTTP entry (seeded on the first save; the inline default otherwise) |
 | `handlers/queue/<queue>.ts` | `({ batch, env, execution }: QueueContext<Env>) => Promise<void>`                   | a consumer of `<queue>` (lowercase letters, digits, `-`)                |
-| `handlers/scheduled.ts`     | `({ cron, scheduledTime, env, execution }: ScheduledContext<Env>) => Promise<void>` | the handler for every cron trigger of the workflow                      |
+| `handlers/scheduled.ts`     | `({ cron, scheduledTime, env, execution }: ScheduledContext<Env>) => Promise<void>` | the handler for every cron trigger in the deployment config             |
 
 The contract is AwaitStep's, so a handler deploys unchanged to any provider: every context carries `execution`, whose `waitUntil(promise)` keeps work alive after the handler returns; a queue batch is `{ queue, messages: [{ id, body }] }` and a handler that throws has the batch retried; a schedule is `{ cron, scheduledTime }`. Converting an annotated `handlers.ts` keeps the names its bodies were written against: an `@fetch` declared as `(req, env, context)` gets `const req = request; const context = execution;`, a body using `ctx` gets `const ctx = execution;`, a scheduled body using `controller` gets `const controller = { cron, scheduledTime };` — each only when used. The generated `worker.ts` imports whichever modules exist and adapts what the Cloudflare runtime hands it into these contexts. A handler imports what the graph exports from the generated graph module — `runGraph` from `#awaitstep/function` in a function; `AWAITSTEP_RETENTION`, `startWorkflow` and `workflowStatus` from `#awaitstep/workflow` in a workflow — which imports nothing of the project, so no import cycle forms. `worker.ts` exports nothing but its handlers; a file still importing `#app/worker` no longer resolves and must import from the graph module. Nothing is parsed out of
-code: the queue binding, cron expressions (the workflow's cron trigger
-plus `deploymentConfig.cronTriggers`) and per-queue settings
+code: the queue binding, cron expressions (`deploymentConfig.cronTriggers`) and per-queue settings
 (`deploymentConfig.queueConsumers`) stay declared. A `handlers/scheduled.ts`
 without a schedule, or schedules without the module, fail the deploy with
 a message naming the missing half. Helpers may live under `handlers/` too,
@@ -2373,6 +2372,30 @@ Delete a variable at the addressed level (`404` when it is not there).
 | `id`  | path | yes      | Environment variable ID |
 
 ---
+
+## Providers
+
+`GET /api/providers` lists the deploy providers this build can target and what each supports: handler kinds (`fetch`, `scheduled`, `queue`), the queue-name rule, binding kinds and their labels, the deployment-config field that holds cron expressions, and the run URL template. The dashboard reads it instead of hardcoding a provider's nouns.
+
+The response is session-only; API keys cannot list providers.
+
+```json
+{
+  "providers": [
+    {
+      "id": "cloudflare",
+      "label": "Cloudflare",
+      "handlerKinds": ["fetch", "scheduled", "queue"],
+      "queueNamePattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$",
+      "importSchemes": ["cloudflare", "workerd"],
+      "bindingKinds": ["kv", "d1", "r2", "queue", "service", "ai"],
+      "bindingKindLabels": { "kv": "KV namespace" },
+      "scheduleConfigKey": "cronTriggers",
+      "runUrlTemplate": "https://{deploymentId}.workers.dev"
+    }
+  ]
+}
+```
 
 ## Nodes
 

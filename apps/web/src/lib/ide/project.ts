@@ -269,7 +269,10 @@ const TSCONFIG_STARTER = '{\n  "compilerOptions": {}\n}\n'
 /** `handlers/shared.*` in any extension the server compiles. */
 const SHARED_HANDLER_PATTERN = /^handlers\/shared\.[cm]?[jt]s$/
 
-export function handlerMenuItems(existing: Iterable<string>): NewMenuItem[] {
+export function handlerMenuItems(
+  existing: Iterable<string>,
+  handlerKinds: readonly string[] = ['fetch'],
+): NewMenuItem[] {
   const paths = [...existing]
   const modules = projectHandlerModules(paths.map((path) => ({ path })))
   const legacy = paths.includes(PROJECT_HANDLERS_PATH) ? `${PROJECT_HANDLERS_PATH} is in use` : null
@@ -281,18 +284,26 @@ export function handlerMenuItems(existing: Iterable<string>): NewMenuItem[] {
       path: HANDLER_FETCH_PATH,
       disabledReason: exists(modules.fetch) ?? legacy,
     },
-    {
-      id: 'scheduled',
-      label: 'Scheduled',
-      path: HANDLER_SCHEDULED_PATH,
-      disabledReason: exists(modules.scheduled) ?? legacy,
-    },
-    {
-      id: 'queue',
-      label: 'Queue consumer…',
-      prompt: HANDLER_QUEUE_DIR,
-      disabledReason: legacy,
-    },
+    ...(handlerKinds.includes('scheduled')
+      ? [
+          {
+            id: 'scheduled' as const,
+            label: 'Scheduled',
+            path: HANDLER_SCHEDULED_PATH,
+            disabledReason: exists(modules.scheduled) ?? legacy,
+          },
+        ]
+      : []),
+    ...(handlerKinds.includes('queue')
+      ? [
+          {
+            id: 'queue' as const,
+            label: 'Queue consumer…',
+            prompt: HANDLER_QUEUE_DIR,
+            disabledReason: legacy,
+          },
+        ]
+      : []),
     {
       id: 'shared',
       label: 'Shared helpers',

@@ -11,12 +11,7 @@ import { zValidator } from '../lib/validation.js'
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
-import {
-  BAD_ACCOUNT_ID,
-  accountSuffixOf,
-  badAccountId,
-  parseTokenStatus,
-} from '../lib/connection-fields.js'
+import { accountSuffixOf, credentialError, parseTokenStatus } from '../lib/connection-fields.js'
 import type { AppEnv } from '../types.js'
 
 // A project's Cloudflare accounts (23a–23c), under `/projects/:id` (the
@@ -144,7 +139,8 @@ projectConnectionRoutes.post('/connections/new', zValidator('json', createSchema
   const { projectId, organizationId } = projectOf(c)
   const body = c.req.valid('json')
   const credentials = { accountId: body.accountId, apiToken: body.token }
-  if (badAccountId('cloudflare', credentials)) return c.json(BAD_ACCOUNT_ID, 400)
+  const invalid = credentialError('cloudflare', credentials)
+  if (invalid) return c.json(invalid, 400)
   const provider = providerNamed('cloudflare')
   if (!provider) return c.json({ error: 'Unsupported provider: cloudflare' }, 400)
 
@@ -208,7 +204,8 @@ projectConnectionRoutes.patch(
         400,
       )
     }
-    if (badAccountId(owned.provider, merged)) return c.json(BAD_ACCOUNT_ID, 400)
+    const invalid = credentialError(owned.provider, merged)
+    if (invalid) return c.json(invalid, 400)
     const provider = providerNamed(owned.provider)
     if (!provider) return c.json({ error: `Unsupported provider: ${owned.provider}` }, 400)
     const check = await checkCredentialsGated(c, provider, merged)

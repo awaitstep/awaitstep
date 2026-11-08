@@ -5,7 +5,7 @@ import { cn } from '../../lib/utils'
 const ROLE_TITLES: Record<GeneratedFileRole, string> = {
   entry: 'Entry: the Worker module uploaded first',
   module: 'Module: code bundled with the entry',
-  handlers: 'Handlers: @fetch / @queue / @scheduled, compiled into the entry',
+  handlers: 'Handlers: project entry modules, compiled into the provider entry at deploy',
   config: 'Config: toolchain configuration',
   meta: 'Metadata: package manifest',
   asset: 'Asset: written to the deploy as-is',
