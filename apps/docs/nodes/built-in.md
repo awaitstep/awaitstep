@@ -256,19 +256,20 @@ Pause execution until an external event is received via the `sendEvent` API.
 **Generated code:**
 
 ```typescript
-let approval_result
-try {
-  approval_result = await flow.waitForEvent('wait_for_approval', {
+const approval_result = await flow
+  .waitForEvent('wait_for_approval', {
     type: 'user-approval',
     timeout: '48 hours',
   })
+  .catch((err) => {
+    if (!isWorkflowTimeoutError(err)) throw err
+    return Symbol('timeout')
+  })
+
+if (typeof approval_result === 'symbol') {
+  // on-timeout path
+} else {
   // on-event path
-} catch (err) {
-  if (err instanceof Error && err.name === 'WorkflowTimeoutError') {
-    // on-timeout path
-  } else {
-    throw err
-  }
 }
 ```
 

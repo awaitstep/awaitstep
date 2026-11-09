@@ -207,6 +207,23 @@ function toDate(name: string, at: Date | number | string): Date | number {
   return parsed
 }
 
+/**
+ * Whether a rejection is a wait timeout. Cloudflare keeps the error name
+ * locally but serializes it into the message across the runtime boundary, so
+ * both forms are recognised.
+ */
+export function isWorkflowTimeoutError(error: unknown): boolean {
+  if (error instanceof Error) {
+    return error.name === 'WorkflowTimeoutError' || error.message.includes('WorkflowTimeoutError')
+  }
+  if (typeof error !== 'object' || error === null) return false
+  const { name, message } = error as { name?: unknown; message?: unknown }
+  return (
+    name === 'WorkflowTimeoutError' ||
+    (typeof message === 'string' && message.includes('WorkflowTimeoutError'))
+  )
+}
+
 /** The `step` object step code already uses (`step.do`, `step.sleep`, …). */
 export interface DurableStep {
   do<T>(name: string, fn: StepCallback<T>): Promise<T>

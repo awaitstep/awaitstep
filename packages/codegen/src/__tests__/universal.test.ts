@@ -57,6 +57,20 @@ describe('generateUniversalWorkflowBundle', () => {
     expect(source).not.toContain('env.WORKFLOW')
   })
 
+  it('imports the timeout helper only when the graph has a wait', () => {
+    const withWait = generateUniversalWorkflow(
+      ir([node('w1', 'wait_for_event', 'Wait for approval', { eventType: 'approval' })]),
+    )
+    expect(withWait).toContain('isWorkflowTimeoutError')
+    expect(withWait).toContain('.catch((err) => {')
+    expect(withWait).not.toContain('_timedOut')
+
+    const withoutWait = generateUniversalWorkflow(
+      ir([node('s1', 'step', 'Fetch data', { code: 'return 1' })]),
+    )
+    expect(withoutWait).not.toContain('isWorkflowTimeoutError')
+  })
+
   it('keeps the project’s own handler file in a portable bundle', () => {
     const bundle = generateUniversalWorkflowBundle(
       ir([node('s1', 'step', 'Fetch data', { code: 'return 1' })], {

@@ -13,7 +13,6 @@ export function generateWaitForEvent(
   // Every wait has a timeout. Older nodes without one get the product default
   // rather than Cloudflare's much shorter runtime default.
   const timeout = node.data.timeout ?? '365 days'
-  const timeoutPart = `, timeout: ${typeof timeout === 'string' ? JSON.stringify(timeout) : timeout}`
 
   const containers = prepareContainerContext(ir)
   const labels = containers.edgeLabels.get(node.id)
@@ -31,7 +30,6 @@ export function generateWaitForEvent(
   const timeoutTarget = targetFor('onTimeout', 'onTimeoutNode')
 
   const variable = ctx.varName(node.id)
-  const timedOut = `${variable}_timedOut`
   const eventCode = eventTarget
     ? inlineChain(eventTarget, containers, generateNode, ir, 2, ctx, mode)
     : ''
@@ -39,24 +37,21 @@ export function generateWaitForEvent(
     ? inlineChain(timeoutTarget, containers, generateNode, ir, 2, ctx, mode)
     : ''
 
+  // Catch only the wait's rejection, so an on-event branch that throws (or a
+  // step inside it timing out) can never be mistaken for this wait timing out.
+  // A symbol marks the timeout arm: event payloads are JSON, so they can never
+  // be a symbol, and no separate flag or result wrapper has to be declared.
   const lines = [
-    `let ${variable};`,
-    `let ${timedOut} = false;`,
-    'try {',
-    `  ${variable} = await flow.waitForEvent("${stepLabel(node)}", {`,
-    `  type: ${JSON.stringify(eventType)}${timeoutPart}`,
+    `const ${variable} = await flow`,
+    `  .waitForEvent("${stepLabel(node)}", {`,
+    `    type: ${JSON.stringify(eventType)},`,
+    `    timeout: ${typeof timeout === 'string' ? JSON.stringify(timeout) : timeout},`,
+    '  })',
+    '  .catch((err) => {',
+    '    if (!isWorkflowTimeoutError(err)) throw err;',
+    '    return Symbol("timeout");',
     '  });',
-    '} catch (err) {',
-    '  if (',
-    '    err instanceof Error &&',
-    '    (err.name === "WorkflowTimeoutError" || err.message.includes("WorkflowTimeoutError"))',
-    '  ) {',
-    `    ${timedOut} = true;`,
-    '  } else {',
-    '    throw err;',
-    '  }',
-    '}',
-    `if (${timedOut}) {`,
+    `if (typeof ${variable} === "symbol") {`,
     timeoutCode,
     '} else {',
     eventCode,

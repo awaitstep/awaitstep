@@ -28,20 +28,23 @@ Timeout strings accept: `seconds`, `minutes`, `hours` — e.g. `"30 seconds"`, `
 
 **Fix:**
 
-- Add a **Try/Catch** node around the Wait for Event to handle timeouts gracefully.
-- Inside the catch branch, notify relevant parties that no response was received, or take a default action.
+- Connect the Wait for Event's **on-timeout** path. It runs only for a `WorkflowTimeoutError`; other errors are rethrown.
+- On that path, notify relevant parties that no response was received, or take a default action.
 
 ```typescript
-// Generated code with timeout handling:
-try {
-  const approval = await step.waitForEvent('Wait for Approval', {
+const approval = await flow
+  .waitForEvent('Wait for Approval', {
     type: 'approval-decision',
     timeout: '72 hours',
   })
-  // success path
-} catch (err) {
+  .catch((err) => {
+    if (!isWorkflowTimeoutError(err)) throw err
+    return Symbol('timeout')
+  })
+
+if (typeof approval === 'symbol') {
   // timeout path — auto-reject or escalate
-  await step.do('Handle Timeout', async () => {
+  await flow.step('Handle Timeout', async () => {
     // notify requester that approval expired
   })
 }

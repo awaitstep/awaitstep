@@ -51,6 +51,10 @@ export const UNIVERSAL_ENV_PATH = 'awaitstep/env.ts'
 /** The import a universal workflow module uses for the authoring surface. */
 const UNIVERSAL_RUNTIME_IMPORT = 'import { defineWorkflow, durableStep } from "#awaitstep/runtime";'
 
+/** Added only when the graph has a wait node, whose catch uses it. */
+const UNIVERSAL_RUNTIME_IMPORT_WITH_WAIT =
+  'import { defineWorkflow, durableStep, isWorkflowTimeoutError } from "#awaitstep/runtime";'
+
 export interface UniversalGenerateOptions {
   templateResolver?: TemplateResolver
   /** Env names the workflow already declares (secrets and variables). */
@@ -203,8 +207,9 @@ function generate(ir: WorkflowIR, options: UniversalGenerateOptions): PortableWo
   const envSource = generateEnvSource(ir, envVarNames ?? [], ctx.files, classDefinitions)
   const classBlock =
     classDefinitions.size > 0 ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n' : ''
+  const hasWait = ir.nodes.some((node) => node.type === 'wait_for_event')
   const workflowSource = `${[
-    UNIVERSAL_RUNTIME_IMPORT,
+    hasWait ? UNIVERSAL_RUNTIME_IMPORT_WITH_WAIT : UNIVERSAL_RUNTIME_IMPORT,
     'import type { Env } from "#awaitstep/env";',
     ...new Set(workflowImports),
   ].join('\n')}

@@ -6,6 +6,7 @@ import {
   defineFunction,
   defineWorkflow,
   durableStep,
+  isWorkflowTimeoutError,
   type WorkflowHost,
 } from '../runtime.js'
 import { RUNTIME_MODULE_SOURCE } from '../runtime-source.js'
@@ -192,6 +193,33 @@ describe('durableStep', () => {
     await step.sleepUntil('u', 5)
     await step.waitForEvent('w', { type: 'thing.happened' })
     expect(calls).toEqual(['sleep:s:1 second', 'until:u:5', 'wait:w:thing.happened'])
+  })
+})
+
+describe('isWorkflowTimeoutError', () => {
+  it('recognises the named error', () => {
+    const error = new Error('wait failed')
+    error.name = 'WorkflowTimeoutError'
+    expect(isWorkflowTimeoutError(error)).toBe(true)
+  })
+
+  it('recognises the serialized message form, including a plain object', () => {
+    expect(isWorkflowTimeoutError(new Error('WorkflowTimeoutError: timed out after 30s'))).toBe(
+      true,
+    )
+    expect(
+      isWorkflowTimeoutError({
+        name: 'Error',
+        message: 'WorkflowTimeoutError: timed out after 30000ms',
+      }),
+    ).toBe(true)
+  })
+
+  it('rejects other errors and non-errors', () => {
+    expect(isWorkflowTimeoutError(new Error('boom'))).toBe(false)
+    expect(isWorkflowTimeoutError({ message: 'boom' })).toBe(false)
+    expect(isWorkflowTimeoutError('WorkflowTimeoutError')).toBe(false)
+    expect(isWorkflowTimeoutError(undefined)).toBe(false)
   })
 })
 
