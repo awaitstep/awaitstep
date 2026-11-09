@@ -9,6 +9,7 @@ import {
   activeLocalDevSession,
   claimLocalDevSession,
   currentLocalDevSession,
+  recordLocalDevRuntime,
   releaseLocalDevSession,
 } from '../lib/local-dev-sessions.js'
 
@@ -37,10 +38,13 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
     return c.json({ error: 'Provider does not support local development' }, 501)
   }
 
+  const body = await c.req.json().catch(() => ({}))
+  const mode = body?.mode === 'ide' ? 'ide' : 'canvas'
   const claim = claimLocalDevSession({
     workflowId: workflow.id,
     organizationId: c.get('organizationId'),
     provider: prepared.adapter.name,
+    mode,
   })
   if (!claim.ok) {
     return c.json(
@@ -68,12 +72,30 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
       ...(Object.keys(secrets).length > 0 && { secrets }),
     })
 
-    return c.json({ status: 'running', port: result.port, url: result.url, pid: result.pid })
+    recordLocalDevRuntime(workflow.id, c.get('organizationId'), result)
+    return c.json({ status: 'running', port: result.port, url: result.url, pid: result.pid, mode })
   } catch (err) {
     releaseLocalDevSession(workflow.id, c.get('organizationId'))
     const message = err instanceof Error ? err.message : 'Failed to start local dev'
     return c.json({ error: message }, err instanceof GenerateInputError ? 422 : 500)
   }
+})
+
+// ── Session ────────────────────────────────────────────
+
+localDev.get('/:workflowId/local-dev', async (c) => {
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const session = currentLocalDevSession(workflow.id, c.get('organizationId'))
+  if (!session) return c.json({ error: 'No active session' }, 404)
+  return c.json({
+    status: 'running',
+    mode: session.mode,
+    port: session.port,
+    url: session.url,
+    pid: session.pid,
+    startedAt: session.startedAt,
+  })
 })
 
 // ── Stop ───────────────────────────────────────────────

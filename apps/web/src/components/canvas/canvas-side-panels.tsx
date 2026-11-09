@@ -99,7 +99,7 @@ export function CanvasSidePanels({
         label="Local test"
         onEscape={onCloseLocalTest}
       >
-        <LocalTestPanel workflowId={workflowId} onClose={onCloseLocalTest} />
+        <LocalTestPanel workflowId={workflowId} />
       </SlideIn>
       <SlideIn
         show={codePreviewOpen}

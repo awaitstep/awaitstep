@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { runAction, failureLine } from '../lib/action-toast'
 import { useApi } from '../contexts/api-client-context'
 
@@ -13,6 +13,7 @@ export interface LogEntry {
 
 export function useLocalDev(workflowId: string) {
   const api = useApi()
+  const queryClient = useQueryClient()
   const [state, setState] = useState<LocalDevState>('idle')
   const [info, setInfo] = useState<{ port: number; url: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -20,6 +21,22 @@ export function useLocalDev(workflowId: string) {
   const [instanceId, setInstanceId] = useState<string | null>(null)
 
   const isRunning = state === 'running'
+
+  // A panel opened after the server started (or in the other workspace) finds
+  // the session instead of showing a fresh Start screen.
+  const { data: session } = useQuery({
+    queryKey: ['local-dev-session', workflowId],
+    queryFn: () => api.getLocalDevSession(workflowId),
+    retry: false,
+    staleTime: 5_000,
+  })
+  useEffect(() => {
+    if (!session) return
+    setState('running')
+    if (session.port !== null && session.url) {
+      setInfo({ port: session.port, url: session.url })
+    }
+  }, [session])
 
   // ── Log polling (only when running) ────────────────
   const { data: logs = [] } = useQuery({
@@ -43,28 +60,32 @@ export function useLocalDev(workflowId: string) {
   })
 
   // ── Start ──────────────────────────────────────────
-  const start = useCallback(async () => {
-    setState('starting')
-    setError(null)
-    setTriggerResult(null)
-    setInstanceId(null)
-    try {
-      const result = await runAction(api.startLocalDev(workflowId), {
-        success: 'Local dev server started',
-        error: 'Couldn’t start the local dev server',
-      })
-      const isLocal =
-        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      const url = isLocal
-        ? `http://localhost:${result.port}`
-        : `${window.location.origin}/local-dev/`
-      setInfo({ port: result.port, url })
-      setState('running')
-    } catch (err) {
-      setError(failureLine(err, 'Failed to start'))
-      setState('error')
-    }
-  }, [api, workflowId])
+  const start = useCallback(
+    async (mode: 'canvas' | 'ide' = 'canvas') => {
+      setState('starting')
+      setError(null)
+      setTriggerResult(null)
+      setInstanceId(null)
+      try {
+        const result = await runAction(api.startLocalDev(workflowId, mode), {
+          success: 'Local dev server started',
+          error: 'Couldn’t start the local dev server',
+        })
+        const isLocal =
+          window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        const url = isLocal
+          ? `http://localhost:${result.port}`
+          : `${window.location.origin}/local-dev/`
+        setInfo({ port: result.port, url })
+        setState('running')
+        await queryClient.invalidateQueries({ queryKey: ['local-dev-session', workflowId] })
+      } catch (err) {
+        setError(failureLine(err, 'Failed to start'))
+        setState('error')
+      }
+    },
+    [api, queryClient, workflowId],
+  )
 
   // ── Stop ───────────────────────────────────────────
   const stop = useCallback(async () => {
@@ -78,12 +99,13 @@ export function useLocalDev(workflowId: string) {
       setState('idle')
       setTriggerResult(null)
       setInstanceId(null)
+      await queryClient.invalidateQueries({ queryKey: ['local-dev-session', workflowId] })
     } catch (err) {
       const msg = failureLine(err, 'Failed to stop')
       setError(msg)
       setState('error')
     }
-  }, [api, workflowId])
+  }, [api, queryClient, workflowId])
 
   // ── Trigger ────────────────────────────────────────
   const triggerMutation = useMutation({
@@ -98,10 +120,21 @@ export function useLocalDev(workflowId: string) {
 
   // A fresh server starts without the last one's trigger failure.
   const { reset: resetTrigger } = triggerMutation
-  const startFresh = useCallback(() => {
-    resetTrigger()
-    return start()
-  }, [resetTrigger, start])
+  const startFresh = useCallback(
+    (mode: 'canvas' | 'ide' = 'canvas') => {
+      resetTrigger()
+      return start(mode)
+    },
+    [resetTrigger, start],
+  )
+
+  const refresh = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['local-dev-session', workflowId] }),
+      queryClient.invalidateQueries({ queryKey: ['local-dev-logs', workflowId] }),
+      queryClient.invalidateQueries({ queryKey: ['local-dev-instance', workflowId] }),
+    ])
+  }, [queryClient, workflowId])
 
   return {
     state,
@@ -118,5 +151,6 @@ export function useLocalDev(workflowId: string) {
     start: startFresh,
     stop,
     trigger: triggerMutation.mutate,
+    refresh,
   }
 }

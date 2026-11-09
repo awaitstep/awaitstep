@@ -3,23 +3,62 @@ export interface LocalDevSession {
   workflowId: string
   organizationId: string
   provider: string
+  /** How the session was opened: the canvas or the code workspace. */
+  mode: 'canvas' | 'ide'
+  port: number | null
+  url: string | null
+  pid: number | null
+  startedAt: string
+}
+
+function session(input: {
+  workflowId: string
+  organizationId: string
+  provider: string
+  mode?: 'canvas' | 'ide'
+}): LocalDevSession {
+  return {
+    ...input,
+    mode: input.mode ?? 'canvas',
+    port: null,
+    url: null,
+    pid: null,
+    startedAt: new Date().toISOString(),
+  }
 }
 
 let active: LocalDevSession | null = null
 
-export type ClaimResult = { ok: true; replaced: boolean } | { ok: false; active: LocalDevSession }
+export type ClaimResult =
+  { ok: true; replaced: boolean; session: LocalDevSession } | { ok: false; active: LocalDevSession }
 
 /** Claim the host's single local-dev slot for a workflow. */
-export function claimLocalDevSession(session: LocalDevSession): ClaimResult {
+export function claimLocalDevSession(input: {
+  workflowId: string
+  organizationId: string
+  provider: string
+  mode?: 'canvas' | 'ide'
+}): ClaimResult {
   if (
     active &&
-    (active.workflowId !== session.workflowId || active.organizationId !== session.organizationId)
+    (active.workflowId !== input.workflowId || active.organizationId !== input.organizationId)
   ) {
     return { ok: false, active }
   }
   const replaced = active !== null
-  active = session
-  return { ok: true, replaced }
+  active = session(input)
+  return { ok: true, replaced, session: active }
+}
+
+/** Record the process once the provider has started it. */
+export function recordLocalDevRuntime(
+  workflowId: string,
+  organizationId: string,
+  runtime: { port: number; url: string; pid: number },
+): LocalDevSession | null {
+  if (!currentLocalDevSession(workflowId, organizationId)) return null
+  active = { ...active!, ...runtime }
+  return active
 }
 
 /** The session only when the addressed workflow and org own it. */

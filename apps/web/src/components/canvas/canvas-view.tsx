@@ -17,6 +17,7 @@ import { EditorDialogs, type CanvasConfirmAction } from './editor-dialogs'
 import { CanvasSidePanels } from './canvas-side-panels'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
+import { useLocalTestStore } from '../../stores/local-test-store'
 import {
   buildWorkflowStoreState,
   nodeToSelectOnce,
@@ -63,7 +64,7 @@ export function CanvasView({
   localDevEnabled,
 }: CanvasViewProps) {
   const api = useApi()
-  const [showLocalTest, setShowLocalTest] = useState(false)
+  const localTestOpen = useLocalTestStore((s) => s.open && s.workflowId === workflowId)
   // Functions never show the template picker — templates are workflow-shaped.
   const [showTemplatePicker, setShowTemplatePicker] = useState(!!template && kindParam !== 'script')
   const [confirmAction, setConfirmAction] = useState<CanvasConfirmAction | null>(null)
@@ -271,7 +272,7 @@ export function CanvasView({
   function handleOpenLocalTest() {
     // Both live in the right-hand slot: testing the graph wins over reading it.
     useCanvasLayoutStore.getState().setCodePreviewOpen(false)
-    setShowLocalTest(true)
+    useLocalTestStore.getState().openFor(workflowId, 'canvas')
   }
 
   // The result opens in the bottom panel, which the canvas already hosts.
@@ -353,8 +354,8 @@ export function CanvasView({
                 <SimulationPanel />
                 <ValidationPanel />
                 <CanvasSidePanels
-                  showLocalTest={showLocalTest && !isNew}
-                  onCloseLocalTest={() => setShowLocalTest(false)}
+                  showLocalTest={localTestOpen && !isNew}
+                  onCloseLocalTest={() => useLocalTestStore.getState().requestClose()}
                   workflowId={workflowId}
                 />
               </div>

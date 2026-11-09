@@ -923,11 +923,23 @@ export function createApiClient(scope: () => ApiScope) {
     // Local dev
     startLocalDev(
       workflowId: string,
-    ): Promise<{ status: string; port: number; url: string; pid: number }> {
+      mode: 'canvas' | 'ide' = 'canvas',
+    ): Promise<{ status: string; port: number; url: string; pid: number; mode: 'canvas' | 'ide' }> {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/start`), {
         method: 'POST',
-        body: '{}',
+        body: JSON.stringify({ mode }),
       })
+    },
+
+    getLocalDevSession(workflowId: string): Promise<{
+      status: 'running'
+      mode: 'canvas' | 'ide'
+      port: number | null
+      url: string | null
+      pid: number | null
+      startedAt: string
+    }> {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev`))
     },
 
     stopLocalDev(workflowId: string): Promise<{ status: string }> {

@@ -193,7 +193,7 @@ export function WorkspaceLayout({
         saving={projectFiles.busy}
         onSave={actions.saveAll}
       />
-      <div className="min-h-0 flex-1">
+      <div className="relative min-h-0 flex-1">
         <Group
           orientation="horizontal"
           className="h-full"

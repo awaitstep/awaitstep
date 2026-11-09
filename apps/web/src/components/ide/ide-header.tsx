@@ -5,6 +5,7 @@ import {
   PanelLeft,
   PanelRight,
   Search,
+  Terminal,
   Variable,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -91,6 +92,10 @@ export function IdeHeader({
     setEnvOpen(true)
   }
 
+  function handleLocalTest() {
+    useIdeLayoutStore.getState().showDock('session')
+  }
+
   useIdeShortcuts({ envVars: handleEnvVars })
 
   function handleQuickOpen() {
@@ -146,6 +151,12 @@ export function IdeHeader({
 
   const workflowActions: TopBarMenuItem[] = [
     // Variables belong to the workflow: a Viewer can look, and an older version has them too.
+    {
+      id: 'local-test',
+      label: 'Local test',
+      icon: Terminal,
+      onSelect: handleLocalTest,
+    },
     {
       id: 'env-vars',
       label: 'Environment variables…',

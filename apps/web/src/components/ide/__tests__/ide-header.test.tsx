@@ -106,6 +106,16 @@ describe('IdeHeader', () => {
     expect(useIdeStore.getState().dialog).toBe('palette')
   })
 
+  it('opens the existing Test session dock from Local test', async () => {
+    useIdeLayoutStore.setState({ dockOpen: false, dockTab: 'problems' })
+    renderHeader()
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Local test' }))
+    expect(useIdeLayoutStore.getState().dockOpen).toBe(true)
+    expect(useIdeLayoutStore.getState().dockTab).toBe('session')
+    expect(switchView).not.toHaveBeenCalled()
+  })
+
   it('opens the environment variables dialog from ⋯ without leaving the code workspace', async () => {
     renderHeader({ versionParam: 'ver_1' })
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }))
