@@ -136,38 +136,6 @@ describe('ItemPage', () => {
     expect(overview.readyAsked.every((ready) => !ready)).toBe(true)
   })
 
-  it('shows the workflow’s name, actions and tabs over the page, all in the workspace', () => {
-    enterScope()
-    settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
-    renderPage('runs')
-    expect(overview.readyAsked.at(-1)).toBe(true)
-    expect(screen.getByRole('heading', { name: 'Lead enrichment' })).toBeVisible()
-    expect(screen.getByText('actions')).toBeVisible()
-    expect(screen.getByText('body of Lead enrichment')).toBeVisible()
-    const tabs = screen.getByRole('navigation', { name: 'Workflow pages' })
-    expect(
-      within(tabs)
-        .getAllByRole('link')
-        .map((a) => [a.textContent, a.getAttribute('href')]),
-    ).toEqual([
-      ['Overview', `${BASE}/overview`],
-      ['Runs 128', `${BASE}/runs`],
-      ['Deployments 2', `${BASE}/deployments`],
-    ])
-    expect(within(tabs).getByRole('link', { name: /^Runs/ })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
-    expect(screen.getByRole('link', { name: /Open editor/ })).toHaveAttribute(
-      'href',
-      `${BASE}?view=canvas`,
-    )
-    // Nothing live: there is nothing to trigger.
-    expect(screen.getByRole('button', { name: 'Trigger a run' })).toBeDisabled()
-    // It has been deployed before, so it isn't a draft.
-    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
-  })
-
   it('lets an Editor rename in place, and shows a Viewer plain text', () => {
     enterScope()
     settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })

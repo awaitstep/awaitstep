@@ -74,9 +74,6 @@ function LiveColumn({
         <span className="text-xs text-muted-foreground">
           {latest ? `v${latest.version} saved ${timeAgo(latest.at)}` : 'Nothing saved yet'}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {isFunction ? 'Publish it to get a URL.' : 'Deploy it to get a URL and start running.'}
-        </span>
       </>
     )
   }

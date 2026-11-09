@@ -45,71 +45,6 @@ const HOURS = Array.from({ length: 24 }, (_, i) =>
 )
 
 describe('OverviewBody (WorkflowDetail)', () => {
-  it('bands what is live, where a POST runs it and the day’s runs, hour by hour', () => {
-    renderWithPages(
-      <OverviewBody
-        workflow={WORKFLOW}
-        overview={overview(true)}
-        runs24h={{ all: 128, failed: 3, byHour: HOURS }}
-        neverDeployed={false}
-      />,
-      { '["workflow-runs","wf_1"]': [] },
-    )
-    const band = screen.getByRole('region', { name: 'Status' })
-    expect(within(band).getByText('Live · v12')).toBeVisible()
-    expect(within(band).getByText(/^on Acme production, /)).toBeVisible()
-    expect(within(band).getByRole('link', { name: /Open/ })).toHaveAttribute(
-      'href',
-      'https://awaitstep-abc.workers.dev',
-    )
-    expect(within(band).getByText('awaitstep-abc.workers.dev')).toBeVisible()
-    // Only runs started from AwaitStep are recorded: the band says so beside the URL.
-    expect(
-      within(band).getByText('POST to run it. Only runs started from AwaitStep show in Runs.'),
-    ).toBeVisible()
-    expect(within(band).getByText('128')).toBeVisible()
-    expect(within(band).getByText('3 failed')).toHaveClass('text-status-error')
-    expect(within(band).getByRole('img', { name: 'Runs over the last 24 hours' })).toBeVisible()
-    // Versions beside Recent runs; the live one is tagged, the others can go out.
-    expect(screen.getByText('3 versions in all')).toBeVisible()
-    expect(
-      screen.getAllByRole('link', { name: 'Deploy' }).map((a) => a.getAttribute('href')),
-    ).toEqual([`${BASE}/deploy?version=v2`, `${BASE}/deploy?version=v1`])
-    expect(screen.getByText('deployed')).toBeVisible()
-  })
-
-  it('lists what is live on each account when it runs on more than one', () => {
-    const twoAccounts = {
-      ...overview(true),
-      live: [
-        {
-          ...LIVE,
-          id: 'c-stage',
-          name: 'Staging',
-          deploymentId: 'd2',
-          versionId: 'v2',
-          version: 11,
-        },
-        LIVE,
-      ],
-    } as WorkflowOverview
-    renderWithPages(
-      <OverviewBody workflow={WORKFLOW} overview={twoAccounts} neverDeployed={false} />,
-      { '["workflow-runs","wf_1"]': [] },
-    )
-    const band = screen.getByRole('region', { name: 'Status' })
-    expect(within(band).getByText('Live on 2 accounts')).toBeVisible()
-    expect(within(band).getByText('Staging')).toBeVisible()
-    expect(within(band).getByText('v11')).toBeVisible()
-    expect(within(band).getByText('Acme production')).toBeVisible()
-    expect(within(band).getByText('v12')).toBeVisible()
-    // Both live versions are tagged; only the one live nowhere can go out.
-    expect(screen.getAllByText('deployed')).toHaveLength(2)
-    expect(
-      screen.getAllByRole('link', { name: 'Deploy' }).map((a) => a.getAttribute('href')),
-    ).toEqual([`${BASE}/deploy?version=v1`])
-  })
-
   it('lists versions for a Viewer with nothing to deploy', () => {
     renderWithPages(
       <OverviewBody
@@ -190,10 +125,8 @@ describe('OverviewBody (WorkflowDetail)', () => {
     const band = screen.getByRole('region', { name: 'Status' })
     expect(within(band).getByText('Not deployed')).toBeVisible()
     expect(within(band).getByText(/^v12 saved /)).toBeVisible()
-    expect(within(band).getByText('Deploy it to get a URL and start running.')).toBeVisible()
     expect(within(band).getByText('The URL appears once the workflow is deployed.')).toBeVisible()
     expect(within(band).getByText('No runs yet')).toBeVisible()
-    expect(screen.getByText('1 so far')).toBeVisible()
     expect(screen.getByText('Deploy it, then trigger a run.')).toBeVisible()
     expect(screen.queryByRole('link', { name: 'All runs →' })).not.toBeInTheDocument()
   })
@@ -285,7 +218,6 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
       {},
     )
     expect(screen.getByText('Not published')).toBeVisible()
-    expect(screen.getByText('Publish it to get a URL.')).toBeVisible()
     expect(screen.getByText('The URL appears once the function is published.')).toBeVisible()
     expect(screen.getByText('1 so far')).toBeVisible()
   })

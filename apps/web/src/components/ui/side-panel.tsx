@@ -17,13 +17,14 @@ export function SidePanel({
   footerStart,
   actions,
   children,
+  size = 'lg',
 }: OverlayProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {trigger && <SheetTrigger asChild>{trigger}</SheetTrigger>}
       <SheetContent
         side="right"
-        size="lg"
+        size={size}
         layout="sectioned"
         {...(hasContent(description) ? {} : { 'aria-describedby': undefined })}
       >

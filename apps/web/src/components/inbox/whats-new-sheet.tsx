@@ -67,6 +67,7 @@ export function WhatsNewSheet({ org, onClose }: WhatsNewSheetProps) {
         </Tile>
       }
       title="What’s new"
+      size="md"
       description={sinceLastVisit(releases.data)}
       footerStart={
         <a

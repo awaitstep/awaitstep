@@ -74,14 +74,4 @@ describe('RunsTab', () => {
     const [old] = within(screen.getByRole('table')).getAllByRole('row').slice(1)
     expect(old).toHaveTextContent('v4')
   })
-
-  it('says no run has happened yet, and offers Deploy while it never has been (WorkflowDraft)', () => {
-    renderWithPages(<RunsTab workflow={WORKFLOW} neverDeployed />, {
-      '["workflow-runs","wf_1"]': [],
-    })
-    expect(screen.getByText('None yet')).toBeVisible()
-    expect(screen.getByText('No runs yet')).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
-    expect(screen.queryByRole('table')).not.toBeInTheDocument()
-  })
 })

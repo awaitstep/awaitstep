@@ -5,7 +5,6 @@ import { Badge } from '../../ui/badge'
 import { LoadMoreButton } from '../../ui/load-more-button'
 import { ShellLink } from '../../ui/shell-link'
 import { OverviewCard } from '../../workspaces/parts/overview-card'
-import { plural } from '../../../lib/plural'
 import { DeployLink, deployBlockedReason } from './deploy-link'
 
 interface VersionsCardProps {
@@ -37,15 +36,10 @@ export function VersionsCard({
   hasMore,
   loadingMore,
   onLoadMore,
-  draft,
   isFunction = false,
 }: VersionsCardProps) {
-  let caption = `${plural(versions.length, 'version')} in all`
-  if (hasMore) caption = 'Newest first'
-  else if (draft) caption = `${versions.length} so far`
-
   return (
-    <OverviewCard title="Versions" caption={caption}>
+    <OverviewCard title="Versions">
       {versions.length === 0 ? (
         <p className="px-5 py-6 text-sm text-muted-foreground">
           Nothing saved yet. Open the editor to build it.

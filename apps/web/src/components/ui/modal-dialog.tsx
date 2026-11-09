@@ -20,9 +20,10 @@ export interface OverlayProps {
   /** Right-aligned footer buttons, primary last. */
   actions: ReactNode
   children: ReactNode
+  contentClassName?: string
+  size?: 'sm' | 'md' | 'lg'
 }
-
-interface ModalDialogProps extends OverlayProps {
+interface ModalDialogProps extends Omit<OverlayProps, 'size'> {
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
