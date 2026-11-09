@@ -108,6 +108,10 @@ export type WaitForEventNodeData = {
   eventType?: string
   /** Duration string ("24 hours") or milliseconds. */
   timeout?: string | number
+  /** The node to run after the event arrives. */
+  onEventNode?: string
+  /** The node to run when the wait times out. */
+  onTimeoutNode?: string
 }
 
 /** No declared fields — try/catch/finally arms are edge-label-driven. */

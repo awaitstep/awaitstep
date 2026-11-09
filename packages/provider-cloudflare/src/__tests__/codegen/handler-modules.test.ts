@@ -44,6 +44,15 @@ const files = [
 ]
 
 describe('handlerWiring / handlerDelegates', () => {
+  it('wraps a fetch delegate with the send-event handler only when asked', () => {
+    const wiring = handlerWiring(projectHandlerModules([files[0]!]))
+    const plain = handlerDelegates(wiring).join('\n')
+    const wrapped = handlerDelegates(wiring, { sendEvent: true }).join('\n')
+    expect(plain).not.toContain('awaitstepSendEvent')
+    expect(wrapped).toContain('const sent = await awaitstepSendEvent(request, env)')
+    expect(wrapped).toContain('if (sent) return sent;')
+  })
+
   it('imports each module by its compiled path and delegates to it', () => {
     const wiring = handlerWiring(projectHandlerModules(files))
     expect(wiring.imports).toEqual([

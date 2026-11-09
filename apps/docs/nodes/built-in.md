@@ -242,10 +242,10 @@ Pause execution until an external event is received via the `sendEvent` API.
 
 **Config:**
 
-| Field       | Type     | Required | Description                                                                                 |
-| ----------- | -------- | -------- | ------------------------------------------------------------------------------------------- |
-| `eventType` | `string` | yes      | Event type identifier. Alphanumeric, hyphens, underscores. Max 100 chars.                   |
-| `timeout`   | `string` | no       | Max time to wait (e.g. `24 hours`). Workflow throws `TimeoutError` on expiry. Max 365 days. |
+| Field       | Type     | Required | Description                                                                                                                                                              |
+| ----------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `eventType` | `string` | yes      | Event type identifier. Alphanumeric, hyphens, underscores. Max 100 chars.                                                                                                |
+| `timeout`   | `string` | yes      | Max time to wait (e.g. `24 hours`, default `365 days`). Max 365 days. Select the **on-event** and **on-timeout** paths; the timeout path runs on `WorkflowTimeoutError`. |
 
 **Output:**
 
@@ -256,11 +256,20 @@ Pause execution until an external event is received via the `sendEvent` API.
 **Generated code:**
 
 ```typescript
-const approval_result = await flow.waitForEvent('wait_for_approval', {
-  type: 'user-approval',
-  timeout: '48 hours',
-})
-// approval_result.payload contains the event payload
+let approval_result
+try {
+  approval_result = await flow.waitForEvent('wait_for_approval', {
+    type: 'user-approval',
+    timeout: '48 hours',
+  })
+  // on-event path
+} catch (err) {
+  if (err instanceof Error && err.name === 'WorkflowTimeoutError') {
+    // on-timeout path
+  } else {
+    throw err
+  }
+}
 ```
 
 ---

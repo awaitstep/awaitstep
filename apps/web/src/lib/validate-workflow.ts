@@ -249,14 +249,7 @@ export function validateWorkflowForPublish(
     'http_request',
     'wait_for_event',
   ])
-  const LINEAR_TYPES = new Set([
-    'step',
-    'sleep',
-    'sleep_until',
-    'http_request',
-    'wait_for_event',
-    'custom',
-  ])
+  const LINEAR_TYPES = new Set(['step', 'sleep', 'sleep_until', 'http_request', 'custom'])
 
   for (const node of nodes) {
     const ir = node.data.irNode
@@ -415,6 +408,37 @@ export function validateWorkflowForPublish(
           add('error', id, name, 'Event type is empty')
         } else if (!EVENT_TYPE_PATTERN.test(eventType)) {
           add('error', id, name, 'Event type has invalid characters')
+        }
+        const timeout = ir.data.timeout
+        if (timeout === undefined || timeout === '') {
+          add('error', id, name, 'Timeout is required')
+        } else {
+          const seconds = parseDurationToSeconds(timeout as string | number)
+          if (seconds <= 0) add('error', id, name, 'Timeout is not a valid duration')
+          else if (seconds > MAX_SECONDS) add('error', id, name, 'Timeout exceeds 365 days')
+        }
+        const outgoing = edges.filter((edge) => edge.source === id)
+        if (
+          outgoing.length > 2 ||
+          outgoing.some((edge) => edge.label !== 'onEvent' && edge.label !== 'onTimeout')
+        ) {
+          add(
+            'error',
+            id,
+            name,
+            'Wait for Event can only connect to an on-event path and an on-timeout path',
+          )
+        }
+        const nodeIds = new Set(nodes.map((node) => node.id))
+        const onEvent = String(ir.data.onEventNode ?? '')
+        const onTimeout = String(ir.data.onTimeoutNode ?? '')
+        if (!onEvent) add('error', id, name, 'Choose the node to run when the event arrives')
+        else if (!nodeIds.has(onEvent)) add('error', id, name, 'The on-event node no longer exists')
+        if (!onTimeout) add('error', id, name, 'Choose the node to run when the wait times out')
+        else if (!nodeIds.has(onTimeout))
+          add('error', id, name, 'The on-timeout node no longer exists')
+        if (onEvent && onEvent === onTimeout) {
+          add('error', id, name, 'The on-event and on-timeout nodes must be different')
         }
         break
       }

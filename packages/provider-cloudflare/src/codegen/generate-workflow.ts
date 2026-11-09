@@ -200,6 +200,7 @@ function generateWorkflowInternal(
   // Handler modules (handlers/**) replace the annotation file outright: once
   // the project has any, the trigger code is not consulted and the default
   // scaffold only supplies the fetch entry when no module does.
+  const hasWaitForEvent = ir.nodes.some((node) => node.type === 'wait_for_event')
   const modules = projectHandlerModules(ir.runtime?.files)
   const wiring = hasHandlerModules(modules) ? handlerWiring(modules) : null
   const rawTriggerCode = wiring ? DEFAULT_TRIGGER_CODE : (triggerCode ?? DEFAULT_TRIGGER_CODE)
@@ -266,11 +267,16 @@ function generateWorkflowInternal(
 
   const handlerBlocks: string[] = []
   if (fetchHandlerEmission) {
+    const sendEvent = hasWaitForEvent
+      ? `    const sent = await awaitstepSendEvent(request, env);
+    if (sent) return sent;
+`
+      : ''
     handlerBlocks.push(`  async fetch(${fetchHandlerEmission.params}): Promise<Response> {
-${indent(fetchHandlerEmission.body, 4)}
+${sendEvent}${indent(fetchHandlerEmission.body, 4)}
   },`)
   }
-  if (wiring) handlerBlocks.push(...handlerDelegates(wiring))
+  if (wiring) handlerBlocks.push(...handlerDelegates(wiring, { sendEvent: hasWaitForEvent }))
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
       .map((queueHandler) => {
@@ -341,9 +347,40 @@ export async function workflowStatus(env: Env, instanceId: string) {
     'import type { Env } from "#awaitstep/env";',
     ...new Set(entryImports),
   ].join('\n')
+  const sendEventHelper = hasWaitForEvent
+    ? `async function awaitstepSendEvent(request: Request, env: Env): Promise<Response | null> {
+  if (request.method !== "POST") return null;
+  const body = await request.clone().json().catch(() => undefined) as Record<string, unknown> | undefined;
+  const url = new URL(request.url);
+  const action = body?.action ?? url.searchParams.get("action");
+  if (action !== "send-event") return null;
+  const instanceId = body?.instanceId ?? url.searchParams.get("instanceId");
+  if (typeof instanceId !== "string" || instanceId.length === 0) {
+    return Response.json({ message: "instanceId is required" }, { status: 400 });
+  }
+  const instance = await env.WORKFLOW.get(instanceId).catch(() => null);
+  if (!instance) {
+    return Response.json({ message: "Instance not found" }, { status: 404 });
+  }
+  const type = body?.type ?? url.searchParams.get("type");
+  if (typeof type !== "string" || type.length === 0) {
+    return Response.json({ message: "type is required" }, { status: 400 });
+  }
+  const queryAction = url.searchParams.get("action") === "send-event";
+  const payload = body?.params ?? body?.payload ?? (queryAction ? body : undefined);
+  try {
+    await instance.sendEvent({ type, payload });
+  } catch (error) {
+    return Response.json({ message: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
+  return Response.json({ ok: true });
+}
+
+`
+    : ''
   const entrySource = `${entryImportBlock}
 
-${cloudflareHostHelper()}
+${sendEventHelper}${cloudflareHostHelper()}
 
 ${moduleCodeBlock.length > 0 ? moduleCodeBlock + '\n' : ''}
 export class ${className} extends WorkflowEntrypoint<Env> {

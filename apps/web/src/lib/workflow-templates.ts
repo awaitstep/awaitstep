@@ -220,7 +220,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
     name: 'Abandoned Cart Recovery',
     description: 'Detect abandoned cart, wait, then send a reminder email with discount.',
     icon: 'ShoppingBag',
-    nodeCount: 5,
+    nodeCount: 6,
     category: 'ecommerce',
     ir: {
       metadata: {
@@ -251,6 +251,18 @@ export const workflowTemplates: WorkflowTemplate[] = [
           data: {
             eventType: 'cart-purchased',
             timeout: '2 hour',
+            onEventNode: 'check_purchased',
+            onTimeoutNode: 'purchase_timeout',
+          },
+        },
+        {
+          id: 'purchase_timeout',
+          type: 'step',
+          name: 'purchase_timeout',
+          position: { x: 150, y: 240 },
+          version: '1.0.0',
+          data: {
+            code: '  return { status: "timed-out", cartId: {{capture_cart.cartId}} };',
           },
         },
         {
@@ -298,7 +310,13 @@ export const workflowTemplates: WorkflowTemplate[] = [
       ],
       edges: [
         { id: 'e1', source: 'capture_cart', target: 'wait_for_purchase' },
-        { id: 'e2', source: 'wait_for_purchase', target: 'check_purchased' },
+        { id: 'e2', source: 'wait_for_purchase', target: 'check_purchased', label: 'onEvent' },
+        {
+          id: 'e2b',
+          source: 'wait_for_purchase',
+          target: 'purchase_timeout',
+          label: 'onTimeout',
+        },
         { id: 'e3', source: 'check_purchased', target: 'no_action', label: 'true' },
         { id: 'e4', source: 'check_purchased', target: 'send_reminder', label: 'false' },
       ],
@@ -506,7 +524,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
     name: 'Post-Purchase Survey',
     description: 'Wait after purchase, send feedback survey, collect and store response.',
     icon: 'MessageSquare',
-    nodeCount: 4,
+    nodeCount: 5,
     category: 'engagement',
     ir: {
       metadata: {
@@ -556,6 +574,18 @@ export const workflowTemplates: WorkflowTemplate[] = [
           data: {
             eventType: 'survey-response',
             timeout: '7 day',
+            onEventNode: 'store_feedback',
+            onTimeoutNode: 'response_timeout',
+          },
+        },
+        {
+          id: 'response_timeout',
+          type: 'step',
+          name: 'response_timeout',
+          position: { x: 150, y: 360 },
+          version: '1.0.0',
+          data: {
+            code: '  return { status: "no-response", orderId: event.payload.orderId };',
           },
         },
         {
@@ -572,7 +602,13 @@ export const workflowTemplates: WorkflowTemplate[] = [
       edges: [
         { id: 'e1', source: 'wait_for_delivery', target: 'send_survey' },
         { id: 'e2', source: 'send_survey', target: 'wait_for_response' },
-        { id: 'e3', source: 'wait_for_response', target: 'store_feedback' },
+        { id: 'e3', source: 'wait_for_response', target: 'store_feedback', label: 'onEvent' },
+        {
+          id: 'e3b',
+          source: 'wait_for_response',
+          target: 'response_timeout',
+          label: 'onTimeout',
+        },
       ],
     },
   },
@@ -894,7 +930,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
     name: 'Human-in-the-Loop Approval',
     description: 'Submit request, wait for human approval, then process or reject.',
     icon: 'UserCheck',
-    nodeCount: 4,
+    nodeCount: 5,
     category: 'operations',
     ir: {
       metadata: {
@@ -915,6 +951,8 @@ export const workflowTemplates: WorkflowTemplate[] = [
           data: {
             eventType: 'approval',
             timeout: '48 hour',
+            onEventNode: 'check_approval',
+            onTimeoutNode: 'approval_timeout',
           },
         },
         {
@@ -928,6 +966,16 @@ export const workflowTemplates: WorkflowTemplate[] = [
               { label: 'true', condition: '{{wait_for_approval}}.approved === true' },
               { label: 'false', condition: '' },
             ],
+          },
+        },
+        {
+          id: 'approval_timeout',
+          type: 'step',
+          name: 'approval_timeout',
+          position: { x: 450, y: 120 },
+          version: '1.0.0',
+          data: {
+            code: '  return { status: "timed-out", requestId: event.payload.id };',
           },
         },
         {
@@ -952,7 +1000,13 @@ export const workflowTemplates: WorkflowTemplate[] = [
         },
       ],
       edges: [
-        { id: 'e1', source: 'wait_for_approval', target: 'check_approval' },
+        { id: 'e1', source: 'wait_for_approval', target: 'check_approval', label: 'onEvent' },
+        {
+          id: 'e1b',
+          source: 'wait_for_approval',
+          target: 'approval_timeout',
+          label: 'onTimeout',
+        },
         { id: 'e2', source: 'check_approval', target: 'process_approved', label: 'true' },
         { id: 'e3', source: 'check_approval', target: 'handle_rejected', label: 'false' },
       ],
@@ -964,7 +1018,7 @@ export const workflowTemplates: WorkflowTemplate[] = [
     name: 'Incident Alert Escalation',
     description: 'Notify on-call, wait for acknowledgement, escalate if no response.',
     icon: 'Siren',
-    nodeCount: 5,
+    nodeCount: 6,
     category: 'operations',
     ir: {
       metadata: {
@@ -1001,6 +1055,18 @@ export const workflowTemplates: WorkflowTemplate[] = [
           data: {
             eventType: 'incident-ack',
             timeout: '15 minute',
+            onEventNode: 'check_ack',
+            onTimeoutNode: 'ack_timeout',
+          },
+        },
+        {
+          id: 'ack_timeout',
+          type: 'step',
+          name: 'ack_timeout',
+          position: { x: 600, y: 120 },
+          version: '1.0.0',
+          data: {
+            code: '  return { instanceId: event.instanceId, status: "no-ack" };',
           },
         },
         {
@@ -1045,7 +1111,13 @@ export const workflowTemplates: WorkflowTemplate[] = [
       ],
       edges: [
         { id: 'e1', source: 'notify_oncall', target: 'wait_for_ack' },
-        { id: 'e2', source: 'wait_for_ack', target: 'check_ack' },
+        { id: 'e2', source: 'wait_for_ack', target: 'check_ack', label: 'onEvent' },
+        {
+          id: 'e2b',
+          source: 'wait_for_ack',
+          target: 'ack_timeout',
+          label: 'onTimeout',
+        },
         { id: 'e3', source: 'check_ack', target: 'record_ack', label: 'true' },
         { id: 'e4', source: 'check_ack', target: 'escalate', label: 'false' },
       ],

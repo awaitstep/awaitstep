@@ -193,19 +193,29 @@ await step.sleepUntil('wait_until', '2025-12-31T09:00:00Z')
 
 Pause execution until an external event is sent to this workflow instance via the `sendEvent` API.
 
-| Field       | Type     | Required | Description                                                                        |
-| ----------- | -------- | -------- | ---------------------------------------------------------------------------------- |
-| `eventType` | `string` | yes      | Event type identifier. `a-z 0-9 - _` only, max 100 chars.                          |
-| `timeout`   | `string` | no       | Max wait time (e.g. `24 hours`). Workflow throws if timeout expires. Max 365 days. |
+| Field       | Type     | Required | Description                                                                                                          |
+| ----------- | -------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `eventType` | `string` | yes      | Event type identifier. `a-z 0-9 - _` only, max 100 chars.                                                            |
+| `timeout`   | `string` | yes      | Max wait time (e.g. `24 hours`, default `365 days`). Max 365 days. Select the **on-event** and **on-timeout** paths. |
 
 **Output:** `payload` — the event payload object sent via `sendEvent()`.
 
 ```typescript
 // Generated code
-const approval_result = await step.waitForEvent('wait_for_approval', {
-  type: 'user-approval',
-  timeout: '24 hours',
-})
+let approval_result
+try {
+  approval_result = await step.waitForEvent('wait_for_approval', {
+    type: 'user-approval',
+    timeout: '24 hours',
+  })
+  // on-event path
+} catch (err) {
+  if (err instanceof Error && err.name === 'WorkflowTimeoutError') {
+    // on-timeout path
+  } else {
+    throw err
+  }
+}
 ```
 
 ---

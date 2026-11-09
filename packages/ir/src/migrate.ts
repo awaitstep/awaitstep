@@ -19,12 +19,39 @@ export function migrateArtifact(raw: unknown): unknown {
       : undefined
   const hasBindings = runtime !== undefined && Object.hasOwn(runtime, 'bindings')
   const legacyBindings = runtime?.bindings
+  const nodes = Array.isArray(doc.nodes) ? doc.nodes : undefined
+  const needsWaitTimeout = nodes?.some((node) => {
+    if (node === null || typeof node !== 'object') return false
+    const value = node as Record<string, unknown>
+    if (value.type !== 'wait_for_event') return false
+    const data = value.data
+    return (
+      data === null ||
+      typeof data !== 'object' ||
+      Array.isArray(data) ||
+      (data as Record<string, unknown>).timeout === undefined ||
+      (data as Record<string, unknown>).timeout === null ||
+      (data as Record<string, unknown>).timeout === ''
+    )
+  })
 
-  if (doc.irVersion === IR_VERSION && !('trigger' in doc) && !hasBindings) {
+  if (doc.irVersion === IR_VERSION && !('trigger' in doc) && !hasBindings && !needsWaitTimeout) {
     return raw
   }
 
   const { trigger: _trigger, ...rest } = doc
+  if (nodes && needsWaitTimeout) {
+    rest.nodes = nodes.map((node) => {
+      if (node === null || typeof node !== 'object') return node
+      const value = node as Record<string, unknown>
+      if (value.type !== 'wait_for_event') return node
+      const data =
+        value.data !== null && typeof value.data === 'object' && !Array.isArray(value.data)
+          ? (value.data as Record<string, unknown>)
+          : {}
+      return { ...value, data: { ...data, timeout: data.timeout || '365 days' } }
+    })
+  }
   if (runtime) {
     const { bindings: _bindings, ...runtimeRest } = runtime
     const existing = Array.isArray(runtimeRest.resources) ? runtimeRest.resources : []

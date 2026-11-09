@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { validateIR } from '@awaitstep/ir'
 import { workflowTemplates } from '../workflow-templates'
+import { validateWorkflowForPublish } from '../validate-workflow'
 
 describe('workflow templates', () => {
   it('has 10 templates', () => {
@@ -16,6 +17,17 @@ describe('workflow templates', () => {
         )
       }
       expect(result.ok).toBe(true)
+    })
+
+    it(`"${template.name}" passes canvas save validation`, () => {
+      const nodes = template.ir.nodes.map((node) => ({
+        id: node.id,
+        type: node.type,
+        position: node.position ?? { x: 0, y: 0 },
+        data: { irNode: node },
+      }))
+      const result = validateWorkflowForPublish(template.ir.metadata, nodes, template.ir.edges)
+      expect(result.issues.filter((issue) => issue.severity === 'error')).toEqual([])
     })
 
     it(`"${template.name}" has correct nodeCount`, () => {

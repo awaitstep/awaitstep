@@ -56,6 +56,31 @@ beforeEach(() => {
   useWorkflowStore.getState().reset()
 })
 
+describe('NodeConfigPanel for a wait', () => {
+  it('shows the event type, timeout and both paths', () => {
+    const wait = {
+      id: 'wait_1',
+      type: 'wait_for_event',
+      name: 'wait for sunny',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: {
+        eventType: 'sunny',
+        timeout: '365 days',
+        onEventNode: 'sunny',
+        onTimeoutNode: 'no_sunny',
+      },
+    }
+    select(wait as never)
+    render(<NodeConfigPanel />)
+    expect(screen.getByLabelText(/Event Type/)).toHaveValue('sunny')
+    expect(screen.getByLabelText(/Timeout/)).toHaveValue(365)
+    expect(screen.getByText('When the event arrives')).toBeInTheDocument()
+    expect(screen.getByText('When the wait times out')).toBeInTheDocument()
+  })
+})
+
 describe('NodeConfigPanel for a step', () => {
   it('shows one shell: the kind, the name, the file the code lives in, and the id', () => {
     select(step())
@@ -143,7 +168,7 @@ describe('NodeConfigPanel for a step', () => {
     render(<NodeConfigPanel />)
     expect(screen.getByLabelText('Retry Limit')).toHaveAttribute('type', 'number')
     expect(screen.getByLabelText('Retry Delay')).toHaveAttribute('type', 'number')
-    expect(screen.getByLabelText('Timeout')).toHaveAttribute('type', 'number')
+    expect(screen.getByLabelText(/Timeout/)).toHaveAttribute('type', 'number')
     expect(screen.getByLabelText('Backoff')).toHaveAttribute('role', 'combobox')
     expect(screen.getByText('Per-attempt timeout.')).toBeInTheDocument()
     await userEvent.click(screen.getByText('Runs in the body. No retries, timeout or durability.'))

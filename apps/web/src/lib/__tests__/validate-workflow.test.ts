@@ -509,33 +509,42 @@ describe('validateWorkflowForPublish', () => {
   // ── wait-for-event ──
 
   describe('wait_for_event', () => {
-    it('errors when eventType is empty', () => {
-      const node = makeFlowNode({
+    function waitNode(data: Record<string, unknown>) {
+      return makeFlowNode({
         id: 'w1',
         type: 'wait_for_event',
         name: 'Wait',
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { eventType: '' },
+        data: { eventType: 'approval', timeout: '30 seconds', ...data },
       })
-      const result = validateWorkflowForPublish(makeMetadata(), [node], [])
+    }
+
+    function guarded(data: Record<string, unknown> = {}) {
+      const wait = waitNode(data)
+      const onEvent = makeStepNode('on-event', { name: 'On event' })
+      const onTimeout = makeStepNode('on-timeout', { name: 'On timeout' })
+      return {
+        wait,
+        nodes: [wait, onEvent, onTimeout],
+        edges: [makeEdge('w1', 'on-event', 'onEvent'), makeEdge('w1', 'on-timeout', 'onTimeout')],
+      }
+    }
+
+    it('errors when eventType is empty', () => {
+      const result = validateWorkflowForPublish(makeMetadata(), [waitNode({ eventType: '' })], [])
       expect(result.issues).toContainEqual(
         expect.objectContaining({ severity: 'error', message: 'Event type is empty' }),
       )
     })
 
     it('errors when eventType has invalid characters', () => {
-      const node = makeFlowNode({
-        id: 'w1',
-        type: 'wait_for_event',
-        name: 'Wait',
-        position: { x: 0, y: 0 },
-        version: '1.0.0',
-        provider: 'cloudflare',
-        data: { eventType: 'my.event' },
-      })
-      const result = validateWorkflowForPublish(makeMetadata(), [node], [])
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [waitNode({ eventType: 'my.event' })],
+        [],
+      )
       expect(result.issues).toContainEqual(
         expect.objectContaining({
           severity: 'error',
@@ -544,20 +553,68 @@ describe('validateWorkflowForPublish', () => {
       )
     })
 
-    it('passes for valid eventType', () => {
-      const node = makeFlowNode({
-        id: 'w1',
-        type: 'wait_for_event',
-        name: 'Wait',
-        position: { x: 0, y: 0 },
-        version: '1.0.0',
-        provider: 'cloudflare',
-        data: { eventType: 'my-event_123' },
-      })
-      const result = validateWorkflowForPublish(makeMetadata(), [node], [])
-      expect(result.issues.filter((i) => i.nodeId === 'w1' && i.severity === 'error')).toHaveLength(
-        0,
+    it('requires an on-event target', () => {
+      const { nodes, edges } = guarded()
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        nodes.map((node) => (node.id === 'w1' ? waitNode({}) : node)),
+        edges,
       )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          nodeId: 'w1',
+          severity: 'error',
+          message: 'Choose the node to run when the event arrives',
+        }),
+      )
+    })
+
+    it('requires an on-timeout target', () => {
+      const { nodes, edges } = guarded()
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        nodes.map((node) => (node.id === 'w1' ? waitNode({ onEventNode: 'on-event' }) : node)),
+        edges,
+      )
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          nodeId: 'w1',
+          severity: 'error',
+          message: 'Choose the node to run when the wait times out',
+        }),
+      )
+    })
+
+    it('errors when the two targets are the same', () => {
+      const { nodes, edges } = guarded({ onEventNode: 'on-event', onTimeoutNode: 'on-event' })
+      const result = validateWorkflowForPublish(makeMetadata(), nodes, edges)
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          nodeId: 'w1',
+          severity: 'error',
+          message: 'The on-event and on-timeout nodes must be different',
+        }),
+      )
+    })
+
+    it('errors when the timeout is omitted', () => {
+      const result = validateWorkflowForPublish(makeMetadata(), [waitNode({ timeout: '' })], [])
+      expect(result.issues).toContainEqual(
+        expect.objectContaining({
+          nodeId: 'w1',
+          severity: 'error',
+          message: 'Timeout is required',
+        }),
+      )
+    })
+
+    it('passes with a timeout and two distinct targets', () => {
+      const { nodes, edges } = guarded({
+        onEventNode: 'on-event',
+        onTimeoutNode: 'on-timeout',
+      })
+      const result = validateWorkflowForPublish(makeMetadata(), nodes, edges)
+      expect(result.issues.filter((i) => i.nodeId === 'w1' && i.severity === 'error')).toEqual([])
     })
   })
 

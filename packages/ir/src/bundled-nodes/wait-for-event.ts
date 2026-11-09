@@ -20,7 +20,9 @@ export const waitForEventDefinition: NodeDefinition = {
     timeout: {
       type: 'string',
       label: 'Timeout',
-      placeholder: '24 hours',
+      required: true,
+      default: '365 days',
+      placeholder: '365 days',
       description: 'Max 365 days. Workflow throws on timeout expiry.',
       validation: { format: 'duration' },
     },

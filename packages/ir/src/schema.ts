@@ -90,6 +90,8 @@ const waitForEventNodeDataSchema = z
   .object({
     eventType: z.string().optional(),
     timeout: durationValueSchema.optional(),
+    onEventNode: z.string().optional(),
+    onTimeoutNode: z.string().optional(),
   })
   .catchall(z.unknown())
 

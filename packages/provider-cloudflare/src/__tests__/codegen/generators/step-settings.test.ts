@@ -58,7 +58,18 @@ const kinds: Array<{
   {
     name: 'wait_for_event',
     make: (d, c) => node('wait_for_event', { eventType: 'e', ...d }, c),
-    generate: (n) => generateWaitForEvent(n, ctx),
+    generate: (n) =>
+      generateWaitForEvent(
+        n,
+        {
+          metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
+          nodes: [n],
+          edges: [],
+          entryNodeId: n.id,
+        },
+        ctx,
+        () => '',
+      ),
   },
   {
     name: 'sub_workflow',

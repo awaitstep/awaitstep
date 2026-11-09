@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { testCtx as ctx } from '../test-context.js'
-import type { WorkflowNode } from '@awaitstep/ir'
+import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { generateWaitForEvent as generateWaitForEventImpl } from '@awaitstep/codegen'
-
-const generateWaitForEvent = (node: Parameters<typeof generateWaitForEventImpl>[0]) =>
-  generateWaitForEventImpl(node, ctx)
 
 function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   return {
@@ -19,36 +16,70 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
   }
 }
 
+function ir(nodes: WorkflowNode[], edges: WorkflowIR['edges'] = []): WorkflowIR {
+  return {
+    metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
+    nodes,
+    edges,
+    entryNodeId: nodes[0]?.id ?? '',
+  }
+}
+
+const generateWaitForEvent = (
+  node: WorkflowNode,
+  graph = ir([node]),
+  generateNode: (node: WorkflowNode) => string = () => '',
+) => generateWaitForEventImpl(node, graph, ctx, generateNode as never)
+
 describe('generateWaitForEvent', () => {
-  it('generates basic wait for event', () => {
-    const code = generateWaitForEvent(makeNode())
+  it('generates a guarded wait with the event/timeout arms', () => {
+    const wait = makeNode({
+      data: {
+        eventType: 'user-approval',
+        timeout: '48 hours',
+        onEventNode: 'event',
+        onTimeoutNode: 'timeout',
+      },
+    })
+    const event = makeNode({ id: 'event', type: 'step', data: { code: 'return 1;' } })
+    const timeout = makeNode({ id: 'timeout', type: 'step', data: { code: 'return 2;' } })
+    const code = generateWaitForEvent(
+      wait,
+      ir(
+        [wait, event, timeout],
+        [
+          { id: 'e1', source: 'wait-1', target: 'event', label: 'onEvent' },
+          { id: 'e2', source: 'wait-1', target: 'timeout', label: 'onTimeout' },
+        ],
+      ),
+      (node) => `// ${node.id}`,
+    )
+    expect(code).toContain('let wait_1;')
     expect(code).toContain('flow.waitForEvent("wait-1"')
     expect(code).toContain('type: "user-approval"')
-    expect(code).toContain('const wait_1 =')
-  })
-
-  it('includes string timeout', () => {
-    const code = generateWaitForEvent(
-      makeNode({ data: { eventType: 'user-approval', timeout: '48 hours' } }),
-    )
     expect(code).toContain('timeout: "48 hours"')
+    expect(code).toContain('err.name === "WorkflowTimeoutError"')
+    expect(code).toContain('err.message.includes("WorkflowTimeoutError")')
+    expect(code).toContain('throw err')
+    expect(code).toContain('// event')
+    expect(code).toContain('// timeout')
   })
 
-  it('includes numeric timeout', () => {
+  it('includes a numeric timeout', () => {
     const code = generateWaitForEvent(
       makeNode({ data: { eventType: 'user-approval', timeout: 3600000 } }),
     )
     expect(code).toContain('timeout: 3600000')
   })
 
-  it('omits timeout when not provided', () => {
-    const code = generateWaitForEvent(makeNode())
-    expect(code).not.toContain('timeout')
+  it('uses the 365-day default when a legacy node has no timeout', () => {
+    expect(generateWaitForEvent(makeNode())).toContain('timeout: "365 days"')
   })
 
-  it('sanitizes node id for variable name', () => {
-    const code = generateWaitForEvent(makeNode({ id: 'wait-for-payment' }))
-    expect(code).toContain('const wait_for_payment =')
+  it('sanitizes the node id for the variable name', () => {
+    expect(generateWaitForEvent(makeNode({ id: 'wait-for-payment' }))).toContain(
+      'let wait_for_payment;',
+    )
   })
 
   it('labels are id-derived, so quotes in the node name never reach the source', () => {

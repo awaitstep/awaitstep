@@ -88,11 +88,22 @@ export function handlerWiring(modules: ProjectHandlerModules): HandlerWiring {
  * `ScheduledContext` from `#awaitstep/runtime`); these adapt what the
  * Cloudflare runtime hands the worker into it.
  */
-export function handlerDelegates(wiring: HandlerWiring): string[] {
+export function handlerDelegates(
+  wiring: HandlerWiring,
+  options: { sendEvent?: boolean } = {},
+): string[] {
   const blocks: string[] = []
   if (wiring.fetch) {
-    blocks.push(`  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
+    if (options.sendEvent) {
+      blocks.push(`  fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
+    const sent = await awaitstepSendEvent(request, env);
+    if (sent) return sent;
+    return ${wiring.fetch}({ request, env, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } });
+  },`)
+    } else {
+      blocks.push(`  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
     ${wiring.fetch}({ request, env, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } }),`)
+    }
   }
   if (wiring.queues.length > 0) {
     const cases = wiring.queues

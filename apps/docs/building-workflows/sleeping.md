@@ -91,7 +91,7 @@ curl -X POST https://app.awaitstep.dev/api/workflows/<id>/trigger \
 ```
 
 :::info
-If the timeout expires before an event arrives, `step.waitForEvent` throws a timeout error. Use a Try/Catch node to handle this case gracefully.
+If the timeout expires before an event arrives, `step.waitForEvent` throws `WorkflowTimeoutError`. Connect the wait node's **on-timeout** path to handle it; the **on-event** path runs when the event arrives.
 :::
 
 ## Durability guarantees

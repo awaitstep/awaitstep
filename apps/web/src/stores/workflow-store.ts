@@ -286,7 +286,15 @@ function createDefaultNode(
     case 'http_request':
       return { ...base, data: { url: 'https://api.example.com', method: 'GET' } }
     case 'wait_for_event':
-      return { ...base, data: { eventType: 'my-event', timeout: '24 hours' } }
+      return {
+        ...base,
+        data: {
+          eventType: 'my-event',
+          timeout: '365 days',
+          onEventNode: '',
+          onTimeoutNode: '',
+        },
+      }
     case 'try_catch':
       return { ...base, data: {} }
     case 'loop':

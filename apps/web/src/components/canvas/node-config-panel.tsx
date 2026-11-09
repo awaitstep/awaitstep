@@ -277,6 +277,19 @@ function NodeConfigBody() {
             <ForkFields hint="Connect several nodes to this output to run them at the same time. Branches aren’t durable on their own. Use separate Workflow instances for durable parallelism." />
           ) : irNode.type === 'race' ? (
             <ForkFields hint="Connect several nodes to this output to run them at the same time. The first to finish wins, and the other branches are abandoned." />
+          ) : irNode.type === 'wait_for_event' ? (
+            <>
+              {definition && (
+                <DynamicFields
+                  configSchema={definition.configSchema}
+                  data={irNode.data}
+                  onChange={updateData}
+                  nodeId={irNode.id}
+                  readOnly={readOnly}
+                />
+              )}
+              <WaitForEventFields node={irNode} onUpdateField={updateData} />
+            </>
           ) : irNode.type === 'try_catch' ? (
             <TryCatchFields />
           ) : irNode.type === 'loop' ? (
@@ -617,6 +630,59 @@ function ForkFields({ hint }: { hint: string }) {
           </div>
         </div>
       </div>
+    </>
+  )
+}
+
+// ── Wait for Event — event/timeout target selectors ──
+
+function WaitForEventFields({
+  node,
+  onUpdateField,
+}: {
+  node: WorkflowNode
+  onUpdateField: (fieldId: string, value: unknown) => void
+}) {
+  const { targetOptions, getTargetForLabel, setTargetForLabel } = useEdgeManagement()
+  const slots = [
+    { field: 'onEventNode', label: 'onEvent', heading: 'When the event arrives' },
+    { field: 'onTimeoutNode', label: 'onTimeout', heading: 'When the wait times out' },
+  ] as const
+
+  return (
+    <>
+      <div className="space-y-2">
+        {slots.map((slot) => (
+          <div key={slot.field} className="overflow-hidden rounded-lg border border-border">
+            <div className="bg-muted/40 px-3 py-1.5">
+              <span className="text-xs font-medium text-muted-foreground">{slot.heading}</span>
+            </div>
+            <div className="p-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground/60">Go to</Label>
+                <Select
+                  value={
+                    getTargetForLabel(slot.label) ||
+                    String(node.data[slot.field] ?? '') ||
+                    '__none__'
+                  }
+                  onValueChange={(value) => {
+                    const target = value === '__none__' ? '' : value
+                    setTargetForLabel(slot.label, target)
+                    onUpdateField(slot.field, target)
+                  }}
+                  options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Hint>
+        The event path runs with the event payload. The timeout path runs when Cloudflare throws
+        <code> WorkflowTimeoutError</code>; other errors are rethrown.
+      </Hint>
     </>
   )
 }

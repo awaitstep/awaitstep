@@ -57,6 +57,26 @@ describe('migrateArtifact', () => {
     ])
   })
 
+  it('fills the 365-day timeout on legacy wait nodes', () => {
+    const doc = {
+      ...(simpleWorkflow as Record<string, unknown>),
+      irVersion: IR_VERSION,
+      nodes: [
+        {
+          id: 'wait',
+          type: 'wait_for_event',
+          name: 'Wait',
+          version: '1.0.0',
+          data: { eventType: 'approval' },
+        },
+      ],
+    }
+    const migrated = migrateArtifact(doc) as {
+      nodes: { data: { timeout?: string } }[]
+    }
+    expect(migrated.nodes[0]!.data.timeout).toBe('365 days')
+  })
+
   it('strips an empty legacy bindings key from a current document', () => {
     const doc = {
       ...(simpleWorkflow as Record<string, unknown>),

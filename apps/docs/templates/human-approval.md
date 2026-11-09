@@ -163,4 +163,4 @@ export class HumanApprovalWorkflow extends WorkflowEntrypoint<Env, Params> {
 
 ## Handling timeout
 
-If no decision arrives within 72 hours, `step.waitForEvent` throws. Wrap the Wait for Event node in a **Try/Catch** node to handle timeouts — for example, auto-rejecting and notifying the requester that the request expired.
+If no decision arrives within 72 hours, `step.waitForEvent` throws `WorkflowTimeoutError`. Connect the wait node's **on-timeout** path to auto-reject and notify the requester that the request expired.

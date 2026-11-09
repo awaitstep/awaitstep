@@ -66,6 +66,41 @@ describe('generateWorkflow', () => {
     `)
   })
 
+  it('adds a send-event fetch block only when the graph waits for an event', () => {
+    const withWait = {
+      ...(simpleWorkflow as unknown as WorkflowIR),
+      nodes: [
+        ...(simpleWorkflow as unknown as WorkflowIR).nodes,
+        {
+          id: 'approval',
+          type: 'wait_for_event',
+          name: 'Wait for approval',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { eventType: 'approval' },
+        },
+      ],
+      edges: [
+        ...(simpleWorkflow as unknown as WorkflowIR).edges,
+        {
+          id: 'to-approval',
+          source: (simpleWorkflow as unknown as WorkflowIR).nodes.at(-1)!.id,
+          target: 'approval',
+        },
+      ],
+    } as WorkflowIR
+    const waiting = programOf(withWait)
+    expect(waiting).toContain('async function awaitstepSendEvent')
+    expect(waiting).toContain('action !== "send-event"')
+    expect(waiting).toContain('if (!instance)')
+    expect(waiting).toContain(
+      'const payload = body?.params ?? body?.payload ?? (queryAction ? body : undefined)',
+    )
+    expect(waiting).toContain('await instance.sendEvent({ type, payload })')
+
+    expect(programOf(simpleWorkflow as unknown as WorkflowIR)).not.toContain('awaitstepSendEvent')
+  })
+
   it('generates a branching workflow', () => {
     const code = programOf(branchingWorkflow as unknown as WorkflowIR)
     expect(code).toContain('if (state.shouldNotify === true)')

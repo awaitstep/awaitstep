@@ -50,14 +50,27 @@ export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
   const containerTypes = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
 
   for (const node of ir.nodes) {
-    if (!containerTypes.has(node.type)) continue
+    if (!containerTypes.has(node.type) && node.type !== 'wait_for_event') continue
 
     const targets =
-      node.type === 'loop' || node.type === 'try_catch'
-        ? ir.edges
-            .filter((e) => e.source === node.id && inlineLabels.has(e.label ?? ''))
-            .map((e) => e.target)
-        : ir.edges.filter((e) => e.source === node.id && e.label !== 'then').map((e) => e.target)
+      node.type === 'wait_for_event'
+        ? [
+            ...new Set([
+              ...ir.edges
+                .filter(
+                  (e) => e.source === node.id && (e.label === 'onEvent' || e.label === 'onTimeout'),
+                )
+                .map((e) => e.target),
+              ...[node.data.onEventNode, node.data.onTimeoutNode].filter(
+                (id): id is string => typeof id === 'string' && id.length > 0,
+              ),
+            ]),
+          ]
+        : node.type === 'loop' || node.type === 'try_catch'
+          ? ir.edges
+              .filter((e) => e.source === node.id && inlineLabels.has(e.label ?? ''))
+              .map((e) => e.target)
+          : ir.edges.filter((e) => e.source === node.id && e.label !== 'then').map((e) => e.target)
 
     for (const target of targets) {
       const chain = collectChain(
