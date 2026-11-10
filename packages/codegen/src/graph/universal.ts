@@ -454,7 +454,7 @@ function generateFunction(
   graphBody = wrapModuleCalls(graphBody, 2)
   const usesFlow =
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   const contextLines = usesFlow

@@ -3,7 +3,7 @@ import { extractImports } from './imports.js'
 import { computeVarNames } from './context.js'
 import { containerArms, upstreamScopeOf } from './dag.js'
 import { blockBindingsOf } from './block-bindings.js'
-import { AUTO_EXPORT_TYPES, isExportedNode } from './sanitize.js'
+import { isExportedNode } from './sanitize.js'
 import { indent } from './format.js'
 import {
   defaultFunctionHeader,
@@ -159,9 +159,7 @@ function upstreamOrEveryone(
   if (ir.edges && ir.entryNodeId) {
     try {
       const hoisted =
-        ir.kind === 'script'
-          ? (node: WorkflowNode) => isExportedNode(node) || AUTO_EXPORT_TYPES.has(node.type)
-          : () => false
+        ir.kind === 'script' ? (node: WorkflowNode) => isExportedNode(node) : () => false
       return upstreamScopeOf(ir as WorkflowIR, names, hoisted)
     } catch {
       // A cycle: fall through to the widest reading.

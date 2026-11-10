@@ -29,7 +29,7 @@ const builtinGeneratorFns: Record<BuiltinNodeType, (args: NodeGeneratorArgs) => 
   sleep_until: ({ node }) => generateSleepUntil(node),
   branch: ({ node, ir, ctx, recurse, mode }) => generateBranch(node, ir, ctx, recurse, mode),
   parallel: ({ node, ir, ctx, recurse, mode }) => generateParallel(node, ir, ctx, recurse, mode),
-  http_request: ({ node, ctx, mode }) => generateHttp(node, ctx, mode),
+  http_request: ({ node, ctx }) => generateHttp(node, ctx),
   wait_for_event: ({ node, ir, ctx, recurse, mode }) =>
     generateWaitForEvent(node, ir, ctx, recurse, mode),
   try_catch: ({ node, ir, ctx, recurse, mode }) => generateTryCatch(node, ir, ctx, recurse, mode),

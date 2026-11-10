@@ -74,7 +74,8 @@ export {
   exportKeyFor,
   EXPORT_KEY_RE,
   isValidExportKey,
-  AUTO_EXPORT_TYPES,
+  DEFAULT_EXPORTED_NODE_TYPES,
+  EXPORTABLE_NODE_TYPES,
   stripExportPrefix,
   RESERVED_VAR_NAMES,
 } from './sanitize.js'

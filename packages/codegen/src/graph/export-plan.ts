@@ -1,6 +1,5 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import {
-  AUTO_EXPORT_TYPES,
   computeVarNames,
   containerArms,
   isExportedNode,
@@ -28,7 +27,11 @@ export function nodeYieldsValue(
   node: WorkflowNode,
   arms: Map<string, ArmBlock> = containerArms(ir as WorkflowIR),
 ): boolean {
-  if (node.data.inline === true || VALUELESS_TYPES.has(node.type)) return false
+  // An inline step's body is raw statements: no binding the exporter can see.
+  // Every HTTP node binds `flow.http(...)`'s response, durable or not.
+  if ((node.data.inline === true && node.type === 'step') || VALUELESS_TYPES.has(node.type)) {
+    return false
+  }
   if (node.type === 'step') return stepReturnsValue(String(node.data.code ?? ''))
   if (node.type === 'loop') {
     return ir.nodes.some(
@@ -86,10 +89,7 @@ export function exportPlan(
   const names = computeVarNames(ir.nodes)
   const sorted = topologicalSort(graph)
   const arms = containerArms(graph)
-  const returned = sorted.filter(
-    (node) =>
-      nodeYieldsValue(ir, node, arms) && (isExportedNode(node) || AUTO_EXPORT_TYPES.has(node.type)),
-  )
+  const returned = sorted.filter((node) => nodeYieldsValue(ir, node, arms) && isExportedNode(node))
   const varNameOf = (node: WorkflowNode) => names.get(node.id) || sanitizeIdentifier(node.id)
   const explicitKey = (node: WorkflowNode): string | undefined => {
     const key = node.data.exportAs

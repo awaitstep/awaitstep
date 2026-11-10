@@ -436,7 +436,7 @@ function generateScriptInternal(
   // comment or an inline body's own `step` identifier.
   const usesFlow =
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   // A function's invocation is a run of its own: the context's event carries

@@ -1,103 +1,74 @@
 import type { WorkflowNode } from '@awaitstep/ir'
-import { stepLabel, type GenerateMode, type GenerationContext } from '../internal.js'
+import { stepLabel, type GenerationContext } from '../internal.js'
 import { generateStepConfig } from './config.js'
 import { isJsonLiteralBody } from './http-body.js'
+import { resolveStepConfig } from './step.js'
 
-export function generateHttp(
-  node: WorkflowNode,
-  ctx: GenerationContext,
-  mode: GenerateMode = 'workflow',
-): string {
+/**
+ * One HTTP node: a single `flow.http({...})` call carrying the node's config.
+ * A request is not durable by default — a node says `durable: true` to be
+ * wrapped in a step, which buys retries, a timeout and (in a workflow)
+ * persistence. The runtime owns the request itself — URL building, body
+ * encoding, the `Content-Type` header — so the wrapper is the only thing
+ * codegen decides.
+ *
+ * The output is the same in a workflow and a function: a function's step is
+ * not durable, but it still retries and times out.
+ */
+export function generateHttp(node: WorkflowNode, ctx: GenerationContext): string {
   const method = String(node.data.method ?? 'GET')
   const url = String(node.data.url ?? '')
-  const rawHeaders = node.data.headers
-  const headers =
-    rawHeaders && typeof rawHeaders === 'object' && !Array.isArray(rawHeaders)
-      ? (rawHeaders as Record<string, string>)
-      : undefined
+  const headers = recordField(node.data.headers)
+  const queryParams = recordField(node.data.queryParams)
   const body = node.data.body
-  const rawQueryParams = node.data.queryParams
-  const queryParams =
-    rawQueryParams && typeof rawQueryParams === 'object' && !Array.isArray(rawQueryParams)
-      ? (rawQueryParams as Record<string, string>)
-      : undefined
-
-  const config = generateStepConfig(node.config)
-  const configArg = config ? `, ${config}` : ''
-
-  const fetchOptions: string[] = [`method: ${JSON.stringify(method)}`]
-
-  // Off-schema rows can hold a non-string Body (save does not run the strict
-  // schema); those are emitted as before rather than scanned. A non-literal
-  // Body keeps its whitespace: a trailing line comment needs its newline.
   const bodyExpression = typeof body === 'string' ? body : body ? String(body) : ''
   const jsonBody = typeof body === 'string' && isJsonLiteralBody(body)
 
-  const headerEntries = Object.entries(headers ?? {}).map(
-    ([k, v]) => `${JSON.stringify(k)}: ${toJsLiteral(v)}`,
-  )
-  if (jsonBody && !hasContentType(headers)) {
-    headerEntries.push('"Content-Type": "application/json"')
+  const options: string[] = []
+  // GET with no options is the shape a browser would send anyway; naming it
+  // keeps the emitted call short and the diff against a plain fetch small.
+  if (method !== 'GET') options.push(`method: ${JSON.stringify(method)}`)
+  options.push(`url: ${toJsLiteral(url)}`)
+  const queryEntries = Object.entries(queryParams ?? {})
+  if (queryEntries.length > 0) {
+    options.push(`queryParams: ${objectLiteral(queryEntries)}`)
   }
+  const headerEntries = Object.entries(headers ?? {})
   if (headerEntries.length > 0) {
-    fetchOptions.push(`headers: { ${headerEntries.join(', ')} }`)
+    options.push(`headers: ${objectLiteral(headerEntries)}`)
+  }
+  if (bodyExpression.trim()) {
+    // A JSON literal goes in as a value for the runtime to encode; any other
+    // expression is the user's own code, whose result the runtime sends as-is
+    // when it is a string.
+    options.push(`body: ${jsonBody ? bodyExpression.trim() : bodyExpression}`)
   }
 
-  if (jsonBody) {
-    fetchOptions.push(`body: JSON.stringify(${bodyExpression.trim()})`)
-  } else if (bodyExpression.trim()) {
-    fetchOptions.push(`body: ${bodyExpression}`)
+  // A body ending in a line comment would comment out the closing braces, so
+  // close on the next line when the body carries one.
+  const tail = /\/\//.test(bodyExpression) ? '\n' : ''
+  const call = `flow.http({ ${options.join(', ')}${tail} })`
+  const config = generateStepConfig(resolveStepConfig(node))
+  const configArg = config ? `, ${config}` : ''
+  const varName = ctx.varName(node.id)
+
+  // Not durable: the request runs in the surrounding body — no retries, no
+  // timeout, no durability. Opted into, it is a step like any other.
+  if (node.data.durable !== true) {
+    return `const ${varName} = await ${call};`
   }
-
-  const hasQueryParams = queryParams && Object.keys(queryParams).length > 0
-  const needsOptions = method !== 'GET' || fetchOptions.length > 1
-  const fetchOpts = needsOptions ? `, { ${fetchOptions.join(', ')} }` : ''
-
-  const lines: string[] = []
-
-  if (hasQueryParams) {
-    const urlLiteral = toJsLiteral(url)
-    lines.push(`const url = new URL(${urlLiteral});`)
-    for (const [k, v] of Object.entries(queryParams)) {
-      lines.push(`url.searchParams.set(${JSON.stringify(k)}, ${toJsLiteral(v)});`)
-    }
-    lines.push(`const response = await fetch(url${fetchOpts});`)
-  } else {
-    const urlLiteral = toJsLiteral(url)
-    lines.push(`const response = await fetch(${urlLiteral}${fetchOpts});`)
-  }
-
-  lines.push('return response.json();')
-
-  const bodyCode = lines.map((l) => `  ${l}`).join('\n')
-
-  if (mode === 'script') {
-    // No `step.do` boundary in script mode, so emit the body inline. The
-    // simple no-queryparams case collapses to a single expression. With
-    // queryparams the URL builder needs intermediate vars — namespace them
-    // by node id so siblings don't collide, and keep the final assignment
-    // as `const ${ctx.varName(node.id)} = ...` so the EXPORT_ post-processing
-    // (which scans for `const X =`) still finds it.
-    if (!hasQueryParams) {
-      const urlLiteral = toJsLiteral(url)
-      return `const ${ctx.varName(node.id)} = await fetch(${urlLiteral}${fetchOpts}).then(r => r.json());`
-    }
-    const v = ctx.varName(node.id)
-    const urlLiteral = toJsLiteral(url)
-    const scriptLines: string[] = [`const _${v}_url = new URL(${urlLiteral});`]
-    for (const [k, qv] of Object.entries(queryParams)) {
-      scriptLines.push(`_${v}_url.searchParams.set(${JSON.stringify(k)}, ${toJsLiteral(qv)});`)
-    }
-    scriptLines.push(`const ${v} = await fetch(_${v}_url${fetchOpts}).then(r => r.json());`)
-    return scriptLines.join('\n')
-  }
-  return `const ${ctx.varName(node.id)} = await flow.step("${stepLabel(node)}"${configArg}, async () => {
-${bodyCode}
-});`
+  return `const ${varName} = await flow.step("${stepLabel(node)}"${configArg}, async () => ${call});`
 }
 
-function hasContentType(headers: Record<string, string> | undefined): boolean {
-  return Object.keys(headers ?? {}).some((k) => k.toLowerCase() === 'content-type')
+function recordField(value: unknown): Record<string, string> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, string>)
+    : undefined
+}
+
+function objectLiteral(entries: [string, unknown][]): string {
+  const parts = entries.map(([key, value]) => `${JSON.stringify(key)}: ${toJsLiteral(value)}`)
+  return `{ ${parts.join(', ')} }`
 }
 
 function toJsLiteral(value: unknown): string {

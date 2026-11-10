@@ -19,7 +19,8 @@ export { moduleInputReads } from '../module-inputs.js'
 export { normalizeStepModule, stepReturnsValue } from '../step-module.js'
 export { derivedStepLabel, stepLabel } from '../naming.js'
 export {
-  AUTO_EXPORT_TYPES,
+  DEFAULT_EXPORTED_NODE_TYPES,
+  EXPORTABLE_NODE_TYPES,
   isExportedName,
   isExportedNode,
   isValidExportKey,

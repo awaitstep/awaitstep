@@ -328,6 +328,44 @@ describe('generateScript', () => {
     expect(code).toMatch(/return \{\s*Inner\s*\}/)
   })
 
+  it('keeps an unexported http call inside its arm, and hoists it once the node says so', () => {
+    const httpNode = (data: Record<string, unknown>) => ({
+      id: 'ping',
+      type: 'http_request',
+      name: 'Ping',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { url: 'https://example.com', method: 'GET', ...data },
+    })
+    const build = (data: Record<string, unknown>) => {
+      const ir = makeScript([
+        {
+          id: 'gate',
+          type: 'branch',
+          name: 'Gate',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { branches: [{ label: 'yes', condition: 'true' }] },
+        },
+        httpNode(data),
+      ])
+      ir.edges = [{ id: 'e1', source: 'gate', target: 'ping', label: 'yes' }]
+      return generateScript(ir)
+    }
+
+    const off = build({})
+    expect(off).not.toMatch(/let Ping/)
+    expect(off).toMatch(/^\s+await flow\.http\(\{/m)
+    expect(off).toContain('return {};')
+
+    const on = build({ export: true })
+    expect(on).toMatch(/let Ping[,;]/)
+    expect(on).toMatch(/^\s+Ping = await flow\.http\(\{/m)
+    expect(on).toMatch(/return \{\s*Ping\s*\}/)
+  })
+
   it('keeps the const for a non-exported node when downstream nodes reference its var', () => {
     const ir = makeScript([
       stepNode('producer', 'return event.payload;', 'producer'),
@@ -640,13 +678,13 @@ describe('generateScript', () => {
   it('emits no runtime import or host for a function whose nodes need no step', () => {
     const ir = makeScript([
       {
-        id: 'ping',
-        type: 'http_request',
-        name: 'EXPORT_Ping',
+        id: 'pick',
+        type: 'branch',
+        name: 'Pick',
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { method: 'GET', url: 'https://example.com/ping' },
+        data: { branches: [{ label: 'yes', condition: 'true' }] },
       },
     ])
     const bundle = generateScriptBundle(ir)
@@ -658,7 +696,47 @@ describe('generateScript', () => {
       'awaitstep/function.ts',
       'awaitstep/entry.ts',
     ])
-    expect(bundle.manifest?.steps).toEqual([{ nodeId: 'ping', varName: 'Ping', exportKey: 'Ping' }])
+    expect(bundle.manifest?.steps).toEqual([{ nodeId: 'pick', varName: 'Pick' }])
+  })
+
+  it('creates the flow context when flow.http is the only flow call', () => {
+    const ir = makeScript([
+      {
+        id: 'ping',
+        type: 'http_request',
+        name: 'Ping',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { method: 'GET', url: 'https://example.com/ping' },
+      },
+    ])
+    const worker = generateScriptBundle(ir).files.find(
+      (f) => f.path === 'awaitstep/function.ts',
+    )!.source
+    expect(worker).toContain('flow.http(')
+    expect(worker).not.toContain('flow.step(')
+    expect(worker).toContain('createWorkflowContext')
+    expect(worker).toContain('#awaitstep/runtime')
+  })
+
+  it('needs the runtime for an http call, step or not', () => {
+    const ir = makeScript([
+      {
+        id: 'ping',
+        type: 'http_request',
+        name: 'Ping',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { method: 'GET', url: 'https://example.com/ping' },
+      },
+    ])
+    const worker = generateScriptBundle(ir).files.find(
+      (f) => f.path === 'awaitstep/function.ts',
+    )!.source
+    expect(worker).toContain('flow.http({ url: "https://example.com/ping" })')
+    expect(worker).not.toContain('flow.step("ping"')
   })
 
   it('default fetch handler returns the whole graph object', () => {
@@ -736,28 +814,24 @@ describe('generateScript', () => {
     expect(code).toContain('return { send_auth_email };')
   })
 
-  it('auto-exports an http_request response even without EXPORT_ prefix', () => {
-    // http_request is a result-producer node — its purpose is to make a
-    // call and surface the JSON response. The response must land on
-    // `graph.<name>` without forcing the user to learn the EXPORT_
-    // convention; otherwise the entire request silently disappears.
-    const ir = makeScript([
-      {
-        id: 'fetch-rates',
-        type: 'http_request',
-        name: 'exchange_rate',
-        position: { x: 0, y: 0 },
-        version: '1.0.0',
-        provider: 'cloudflare',
-        data: {
-          url: 'https://example.com/rates',
-          method: 'GET',
-        },
-      },
-    ])
-    const code = generateScript(ir)
-    expect(code).toContain('const exchange_rate = await fetch(')
-    expect(code).toContain('return { exchange_rate };')
+  it('returns an http response only when its node says so', () => {
+    const node = (data: Record<string, unknown>) => ({
+      id: 'fetch-rates',
+      type: 'http_request',
+      name: 'exchange_rate',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { url: 'https://example.com/rates', method: 'GET', ...data },
+    })
+    const off = generateScript(makeScript([node({})]))
+    expect(off).toContain('await flow.http({ url: "https://example.com/rates" })')
+    expect(off).toContain('return {};')
+    expect(off).not.toContain('let exchange_rate')
+
+    const on = generateScript(makeScript([node({ export: true })]))
+    expect(on).toContain('const exchange_rate = await flow.http(')
+    expect(on).toContain('return { exchange_rate };')
   })
 
   it('auto-exports a sub_script response even without EXPORT_ prefix', () => {
@@ -910,9 +984,7 @@ describe('generateScript', () => {
     ).toContain('console.log(inputs.index);')
   })
 
-  it('flattens http_request in script mode (no IIFE) — simple GET case', () => {
-    // EXPORT_-prefix the node so EXPORT_ post-processing keeps the `const X = ...`
-    // assignment instead of stripping it as unused.
+  it('wraps a durable http call in a step, as a workflow does', () => {
     const ir = makeScript([
       {
         id: 'fetch_user',
@@ -921,17 +993,37 @@ describe('generateScript', () => {
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { method: 'GET', url: 'https://api.example.com/users/1' },
+        data: { method: 'GET', url: 'https://api.example.com/users/1', durable: true },
       },
     ])
     const code = generateScript(ir)
-    expect(code).not.toContain('await (async () => {')
-    expect(code).toMatch(
-      /const FetchUser = await fetch\("https:\/\/api\.example\.com\/users\/1"\)\.then\(r => r\.json\(\)\);/,
+    expect(code).toContain(
+      'const FetchUser = await flow.step("fetch_user", async () => flow.http({ url: "https://api.example.com/users/1" }));',
     )
   })
 
-  it('flattens http_request with queryParams using namespaced url builder', () => {
+  it('returns an http response that runs without a step when switched on', () => {
+    const ir = makeScript([
+      {
+        id: 'ping',
+        type: 'http_request',
+        name: 'Ping',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { method: 'GET', url: 'https://example.com/ping', export: true },
+      },
+    ])
+    // The function module, not the bundle: the embedded runtime names flow.step.
+    const code = generateScriptBundle(ir).files.find(
+      (f) => f.path === 'awaitstep/function.ts',
+    )!.source
+    expect(code).toContain('const Ping = await flow.http(')
+    expect(code).not.toContain('flow.step(')
+    expect(code).toMatch(/return \{\s*Ping\s*\}/)
+  })
+
+  it('passes query params to the runtime instead of building the URL', () => {
     const ir = makeScript([
       {
         id: 'search',
@@ -947,13 +1039,12 @@ describe('generateScript', () => {
         },
       },
     ])
-    const code = generateScript(ir)
-    expect(code).not.toContain('await (async () => {')
-    // Intermediate var is namespaced by node varName so siblings don't collide.
-    expect(code).toContain('const _Search_url = new URL("https://api.example.com/search")')
-    expect(code).toContain('_Search_url.searchParams.set("q", "hello")')
-    // Final assignment keeps `const ${varName}` so EXPORT_ post-processing finds it.
-    expect(code).toMatch(/const Search = await fetch\(_Search_url\)\.then\(r => r\.json\(\)\);/)
+    // The function module, not the bundle: the embedded runtime builds URLs.
+    const code = generateScriptBundle(ir).files.find(
+      (f) => f.path === 'awaitstep/function.ts',
+    )!.source
+    expect(code).toContain('queryParams: { "q": "hello", "limit": "10" }')
+    expect(code).not.toContain('new URL')
   })
 
   it('emits parallel/race in script mode without an outer IIFE wrap', () => {

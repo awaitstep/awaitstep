@@ -83,7 +83,7 @@ describe('exportPlan', () => {
         node('b', 'step', { code: 'return 2;', export: true }),
         node('c', 'step', { code: 'return 3;', export: true, exportAs: 'b' }),
         node('d', 'step', { code: 'log();', export: true }),
-        node('e', 'http_request', { url: 'https://x' }),
+        node('e', 'http_request', { url: 'https://x', export: true }),
         node('f', 'step', { code: 'return 6;', exportAs: 'ignored' }),
       ],
       [
@@ -101,6 +101,42 @@ describe('exportPlan', () => {
       { nodeId: 'a', varName: 'a', key: 'result' },
       { nodeId: 'c', varName: 'c', key: 'b_2' },
     ])
+  })
+
+  it('returns an http call only when switched on, and a sub-workflow or sub-script by default', () => {
+    const ir = graph(
+      [
+        node('h', 'http_request', { url: 'https://x' }),
+        node('w', 'sub_workflow', { workflowId: 'w' }),
+        node('s', 'sub_script', { workerName: 'w' }),
+      ],
+      [
+        { id: 'e1', source: 'h', target: 'w' },
+        { id: 'e2', source: 'w', target: 's' },
+      ],
+    )
+    expect([...exportPlan(ir).keys()]).toEqual(['w', 's'])
+  })
+
+  it('lets a sub-workflow opt out and an http call opt in', () => {
+    const ir = graph(
+      [
+        node('h', 'http_request', { url: 'https://x', export: true, exportAs: 'call' }),
+        node('w', 'sub_workflow', { workflowId: 'w', export: false }),
+      ],
+      [],
+    )
+    expect([...exportPlan(ir).values()]).toEqual([{ nodeId: 'h', varName: 'h', key: 'call' }])
+  })
+
+  it('returns an http response that runs without a step when the node says so', () => {
+    const ir = graph([node('h', 'http_request', { url: 'https://x', export: true })], [])
+    expect([...exportPlan(ir).values()]).toEqual([{ nodeId: 'h', varName: 'h', key: 'h' }])
+  })
+
+  it('ignores an export field on a kind that is not exportable', () => {
+    const ir = graph([node('n', 'webhook-post', { export: true })], [])
+    expect(exportPlan(ir).size).toBe(0)
   })
 
   it('refuses a key that is not an identifier, falling back to the variable name', () => {

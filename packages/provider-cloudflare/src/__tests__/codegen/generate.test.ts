@@ -105,7 +105,7 @@ describe('generateWorkflow', () => {
     const code = programOf(branchingWorkflow as unknown as WorkflowIR)
     expect(code).toContain('if (state.shouldNotify === true)')
     expect(code).toContain('} else {')
-    expect(code).toContain('fetch("https://api.example.com/notify"')
+    expect(code).toContain('flow.http({ method: "POST", url: "https://api.example.com/notify"')
   })
 
   it('generates a single-branch (if without else)', () => {
@@ -134,7 +134,8 @@ describe('generateWorkflow', () => {
       edges: [{ id: 'e0', source: 'br', target: 's1', label: 'yes' }],
       entryNodeId: 'br',
     }
-    const code = programOf(ir)
+    // The workflow module only: the embedded runtime has an `else` of its own.
+    const code = workflowSource(generateWorkflowBundle(ir))
     expect(code).toContain('if (true) {')
     expect(code).not.toContain('} else {')
     expect(code).toContain('flow.step("s1"')
@@ -199,7 +200,9 @@ describe('generateWorkflow', () => {
     const code = programOf(parallelWorkflow as unknown as WorkflowIR)
     expect(code).toContain('Promise.allSettled')
     expect(code).toContain('flow.step("task_a"')
-    expect(code).toContain('flow.step("task_b"')
+    // task_b is an HTTP node: a plain request, not a step, unless it is durable.
+    expect(code).toContain('flow.http({ url: "https://api.example.com/data"')
+    expect(code).not.toContain('flow.step("task_b"')
   })
 
   it('generates a wait-for-event workflow', () => {

@@ -118,9 +118,17 @@ describe('appliedStepSettings agrees with what the generators emit', () => {
     expect(applied.config).toEqual({ retries: { limit: 2, delay: '10 seconds' } })
   })
 
-  it('http_request ignores the loose fields: a new node’s stored retryLimit is not applied', () => {
-    const applied = appliedStepSettings(node('http_request', { retryLimit: 5 }))
-    expect(applied.config).toBeUndefined()
+  it('an http request that is not durable takes neither, as it emits no step', () => {
+    expect(
+      appliedStepSettings(
+        node('http_request', { url: 'https://x', retryLimit: 4, timeout: '30 seconds' }),
+      ),
+    ).toEqual({ retries: false, timeout: false, config: undefined })
+  })
+
+  it('a durable http request applies the loose fields, as its generator does', () => {
+    const applied = appliedStepSettings(node('http_request', { durable: true, retryLimit: 5 }))
+    expect(applied.config).toEqual({ retries: { limit: 5, delay: '10 seconds' } })
     expect(applied.retries).toBe(true)
   })
 

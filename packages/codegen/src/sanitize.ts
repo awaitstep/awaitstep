@@ -30,11 +30,24 @@ export function stripExportPrefix(name: string): string {
 }
 
 /**
- * Node kinds whose whole purpose is a value (an HTTP response, a sub-worker's
- * output, a sub-workflow handle): a function returns them without a switch.
+ * Node kinds a function's response can include — the ones carrying an
+ * `export` field of their own. A registry node may have an `export` field for
+ * its own reasons, so only these kinds read it.
  */
-export const AUTO_EXPORT_TYPES: ReadonlySet<string> = new Set([
+export const EXPORTABLE_NODE_TYPES: ReadonlySet<string> = new Set([
+  'step',
   'http_request',
+  'sub_workflow',
+  'sub_script',
+])
+
+/**
+ * Kinds whose value is in a function's response unless the node opts out: a
+ * sub-workflow's handle or a sub-script's output is usually needed later, so
+ * the switch starts on. A step and an HTTP call start off — a response should
+ * carry what the author asked for, not every call the graph made.
+ */
+export const DEFAULT_EXPORTED_NODE_TYPES: ReadonlySet<string> = new Set([
   'sub_workflow',
   'sub_script',
 ])
@@ -48,17 +61,24 @@ export function isValidExportKey(key: string): boolean {
 }
 
 /**
- * A node returns its value from a function when it is a step whose data says
- * so (`export: true`, the canvas's "Return this value" switch) or, the legacy
- * way for any kind, when its name carries the `EXPORT_` marker. Only a step
- * reads the flag: a registry node may have an `export` field of its own.
+ * Whether a function returns this node's value. The legacy `EXPORT_` name
+ * marker wins, then the node's own `export` field, then the kind's default.
+ * Only an exportable kind reads the field, so a registry node's own `export`
+ * config never changes the response.
  */
 export function isExportedNode(node: {
   type: string
   name: string
   data?: Record<string, unknown>
 }): boolean {
-  return (node.type === 'step' && node.data?.export === true) || isExportedName(node.name)
+  // The legacy name marker is authoritative: the canvas disables the switch
+  // when a name carries it, so a stale `export: false` must not undo it.
+  if (isExportedName(node.name)) return true
+  if (EXPORTABLE_NODE_TYPES.has(node.type)) {
+    if (node.data?.export === false) return false
+    if (node.data?.export === true) return true
+  }
+  return DEFAULT_EXPORTED_NODE_TYPES.has(node.type)
 }
 
 /**
