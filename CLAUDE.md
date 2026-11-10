@@ -61,6 +61,12 @@ When review feedback is shared, work through **every** comment in it — in full
 - Never inline multi-statement functions or conditional logic in JSX props. Extract them to named handler functions (e.g. `handleClose`, `handleSave`) defined above the return statement.
 - **`useEffect` is the last resort — not the default.** If you can compute something from props/state/loader data, do it in the component body or `useMemo`. If you're syncing stores from loader data, do it synchronously before render. Only use `useEffect` for genuine side effects that must happen after paint (DOM measurements, subscriptions, timers). Read: https://react.dev/learn/you-might-not-need-an-effect
 
+## UI Components
+
+- **The shared kit first.** `apps/web/src/components/ui/` is where every primitive lives — `Button`, `Input`, `Textarea`, `Select`, `FormField`, `Label`, `Switch`, `SegmentedTabs`, `Tabs`, `Dialog`, `Tooltip`, and the rest. Before writing markup for a control, find and use the component that already exists.
+- **One-off controls.** If the kit has no equivalent, add the generic control to `apps/web/src/components/ui/` when it can be reused; keep a truly one-off layout inline in the feature component. Never re-implement a kit primitive with raw elements in feature code, and never restyle a feature with ad-hoc markup where a kit component fits.
+- **Feature components compose, they do not redefine.** Domain shapes (a labelled field row, a settings row) belong in a feature component built from kit parts.
+
 ## API Endpoints
 
 - When adding a new publicly exposed API endpoint, always add a corresponding entry to the playground endpoint catalog (`apps/web/src/lib/playground-endpoints.ts`) and update the API reference docs (`docs/api-reference.md`).
