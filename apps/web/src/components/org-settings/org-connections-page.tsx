@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Cloud, KeyRound, Lock, Pencil } from 'lucide-react'
 import {
   useConnections,
+  useOAuthStatus,
   useRemoveConnection,
   useReplaceToken,
   useUpdateConnection,
 } from '../../data/dashboard/org-settings'
 import { useProjects } from '../../data/dashboard/projects'
 import type { Connection } from '../../types/dashboard/org-settings'
-import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
@@ -17,6 +17,7 @@ import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { ConnectCloudflareDialog } from './connect-cloudflare-dialog'
+import { oauthStartUrl } from './oauth-start'
 import { ConnectionCard } from './parts/connection-card'
 import { TextFieldDialog } from './text-field-dialog'
 import { useOrgScope } from './use-org-scope'
@@ -33,7 +34,9 @@ interface OrgConnectionsPageProps {
 /** `/{org}/connections` (`OrgConnections`, its own rail item): Cloudflare accounts and who may deploy with each. */
 export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgConnectionsPageProps) {
   const scope = useOrgScope(org)
+  const canManage = scope?.viewerCan.manageSettings.allowed === true
   const connections = useConnections(org)
+  const oauthStatus = useOAuthStatus(canManage)
   // The picker's list is fetched when a card's project picker opens.
   const [projectsOpen, setProjectsOpen] = useState(false)
   const projects = useProjects(org, { enabled: projectsOpen })
@@ -44,10 +47,14 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
 
   if (!scope) return null
   const orgInfo = { slug: org, name: scope.org.name }
-  const canManage = scope.viewerCan.manageSettings.allowed
+  const oauthEnabled = oauthStatus.data?.enabled === true
 
   function handleConnect() {
     onConnectChange(true)
+  }
+
+  function handleReconnect(connection: Connection) {
+    window.location.assign(oauthStartUrl(org, { connectionId: connection.id }))
   }
 
   function handleCloseConnect() {
@@ -87,6 +94,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
           projectIds(connection).filter((id) => id !== projectId),
         ),
       onReplaceToken: () => open('token', connection),
+      onReconnect: () => handleReconnect(connection),
       onRename: () => open('rename', connection),
       onRemove: () => open('remove', connection),
     }
@@ -162,7 +170,6 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
     ))
   }
 
-  const updateError = update.error && overlay === null ? update.error.message : undefined
   const removeBody =
     overlay?.kind === 'remove' &&
     (remove.error?.message ??
@@ -172,19 +179,32 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
     <>
       {canManage && (
         <TopBarContent>
-          <Button type="button" size="sm" onClick={handleConnect}>
-            <Cloud aria-hidden="true" />
-            Connect Cloudflare
-          </Button>
+          {oauthEnabled ? (
+            <>
+              <Button asChild size="sm">
+                <a href={oauthStartUrl(org)}>
+                  <Cloud aria-hidden="true" />
+                  Connect Cloudflare
+                </a>
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={handleConnect}>
+                Use an API token
+              </Button>
+            </>
+          ) : (
+            <Button type="button" size="sm" onClick={handleConnect}>
+              <Cloud aria-hidden="true" />
+              Connect Cloudflare
+            </Button>
+          )}
         </TopBarContent>
       )}
       <PageBody>
         <PageIntro title="Connections" description="Providers you deploy to, eg. Cloudflare" />
-        {updateError && <Banner tone="warn">{updateError}</Banner>}
         {body}
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Lock className="size-3.5 shrink-0" aria-hidden="true" />
-          Tokens stay encrypted and are never shown again after you save them.
+          Credentials stay encrypted and are never shown again after you save them.
         </p>
       </PageBody>
       {canManage && connectOpen && (

@@ -890,6 +890,11 @@ export const dashboardApi = {
   },
 
   // Connections and the marketplace (B9): organization settings, `?org=`.
+  /** Whether this deployment can offer the OAuth connect flow (and whether it is the dev stub). */
+  getOAuthStatus(): Promise<{ enabled: boolean }> {
+    return request(apiPath`/oauth/cloudflare/status`)
+  },
+
   /** `project` (a slug) narrows the list to the accounts that deploy that project. */
   listConnections(
     org: string,

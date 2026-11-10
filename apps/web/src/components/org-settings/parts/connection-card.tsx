@@ -27,33 +27,81 @@ interface ConnectionCardProps {
     onAddProject: (projectId: string) => void
     onRemoveProject: (projectId: string) => void
     onReplaceToken: () => void
+    onReconnect?: () => void
     onRename: () => void
     onRemove: () => void
   }
   now?: Date
 }
 
-/** The token badge, and whether the card asks for a new token. */
+/** The token badge, and whether the card asks for a new token or a reconnect. */
 export function tokenStatus(
-  connection: Pick<Connection, 'tokenStatus' | 'tokenExpiresAt'>,
+  connection: Pick<Connection, 'tokenStatus' | 'tokenExpiresAt' | 'authKind' | 'canDeploy'>,
   now: Date,
 ) {
+  // An OAuth grant is renewed by the server before it expires; there is no
+  // pasted token to replace, so it never asks for one. A grant without a
+  // Workers deploy scope can be re-authorized in place.
+  if (connection.authKind === 'oauth') {
+    if (connection.tokenStatus === 'invalid' || connection.canDeploy === false) {
+      return {
+        text:
+          connection.tokenStatus === 'invalid'
+            ? 'OAuth connection needs reconnecting'
+            : 'OAuth · missing a Workers deploy scope',
+        variant: 'error' as const,
+        needsToken: false,
+        needsReconnect: true,
+      }
+    }
+    return {
+      text: 'OAuth · renews automatically',
+      variant: 'success' as const,
+      needsToken: false,
+      needsReconnect: false,
+    }
+  }
   if (connection.tokenStatus === 'invalid') {
-    return { text: 'Token no longer works', variant: 'error' as const, needsToken: true }
+    return {
+      text: 'Token no longer works',
+      variant: 'error' as const,
+      needsToken: true,
+      needsReconnect: false,
+    }
   }
   if (connection.tokenExpiresAt) {
     const expiry = expiryLabel(connection.tokenExpiresAt, now)
     if (expiry.text === 'Expired') {
-      return { text: 'Token expired', variant: 'error' as const, needsToken: true }
+      return {
+        text: 'Token expired',
+        variant: 'error' as const,
+        needsToken: true,
+        needsReconnect: false,
+      }
     }
     const when = expiry.text.replace(/^In /, 'in ').replace(/^Today$/, 'today')
-    return { text: `Token expires ${when}`, variant: 'warning' as const, needsToken: true }
+    return {
+      text: `Token expires ${when}`,
+      variant: 'warning' as const,
+      needsToken: true,
+      needsReconnect: false,
+    }
   }
   // Older than the first check (B9): Cloudflare is asked within a day.
   if (connection.tokenStatus === 'unchecked') {
-    return { text: 'Token not checked yet', variant: 'neutral' as const, needsToken: false }
+    return {
+      text: 'Token not checked yet',
+      variant: 'neutral' as const,
+      needsToken: false,
+      needsReconnect: false,
+    }
   }
-  return { text: 'Token valid', variant: 'success' as const, needsToken: false }
+  return {
+    text: 'Token valid',
+    variant: 'success' as const,
+    needsToken: false,
+    needsReconnect: false,
+  }
 }
 
 /** One Cloudflare account on org Connections (`OrgConnections`). */
@@ -67,6 +115,7 @@ export function ConnectionCard({
   const [adding, setAdding] = useState(false)
   const status = tokenStatus(connection, now)
   const needsToken = status.needsToken
+  const needsReconnect = status.needsReconnect
   const deployments = connection.deployments
   const deploymentsLine =
     deployments.count === 0 || !deployments.lastAt
@@ -104,6 +153,11 @@ export function ConnectionCard({
         {actions && needsToken && (
           <Button type="button" variant="outline" size="sm" onClick={actions.onReplaceToken}>
             Replace token
+          </Button>
+        )}
+        {actions && needsReconnect && actions.onReconnect && (
+          <Button type="button" variant="outline" size="sm" onClick={actions.onReconnect}>
+            Reconnect
           </Button>
         )}
         {actions && (

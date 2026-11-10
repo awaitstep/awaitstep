@@ -58,6 +58,10 @@ export interface Connection {
   /** The account ID's last four characters: "7f2a". */
   accountSuffix: string
   addedBy: { id: string; name: string }
+  /** An OAuth grant renews itself; an API token is pasted and expires on its own. */
+  authKind?: 'api-token' | 'oauth'
+  /** False when the grant cannot deploy (an OAuth connection missing a Workers scope). */
+  canDeploy?: boolean
   /** What Cloudflare last said: `unchecked` until the first check (a connection older than B9). */
   tokenStatus: ConnectionTokenStatus
   /** When the token stops working; null for no expiry. */

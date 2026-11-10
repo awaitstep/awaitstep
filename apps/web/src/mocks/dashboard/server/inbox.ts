@@ -38,6 +38,9 @@ function placeOf(db: MockDb, org: OrgRow, projectId: string | null, workspaceId:
 
 function hrefOf(db: MockDb, org: OrgRow, to: NotificationTarget): string | null {
   if (to.kind === 'org-settings') return orgDestinationPath(org.slug, to.page)
+  if (to.kind === 'project-connections') {
+    return projectPagePath({ org: org.slug, project: to.project }, 'connections')
+  }
   if (to.kind === 'project-settings') {
     const project = db.projects.find((p) => p.id === to.projectId)
     return project ? projectPagePath({ org: org.slug, project: project.slug }, to.page) : null

@@ -124,6 +124,7 @@ export type NotificationTarget =
   | { kind: 'workspace'; workspaceId: string; page: WorkspacePage }
   | { kind: 'project-settings'; projectId: string; page: ProjectPage }
   | { kind: 'org-settings'; page: OrgDestination }
+  | { kind: 'project-connections'; project: string }
 
 /** A sample notification (failures, expiring keys, people, deploys); requests come from `editRequests`. */
 export interface NotificationRow {

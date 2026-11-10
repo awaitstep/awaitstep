@@ -32,6 +32,14 @@ export interface DashboardSearch {
   tab?: string
   /** The Inbox or What's new, open over the page (`inbox`, `whats-new`). */
   open?: string
+  /** Connections: the test backend's OAuth result (`ok`, `denied`, `error`). */
+  oauth?: string
+  /** Connections: the account the test backend authorized. */
+  account?: string
+  /** Connections: why the test backend's OAuth failed. */
+  reason?: string
+  /** Connections: `1` when the OAuth flow saved a connection. */
+  connected?: string
 }
 
 /** Kept from page to page; the dialog params are not, so a dialog doesn't follow you around. */
@@ -60,6 +68,10 @@ export function validateDashboardSearch(
     variable: pick('variable'),
     tab: pick('tab'),
     open: pick('open'),
+    oauth: pick('oauth'),
+    account: pick('account'),
+    reason: pick('reason'),
+    connected: pick('connected'),
   }
 }
 

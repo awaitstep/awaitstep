@@ -305,6 +305,14 @@ describe('org Connections', () => {
     return <OrgConnectionsPage org="acme" connectOpen={open} onConnectChange={setOpen} />
   }
 
+  it('offers the token flow when OAuth is not available', async () => {
+    renderWithDashboardData(<Connections />)
+    await userEvent.click(await screen.findByRole('button', { name: /Connect Cloudflare/ }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Connect with an API token' }),
+    ).toBeInTheDocument()
+  })
+
   it('reads as OrgConnections: accounts, token state, projects, deployments', async () => {
     renderWithDashboardData(<Connections />)
     const production = await screen.findByRole('region', { name: 'Acme production' })
@@ -356,7 +364,7 @@ describe('org Connections', () => {
 
   it('connects an account, with the account ID checked on its field', async () => {
     renderWithDashboardData(<Connections start />)
-    const dialog = await screen.findByRole('dialog', { name: 'Connect a Cloudflare account' })
+    const dialog = await screen.findByRole('dialog', { name: 'Connect with an API token' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Staging')
     const account = within(dialog).getByRole('textbox', { name: /Account ID/ })
     await userEvent.type(account, 'nope')

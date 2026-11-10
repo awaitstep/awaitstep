@@ -14,7 +14,7 @@ import type {
 import { useOrgStore } from '../stores/org-store'
 import { pathSegment } from './api-path'
 
-const API_BASE = '/api'
+export const API_BASE = '/api'
 
 export interface PaginatedResponse<T> {
   data: T[]

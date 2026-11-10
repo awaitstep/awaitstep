@@ -8,7 +8,7 @@ import {
 import { DataSourceProvider } from '../../../data/dashboard/source'
 import type { Connection } from '../../../types/dashboard/org-settings'
 import { ConnectCloudflareDialog } from '../connect-cloudflare-dialog'
-import { ConnectionCard } from '../parts/connection-card'
+import { ConnectionCard, tokenStatus } from '../parts/connection-card'
 
 // What B9 adds to Connections: the token's health as Cloudflare reports it,
 // projects the viewer can't see, and the API's refusals in the dialog.
@@ -110,7 +110,7 @@ describe('Connect Cloudflare on the API', () => {
         <ConnectCloudflareDialog org={{ slug: 'acme', name: 'Acme' }} onClose={vi.fn()} />
       </DataSourceProvider>,
     )
-    const dialog = await screen.findByRole('dialog', { name: 'Connect a Cloudflare account' })
+    const dialog = await screen.findByRole('dialog', { name: 'Connect with an API token' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Staging')
     await userEvent.type(
       within(dialog).getByRole('textbox', { name: /Account ID/ }),
@@ -151,5 +151,55 @@ describe('Connect Cloudflare on the API', () => {
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
       'Couldn’t reach Cloudflare to check the token',
     )
+  })
+})
+
+describe('OAuth connection badge', () => {
+  const now = new Date('2026-11-10T12:00:00.000Z')
+
+  it('says it renews itself and never asks for a replacement token', () => {
+    expect(
+      tokenStatus(
+        {
+          authKind: 'oauth',
+          tokenStatus: 'active',
+          tokenExpiresAt: new Date(now.getTime() + 3_600_000).toISOString(),
+          canDeploy: true,
+        },
+        now,
+      ),
+    ).toEqual({
+      text: 'OAuth · renews automatically',
+      variant: 'success',
+      needsToken: false,
+      needsReconnect: false,
+    })
+  })
+
+  it('asks for a reconnect when the grant is gone', () => {
+    expect(
+      tokenStatus({ authKind: 'oauth', tokenStatus: 'invalid', tokenExpiresAt: null }, now),
+    ).toMatchObject({
+      text: 'OAuth connection needs reconnecting',
+      needsToken: false,
+      needsReconnect: true,
+    })
+  })
+
+  it('asks for a reconnect when the grant lacks the deploy scope', () => {
+    expect(
+      tokenStatus(
+        {
+          authKind: 'oauth',
+          tokenStatus: 'active',
+          tokenExpiresAt: null,
+          canDeploy: false,
+        },
+        now,
+      ),
+    ).toMatchObject({
+      text: 'OAuth · missing a Workers deploy scope',
+      needsReconnect: true,
+    })
   })
 })

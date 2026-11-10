@@ -11,6 +11,8 @@ export function toConnection(row: ConnectionSummary): Connection {
     name: row.name,
     accountSuffix: row.accountSuffix ?? '',
     addedBy: { id: '', name: row.createdByName ?? 'a former member' },
+    authKind: row.authKind ?? 'api-token',
+    ...(row.canDeploy !== undefined && { canDeploy: row.canDeploy }),
     tokenStatus: row.tokenStatus,
     tokenExpiresAt: row.tokenExpiresAt,
     projects: row.allProjects ? 'all' : row.projects.map(({ id, name }) => ({ id, name })),

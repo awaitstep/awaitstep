@@ -19,6 +19,7 @@ interface AccountRowProps {
   actions?: {
     onMakeDefault: () => void
     onReplaceToken: () => void
+    onReconnect?: () => void
     onRemove: () => void
   }
   /** A default change in flight: the other rows' Make default waits for it. */
@@ -36,8 +37,9 @@ export function AccountRow({
 }: AccountRowProps) {
   const health = connection.available
     ? tokenStatus(connection, now)
-    : { text: 'No longer available here', variant: 'error' as const }
+    : { text: 'No longer available here', variant: 'error' as const, needsReconnect: false }
   const owned = connection.scope === 'project'
+  const needsReconnect = health.needsReconnect === true
   return (
     <li aria-label={connection.name} className="flex flex-col gap-3.5 px-5 py-[18px]">
       <div className="flex flex-wrap items-center gap-3.5">
@@ -83,11 +85,17 @@ export function AccountRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {owned && (
+              {owned && connection.authKind !== 'oauth' && (
                 <DropdownMenuItem onSelect={actions.onReplaceToken}>
                   Replace token…
                 </DropdownMenuItem>
               )}
+              {owned &&
+                connection.authKind === 'oauth' &&
+                needsReconnect &&
+                actions.onReconnect && (
+                  <DropdownMenuItem onSelect={actions.onReconnect}>Reconnect…</DropdownMenuItem>
+                )}
               <DropdownMenuItem onSelect={actions.onRemove}>
                 {owned ? 'Delete account…' : 'Remove from project…'}
               </DropdownMenuItem>

@@ -28,7 +28,7 @@ interface ConnectCloudflareDialogProps {
 }
 
 /**
- * "Connect a Cloudflare account" (`ConnectCloudflare`). On the API the token
+ * "Connect with an API token" (`ConnectCloudflare`). On the API the token
  * is checked with Cloudflare before anything is stored (B9); dummy data checks
  * only the form's own rules (D-P5-5).
  */
@@ -79,8 +79,8 @@ export function ConnectCloudflareDialog({ org, onClose }: ConnectCloudflareDialo
           <Cloud />
         </Tile>
       }
-      title="Connect a Cloudflare account"
-      description="AwaitStep deploys your workflows to this account."
+      title="Connect with an API token"
+      description="Paste a token from your Cloudflare dashboard. It is encrypted and never shown again."
       actions={
         <>
           <Button type="button" variant="outline" onClick={onClose}>

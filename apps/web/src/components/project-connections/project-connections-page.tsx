@@ -22,6 +22,8 @@ import { Tile } from '../ui/tile'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { TextFieldDialog } from '../org-settings/text-field-dialog'
+import { useOAuthStatus } from '../../data/dashboard/org-settings'
+import { oauthStartUrl } from '../org-settings/oauth-start'
 import { useProjectScope } from '../project-settings/use-project-scope'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
@@ -55,7 +57,9 @@ export function ProjectConnectionsPage({
   onAddChange,
 }: ProjectConnectionsPageProps) {
   const scope = useProjectScope(slugs)
+  const canManage = scope?.project.viewerCan.manageSettings.allowed === true
   const listed = useProjectConnections(slugs.org, slugs.project)
+  const oauthStatus = useOAuthStatus(canManage)
   const empty = listed.data?.connections.length === 0
   const available = useAvailableConnections(slugs.org, slugs.project, empty)
   const setDefault = useSetDefaultConnection(slugs.org, slugs.project)
@@ -67,7 +71,7 @@ export function ProjectConnectionsPage({
   if (!scope) return null
   const orgName = scope.org.org.name
   const project = scope.project.project
-  const canManage = scope.project.viewerCan.manageSettings.allowed
+  const oauthEnabled = oauthStatus.data?.enabled === true
 
   function handleAdd() {
     onAddChange(true, 'org')
@@ -101,6 +105,10 @@ export function ProjectConnectionsPage({
     return {
       onMakeDefault: () => setDefault.mutate(connection.id),
       onReplaceToken: () => open({ kind: 'token', connection }),
+      onReconnect: () =>
+        window.location.assign(
+          oauthStartUrl(slugs.org, { project: slugs.project, connectionId: connection.id }),
+        ),
       onRemove: () => open({ kind: 'remove', connection }),
     }
   }
@@ -259,6 +267,14 @@ export function ProjectConnectionsPage({
           connections={listed.data.connections}
           error={setWorkspace.error?.message}
           pending={setWorkspace.isPending}
+          oauthHref={
+            oauthEnabled
+              ? oauthStartUrl(slugs.org, {
+                  project: slugs.project,
+                  workspaceId: overlay.workspace.workspaceId,
+                })
+              : undefined
+          }
           onSubmit={handleWorkspaceSubmit}
           onClose={handleCloseOverlay}
         />

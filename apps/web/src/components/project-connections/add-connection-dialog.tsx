@@ -1,6 +1,7 @@
 import { useId, useState, type SubmitEvent } from 'react'
 import { Cloud } from 'lucide-react'
 import { errorFieldOf } from '../../data/dashboard/errors'
+import { useOAuthStatus } from '../../data/dashboard/org-settings'
 import {
   useAddProjectConnections,
   useAvailableConnections,
@@ -9,6 +10,7 @@ import {
 import type { NewProjectConnectionInput } from '../../types/dashboard/project-connections'
 import type { ProjectSlugs } from '../../lib/dashboard-paths'
 import { Button } from '../ui/button'
+import { oauthStartUrl } from '../org-settings/oauth-start'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { ModalDialog } from '../ui/modal-dialog'
@@ -47,6 +49,8 @@ export function AddConnectionDialog({
   const available = useAvailableConnections(slugs.org, slugs.project, tab === 'org')
   const add = useAddProjectConnections(slugs.org, slugs.project)
   const create = useCreateProjectConnection(slugs.org, slugs.project)
+  const oauthStatus = useOAuthStatus()
+  const oauthEnabled = oauthStatus.data?.enabled === true
   const [picked, setPicked] = useState<string[]>([])
   const [form, setForm] = useState<NewProjectConnectionInput>({
     name: '',
@@ -157,6 +161,19 @@ export function AddConnectionDialog({
           </div>
         ) : (
           <div className="flex flex-col gap-3.5">
+            {oauthEnabled && (
+              <div className="flex flex-col gap-2 rounded-xl border border-border bg-background p-4">
+                <Button asChild size="sm" className="w-fit">
+                  <a href={oauthStartUrl(slugs.org, { project: slugs.project })}>
+                    <Cloud aria-hidden="true" />
+                    Connect with Cloudflare
+                  </a>
+                </Button>
+                <span className="text-2xs text-muted-foreground">
+                  Recommended: no token to paste. Or use an API token below.
+                </span>
+              </div>
+            )}
             <FormField label="Name" error={errorOn('name')}>
               <Input
                 value={form.name}

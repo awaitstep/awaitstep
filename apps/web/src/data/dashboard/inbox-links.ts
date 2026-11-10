@@ -19,6 +19,8 @@ export function notificationHref(org: string, to: NotificationTarget): string {
     case 'org-settings':
       // Connections and API keys left Settings for their own pages: stored links follow.
       return orgDestinationPath(org, to.page)
+    case 'project-connections':
+      return projectPagePath({ org, project: to.project }, 'connections')
   }
 }
 

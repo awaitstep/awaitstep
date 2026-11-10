@@ -341,6 +341,7 @@ function connectionRecord(
     name: row.name,
     accountSuffix: row.accountId.slice(-4),
     addedBy: { id: row.addedBy, name: personById(db, row.addedBy).name },
+    authKind: 'api-token',
     // Dummy tokens are never checked (D-P5-5): a stored one reads as working.
     tokenStatus: 'active',
     tokenExpiresAt: row.tokenExpiresAt,

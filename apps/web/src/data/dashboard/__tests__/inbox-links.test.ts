@@ -29,6 +29,9 @@ describe('notificationHref', () => {
     expect(notificationHref('acme', { kind: 'org-settings', page: 'members' })).toBe(
       '/acme/settings/members',
     )
+    expect(notificationHref('acme', { kind: 'project-connections', project: 'project-101' })).toBe(
+      '/acme/project-101/connections',
+    )
   })
 })
 

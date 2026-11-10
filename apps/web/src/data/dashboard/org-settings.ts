@@ -183,6 +183,19 @@ export function useConnections(org: string) {
   })
 }
 
+/** Whether this deployment offers the OAuth connect flow; the dummy source always does. */
+export function useOAuthStatus(enabled = true) {
+  const source = useDataSource()
+  return useQuery({
+    queryKey: ['oauth-status'],
+    // The dummy source can't run the real browser flow, so it offers the token path.
+    queryFn: (): Promise<{ enabled: boolean }> =>
+      source === 'api' ? dashboardApi.getOAuthStatus() : Promise.resolve({ enabled: false }),
+    enabled,
+    staleTime: 60_000,
+  })
+}
+
 /**
  * Connections change the cards, each project's accounts (under this key),
  * the "Cloudflare connected" setup step, Deploy's list, and the old pages' list (`queries.connections`, behind the deploy page and the
