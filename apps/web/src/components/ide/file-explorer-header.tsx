@@ -16,6 +16,7 @@ interface ExplorerHeaderProps {
   onNewFile: () => void
   onNewFolder: () => void
   onNewItem: (item: NewMenuItem) => void
+  onCreateBindings: () => void
 }
 
 const buttonClass =
@@ -29,6 +30,7 @@ export function ExplorerHeader({
   onNewFile,
   onNewFolder,
   onNewItem,
+  onCreateBindings,
 }: ExplorerHeaderProps) {
   const hint = formatShortcut(IDE_SHORTCUTS.newFile, isMacPlatform())
   const disabled = limitReason !== null
@@ -75,6 +77,7 @@ export function ExplorerHeader({
                 onNewFile={onNewFile}
                 onNewFolder={onNewFolder}
                 onNewItem={onNewItem}
+                onCreateBindings={onCreateBindings}
               />
             </DropdownMenuContent>
           </DropdownMenu>

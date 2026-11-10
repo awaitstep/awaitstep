@@ -26,6 +26,10 @@ import { useIdeStepsStore } from '../../stores/ide-steps-store'
 import { appendsAfter } from '../../lib/ide/step-placements'
 import { RenameRow } from './file-explorer-rename'
 import { CreateRow } from './file-explorer-create'
+import {
+  CLOUDFLARE_BINDINGS_PATH,
+  CLOUDFLARE_BINDINGS_SOURCE,
+} from '../../lib/ide/bindings-template'
 import { LimitsFooter } from './file-explorer-footer'
 import { UnsavedSection } from './file-explorer-unsaved'
 import { ExplorerHeader } from './file-explorer-header'
@@ -360,6 +364,14 @@ export function FileExplorer({
     useIdeExplorerStore.getState().beginCreate({ mode: 'file' })
   }
 
+  async function handleCreateBindings() {
+    if (projectPaths.has(CLOUDFLARE_BINDINGS_PATH)) {
+      openFile(CLOUDFLARE_BINDINGS_PATH)
+      return
+    }
+    await submitCreate(CLOUDFLARE_BINDINGS_PATH, CLOUDFLARE_BINDINGS_SOURCE)
+  }
+
   // A step is not a file: the folder's menu opens the add dialog, and so does
   // a step whose connection cannot be spliced blindly (it branches, or its one
   // connection is an arm). The file menu never dead-ends on a placement
@@ -462,6 +474,7 @@ export function FileExplorer({
         onNewFile: handleRootNewFile,
         onNewFolder: handleRootNewFolder,
         onNewItem: handleRootNewItem,
+        onCreateBindings: handleCreateBindings,
       }
     : undefined
 
@@ -489,6 +502,7 @@ export function FileExplorer({
         onNewFile={handleNewFile}
         onNewFolder={handleNewFolder}
         onNewItem={handleNewItem}
+        onCreateBindings={handleCreateBindings}
       />
       {canEdit && <UnsavedSection paths={unsavedPaths} onReview={onReview} />}
       <div

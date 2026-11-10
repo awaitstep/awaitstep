@@ -10,6 +10,7 @@ export interface NewMenuItemsProps {
   onNewFile: () => void
   onNewFolder: () => void
   onNewItem: (item: NewMenuItem) => void
+  onCreateBindings: () => void
 }
 
 /** What can be added to the project: the New… menu, and the Project row's right-click menu. */
@@ -19,6 +20,7 @@ export function NewMenuItems({
   onNewFile,
   onNewFolder,
   onNewItem,
+  onCreateBindings,
 }: NewMenuItemsProps) {
   const disabled = limitReason !== null
   const capabilities = useProviderCapabilities()
@@ -33,6 +35,16 @@ export function NewMenuItems({
       </DropdownMenuItem>
       <DropdownMenuItem disabled={disabled} onSelect={onNewFolder} className="text-xs">
         Folder…
+        <Why reason={disabled ? 'File limit reached' : null} />
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Bindings
+      </DropdownMenuPrimitive.Label>
+      <DropdownMenuItem disabled={disabled} onSelect={onCreateBindings} className="text-xs">
+        {existing.includes('providers/cloudflare.ts')
+          ? 'Open Cloudflare bindings…'
+          : 'Cloudflare bindings…'}
         <Why reason={disabled ? 'File limit reached' : null} />
       </DropdownMenuItem>
       <DropdownMenuSeparator />

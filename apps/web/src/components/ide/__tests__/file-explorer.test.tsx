@@ -156,6 +156,17 @@ describe('inline create', () => {
     expect(useIdeExplorerStore.getState().create).not.toBeNull()
   })
 
+  it('creates the provider bindings profile from the Bindings menu item', async () => {
+    const user = userEvent.setup()
+    const props = setup()
+    await user.click(screen.getByRole('button', { name: 'New…' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Cloudflare bindings…' }))
+    expect(props.onCreateFile).toHaveBeenCalledWith(
+      'providers/cloudflare.ts',
+      expect.stringContaining('defineCloudflare'),
+    )
+  })
+
   it('disables + with the reason at the file limit', () => {
     setup({ usage: { files: 100, bytes: 5 } })
     const button = screen.getByRole('button', { name: 'New file' })
