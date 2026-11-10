@@ -161,7 +161,11 @@ async function recheckOne(
         event: 'connection.token_invalid',
         organizationId: written.organizationId,
         groupKey: noticeGroup.tokenInvalid(connection.id, checkedAt),
-        meta: { connection: connection.name },
+        meta: {
+          connection: connection.name,
+          authKind:
+            parseCredentials(connection.credentials).authKind === 'oauth' ? 'oauth' : 'api-token',
+        },
         recipients: { connectionKeepers: { connectionId: connection.id } },
       },
       now,

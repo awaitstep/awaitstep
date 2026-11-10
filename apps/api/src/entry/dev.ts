@@ -26,6 +26,8 @@ import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { abandonStaleNodeSessions, startTestSessionReaper } from '../lib/test-sessions.js'
 import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
 import { releaseClaimedPorts } from '@awaitstep/provider-cloudflare'
+import { cloudflareOAuthFromEnv } from '../lib/cloudflare-oauth-config.js'
+import { createConnectionRefresh } from '../lib/connection-refresh.js'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
@@ -47,16 +49,24 @@ async function start() {
     throw new Error('TOKEN_ENCRYPTION_KEY is required. Generate with: openssl rand -hex 32')
   }
   const tokenCrypto = await createTokenCrypto(tokenEncryptionKey)
-  const db = new DrizzleDatabaseAdapter(drizzleDb, sqliteSchema, { tokenCrypto })
+  const isDev = process.env['NODE_ENV'] !== 'production'
+  const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001'
+  // Before the adapter: reading a connection renews a stale OAuth access token.
+  const cloudflareOAuth = cloudflareOAuthFromEnv(process.env, {
+    baseURL,
+    isDev,
+    originConfigured: Boolean(process.env['BETTER_AUTH_URL'] || process.env['WEB_URL']),
+  })
+  const db = new DrizzleDatabaseAdapter(drizzleDb, sqliteSchema, {
+    tokenCrypto,
+    refreshConnection: createConnectionRefresh(cloudflareOAuth),
+  })
   const imageStore = imageStoreFromEnv(process.env, db)
 
-  const isDev = process.env['NODE_ENV'] !== 'production'
   const authSecret = process.env['BETTER_AUTH_SECRET']
   if (!authSecret && !isDev) {
     throw new Error('BETTER_AUTH_SECRET is required in production')
   }
-
-  const baseURL = process.env['BETTER_AUTH_URL'] ?? 'http://localhost:3001'
   // Dev accepts a comma-separated CORS_ORIGIN list so the web app can run on
   // alternate ports (e.g. 3003) and still pass auth trusted-origin checks.
   const corsOrigins = (process.env['CORS_ORIGIN'] ?? 'http://localhost:3000,http://localhost:3003')
@@ -153,6 +163,10 @@ async function start() {
     corsOrigin: corsOrigins,
     isDev,
     enableLocalDev: true,
+    // No real client in a dev .env: the API's own stub answers, so the flow
+    // can be clicked through without a Cloudflare account.
+    cloudflareOAuth,
+    webUrl,
     nodeRegistry,
     remoteNodeRegistry,
     appName,

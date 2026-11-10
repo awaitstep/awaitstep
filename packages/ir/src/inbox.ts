@@ -29,6 +29,10 @@ export interface NotificationMeta {
   connection?: string
   /** When an API key or a connection's token expires (ISO). */
   expiresAt?: string
+  /** A connection's credential kind: a token is replaced, an OAuth grant reconnected. */
+  authKind?: 'api-token' | 'oauth'
+  /** True for a project's own account: its page hosts the token/reconnect action. */
+  projectOwned?: boolean
   /** An approval that granted nothing (`access_request.approve`): they could already edit. */
   alreadyEditing?: boolean
 }
@@ -39,6 +43,7 @@ export type NotificationTarget =
   | { kind: 'workspace-settings'; project: string; workspace: string; tab: 'keys' }
   | { kind: 'project-settings'; project: string; page: 'api-keys' | 'shared' }
   | { kind: 'org-settings'; page: 'members' | 'api-keys' | 'connections' }
+  | { kind: 'project-connections'; project: string }
 
 /** A notification as the database reads it, before it is put in words. */
 export interface NotificationRecord {
@@ -133,7 +138,10 @@ interface NotificationEntry {
   /** Whether a new row waits on the person; a request's follows its status. */
   needsAction: boolean
   title: (meta: NotificationMeta, record: NotificationRecord, now: Date) => string
-  link?: (place: Place) => { label: string; to: NotificationTarget } | undefined
+  link?: (
+    place: Place,
+    meta: NotificationMeta,
+  ) => { label: string; to: NotificationTarget } | undefined
   /** After the place: "Acme Inc · Members". */
   whereDetail?: string
 }
@@ -158,9 +166,12 @@ function workspaceLink(label: string, page: 'workflows' | 'runs') {
       : undefined
 }
 
-const connectionsLink = () => ({
-  label: 'Replace token',
-  to: { kind: 'org-settings' as const, page: 'connections' as const },
+const connectionsLink = (place: Place, meta: NotificationMeta) => ({
+  label: meta.authKind === 'oauth' ? 'Reconnect' : 'Replace token',
+  to:
+    meta.projectOwned && place.projectSlug
+      ? { kind: 'project-connections' as const, project: place.projectSlug }
+      : { kind: 'org-settings' as const, page: 'connections' as const },
 })
 
 const membersLink = () => ({
@@ -280,7 +291,9 @@ export const NOTIFICATION_EVENTS = {
     kind: 'expiry',
     needsAction: true,
     title: (meta) =>
-      `Cloudflare token for ${meta.connection ?? 'a connection'} no longer works. Deploys to it will fail.`,
+      meta.authKind === 'oauth'
+        ? `Cloudflare connection ${meta.connection ?? 'a connection'} needs reconnecting. Deploys to it will fail.`
+        : `Cloudflare token for ${meta.connection ?? 'a connection'} no longer works. Deploys to it will fail.`,
     link: connectionsLink,
     whereDetail: 'Connections',
   },
@@ -356,7 +369,7 @@ export function renderNotification(record: NotificationRecord, now: Date): Inbox
   const entry: NotificationEntry | undefined = isNotificationEvent(record.event)
     ? NOTIFICATION_EVENTS[record.event]
     : undefined
-  const link = entry?.link?.(record.place)
+  const link = entry?.link?.(record.place, record.meta)
   const request = record.request
   return {
     id: record.id,

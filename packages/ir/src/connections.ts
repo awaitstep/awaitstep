@@ -21,6 +21,10 @@ export interface ConnectionSummary {
   allProjects: boolean
   /** The projects it serves that the caller can see (empty when `allProjects`). */
   projects: { id: string; name: string; slug: string }[]
+  /** How it authenticates: an API token, or an OAuth grant that renews itself. */
+  authKind?: 'api-token' | 'oauth'
+  /** False when an OAuth grant lacks every Workers deploy scope; API tokens are optimistic. */
+  canDeploy?: boolean
   /** Projects it serves that the caller can't see. */
   hiddenProjects: number
   tokenStatus: ConnectionTokenStatus
@@ -81,6 +85,10 @@ export interface ProjectConnection {
   scope: ProjectConnectionScope
   tokenStatus: ConnectionTokenStatus
   tokenExpiresAt: string | null
+  /** How it authenticates: an API token, or an OAuth grant that renews itself. */
+  authKind?: 'api-token' | 'oauth'
+  /** False when an OAuth grant lacks every Workers deploy scope. */
+  canDeploy?: boolean
   isDefault: boolean
   /**
    * False for a shared account an org admin has since restricted to other

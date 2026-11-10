@@ -73,6 +73,8 @@ function sessionOnly(method: string, path: string): boolean {
   ) {
     return true
   }
+  // OAuth is a person's browser flow; a key has no browser or session to bind it to.
+  if (/^\/api\/oauth(\/|$)/.test(path)) return true
   return path === '/api/projects/:id/move' || path === '/api/workflows/:id/move'
 }
 

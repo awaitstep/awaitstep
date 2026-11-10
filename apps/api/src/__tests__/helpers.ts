@@ -1110,6 +1110,7 @@ const mockDb: DatabaseAdapter = {
       projectIds: _projectIds,
       organizationId: _organizationId,
       visibleTo: _visibleTo,
+      expectedUpdatedAt: _expectedUpdatedAt,
       token,
       ...rest
     } = data
@@ -2259,6 +2260,8 @@ export function createTestApp(options?: {
   connectionAddress?: AppDeps['connectionAddress']
   clientIpPolicy?: AppDeps['clientIpPolicy']
   logger?: AppDeps['logger']
+  cloudflareOAuth?: AppDeps['cloudflareOAuth']
+  webUrl?: AppDeps['webUrl']
 }) {
   seedTestProject()
 
@@ -2267,6 +2270,8 @@ export function createTestApp(options?: {
     auth: mockAuth,
     corsOrigin: options?.corsOrigin ?? '*',
     isDev: true,
+    cloudflareOAuth: options?.cloudflareOAuth,
+    webUrl: options?.webUrl,
     remoteNodeRegistry: options?.remoteNodeRegistry,
     testSessionRunner: options?.testSessionRunner,
     testSessionLimits: options?.testSessionLimits,

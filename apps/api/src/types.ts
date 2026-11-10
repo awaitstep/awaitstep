@@ -4,6 +4,7 @@ import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { ImageStore } from '@awaitstep/storage'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
+import type { CloudflareOAuthRuntime } from './lib/cloudflare-oauth-config.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type {
@@ -125,6 +126,8 @@ export interface AppEnv {
     session: { id: string; userId: string; expiresAt: Date } | null
     workflow: Workflow | undefined
     connection: Connection | undefined
+    /** The Cloudflare OAuth client, when this deployment has one. */
+    cloudflareOAuth: CloudflareOAuthRuntime | undefined
     requestId: string
     /** The caller's address, resolved once per request — the rate limiters' key. */
     clientIp: string | undefined

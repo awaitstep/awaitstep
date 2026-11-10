@@ -15,6 +15,8 @@ import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { AccountProviders } from '@awaitstep/ir'
 import type { ImageStore } from '@awaitstep/storage'
+import type { CloudflareOAuthRuntime } from './lib/cloudflare-oauth-config.js'
+import { createCloudflareOAuthStub } from './dev/cloudflare-oauth-stub.js'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
@@ -73,6 +75,13 @@ export interface AppDeps {
    * holds them, in the image rows themselves.
    */
   imageStore?: ImageStore
+  /**
+   * The Cloudflare OAuth client. Absent, `/api/oauth/cloudflare` does not
+   * exist; in development without a real client the entries pass the stub.
+   */
+  cloudflareOAuth?: CloudflareOAuthRuntime
+  /** The web app's origin, where the OAuth callback sends the browser back. */
+  webUrl?: string
 }
 
 export function createApp(deps: AppDeps) {
@@ -81,6 +90,8 @@ export function createApp(deps: AppDeps) {
   // them on every request would be work with one answer.
   const resolvedTestSessionLimits = resolveTestSessionLimits(deps.testSessionLimits)
   const imageStore = deps.imageStore ?? databaseImageStore(deps.db)
+  const webUrl =
+    deps.webUrl ?? (Array.isArray(deps.corsOrigin) ? deps.corsOrigin[0] : deps.corsOrigin) ?? ''
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
@@ -178,6 +189,7 @@ export function createApp(deps: AppDeps) {
     if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)
     c.set('accountProviders', deps.accountProviders)
+    c.set('cloudflareOAuth', deps.cloudflareOAuth)
     if (deps.deployer) c.set('deployer', deps.deployer)
     if (deps.testSessionRunner) c.set('testSessionRunner', deps.testSessionRunner)
     c.set('testSessionLimits', resolvedTestSessionLimits)
@@ -189,11 +201,26 @@ export function createApp(deps: AppDeps) {
   // Uploaded images, before the router: they are served without a session.
   app.route('/api/images', images)
 
+  // The local Cloudflare OAuth stand-in. Development only: `isDev` is false in
+  // both deployed entries, and a real client config never sets `stub`.
+  if (deps.isDev && deps.cloudflareOAuth?.stub) {
+    app.route(
+      '/dev/cloudflare-oauth',
+      createCloudflareOAuthStub({
+        clientId: deps.cloudflareOAuth.clientId,
+        clientSecret: deps.cloudflareOAuth.clientSecret,
+        redirectUri: deps.cloudflareOAuth.redirectUri,
+      }),
+    )
+  }
+
   // Routes (auth + ownership middleware registered inside)
   app.route(
     '/api',
     createRouter(deps.auth, {
       ...(deps.enableLocalDev !== undefined && { enableLocalDev: deps.enableLocalDev }),
+      ...(deps.cloudflareOAuth && { cloudflareOAuth: deps.cloudflareOAuth }),
+      webUrl,
     }),
   )
 

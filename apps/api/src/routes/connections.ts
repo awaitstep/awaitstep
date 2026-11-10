@@ -10,7 +10,14 @@ import { apiKeyLevel, apiKeyProjectHome, apiKeyProjectScopes } from '../middlewa
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
-import { credentialError, parseTokenStatus } from '../lib/connection-fields.js'
+import {
+  authKindOf,
+  credentialError,
+  parseTokenStatus,
+  scopesOf,
+} from '../lib/connection-fields.js'
+import { revokeConnectionGrant } from '../lib/connection-oauth.js'
+import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 
 const projectsFields = {
   /** Serves every project, including ones created later. */
@@ -158,6 +165,12 @@ export function createConnectionRoutes() {
 
     let credentials: string | undefined
     let token: ConnectionTokenCheck | undefined
+    if (body.credentials && authKindOf(before.credentials) === 'oauth') {
+      return c.json(
+        { error: 'This connection uses OAuth. Reconnect it instead of replacing a token.' },
+        400,
+      )
+    }
     if (body.credentials) {
       const merged = { ...parseCredentials(before.credentials), ...body.credentials }
       // Stored credentials that can't be read (another encryption key) lose the
@@ -205,12 +218,15 @@ export function createConnectionRoutes() {
 
   connections.delete('/:id', async (c) => {
     const db = c.get('db')
+    const before = c.get('connection')
+    // A deleted row must not leave AwaitStep authorized on Cloudflare.
+    if (before) await revokeConnectionGrant(c, before)
     // A delete that found the row already gone (a concurrent one) records nothing.
     if (await db.deleteConnection(c.req.param('id'))) {
       await clearConnectionNotices(db, c.get('organizationId'), c.req.param('id'))
       await recordAudit(c, {
         event: 'connection.delete',
-        facts: { name: c.get('connection')?.name ?? c.req.param('id') },
+        facts: { name: before?.name ?? c.req.param('id') },
       })
     }
     return c.json({ ok: true })
@@ -221,12 +237,20 @@ export function createConnectionRoutes() {
 
 /** The list's row: the account by its suffix, never the credentials. */
 function connectionSummary(row: ConnectionListRow): ConnectionSummary {
+  const scopes = scopesOf(row.credentials)
+  const authKind = authKindOf(row.credentials)
+  // An API token carries whatever the dashboard gave it; an OAuth grant only
+  // deploys with one of the Workers role scopes. Unknown scopes stay optimistic
+  // (a grant stored before scope capture) rather than warning wrongly.
+  const canDeploy = authKind !== 'oauth' || canDeployWithScopes(scopes)
   return {
     id: row.id,
     provider: row.provider,
     name: row.name,
     createdByName: row.createdByName,
     accountSuffix: accountSuffixOf(row.credentials),
+    authKind,
+    canDeploy,
     allProjects: row.allProjects,
     projects: row.projects,
     hiddenProjects: row.hiddenProjects,

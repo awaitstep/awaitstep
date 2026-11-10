@@ -11,7 +11,15 @@ import { zValidator } from '../lib/validation.js'
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
-import { accountSuffixOf, credentialError, parseTokenStatus } from '../lib/connection-fields.js'
+import {
+  accountSuffixOf,
+  authKindOf,
+  credentialError,
+  parseTokenStatus,
+  scopesOf,
+} from '../lib/connection-fields.js'
+import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
+import { revokeConnectionGrant } from '../lib/connection-oauth.js'
 import type { AppEnv } from '../types.js'
 
 // A project's Cloudflare accounts (23a–23c), under `/projects/:id` (the
@@ -49,11 +57,18 @@ function projectOf(c: Context<AppEnv>) {
 
 function projectConnections(rows: ProjectConnectionsRows): ProjectConnections {
   return {
-    connections: rows.connections.map(({ credentials, tokenStatus, ...row }) => ({
-      ...row,
-      accountSuffix: accountSuffixOf(credentials),
-      tokenStatus: parseTokenStatus(tokenStatus),
-    })),
+    connections: rows.connections.map(({ credentials, tokenStatus, ...row }) => {
+      const scopes = scopesOf(credentials)
+      const authKind = authKindOf(credentials)
+      const canDeploy = authKind !== 'oauth' || canDeployWithScopes(scopes)
+      return {
+        ...row,
+        accountSuffix: accountSuffixOf(credentials),
+        tokenStatus: parseTokenStatus(tokenStatus),
+        authKind,
+        canDeploy,
+      }
+    }),
     workspaces: rows.workspaces,
   }
 }
@@ -192,6 +207,12 @@ projectConnectionRoutes.patch(
     const db = c.get('db')
     const owned = await db.getProjectOwnedConnection(connectionId, projectId)
     if (!owned) return c.json({ error: PROJECT_CONNECTION_REASONS.ownedOnly }, 404)
+    if (authKindOf(owned.credentials) === 'oauth') {
+      return c.json(
+        { error: 'This account uses OAuth. Reconnect it instead of replacing a token.' },
+        400,
+      )
+    }
     const merged = {
       ...parseCredentials(owned.credentials),
       apiToken: body.token,
@@ -242,6 +263,10 @@ projectConnectionRoutes.delete('/connections/:connectionId', async (c) => {
   const { projectId, organizationId } = projectOf(c)
   const connectionId = c.req.param('connectionId')
   const db = c.get('db')
+  // Read the owned row first: once removed, its credentials are gone. The
+  // grant is withdrawn only if the removal actually goes through — a blocked
+  // delete must leave the working account alone.
+  const ownedBefore = await db.getProjectOwnedConnection(connectionId, projectId)
   const removed = await db.removeProjectConnection(projectId, connectionId)
   if (!removed) return c.json(NOT_FOUND, 404)
   if (removed.blockedBy.length > 0 || removed.blockedElsewhere > 0) {
@@ -255,7 +280,10 @@ projectConnectionRoutes.delete('/connections/:connectionId', async (c) => {
       409,
     )
   }
-  if (removed.owned) await clearConnectionNotices(db, organizationId, connectionId)
+  if (removed.owned) {
+    if (ownedBefore) await revokeConnectionGrant(c, ownedBefore)
+    await clearConnectionNotices(db, organizationId, connectionId)
+  }
   const change = [
     removed.owned ? 'Deleted: it belonged to this project' : null,
     removed.wasDefault ? 'Was the default' : null,

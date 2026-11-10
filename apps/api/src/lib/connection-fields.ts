@@ -27,6 +27,18 @@ export function accountSuffixOf(credentials: string): string | null {
   return accountId ? accountId.slice(-4) : null
 }
 
+/** An OAuth grant renews itself; an API token is pasted and expires on its own. */
+export function authKindOf(credentials: string): 'api-token' | 'oauth' {
+  return parseCredentials(credentials).authKind === 'oauth' ? 'oauth' : 'api-token'
+}
+
+/** The scopes Cloudflare granted, from the token's own `scope`; undefined when it didn't say. */
+export function scopesOf(credentials: string): string[] | undefined {
+  const raw = parseCredentials(credentials).scopes
+  if (typeof raw !== 'string' || raw.trim().length === 0) return undefined
+  return raw.split(/\s+/).filter(Boolean)
+}
+
 /** The accounts Deploy offers, the workspace's (else the project's) default chosen. */
 export function deployConnections(
   rows: DeployTargetRow[],

@@ -33,6 +33,11 @@ import { versions } from './versions.js'
 import { source } from './source.js'
 import { projectFiles } from './project-files.js'
 import { createConnectionRoutes } from './connections.js'
+import {
+  createCloudflareOAuthRoutes,
+  createCloudflareOAuthStatusRoutes,
+} from './cloudflare-oauth.js'
+import type { CloudflareOAuthRuntime } from '../lib/cloudflare-oauth-config.js'
 import { projectConnectionRoutes } from './project-connections.js'
 import { audit } from './audit.js'
 import { notifications } from './notifications.js'
@@ -58,7 +63,16 @@ import { orgLogo } from './org-logo.js'
 import { runPageRecord, workspaceRunPageRecord } from '../lib/run-records.js'
 import { deploymentPageRecord } from '../lib/list-records.js'
 
-export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean }) {
+export function createRouter(
+  auth: Auth,
+  options?: {
+    enableLocalDev?: boolean
+    /** Absent, no Cloudflare OAuth routes exist (a deployment with none configured). */
+    cloudflareOAuth?: CloudflareOAuthRuntime
+    /** The web app's origin, for the OAuth callback to send the browser back. */
+    webUrl?: string
+  },
+) {
   const router = new Hono<AppEnv>()
 
   // Global rate limit — 200 requests per minute per IP
@@ -539,8 +553,24 @@ export function createRouter(auth: Auth, options?: { enableLocalDev?: boolean })
   // there without a mapping is session-only like any other.
   router.use('*', requireKeyMapped)
 
+  // The OAuth flow is a person's: a browser redirect, a session cookie and a
+  // state row that names them. A key has no browser and no session to bind.
+  router.use('/oauth/*', requireSessionAuth)
+
   // Routes
   if (options?.enableLocalDev) router.route('/workflows', localDev)
+  // The page asks whether OAuth is available whichever way this deployment is
+  // configured; start/callback only exist when there is a client.
+  router.route('/oauth/cloudflare', createCloudflareOAuthStatusRoutes(options?.cloudflareOAuth))
+  if (options?.cloudflareOAuth) {
+    router.route(
+      '/oauth/cloudflare',
+      createCloudflareOAuthRoutes({
+        config: options.cloudflareOAuth,
+        webUrl: options.webUrl ?? '',
+      }),
+    )
+  }
   router.route('/workflows', workflows)
   router.route('/workflows', versions)
   router.route('/workflows', source)

@@ -283,6 +283,39 @@ describe('Cloudflare tokens', () => {
     )
   })
 
+  it('reads an OAuth grant as a reconnect, not a replacement token', () => {
+    const rendered = renderNotification(
+      record({
+        event: 'connection.token_invalid',
+        meta: { connection: 'Marketing sandbox', authKind: 'oauth' },
+        place: IN_ORG,
+      }),
+      NOW,
+    )
+    expect(rendered.title).toBe(
+      'Cloudflare connection Marketing sandbox needs reconnecting. Deploys to it will fail.',
+    )
+    expect(rendered.link).toEqual({
+      label: 'Reconnect',
+      to: { kind: 'org-settings', page: 'connections' },
+    })
+  })
+
+  it('sends a project-owned account’s warning to its project page', () => {
+    const rendered = renderNotification(
+      record({
+        event: 'connection.token_invalid',
+        meta: { connection: 'Marketing sandbox', authKind: 'oauth', projectOwned: true },
+        place: IN_SALES,
+      }),
+      NOW,
+    )
+    expect(rendered.link).toEqual({
+      label: 'Reconnect',
+      to: { kind: 'project-connections', project: 'project-101' },
+    })
+  })
+
   it('files both at the org and links to Connections', () => {
     for (const event of ['connection.token_expiring', 'connection.token_invalid']) {
       const rendered = token(event, '2026-11-05T13:00:00.000Z')

@@ -35,6 +35,8 @@ import {
 import { abandonStaleNodeSessions, startTestSessionReaper } from '../lib/test-sessions.js'
 import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
+import { cloudflareOAuthFromEnv } from '../lib/cloudflare-oauth-config.js'
+import { createConnectionRefresh } from '../lib/connection-refresh.js'
 
 const __appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
@@ -82,7 +84,19 @@ async function start() {
     throw new Error('TOKEN_ENCRYPTION_KEY is required. Generate with: openssl rand -hex 32')
   }
   const tokenCrypto = await createTokenCrypto(tokenEncryptionKey)
-  const db = new DrizzleDatabaseAdapter(drizzleDb, dbSchema, { tokenCrypto })
+  const apiPort = Number(process.env['PORT'] ?? 8080)
+  const webPort = Number(process.env['WEB_PORT'] ?? 3000)
+  const baseURL = process.env['BETTER_AUTH_URL'] ?? `http://localhost:${apiPort}`
+  // Before the adapter: reading a connection renews a stale OAuth access token.
+  const cloudflareOAuth = cloudflareOAuthFromEnv(process.env, {
+    baseURL,
+    isDev: false,
+    originConfigured: Boolean(process.env['BETTER_AUTH_URL'] || process.env['WEB_URL']),
+  })
+  const db = new DrizzleDatabaseAdapter(drizzleDb, dbSchema, {
+    tokenCrypto,
+    refreshConnection: createConnectionRefresh(cloudflareOAuth),
+  })
   const imageStore = imageStoreFromEnv(process.env, db)
   logger.info(`Image store: ${imageStore.kind}`)
 
@@ -90,10 +104,6 @@ async function start() {
   if (!authSecret) {
     throw new Error('BETTER_AUTH_SECRET is required. Generate with: openssl rand -hex 32')
   }
-
-  const apiPort = Number(process.env['PORT'] ?? 8080)
-  const webPort = Number(process.env['WEB_PORT'] ?? 3000)
-  const baseURL = process.env['BETTER_AUTH_URL'] ?? `http://localhost:${apiPort}`
 
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
@@ -219,6 +229,8 @@ async function start() {
     corsOrigin: baseURL,
     isDev: false,
     enableLocalDev: process.env['ENABLE_LOCAL_DEV'] === 'true',
+    cloudflareOAuth,
+    webUrl,
     nodeRegistry,
     remoteNodeRegistry,
     appName,

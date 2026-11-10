@@ -17,6 +17,8 @@ import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/pr
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { reapTestSessions } from '../lib/test-sessions.js'
 import { containerSleepAfter, resolveTestSessionLimits } from '../lib/test-session-policy.js'
+import { cloudflareOAuthFromEnv } from '../lib/cloudflare-oauth-config.js'
+import { createConnectionRefresh } from '../lib/connection-refresh.js'
 import { getSandbox, type Sandbox } from '@cloudflare/sandbox'
 import registryData from '../../../../nodes/registry.json' with { type: 'json' }
 
@@ -44,6 +46,13 @@ export interface Env {
   GITHUB_CLIENT_SECRET?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
+  /** Self-managed Cloudflare OAuth client; unset, Connections offers API tokens only. */
+  CLOUDFLARE_OAUTH_CLIENT_ID?: string
+  CLOUDFLARE_OAUTH_CLIENT_SECRET?: string
+  /** The registered callback; defaults to `<BETTER_AUTH_URL>/api/oauth/cloudflare/callback`. */
+  CLOUDFLARE_OAUTH_REDIRECT_URI?: string
+  /** Space- or comma-separated OAuth scope IDs; defaults to the deploy minimum. */
+  CLOUDFLARE_OAUTH_SCOPES?: string
   REGISTRY_URL?: string
   SANDBOX_DEPLOY_TIMEOUT?: string
   SANDBOX_SLEEP_AFTER?: string
@@ -115,7 +124,18 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
 
   const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
   const drizzleDb = createD1DrizzleDb(env.DB)
-  const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
+  const cloudflareOAuth = cloudflareOAuthFromEnv(
+    env as unknown as Record<string, string | undefined>,
+    {
+      baseURL,
+      isDev: false,
+      originConfigured: Boolean(env.BETTER_AUTH_URL || env.WEB_URL || env.CORS_ORIGIN),
+    },
+  )
+  const db = createD1DatabaseAdapter(env.DB, {
+    tokenCrypto,
+    refreshConnection: createConnectionRefresh(cloudflareOAuth),
+  })
   const imageStore = workerImageStore(env, db)
 
   const { emails, sendMagicLink } = workerEmails(env, baseURL, logger)
@@ -172,6 +192,10 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     isDev: false,
     enableLocalDev: false,
     runtime: 'workers',
+    // A Worker has no stub: only a real client in the environment turns the
+    // OAuth routes on.
+    cloudflareOAuth,
+    webUrl: env.WEB_URL || env.CORS_ORIGIN || baseURL,
     // Cloudflare's edge writes cf-connecting-ip on every request; the web
     // Worker forwards it across the service binding.
     clientIpPolicy: { mode: 'edge', header: 'cf-connecting-ip' },
@@ -212,7 +236,19 @@ export default {
   // status and per-step telemetry so API reads stay pure DB queries.
   async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
-    const db = createD1DatabaseAdapter(env.DB, { tokenCrypto })
+    const origin = cronWebOrigin(env)
+    const cloudflareOAuth = cloudflareOAuthFromEnv(
+      env as unknown as Record<string, string | undefined>,
+      {
+        baseURL: origin ?? 'http://localhost',
+        isDev: false,
+        originConfigured: Boolean(env.BETTER_AUTH_URL || env.WEB_URL || env.CORS_ORIGIN),
+      },
+    )
+    const db = createD1DatabaseAdapter(env.DB, {
+      tokenCrypto,
+      refreshConnection: createConnectionRefresh(cloudflareOAuth),
+    })
     // Nothing in a Worker survives between requests, so the cron is where
     // expired sessions get stopped.
     const limits = resolveTestSessionLimits(
