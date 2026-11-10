@@ -2,6 +2,7 @@
  * Compile-time checks for the authoring surface. Nothing here is called; the
  * package's `type-check` fails if a signature drifts.
  */
+import { describe, expect, it } from 'vitest'
 import type {
   FetchContext,
   FunctionDefinition,
@@ -39,7 +40,14 @@ export function workflowTypes(flow: WorkflowContext<Env, Payload>): void {
     'approval',
     { type: 'lead.approved', timeout: '1 hour', match: 'data.id == "1"' },
   )
-  void [plain, configured, env, event, orderId, sleep, sleepUntil, eventValue]
+  const response: Promise<{ ok: boolean }> = flow.http({
+    method: 'POST',
+    url: 'https://api.test',
+    queryParams: { page: '2' },
+    headers: { Accept: 'application/json' },
+    body: { id: orderId },
+  })
+  void [plain, configured, env, event, orderId, sleep, sleepUntil, eventValue, response]
 }
 
 export function definitionTypes(): WorkflowDefinition<Env, Payload> {
@@ -75,3 +83,13 @@ export function functionTypes(): FunctionDefinition<Env> {
     },
   }
 }
+
+describe('authoring types', () => {
+  // The checks above run at compile time; this keeps the file a suite so the
+  // package's test run stays green.
+  it('declares the workflow and function surfaces', () => {
+    expect(typeof workflowTypes).toBe('function')
+    expect(typeof definitionTypes).toBe('function')
+    expect(typeof functionTypes).toBe('function')
+  })
+})

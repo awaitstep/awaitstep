@@ -86,11 +86,52 @@ export interface ScriptCallOptions {
   readonly params?: Record<string, unknown>
 }
 
+/**
+ * One HTTP request, as an HTTP node's config describes it. `body` is sent
+ * as-is when it is a string and JSON-encoded with a `Content-Type` otherwise,
+ * so both a literal JSON body and a pre-serialized one go out unchanged.
+ */
+export interface HttpRequestOptions {
+  readonly method?: string
+  readonly url: string
+  readonly queryParams?: Record<string, string>
+  readonly headers?: Record<string, string>
+  readonly body?: unknown
+}
+
+/**
+ * Performs one HTTP request and reads the response as JSON. It holds no state
+ * and is not durable on its own — wrap it in a step to get retries, a timeout
+ * and (in a workflow) persistence.
+ */
+export async function httpRequest<T = unknown>(options: HttpRequestOptions): Promise<T> {
+  const url = new URL(options.url)
+  for (const [key, value] of Object.entries(options.queryParams ?? {})) {
+    url.searchParams.set(key, value)
+  }
+  const headers: Record<string, string> = { ...(options.headers ?? {}) }
+  const init: { method: string; headers?: Record<string, string>; body?: string } = {
+    method: options.method ?? 'GET',
+  }
+  if (options.body !== undefined && options.body !== null) {
+    if (typeof options.body === 'string') {
+      init.body = options.body
+    } else {
+      init.body = JSON.stringify(options.body)
+      if (!Object.keys(headers).some((key) => key.toLowerCase() === 'content-type')) {
+        headers['Content-Type'] = 'application/json'
+      }
+    }
+  }
+  if (Object.keys(headers).length > 0) init.headers = headers
+  const response = await fetch(url.toString(), init)
+  return (await response.json()) as T
+}
+
 /** The handle of a started workflow instance. */
 export interface WorkflowInstance {
   readonly instanceId: string
 }
-
 /** One provider status reading for a workflow instance. */
 export interface WorkflowStatus {
   /** Provider status word (`running`, `complete`, `errored`, …). */
@@ -129,6 +170,7 @@ export interface WorkflowContext<Env = Record<string, unknown>, Payload = unknow
   sleep(name: string, duration: Duration): Promise<void>
   sleepUntil(name: string, at: Date | number | string): Promise<void>
   waitForEvent<T = unknown>(name: string, options: WaitForEventOptions): Promise<T>
+  http<T = unknown>(options: HttpRequestOptions): Promise<T>
   startWorkflow(options: WorkflowCallOptions): Promise<WorkflowInstance>
   workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus>
   callScript(options: ScriptCallOptions): Promise<unknown>
@@ -192,6 +234,7 @@ export function createWorkflowContext<Env, Payload>(
     sleep: (name, duration) => host.sleep(name, duration),
     sleepUntil: async (name, at) => host.sleepUntil(name, toDate(name, at)),
     waitForEvent: (name, options) => host.waitForEvent(name, options),
+    http: <T>(options: HttpRequestOptions) => httpRequest<T>(options),
     startWorkflow: (options) => host.startWorkflow(options),
     workflowStatus: (instanceId, options) => host.workflowStatus(instanceId, options),
     callScript: (options) => host.callScript(options),

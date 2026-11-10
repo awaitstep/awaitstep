@@ -4,6 +4,7 @@ import {
   createInlineHost,
   createWorkflowContext,
   defineFunction,
+  httpRequest,
   defineWorkflow,
   durableStep,
   isWorkflowTimeoutError,
@@ -438,5 +439,91 @@ describe('createInlineHost', () => {
 
   it('ships in the runtime module every bundle carries', async () => {
     expect(RUNTIME_MODULE_SOURCE).toContain('export function createInlineHost')
+  })
+})
+
+describe('httpRequest', () => {
+  const originalFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    vi.restoreAllMocks()
+  })
+
+  function mockFetch(payload: unknown = { ok: true }) {
+    const calls: { url: string; init?: RequestInit }[] = []
+    globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init })
+      return new Response(JSON.stringify(payload), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }) as unknown as typeof fetch
+    return calls
+  }
+
+  it('builds the URL from query params and reads the response as JSON', async () => {
+    const calls = mockFetch({ rates: [1] })
+    await expect(
+      httpRequest({ url: 'https://api.test/rates', queryParams: { page: '2' } }),
+    ).resolves.toEqual({ rates: [1] })
+    expect(calls[0]!.url).toBe('https://api.test/rates?page=2')
+    expect(calls[0]!.init?.method).toBe('GET')
+    expect(calls[0]!.init?.body).toBeUndefined()
+  })
+
+  it('JSON-encodes a non-string body and names its type', async () => {
+    const calls = mockFetch()
+    await httpRequest({ url: 'https://api.test', method: 'POST', body: { a: 1 } })
+    expect(calls[0]!.init?.body).toBe('{"a":1}')
+    expect(calls[0]!.init?.headers).toEqual({ 'Content-Type': 'application/json' })
+  })
+
+  it('sends a string body as given and adds no Content-Type', async () => {
+    const calls = mockFetch()
+    await httpRequest({ url: 'https://api.test', method: 'POST', body: 'raw=1' })
+    expect(calls[0]!.init?.body).toBe('raw=1')
+    expect(calls[0]!.init?.headers).toBeUndefined()
+  })
+
+  it('keeps a Content-Type the caller set, in any case', async () => {
+    const calls = mockFetch()
+    await httpRequest({
+      url: 'https://api.test',
+      method: 'POST',
+      body: { a: 1 },
+      headers: { 'content-type': 'application/vnd.test+json' },
+    })
+    expect(calls[0]!.init?.headers).toEqual({ 'content-type': 'application/vnd.test+json' })
+  })
+
+  it('rejects when the response is not JSON', async () => {
+    globalThis.fetch = vi.fn(
+      async () => new Response('<html>nope</html>', { status: 200 }),
+    ) as unknown as typeof fetch
+    await expect(httpRequest({ url: 'https://api.test' })).rejects.toThrow()
+  })
+
+  it('returns a non-2xx body as the value: the status is not checked', async () => {
+    // The node's value has always been the parsed body; a 404 with a JSON
+    // payload is a value, not a failure. Callers that want the status to fail
+    // the step must check it themselves.
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: 'missing' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ) as unknown as typeof fetch
+    await expect(httpRequest({ url: 'https://api.test' })).resolves.toEqual({ error: 'missing' })
+  })
+
+  it('is reachable as flow.http', async () => {
+    mockFetch({ ok: 1 })
+    const flow = createWorkflowContext({
+      env: {},
+      event: { payload: undefined, timestamp: new Date(), instanceId: 'i-1' },
+      host: recordingHost().host,
+    })
+    await expect(flow.http({ url: 'https://api.test' })).resolves.toEqual({ ok: 1 })
   })
 })
