@@ -16,6 +16,7 @@ import type {
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
+  ConnectionRefresh,
   ConnectionTokenCheck,
   ConnectionUpdate,
   ConnectionWrite,
@@ -85,6 +86,7 @@ export class ConnectionsAdapter {
     private dialect: Dialect,
     private crypto?: TokenCrypto,
     private roles?: RoleFields,
+    private refresh?: ConnectionRefresh,
   ) {}
 
   private get table() {
@@ -102,6 +104,38 @@ export class ConnectionsAdapter {
     } catch {
       return value
     }
+  }
+
+  /**
+   * A connection the app's refresher has renewed, persisted. Reading a
+   * connection is where a short-lived credential is made fresh: every caller
+   * — deploy, run sync, run controls, the token check — goes through here.
+   * A refresh that throws or has nothing to do leaves the row as it was.
+   */
+  private async withFresh<T extends Connection>(connection: T): Promise<T> {
+    if (!this.refresh) return connection
+    const next = await this.refresh(connection).catch(() => null)
+    if (!next) return connection
+    const token = next.token
+    const fresh = {
+      ...connection,
+      credentials: next.credentials,
+      ...(token && {
+        tokenStatus: token.status,
+        tokenExpiresAt: token.expiresAt,
+        tokenCheckedAt: token.checkedAt,
+      }),
+    }
+    // A failed write (a delete raced it) does not change what this read uses.
+    const persisted = await this.update(connection.id, {
+      organizationId: connection.organizationId,
+      credentials: next.credentials,
+      ...(token && { token }),
+      expectedUpdatedAt: connection.updatedAt,
+    }).catch(() => null)
+    // A reconnect or replacement landed first; its credentials are the ones
+    // that count, not the ones this refresh just minted.
+    return persisted ? fresh : connection
   }
 
   /**
@@ -201,8 +235,9 @@ export class ConnectionsAdapter {
       .where(and(...conditions))
       .limit(1)
     const row = rows[0] ?? null
-    if (row) row.credentials = await this.tryDecrypt(row.credentials)
-    return row
+    if (!row) return null
+    row.credentials = await this.tryDecrypt(row.credentials)
+    return this.withFresh(row)
   }
 
   /**
@@ -229,7 +264,7 @@ export class ConnectionsAdapter {
     if (!row) return null
     const connection = { ...row.connection }
     connection.credentials = await this.tryDecrypt(connection.credentials)
-    return { connection, covered: truthy(row.covered) }
+    return { connection: await this.withFresh(connection), covered: truthy(row.covered) }
   }
 
   /** The project's own account (never a shared one), credentials decrypted. */
@@ -240,8 +275,9 @@ export class ConnectionsAdapter {
       .where(and(eq(this.table.id, id), eq(this.table.projectId, projectId)))
       .limit(1)
     const row = (rows[0] as Connection | undefined) ?? null
-    if (row) row.credentials = await this.tryDecrypt(row.credentials)
-    return row
+    if (!row) return null
+    row.credentials = await this.tryDecrypt(row.credentials)
+    return this.withFresh(row)
   }
 
   /**
@@ -278,8 +314,9 @@ export class ConnectionsAdapter {
       )
       .limit(1)
     const row = (rows[0] as DeployedConnection | undefined) ?? null
-    if (row) row.credentials = await this.tryDecrypt(row.credentials)
-    return row
+    if (!row) return null
+    row.credentials = await this.tryDecrypt(row.credentials)
+    return this.withFresh(row)
   }
 
   /**
@@ -440,6 +477,9 @@ export class ConnectionsAdapter {
       eq(this.table.id, id),
       eq(this.table.organizationId, organizationId),
       data.ownedBy === undefined ? undefined : eq(this.table.projectId, data.ownedBy),
+      data.expectedUpdatedAt === undefined
+        ? undefined
+        : eq(this.table.updatedAt, data.expectedUpdatedAt),
     )
     const cp = this.t.connectionProjects
     const results = await atomicallyReturning<unknown>(this.db, (tx) => {
@@ -568,7 +608,17 @@ export class ConnectionsAdapter {
       )
       .limit(limit)) as Connection[]
     for (const row of rows) row.credentials = await this.tryDecrypt(row.credentials)
-    return rows
+    // A refresh that finds the grant revoked persists `invalid` before the
+    // caller judges the check. Hand back the status as it was read so the
+    // caller can still see the transition and tell the keepers; the check
+    // itself is recorded by `recordTokenCheck`.
+    const fresh: Connection[] = []
+    for (const row of rows) {
+      const before = row.tokenStatus
+      const next = await this.withFresh(row)
+      fresh.push({ ...next, tokenStatus: before })
+    }
+    return fresh
   }
 
   /**

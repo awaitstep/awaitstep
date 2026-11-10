@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.setConfig({ testTimeout: 30_000, hookTimeout: 30_000 })
 import { eq } from 'drizzle-orm'
 import type { ConnectionWrite, ExpiringConnectionsCheck } from '../types.js'
+import { DrizzleDatabaseAdapter } from '../adapters/index.js'
 import {
   type Harness,
   T0,
@@ -835,5 +836,106 @@ describe.each([
         },
       ])
     })
+  })
+})
+
+describe('refreshing a connection on read', () => {
+  it('renews and persists the credentials through the same read', async () => {
+    const h = await sqliteHarness()
+    const expiredAt = new Date(Date.now() - 60_000).toISOString()
+    const freshAt = new Date(Date.now() + 3_600_000).toISOString()
+    const checkedAt = new Date().toISOString()
+    await h.adapter.createConnection(
+      write({
+        id: 'c-refresh',
+        credentials: JSON.stringify({
+          authKind: 'oauth',
+          accountId: 'a'.repeat(32),
+          apiToken: 'old-access',
+          refreshToken: 'old-refresh',
+          expiresAt: expiredAt,
+        }),
+        token: { status: 'active', expiresAt: expiredAt, checkedAt: NOW },
+      }),
+    )
+
+    const refresh = vi.fn(async () => ({
+      credentials: JSON.stringify({
+        authKind: 'oauth',
+        accountId: 'a'.repeat(32),
+        apiToken: 'new-access',
+        refreshToken: 'new-refresh',
+        expiresAt: freshAt,
+      }),
+      token: { status: 'active' as const, expiresAt: freshAt, checkedAt },
+    }))
+    const adapter = new DrizzleDatabaseAdapter(h.db, h.schema, {
+      dialect: 'sqlite',
+      refreshConnection: refresh,
+    })
+
+    const read = await adapter.getProviderConnectionById('c-refresh')
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(read!.credentials)).toMatchObject({
+      apiToken: 'new-access',
+      refreshToken: 'new-refresh',
+    })
+    expect(read!.tokenExpiresAt).toBe(freshAt)
+
+    // The next read (a plain adapter) sees what the refresh wrote.
+    const persisted = await h.adapter.getProviderConnectionById('c-refresh')
+    expect(JSON.parse(persisted!.credentials)).toMatchObject({
+      apiToken: 'new-access',
+      refreshToken: 'new-refresh',
+    })
+    expect(persisted!.tokenExpiresAt).toBe(freshAt)
+  })
+
+  it('hands the pre-refresh status to the token check while persisting the verdict', async () => {
+    const h = await sqliteHarness()
+    const expiredAt = new Date(Date.now() - 60_000).toISOString()
+    await h.adapter.createConnection(
+      write({
+        id: 'c-due',
+        credentials: JSON.stringify({
+          authKind: 'oauth',
+          accountId: 'a'.repeat(32),
+          apiToken: 'old-access',
+          refreshToken: 'old-refresh',
+          expiresAt: expiredAt,
+        }),
+        token: { status: 'active', expiresAt: expiredAt, checkedAt: T0 },
+      }),
+    )
+    const adapter = new DrizzleDatabaseAdapter(h.db, h.schema, {
+      dialect: 'sqlite',
+      refreshConnection: async () => ({
+        credentials: JSON.stringify({
+          authKind: 'oauth',
+          accountId: 'a'.repeat(32),
+          apiToken: 'old-access',
+          refreshToken: 'old-refresh',
+          expiresAt: expiredAt,
+        }),
+        token: { status: 'invalid' as const, expiresAt: null, checkedAt: NOW },
+      }),
+    })
+
+    const [due] = await adapter.connectionsDueForTokenCheck('cloudflare', NOW, 10)
+    expect(due?.tokenStatus).toBe('active')
+    expect((await h.adapter.getProviderConnectionById('c-due'))?.tokenStatus).toBe('invalid')
+  })
+
+  it('leaves the row alone when the refresher has nothing to do', async () => {
+    const h = await sqliteHarness()
+    await h.adapter.createConnection(write({ id: 'c-plain' }))
+    const refresh = vi.fn(async () => null)
+    const adapter = new DrizzleDatabaseAdapter(h.db, h.schema, {
+      dialect: 'sqlite',
+      refreshConnection: refresh,
+    })
+    const read = await adapter.getProviderConnectionById('c-plain')
+    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(read!.credentials).toBe(CREDS)
   })
 })

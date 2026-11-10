@@ -38,6 +38,24 @@ export { mapInstanceSteps, toRunDetail } from './run-detail.js'
 export type { DeployStage, DeployProgress, OnDeployProgress } from './adapter.js'
 export { CloudflareAPI } from './api.js'
 export { checkCloudflareToken } from './token-check.js'
+export {
+  authorizationUrl,
+  canDeployWithScopes,
+  CLOUDFLARE_DEPLOY_SCOPES,
+  CloudflareOAuthError,
+  createOAuthState,
+  createPkcePair,
+  exchangeAuthorizationCode,
+  listAuthorizedAccounts,
+  refreshAccessToken,
+  revokeToken,
+} from './oauth.js'
+export type {
+  CloudflareOAuthAccount,
+  CloudflareOAuthClientConfig,
+  CloudflareOAuthTokens,
+  PkcePair,
+} from './oauth.js'
 export type {
   CFApiConfig,
   CFInstanceStatus,

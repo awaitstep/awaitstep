@@ -137,3 +137,67 @@ describe('checkCloudflareToken', () => {
     expect(paths()).toEqual(['/user/tokens/verify'])
   })
 })
+
+describe('checkCloudflareToken for an OAuth access token', () => {
+  const EXPIRES = '2026-11-10T12:00:00.000Z'
+
+  it('reads active when the granted account is still reachable', async () => {
+    const paths = stubCloudflare({ [`/accounts/${ACC}`]: json(200, { result: { id: ACC } }) })
+    await expect(
+      checkCloudflareToken('tok', ACC, { authKind: 'oauth', expiresAt: EXPIRES }),
+    ).resolves.toEqual({
+      status: 'active',
+      expiresAt: EXPIRES,
+      accounts: [],
+      accountReachable: true,
+    })
+    expect(paths()).toEqual([`/accounts/${ACC}`])
+  })
+
+  it('reads invalid when the grant no longer reaches the account', async () => {
+    stubCloudflare({ [`/accounts/${ACC}`]: json(401, {}) })
+    await expect(
+      checkCloudflareToken('tok', ACC, { authKind: 'oauth', expiresAt: EXPIRES }),
+    ).resolves.toEqual({
+      status: 'invalid',
+      expiresAt: EXPIRES,
+      accounts: [],
+      accountReachable: false,
+    })
+  })
+
+  it('reads an outage as unknown, not invalid', async () => {
+    for (const answer of [json(503, {}), json(429, {}), new Error('ECONNRESET')]) {
+      stubCloudflare({ [`/accounts/${ACC}`]: answer })
+      expect(
+        (await checkCloudflareToken('tok', ACC, { authKind: 'oauth', expiresAt: EXPIRES })).status,
+      ).toBe('unknown')
+    }
+  })
+
+  it('leaves an expired token refused during a refresh outage unknown', async () => {
+    stubCloudflare({ [`/accounts/${ACC}`]: json(401, {}) })
+    await expect(
+      checkCloudflareToken('tok', ACC, {
+        authKind: 'oauth',
+        expiresAt: EXPIRES,
+        expired: true,
+      }),
+    ).resolves.toMatchObject({ status: 'unknown' })
+  })
+
+  it('reads a 403 as unknown, not a dead grant', async () => {
+    stubCloudflare({ [`/accounts/${ACC}`]: json(403, {}) })
+    await expect(
+      checkCloudflareToken('tok', ACC, { authKind: 'oauth', expiresAt: EXPIRES }),
+    ).resolves.toMatchObject({ status: 'unknown' })
+  })
+
+  it('probes the account list when no account is named', async () => {
+    const paths = stubCloudflare({ '/accounts?per_page=1': json(200, { result: [] }) })
+    await expect(
+      checkCloudflareToken('tok', undefined, { authKind: 'oauth', expiresAt: EXPIRES }),
+    ).resolves.toMatchObject({ status: 'active', accountReachable: null })
+    expect(paths()).toEqual(['/accounts?per_page=1'])
+  })
+})

@@ -196,6 +196,16 @@ export interface ConnectionTokenCheck {
   checkedAt: string | null
 }
 
+/**
+ * Called after a connection is read and its credentials decrypted, so a
+ * short-lived credential (an OAuth access token) can be renewed before the
+ * caller uses it. Null means nothing changed; otherwise the new credentials
+ * are persisted by the adapter and used for this read.
+ */
+export interface ConnectionRefresh {
+  (connection: Connection): Promise<{ credentials: string; token?: ConnectionTokenCheck } | null>
+}
+
 /** A new connection: what it is, and which projects it serves (every one unless narrowed). */
 export interface ConnectionWrite {
   organizationId: string
@@ -224,6 +234,8 @@ export interface ConnectionUpdate {
   projectIds?: string[]
   token?: ConnectionTokenCheck
   visibleTo?: ConnectionListOptions['visibleTo']
+  /** Only update the row still at this `updatedAt`: a refresh must not clobber a reconnect. */
+  expectedUpdatedAt?: string
 }
 
 export interface ConnectionListOptions {

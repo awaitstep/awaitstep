@@ -45,6 +45,16 @@ export interface InspectOptions {
    * a refusal. Default false.
    */
   settleRefusals?: boolean
+  /**
+   * What kind of credential this is. An OAuth access token is not an API
+   * token: it has no `/user/tokens/verify`, so its health is read off the
+   * account it can reach. Default `api-token`.
+   */
+  authKind?: 'api-token' | 'oauth'
+  /** The stored expiry of an OAuth access token, echoed back in the result. */
+  expiresAt?: string | null
+  /** True when that expiry is already in the past; a refusal then may be a stale token, not a dead grant. */
+  expired?: boolean
 }
 
 /**

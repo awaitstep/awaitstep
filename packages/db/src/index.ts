@@ -11,6 +11,7 @@ export type {
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
+  ConnectionRefresh,
   ConnectionTokenCheck,
   ConnectionUpdate,
   ConnectionWrite,

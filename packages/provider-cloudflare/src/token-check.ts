@@ -77,6 +77,9 @@ export async function checkCloudflareToken(
   const none = { accounts: [], accountReachable: null }
   if (!apiToken) return { status: 'invalid', expiresAt: null, ...none }
   const account = accountId && ACCOUNT_ID.test(accountId) ? accountId : undefined
+  if (options.authKind === 'oauth') {
+    return checkOAuthToken(apiToken, account, options)
+  }
 
   let verified = await verifyAt('/user/tokens/verify', apiToken)
   let accountToken = false
@@ -100,6 +103,46 @@ export async function checkCloudflareToken(
       : Promise.resolve(accountToken ? true : null),
   ])
   return { status: 'active', expiresAt: verified.expiresAt, accounts, accountReachable }
+}
+
+/**
+ * An OAuth access token has no `/user/tokens/verify`. A grant that can still
+ * read its chosen account is active; a refusal means it was revoked or the
+ * account is out of the grant's scope, and anything unanswerable stays
+ * unknown so an outage doesn't kill a working connection.
+ */
+async function checkOAuthToken(
+  apiToken: string,
+  account: string | undefined,
+  options: InspectOptions,
+): Promise<CredentialsInspection> {
+  const none = { accounts: [], accountReachable: null }
+  const expiresAt = options.expiresAt ?? null
+  let res: Response
+  try {
+    res = await get(account ? `/accounts/${account}` : '/accounts?per_page=1', apiToken)
+  } catch {
+    return { status: 'unknown', expiresAt, ...none }
+  }
+  if (res.ok) {
+    const accounts = options.listAccounts ? await listAccounts(apiToken) : []
+    return {
+      status: 'active',
+      expiresAt,
+      accounts,
+      accountReachable: account ? true : null,
+    }
+  }
+  // A 403 can mean the grant lacks the account-read scope, not that it is
+  // dead; an expired access token refused here may just be awaiting a refresh
+  // that couldn't reach Cloudflare. Both stay unknown.
+  if (res.status === 403 || (refused(res) && options.expired)) {
+    return { status: 'unknown', expiresAt, ...none, accountReachable: false }
+  }
+  if (refused(res)) {
+    return { status: 'invalid', expiresAt, ...none, accountReachable: false }
+  }
+  return { status: 'unknown', expiresAt, ...none }
 }
 
 /** Accounts the token reaches (the first 50); empty when Cloudflare didn't say. */

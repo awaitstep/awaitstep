@@ -18,6 +18,7 @@ import type {
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
+  ConnectionRefresh,
   ConnectionTokenCheck,
   ConnectionUpdate,
   ConnectionWrite,
@@ -217,6 +218,11 @@ export interface SchemaRef {
 export interface DrizzleAdapterOptions {
   tokenCrypto?: TokenCrypto
   /**
+   * Renews a short-lived credential on read (OAuth access tokens). The app
+   * supplies it; the db package never calls a provider itself.
+   */
+  refreshConnection?: ConnectionRefresh
+  /**
    * Which SQL the JSON aggregates are spelled in. Read off the drizzle
    * instance when omitted (sqlite covers D1 too); set it only to override.
    */
@@ -386,6 +392,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._dialect,
       options?.tokenCrypto,
       roles,
+      options?.refreshConnection,
     )
     this._projectConnections = new ProjectConnectionsAdapter(
       db,

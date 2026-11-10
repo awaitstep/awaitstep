@@ -293,6 +293,22 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   async verifyCredentials(config: ProviderConfig): Promise<CredentialsCheckResult> {
     const { accountId, apiToken } = extractCredentials(config)
+    // An OAuth access token is not an API token; `/user/tokens/verify` refuses
+    // it. Its health is the account it can still reach.
+    if (config.credentials['authKind'] === 'oauth') {
+      const inspection = await checkCloudflareToken(apiToken, accountId, {
+        authKind: 'oauth',
+        expiresAt: config.credentials['expiresAt'] ?? null,
+      })
+      if (inspection.status === 'active') return { valid: true }
+      return {
+        valid: false,
+        error:
+          inspection.status === 'invalid'
+            ? 'The OAuth connection is no longer authorized'
+            : 'Failed to reach Cloudflare to check the OAuth connection',
+      }
+    }
     const api = new CloudflareAPI({ accountId, apiToken })
     try {
       const verified = await api.verifyToken()
@@ -307,7 +323,16 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     credentials: Record<string, string>,
     options?: InspectOptions,
   ): Promise<CredentialsInspection> {
-    return checkCloudflareToken(credentials.apiToken ?? '', credentials.accountId, options)
+    return checkCloudflareToken(credentials.apiToken ?? '', credentials.accountId, {
+      ...options,
+      authKind: credentials.authKind === 'oauth' ? 'oauth' : 'api-token',
+      // An OAuth connection has no expiring credential on its row: it renews.
+      expiresAt: credentials.authKind === 'oauth' ? null : (credentials.expiresAt ?? null),
+      expired:
+        credentials.authKind === 'oauth' &&
+        Boolean(credentials.expiresAt) &&
+        Date.parse(credentials.expiresAt!) <= Date.now(),
+    })
   }
 
   convertHandlers(source: string, target: 'workflow' | 'script'): HandlerConversionResult {
