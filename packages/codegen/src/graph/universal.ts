@@ -321,6 +321,10 @@ export const UNIVERSAL_FUNCTION_PATH = 'awaitstep/function.ts'
 const UNIVERSAL_FUNCTION_RUNTIME_IMPORT =
   'import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";'
 
+/** The same import for a context that only makes HTTP calls: no host, no step adapter. */
+const UNIVERSAL_FUNCTION_CONTEXT_IMPORT =
+  'import { createWorkflowContext } from "#awaitstep/runtime";'
+
 /** The same import when a sub call needs the platform adapter. */
 const UNIVERSAL_FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM =
   'import { createInlineHost, createWorkflowContext, durableStep, type PlatformHost } from "#awaitstep/runtime";'
@@ -457,6 +461,13 @@ function generateFunction(
     /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
+  // A host is only needed where something runs through it: a step, a wait or
+  // another artifact. A context that only makes HTTP calls goes without.
+  const needsHost =
+    hasSubCalls ||
+    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+      withoutComments(graphBody),
+    )
   const contextLines = usesFlow
     ? [
         '  const flow = createWorkflowContext({',
@@ -466,9 +477,15 @@ function generateFunction(
         '      timestamp: new Date(),',
         '      instanceId: globalThis.crypto.randomUUID(),',
         '    },',
-        hasSubCalls ? '    host: createInlineHost(platform),' : '    host: createInlineHost(),',
+        ...(needsHost
+          ? [
+              hasSubCalls
+                ? '    host: createInlineHost(platform),'
+                : '    host: createInlineHost(),',
+            ]
+          : []),
         '  });',
-        '  const step = durableStep(flow);',
+        ...(needsHost ? ['  const step = durableStep(flow);'] : []),
         '',
       ].join('\n')
     : ''
@@ -498,9 +515,11 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
       'import type { Env } from "#awaitstep/env";',
       ...(usesFlow
         ? [
-            hasSubCalls
-              ? UNIVERSAL_FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM
-              : UNIVERSAL_FUNCTION_RUNTIME_IMPORT,
+            needsHost
+              ? hasSubCalls
+                ? UNIVERSAL_FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM
+                : UNIVERSAL_FUNCTION_RUNTIME_IMPORT
+              : UNIVERSAL_FUNCTION_CONTEXT_IMPORT,
           ]
         : []),
       ...moduleImports,

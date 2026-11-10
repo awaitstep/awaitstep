@@ -203,7 +203,11 @@ export interface WorkflowHost extends PlatformHost {
 export interface WorkflowContextInput<Env, Payload> {
   env: Env
   event: WorkflowEvent<Payload>
-  host: WorkflowHost
+  /**
+   * The provider adapter. Omit it for a context that only makes HTTP calls:
+   * `http` needs no host, and every other primitive says so when called.
+   */
+  host?: WorkflowHost
 }
 
 /**
@@ -214,6 +218,14 @@ export function createWorkflowContext<Env, Payload>(
   input: WorkflowContextInput<Env, Payload>,
 ): WorkflowContext<Env, Payload> {
   const { env, event, host } = input
+  const requireHost = (primitive: string, name: string): WorkflowHost => {
+    if (!host) {
+      throw new Error(
+        `Step "${name}": ${primitive} needs a workflow host, and this context has none`,
+      )
+    }
+    return host
+  }
   const step = (async (
     name: string,
     configOrCallback: StepConfig | StepCallback<unknown>,
@@ -224,20 +236,21 @@ export function createWorkflowContext<Env, Payload>(
     if (typeof callback !== 'function') {
       throw new TypeError(`Workflow step "${name}" was called without a callback`)
     }
-    return host.do(name, config, callback)
+    return requireHost('step', name).do(name, config, callback)
   }) as WorkflowContext<Env, Payload>['step']
 
   return {
     env,
     event,
     step,
-    sleep: (name, duration) => host.sleep(name, duration),
-    sleepUntil: async (name, at) => host.sleepUntil(name, toDate(name, at)),
-    waitForEvent: (name, options) => host.waitForEvent(name, options),
+    sleep: (name, duration) => requireHost('sleep', name).sleep(name, duration),
+    sleepUntil: async (name, at) => requireHost('sleepUntil', name).sleepUntil(name, toDate(name, at)),
+    waitForEvent: (name, options) => requireHost('waitForEvent', name).waitForEvent(name, options),
     http: <T>(options: HttpRequestOptions) => httpRequest<T>(options),
-    startWorkflow: (options) => host.startWorkflow(options),
-    workflowStatus: (instanceId, options) => host.workflowStatus(instanceId, options),
-    callScript: (options) => host.callScript(options),
+    startWorkflow: (options) => requireHost('startWorkflow', options.workflow).startWorkflow(options),
+    workflowStatus: (instanceId, options) =>
+      requireHost('workflowStatus', options.workflow).workflowStatus(instanceId, options),
+    callScript: (options) => requireHost('callScript', options.script).callScript(options),
   }
 }
 

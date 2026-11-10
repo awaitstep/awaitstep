@@ -275,7 +275,7 @@ describe('generateHttp in a bundle', () => {
     }
   })
 
-  it('emits the same shape in a function as in a workflow', () => {
+  it('wraps a durable request in a step in both kinds', () => {
     const nodes = [makeNode({ data: { url: 'https://a.example', method: 'GET', durable: true } })]
     const workflow = programOf({ metadata, entryNodeId: 'http-1', nodes, edges: [] })
     const script = programOfScript({

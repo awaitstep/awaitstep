@@ -265,6 +265,11 @@ const fetch_user_result = await flow.step(
 The node's fields are split into tabs — **Headers**, **Query**, and **Body**, the last only for a
 method that sends one — so the panel does not stack three editors.
 
+In a function the call is the same `flow.http({…})`. The context around it is built without a host
+when nothing runs a step, so a plain request pulls in neither `createInlineHost` nor the step
+adapter; mark the node durable and it becomes `flow.step(<id>, {…}, async () => flow.http({…}))`,
+with the in-request host supplying the retries.
+
 Step bodies do not receive `flow`: they still call `fetch` (inside a step, so
 retries apply). A node is in a function's response only when its _Return this
 value_ switch is on

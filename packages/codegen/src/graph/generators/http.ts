@@ -12,8 +12,9 @@ import { resolveStepConfig } from './step.js'
  * encoding, the `Content-Type` header — so the wrapper is the only thing
  * codegen decides.
  *
- * The output is the same in a workflow and a function: a function's step is
- * not durable, but it still retries and times out.
+ * In a function the call is the same; only the context it hangs off differs:
+ * a plain request needs no host, a durable one runs inside `flow.step`, which
+ * is what the in-request host supplies.
  */
 export function generateHttp(node: WorkflowNode, ctx: GenerationContext): string {
   const method = String(node.data.method ?? 'GET')

@@ -442,6 +442,45 @@ describe('createInlineHost', () => {
   })
 })
 
+describe('a context without a host', () => {
+  const originalFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+    vi.restoreAllMocks()
+  })
+
+  function context() {
+    return createWorkflowContext({
+      env: {},
+      event: { payload: undefined, timestamp: new Date(), instanceId: 'i-1' },
+    })
+  }
+
+  it('makes HTTP calls', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ ok: 1 }), {
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ) as unknown as typeof fetch
+    await expect(context().http({ url: 'https://api.test' })).resolves.toEqual({ ok: 1 })
+  })
+
+  it('refuses anything that needs a runtime, and says why', async () => {
+    const flow = context()
+    await expect(flow.step('s', async () => 1)).rejects.toThrow(
+      'step needs a workflow host, and this context has none',
+    )
+    expect(() => flow.sleep('s', 1)).toThrow('sleep needs a workflow host')
+    await expect(flow.sleepUntil('u', new Date())).rejects.toThrow(
+      'sleepUntil needs a workflow host',
+    )
+    expect(() => flow.waitForEvent('w', { type: 'e' })).toThrow(
+      'waitForEvent needs a workflow host',
+    )
+  })
+})
+
 describe('httpRequest', () => {
   const originalFetch = globalThis.fetch
   afterEach(() => {

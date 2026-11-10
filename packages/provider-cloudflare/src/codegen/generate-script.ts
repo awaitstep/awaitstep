@@ -45,6 +45,7 @@ import {
 } from '@awaitstep/codegen'
 import {
   CLOUDFLARE_PRIMITIVES_IMPORT,
+  FUNCTION_CONTEXT_IMPORT,
   FUNCTION_RUNTIME_IMPORT,
   FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM,
   platformModuleFile,
@@ -441,6 +442,13 @@ function generateScriptInternal(
     )
   // A function's invocation is a run of its own: the context's event carries
   // a timestamp and an instance id beside the request's payload.
+  // A host is only needed where something runs through it: a step, a wait or
+  // another artifact. A context that only makes HTTP calls goes without.
+  const needsHost =
+    hasSubCalls ||
+    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+      withoutComments(graphBody),
+    )
   const contextLines = usesFlow
     ? [
         '  const flow = createWorkflowContext({',
@@ -450,11 +458,15 @@ function generateScriptInternal(
         '      timestamp: new Date(),',
         '      instanceId: globalThis.crypto.randomUUID(),',
         '    },',
-        hasSubCalls
-          ? '    host: createInlineHost(platform ?? createAwaitstepPlatform(env)),'
-          : '    host: createInlineHost(),',
+        ...(needsHost
+          ? [
+              hasSubCalls
+                ? '    host: createInlineHost(platform ?? createAwaitstepPlatform(env)),'
+                : '    host: createInlineHost(),',
+            ]
+          : []),
         '  });',
-        '  const step = durableStep(flow);',
+        ...(needsHost ? ['  const step = durableStep(flow);'] : []),
         '',
       ].join('\n')
     : ''
@@ -487,7 +499,13 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
   const functionImports = [
     ...new Set([
       ...(usesFlow
-        ? [hasSubCalls ? FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM : FUNCTION_RUNTIME_IMPORT]
+        ? [
+            needsHost
+              ? hasSubCalls
+                ? FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM
+                : FUNCTION_RUNTIME_IMPORT
+              : FUNCTION_CONTEXT_IMPORT,
+          ]
         : []),
       ...(hasSubCalls ? ['import { createAwaitstepPlatform } from "#awaitstep/platform";'] : []),
       ...moduleImports,

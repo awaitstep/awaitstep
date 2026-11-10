@@ -699,7 +699,7 @@ describe('generateScript', () => {
     expect(bundle.manifest?.steps).toEqual([{ nodeId: 'pick', varName: 'Pick' }])
   })
 
-  it('creates the flow context when flow.http is the only flow call', () => {
+  it('builds a hostless context for a plain HTTP call', () => {
     const ir = makeScript([
       {
         id: 'ping',
@@ -714,13 +714,16 @@ describe('generateScript', () => {
     const worker = generateScriptBundle(ir).files.find(
       (f) => f.path === 'awaitstep/function.ts',
     )!.source
-    expect(worker).toContain('flow.http(')
-    expect(worker).not.toContain('flow.step(')
+    expect(worker).toContain('await flow.http({ url: "https://example.com/ping" })')
     expect(worker).toContain('createWorkflowContext')
-    expect(worker).toContain('#awaitstep/runtime')
+    expect(worker).toContain('import { createWorkflowContext } from "#awaitstep/runtime";')
+    // No step to run, so no in-request host and no step adapter.
+    expect(worker).not.toContain('createInlineHost')
+    expect(worker).not.toContain('durableStep')
+    expect(worker).not.toContain('host:')
   })
 
-  it('needs the runtime for an http call, step or not', () => {
+  it('keeps a durable http call on the in-request host', () => {
     const ir = makeScript([
       {
         id: 'ping',
@@ -729,14 +732,18 @@ describe('generateScript', () => {
         position: { x: 0, y: 0 },
         version: '1.0.0',
         provider: 'cloudflare',
-        data: { method: 'GET', url: 'https://example.com/ping' },
+        data: { method: 'GET', url: 'https://example.com/ping', durable: true },
       },
     ])
     const worker = generateScriptBundle(ir).files.find(
       (f) => f.path === 'awaitstep/function.ts',
     )!.source
-    expect(worker).toContain('flow.http({ url: "https://example.com/ping" })')
-    expect(worker).not.toContain('flow.step("ping"')
+    expect(worker).toContain(
+      'flow.step("ping", async () => flow.http({ url: "https://example.com/ping" }))',
+    )
+    expect(worker).toContain('createInlineHost')
+    expect(worker).toContain('durableStep')
+    expect(worker).toContain('host:')
   })
 
   it('default fetch handler returns the whole graph object', () => {
