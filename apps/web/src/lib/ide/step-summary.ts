@@ -69,15 +69,18 @@ export interface StepSettingsOptions {
  *
  * In a function a step runs on the in-request host, which retries and times
  * out only when asked — so an unset policy reads as none, not as a default —
- * and the other node kinds run without a step boundary at all.
+ * and the other node kinds run without a step boundary at all. A durable HTTP
+ * node is a step there too, so its policy reads the same way.
  */
 export function stepSettings(node: SummaryNode, options?: StepSettingsOptions): StepSettings {
   if (node.type === 'step' && node.data.inline === true) {
     return { retries: 'Not used — runs inline', timeout: 'Not used — runs inline' }
   }
   const applied = appliedStepSettings(node)
+  const runsAsStep =
+    node.type === 'step' || (node.type === 'http_request' && node.data.durable === true)
   if (options?.kind === 'script') {
-    if (node.type !== 'step') {
+    if (!runsAsStep) {
       const unused = 'Not used in a function'
       return {
         retries: applied.retries ? unused : null,

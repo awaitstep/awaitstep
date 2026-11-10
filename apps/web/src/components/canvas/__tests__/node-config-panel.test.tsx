@@ -412,7 +412,22 @@ describe('NodeConfigPanel: returning a value from a function', () => {
     expect(screen.queryByRole('switch', { name: 'Return this value' })).toBeNull()
   })
 
-  it('says an http request in a function is returned without a switch', () => {
+  it('offers no response row on a kind without a value, like a sleep', () => {
+    select(
+      {
+        ...step(),
+        id: 'nap',
+        type: 'sleep',
+        name: 'Nap',
+        data: { duration: '10 seconds' },
+      } as never,
+      'script',
+    )
+    render(<NodeConfigPanel />)
+    expect(screen.queryByRole('switch', { name: 'Return this value' })).toBeNull()
+  })
+
+  it('offers an http request the switch, off by default, and writes it on', async () => {
     select(
       {
         ...step(),
@@ -424,9 +439,106 @@ describe('NodeConfigPanel: returning a value from a function', () => {
       'script',
     )
     render(<NodeConfigPanel />)
-    expect(screen.getByText(/Returned in the response as/)).toBeInTheDocument()
+    const toggle = screen.getByRole('switch', { name: 'Return this value' })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByText('Would be in the response as')).toBeInTheDocument()
     expect(screen.getByText('Ping')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Response key')).toBeNull()
+    await userEvent.click(toggle)
+    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.export).toBe(true)
+    expect(screen.getByText('In the response as')).toBeInTheDocument()
+    expect(screen.getByLabelText('Response key')).toHaveAttribute('placeholder', 'Ping')
+  })
+
+  it('offers the durable switch on an http request in both kinds, off by default', async () => {
+    select(
+      {
+        ...step(),
+        id: 'req',
+        type: 'http_request',
+        name: 'Ping',
+        data: { url: 'https://example.com', method: 'GET' },
+      },
+      'workflow',
+    )
+    render(<NodeConfigPanel />)
     expect(screen.queryByRole('switch', { name: 'Return this value' })).toBeNull()
+    const durable = screen.getByRole('switch', { name: 'Durable' })
+    expect(durable).toHaveAttribute('aria-checked', 'false')
+    // The retry policy only applies inside a step, so it is not offered yet.
+    expect(screen.queryByText('Retry Limit')).toBeNull()
+    await userEvent.click(durable)
+    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.durable).toBe(true)
+    expect(screen.getByText('Retry Limit')).toBeInTheDocument()
+    expect(screen.getByText('Timeout')).toBeInTheDocument()
+  })
+
+  it('puts the request parts in tabs, with Body only for a method that sends one', async () => {
+    select(
+      {
+        ...step(),
+        id: 'req',
+        type: 'http_request',
+        name: 'Ping',
+        data: { url: 'https://example.com', method: 'GET' },
+      },
+      'workflow',
+    )
+    const { unmount } = render(<NodeConfigPanel />)
+    expect(screen.getByRole('tab', { name: 'Headers' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Query' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: 'Body' })).toBeNull()
+    unmount()
+
+    select(
+      {
+        ...step(),
+        id: 'req',
+        type: 'http_request',
+        name: 'Ping',
+        data: { url: 'https://example.com', method: 'POST' },
+      },
+      'workflow',
+    )
+    render(<NodeConfigPanel />)
+    const body = screen.getByRole('tab', { name: 'Body' })
+    await userEvent.click(body)
+    expect(screen.getByText('Request body. Only used for POST, PUT, PATCH.')).toBeInTheDocument()
+  })
+
+  it('returns a sub-workflow and a sub-script by default, and lets each opt out', async () => {
+    const sub = {
+      ...step(),
+      id: 'sub_1',
+      type: 'sub_workflow',
+      name: 'Onboarding',
+      data: { workflowId: 'onboarding', workflowName: 'Onboarding' },
+    }
+    select(sub as never, 'script')
+    const { unmount } = render(<NodeConfigPanel />)
+    const workflowToggle = screen.getByRole('switch', { name: 'Return this value' })
+    expect(workflowToggle).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('In the response as')).toBeInTheDocument()
+    await userEvent.click(workflowToggle)
+    expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.export).toBe(false)
+    expect(screen.getByText('Would be in the response as')).toBeInTheDocument()
+    unmount()
+
+    select(
+      {
+        ...step(),
+        id: 'script_1',
+        type: 'sub_script',
+        name: 'Pricing',
+        data: { scriptId: 'pricing', url: 'https://example.com' },
+      } as never,
+      'script',
+    )
+    render(<NodeConfigPanel />)
+    expect(screen.getByRole('switch', { name: 'Return this value' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
   })
 })
 

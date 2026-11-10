@@ -117,17 +117,20 @@ describe('stepSettings', () => {
     expect(settings).toEqual({ retries: '4 retries · linear from 1s', timeout: '2s' })
   })
 
-  it('shows an http request only the policy in its config, not the loose fields a new node stores', () => {
-    // A new HTTP node is created with retryLimit 5 in its data; the generated step ignores it.
+  it('shows an http request no policy until it is durable, then its loose fields', () => {
+    // A new HTTP node stores retryLimit 5 but runs no step, so nothing applies.
     expect(stepSettings(node({ type: 'http_request', data: { retryLimit: 5 } }))).toEqual({
-      retries: 'Default',
-      timeout: 'Default',
+      retries: null,
+      timeout: null,
     })
+    expect(
+      stepSettings(node({ type: 'http_request', data: { retryLimit: 5, durable: true } })).retries,
+    ).toBe('5 retries · 10s apart')
     expect(
       stepSettings(
         node({
           type: 'http_request',
-          data: {},
+          data: { durable: true },
           config: { retries: { limit: 2, delay: '3 seconds' } },
         }),
       ).retries,
@@ -212,14 +215,19 @@ describe('stepSettings in a function', () => {
     })
   })
 
-  it('says the policy of an http request is not used in a function, which runs it without a step', () => {
+  it('reports a durable http request’s policy in a function, where its step retries', () => {
     const http = node({
       type: 'http_request',
+      data: { durable: true },
       config: { retries: { limit: 2, delay: '1 second' }, timeout: '5 seconds' },
     })
     expect(stepSettings(http, { kind: 'script' })).toEqual({
-      retries: 'Not used in a function',
-      timeout: 'Not used in a function',
+      retries: '2 retries · 1s apart',
+      timeout: '5s',
+    })
+    expect(stepSettings(node({ type: 'http_request' }), { kind: 'script' })).toEqual({
+      retries: null,
+      timeout: null,
     })
     expect(stepSettings(node({ type: 'sleep' }), { kind: 'script' })).toEqual({
       retries: null,
@@ -236,6 +244,9 @@ describe('stepMeta', () => {
       'retries 3 · timeout 30s',
     )
     expect(stepMeta(node({ type: 'http_request', data: { retryLimit: 5 } }))).toBeNull()
+    expect(stepMeta(node({ type: 'http_request', data: { retryLimit: 5, durable: true } }))).toBe(
+      'retries 5',
+    )
   })
 })
 

@@ -2,22 +2,17 @@ import { useId, useState } from 'react'
 import { ChevronDown, Maximize2, Minimize2, X } from 'lucide-react'
 import type { ConfigField, WorkflowNode } from '@awaitstep/ir'
 import { stepSourcePath } from '@awaitstep/ir'
-import {
-  isExportedName,
-  isExportedNode,
-  isValidExportKey,
-  stepModuleProblem,
-} from '@awaitstep/codegen'
+import { stepModuleProblem } from '@awaitstep/codegen'
 import { stepMeta, type StepSettingsOptions } from '../../lib/ide/step-summary'
 import type { StepScope } from '../../lib/step-scope'
 import type { NodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
-import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Switch } from '../ui/switch'
 import { DynamicFields, FieldRenderer, fieldTakesId } from './dynamic-fields'
+import { ExportFields } from './export-fields'
 
 type Kind = NonNullable<StepSettingsOptions['kind']>
 
@@ -74,14 +69,7 @@ export function StepFields({
   const [executionOpen, setExecutionOpen] = useState(true)
   const idBase = useId()
   const inlineId = `${idBase}-inline`
-  const exportId = `${idBase}-export`
-  const exportKeyId = `${idBase}-export-key`
   const inline = node.data.inline === true
-  const switchedOn = isExportedNode(node)
-  // The legacy name prefix returns the value on its own; the switch shows that and stays put.
-  const returnedByName = isExportedName(node.name)
-  const exportAs = typeof node.data.exportAs === 'string' ? node.data.exportAs : ''
-  const exportKeyInvalid = exportAs !== '' && !isValidExportKey(exportAs)
   const moduleProblem = stepModuleProblem(node, scope.varName)
   const rest = Object.fromEntries(
     Object.entries(schema).filter(([fieldId]) => !PLACED_FIELDS.has(fieldId)),
@@ -97,15 +85,6 @@ export function StepFields({
 
   function handleInlineChange(checked: boolean) {
     onChange('inline', checked)
-  }
-
-  function handleExportChange(checked: boolean) {
-    onChange('export', checked)
-  }
-
-  function handleExportKeyChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const value = event.target.value.trim()
-    onChange('exportAs', value === '' ? undefined : value)
   }
 
   return (
@@ -208,57 +187,7 @@ export function StepFields({
                 </div>
               </label>
             </div>
-            {!inline && kind === 'script' && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2.5">
-                  <Switch
-                    id={exportId}
-                    checked={switchedOn}
-                    onCheckedChange={handleExportChange}
-                    label="Return this value"
-                    disabledReason={
-                      returnedByName
-                        ? 'Returned by the EXPORT_ name prefix; rename the step to change this.'
-                        : undefined
-                    }
-                  />
-                  <label htmlFor={exportId} className="min-w-0 cursor-pointer">
-                    <div className="text-xs text-foreground">Return this value</div>
-                    <div className="text-[11px] text-muted-foreground/60">
-                      {switchedOn && !scope.returned && scope.status === 'ok' ? (
-                        'Returns nothing yet: the body has no return.'
-                      ) : (
-                        <>
-                          {scope.returned ? 'In the response as ' : 'Would be in the response as '}
-                          <code className="font-mono text-foreground/70">{scope.exportKey}</code>
-                        </>
-                      )}
-                    </div>
-                  </label>
-                </div>
-                {switchedOn && !returnedByName && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor={exportKeyId} className="text-xs text-muted-foreground">
-                      Response key
-                    </Label>
-                    <Input
-                      id={exportKeyId}
-                      value={exportAs}
-                      onChange={handleExportKeyChange}
-                      debounceMs={300}
-                      placeholder={scope.varName}
-                      className="h-8 font-mono text-xs"
-                    />
-                    {exportKeyInvalid && (
-                      <p className="text-[11px] text-destructive">
-                        Letters, digits and _ only; cannot start with a digit. Using{' '}
-                        <code className="font-mono">{scope.varName}</code>.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            {!inline && <ExportFields node={node} kind={kind} scope={scope} onChange={onChange} />}
             {!inline && (
               <div className="grid grid-cols-2 gap-2.5">
                 {EXECUTION_FIELDS.map((fieldId) => {

@@ -8,15 +8,12 @@ import { Separator } from '../ui/separator'
 import { CodeEditor } from '../ui/code-editor'
 import { Select } from '../ui/select'
 import { DynamicFields } from './dynamic-fields'
+import { ExportFields } from './export-fields'
+import { HttpRequestFields } from './http-request-fields'
 import { StepEnlargedEditor, StepFields } from './step-fields'
 import { buildIRFromState } from '../../lib/build-ir'
 import { stepScope } from '../../lib/step-scope'
-import {
-  AUTO_EXPORT_TYPES,
-  computeVarNames,
-  stepModuleProblem,
-  stepReturnsValue,
-} from '@awaitstep/codegen'
+import { computeVarNames, stepModuleProblem, stepReturnsValue } from '@awaitstep/codegen'
 import { ExpressionEditor } from './expression-editor'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
@@ -132,7 +129,7 @@ function NodeConfigBody() {
           irNode.type,
           irNode.name,
           irNode.data.inline === true,
-          irNode.data.export === true,
+          irNode.data.export ?? null,
           irNode.data.exportAs ?? null,
           stepReturnsValue(String(irNode.data.code ?? '')),
           irNode.data.loopType ?? null,
@@ -147,9 +144,18 @@ function NodeConfigBody() {
   // `nodes` and `edges` inside are the ones it was built from.
   const scope = useMemo(() => {
     if (!selectedNodeId) return null
-    const { metadata, workflowEnvVars, runtimeResources } = useWorkflowStore.getState()
+    const { metadata, workflowEnvVars, runtimeResources, runtimeProvider } =
+      useWorkflowStore.getState()
     return stepScope(
-      buildIRFromState({ metadata, workflowEnvVars, runtimeResources, nodes, edges, kind }),
+      buildIRFromState({
+        metadata,
+        workflowEnvVars,
+        runtimeResources,
+        runtimeProvider,
+        nodes,
+        edges,
+        kind,
+      }),
       selectedNodeId,
       kind,
     )
@@ -323,24 +329,28 @@ function NodeConfigBody() {
             />
           ) : definition ? (
             <>
-              <DynamicFields
-                configSchema={definition.configSchema}
-                data={irNode.data}
-                onChange={updateData}
-                nodeId={irNode.id}
-                readOnly={readOnly}
-              />
+              {irNode.type === 'http_request' ? (
+                <HttpRequestFields
+                  node={irNode}
+                  schema={definition.configSchema}
+                  onChange={updateData}
+                  readOnly={readOnly}
+                />
+              ) : (
+                <DynamicFields
+                  configSchema={definition.configSchema}
+                  data={irNode.data}
+                  onChange={updateData}
+                  nodeId={irNode.id}
+                  readOnly={readOnly}
+                />
+              )}
               {irNode.type === 'sleep' && (
                 <Hint>
                   The run pauses durably and resumes after the delay. No code, no retries.
                 </Hint>
               )}
-              {kind === 'script' && AUTO_EXPORT_TYPES.has(irNode.type) && (
-                <Hint>
-                  Returned in the response as{' '}
-                  <code className="font-mono text-foreground/70">{scope.exportKey}</code>.
-                </Hint>
-              )}
+              <ExportFields node={irNode} kind={kind} scope={scope} onChange={updateData} />
             </>
           ) : (
             <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
