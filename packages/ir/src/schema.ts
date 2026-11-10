@@ -50,6 +50,8 @@ const stepNodeDataSchema = z
   .object({
     code: z.string().optional(),
     inline: z.boolean().optional(),
+    export: z.boolean().optional(),
+    exportAs: z.string().optional(),
     retryLimit: z.number().optional(),
     retryDelay: z.string().optional(),
     backoff: z.string().optional(),
@@ -82,6 +84,9 @@ const httpRequestNodeDataSchema = z
     body: z.string().optional(),
     retryLimit: z.number().optional(),
     timeout: z.string().optional(),
+    durable: z.boolean().optional(),
+    export: z.boolean().optional(),
+    exportAs: z.string().optional(),
     params: openRecordSchema.optional(),
   })
   .catchall(z.unknown())
@@ -115,6 +120,8 @@ const subWorkflowNodeDataSchema = z
     input: z.string().optional(),
     waitForCompletion: z.boolean().optional(),
     timeout: z.string().optional(),
+    export: z.boolean().optional(),
+    exportAs: z.string().optional(),
     params: openRecordSchema.optional(),
   })
   .catchall(z.unknown())
@@ -129,6 +136,8 @@ const subScriptNodeDataSchema = z
     body: z.string().optional(),
     retryLimit: z.number().optional(),
     timeout: z.string().optional(),
+    export: z.boolean().optional(),
+    exportAs: z.string().optional(),
     params: openRecordSchema.optional(),
   })
   .catchall(z.unknown())
@@ -206,6 +215,7 @@ const projectFileSchema = z.object({
 
 export const workflowRuntimeSchema = z
   .object({
+    provider: z.string().min(1).optional(),
     triggerCode: z.string().optional(),
     dependencies: z.record(z.string(), z.string()).optional(),
     env: z.array(envDeclarationSchema).optional(),

@@ -61,7 +61,20 @@ export type LoopType = 'forEach' | 'while' | 'times'
 // acceptance stays lenient (see schema.ts) and strict checks are collected by
 // validateNodeData rather than enforced at parse time.
 
-export type StepNodeData = {
+/**
+ * The fields carried by every node kind a function's response can include:
+ * whether it is included (`export`), and the key it comes back under
+ * (`exportAs`). Absent means "whatever the kind defaults to" — a step and an
+ * HTTP call are opt-in, a sub-workflow and a sub-script opt-out.
+ */
+export interface ExportableNodeData {
+  /** Include this node's value in a function's response, overriding the kind's default. */
+  export?: boolean
+  /** Response key. Defaults to the node's variable name. */
+  exportAs?: string
+}
+
+export interface StepNodeData extends ExportableNodeData {
   /** Arbitrary TypeScript executed inside `step.do` (or inline when `inline`). */
   code?: string
   /** Emit raw code with no `step.do` wrapper — not durable, not billed as a step. */
@@ -93,7 +106,7 @@ export type BranchNodeData = {
 /** No declared fields — parallel fan-out is edge-driven. */
 export type ParallelNodeData = Record<string, unknown>
 
-export type HttpRequestNodeData = {
+export interface HttpRequestNodeData extends ExportableNodeData {
   method?: HttpMethod
   url?: string
   headers?: Record<string, string>
@@ -102,6 +115,12 @@ export type HttpRequestNodeData = {
   body?: string
   retryLimit?: number
   timeout?: string
+  /**
+   * Run the request inside a step: retries, timeout and (in a workflow)
+   * durability. Off by default — an HTTP call is a request, not a unit of
+   * work, and retrying a non-idempotent POST is not something to do unsaid.
+   */
+  durable?: boolean
 }
 
 export type WaitForEventNodeData = {
@@ -134,7 +153,7 @@ export type BreakNodeData = {
   condition?: string
 }
 
-export type SubWorkflowNodeData = {
+export interface SubWorkflowNodeData extends ExportableNodeData {
   /** Target workflow: its AwaitStep id or deployed name. */
   workflowId?: string
   /** Provider export name (Cloudflare: the exported workflow class). */
@@ -152,7 +171,7 @@ export type SubWorkflowNodeData = {
   params?: Record<string, unknown>
 }
 
-export type SubScriptNodeData = {
+export interface SubScriptNodeData extends ExportableNodeData {
   /** Target function: its AwaitStep id or deployed name. */
   scriptId?: string
   /** Legacy Cloudflare deployed-worker name; `scriptId` wins when set. */
@@ -294,6 +313,12 @@ export interface ProjectFile {
 }
 
 export interface WorkflowRuntime {
+  /**
+   * The runtime this artifact targets (`cloudflare`, `inngest`, …). Absent on
+   * legacy documents, where the provider is inferred from imports; a provider
+   * profile sets it so authoring does not depend on a deployment connection.
+   */
+  provider?: string
   /**
    * @deprecated v1 annotation entry source. Retained only so old versions can
    * be converted; new projects use handler modules.

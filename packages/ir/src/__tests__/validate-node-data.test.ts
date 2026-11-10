@@ -21,6 +21,28 @@ describe('validateNodeData', () => {
     expect(validateNodeData(makeNode('sleep', { duration: 5000 }))).toEqual([])
   })
 
+  it('accepts the export, response key and inline fields on every kind that carries them', () => {
+    const required: Record<string, Record<string, unknown>> = {
+      step: { code: 'return 1;' },
+      http_request: { url: 'https://x', durable: true },
+      sub_workflow: { workflowId: 'w' },
+      sub_script: { scriptId: 's', url: 'https://x' },
+    }
+    for (const [type, base] of Object.entries(required)) {
+      expect(
+        validateNodeData(makeNode(type, { ...base, export: true, exportAs: 'Result' }), {
+          strict: true,
+        }),
+      ).toEqual([])
+    }
+    expect(
+      validateNodeData(
+        makeNode('http_request', { url: 'https://x', export: false, exportAs: 'Call' }),
+        { strict: true },
+      ),
+    ).toEqual([])
+  })
+
   it('accepts empty data — all fields are optional for legacy rows', () => {
     expect(validateNodeData(makeNode('step', {}))).toEqual([])
     expect(validateNodeData(makeNode('http_request', {}))).toEqual([])
