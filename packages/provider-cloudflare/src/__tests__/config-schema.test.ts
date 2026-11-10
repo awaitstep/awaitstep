@@ -39,6 +39,23 @@ describe('cloudflareDeploymentConfigSchema', () => {
     expect(parsed.success).toBe(false)
   })
 
+  it('accepts connection-scoped binding mappings', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      bindings: {
+        KV_USERS: { kind: 'kv', resourceId: 'namespace-123' },
+        BUCKET_ASSETS: { kind: 'r2', resourceName: 'assets' },
+      },
+    })
+    expect(parsed.success).toBe(true)
+  })
+
+  it('rejects unknown fields inside a binding mapping', () => {
+    const parsed = cloudflareDeploymentConfigSchema.safeParse({
+      bindings: { KV_USERS: { kind: 'kv', resourceId: 'abc', secret: 'no' } },
+    })
+    expect(parsed.success).toBe(false)
+  })
+
   it('rejects unknown top-level keys', () => {
     const parsed = cloudflareDeploymentConfigSchema.safeParse({ unknownField: true })
     expect(parsed.success).toBe(false)

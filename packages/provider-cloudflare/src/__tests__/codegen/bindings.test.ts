@@ -490,6 +490,38 @@ describe('detectBindings — runtime declarations', () => {
     }
     expect(detectBindings(ir as never)).toHaveLength(1)
   })
+
+  it('detects bindings declared in a profile and used through an accessor', () => {
+    const ir = {
+      ...baseIr,
+      nodes: [
+        {
+          ...baseIr.nodes[0]!,
+          data: {
+            code: "import { kv } from '#awaitstep/cloudflare'\nreturn kv(env, 'KV_USERS').get('a')",
+          },
+        },
+      ],
+      runtime: {
+        files: [
+          {
+            path: 'providers/cloudflare.ts',
+            source: [
+              "import { defineCloudflare } from '#awaitstep/cloudflare'",
+              'export default defineCloudflare({',
+              "  bindings: { DB_MAIN: { kind: 'd1' }, BUCKET_ASSETS: { kind: 'r2', bucket: 'assets' } },",
+              '})',
+            ].join('\n'),
+          },
+        ],
+      },
+    }
+    expect(detectBindings(ir as never)).toEqual([
+      { name: 'KV_USERS', type: 'kv', source: 'usage' },
+      { name: 'DB_MAIN', type: 'd1', source: 'profile' },
+      { name: 'BUCKET_ASSETS', type: 'r2', source: 'profile', resourceId: 'assets' },
+    ])
+  })
 })
 
 describe('validateSubWorkflowBindings', () => {

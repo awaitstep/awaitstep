@@ -73,7 +73,14 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
     })
 
     recordLocalDevRuntime(workflow.id, c.get('organizationId'), result)
-    return c.json({ status: 'running', port: result.port, url: result.url, pid: result.pid, mode })
+    return c.json({
+      status: 'running',
+      port: result.port,
+      url: result.url,
+      pid: result.pid,
+      mode,
+      warnings: result.warnings ?? [],
+    })
   } catch (err) {
     releaseLocalDevSession(workflow.id, c.get('organizationId'))
     const message = err instanceof Error ? err.message : 'Failed to start local dev'
@@ -95,6 +102,7 @@ localDev.get('/:workflowId/local-dev', async (c) => {
     url: session.url,
     pid: session.pid,
     startedAt: session.startedAt,
+    warnings: session.warnings,
   })
 })
 

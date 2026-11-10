@@ -56,6 +56,7 @@ export function buildWorkflowStoreState(
     // Must reset on every hydrate — a leftover value from the previously
     // opened workflow would leak into this workflow's exported runtime.
     runtimeResources: [],
+    runtimeProvider: null,
     deployConfig: {},
     validationResult: null,
     simulationResult: null,
@@ -206,6 +207,10 @@ export function buildWorkflowStoreState(
           }))
         }
         if (runtime.resources) state.runtimeResources = runtime.resources
+        if (runtime.provider) state.runtimeProvider = runtime.provider
+        else if (runtime.resources?.some((resource) => resource.provider)) {
+          state.runtimeProvider = runtime.resources.find((resource) => resource.provider)?.provider
+        }
       }
     }
   }

@@ -169,6 +169,7 @@ const getInitialWorkflowState = () => ({
   dependencies: {},
   triggerCode: '',
   runtimeResources: [],
+  runtimeProvider: null,
   deployConfig: {},
   validationResult: null,
   simulationResult: null,
@@ -197,6 +198,8 @@ interface WorkflowState {
   triggerCode: string
   /** Provider-scoped resources round-tripped through ir.runtime.resources. */
   runtimeResources: ResourceDeclaration[]
+  /** The runtime the canvas declares; null until a provider-specific binding is used. */
+  runtimeProvider: string | null
   deployConfig: DeployConfig
   validationResult: PublishValidationResult | null
   simulationResult: SimulationResult | null
@@ -229,6 +232,8 @@ interface WorkflowState {
   setKind: (kind: 'workflow' | 'script') => void
   setMetadata: (metadata: Partial<WorkflowMetadata>) => void
   setWorkflowEnvVars: (vars: WorkflowEnvVar[]) => void
+  /** Add or replace a provider-owned binding declaration. */
+  upsertRuntimeResource: (resource: ResourceDeclaration) => void
   setDeployConfig: (config: DeployConfig) => void
   runValidation: (nodeRegistry?: NodeRegistry) => PublishValidationResult
   clearValidation: () => void
@@ -353,7 +358,14 @@ function createDefaultNode(
  */
 type UndoableState = Pick<
   WorkflowState,
-  'kind' | 'metadata' | 'nodes' | 'edges' | 'dependencies' | 'triggerCode' | 'runtimeResources'
+  | 'kind'
+  | 'metadata'
+  | 'nodes'
+  | 'edges'
+  | 'dependencies'
+  | 'triggerCode'
+  | 'runtimeResources'
+  | 'runtimeProvider'
 >
 
 const UNDO_LIMIT = 100
@@ -404,6 +416,7 @@ function undoableSlice(state: WorkflowState): UndoableState {
     dependencies: state.dependencies,
     triggerCode: state.triggerCode,
     runtimeResources: state.runtimeResources,
+    runtimeProvider: state.runtimeProvider,
   }
 }
 
@@ -453,7 +466,8 @@ function undoableEquality(past: UndoableState, current: UndoableState): boolean 
     sameEdges(past.edges, current.edges) &&
     past.dependencies === current.dependencies &&
     past.triggerCode === current.triggerCode &&
-    past.runtimeResources === current.runtimeResources
+    past.runtimeResources === current.runtimeResources &&
+    past.runtimeProvider === current.runtimeProvider
   )
 }
 
@@ -838,6 +852,22 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       setWorkflowEnvVars: (vars) => {
         set({ workflowEnvVars: vars, isDirty: true })
+      },
+
+      upsertRuntimeResource: (resource) => {
+        const resources = get().runtimeResources
+        const index = resources.findIndex(
+          (existing) => existing.name === resource.name && existing.kind === resource.kind,
+        )
+        const next =
+          index === -1
+            ? [...resources, resource]
+            : resources.map((existing, i) => (i === index ? resource : existing))
+        set({
+          runtimeResources: next,
+          runtimeProvider: resource.provider ?? get().runtimeProvider,
+          isDirty: true,
+        })
       },
 
       setDeployConfig: (config) => {

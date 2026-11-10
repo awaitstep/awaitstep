@@ -27,6 +27,7 @@ const baseState = {
   dependencies: {},
   workflowEnvVars: [],
   runtimeResources: [],
+  runtimeProvider: null,
 }
 
 describe('buildIRFromState — runtime block', () => {
@@ -62,6 +63,18 @@ describe('buildIRFromState — runtime block', () => {
       resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }],
     })
     expect(JSON.stringify(ir)).not.toContain('shh')
+  })
+
+  it('records the canvas provider when a binding declares one', () => {
+    const ir = buildIRFromState({
+      ...baseState,
+      runtimeResources: [{ name: 'KV_CACHE', kind: 'kv', provider: 'cloudflare' }],
+      runtimeProvider: 'cloudflare',
+    } as never) as { runtime?: Record<string, unknown> }
+    expect(ir.runtime).toEqual({
+      resources: [{ name: 'KV_CACHE', kind: 'kv', provider: 'cloudflare' }],
+      provider: 'cloudflare',
+    })
   })
 
   it('leaves trigger code and dependencies to the project files the canvas only mirrors', () => {

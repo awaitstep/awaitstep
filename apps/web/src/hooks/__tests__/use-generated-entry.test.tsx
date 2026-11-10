@@ -32,6 +32,7 @@ function seed(kind: 'workflow' | 'script', nodes: unknown[] = [step]) {
     edges: [],
     workflowEnvVars: [],
     runtimeResources: [],
+    runtimeProvider: null,
   } as never)
 }
 

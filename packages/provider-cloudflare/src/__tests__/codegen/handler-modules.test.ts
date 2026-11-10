@@ -56,10 +56,10 @@ describe('handlerWiring / handlerDelegates', () => {
   it('imports each module by its compiled path and delegates to it', () => {
     const wiring = handlerWiring(projectHandlerModules(files))
     expect(wiring.imports).toEqual([
-      'import $$fetchHandler from "./handlers/fetch.js";',
-      'import $$scheduledHandler from "./handlers/scheduled.js";',
-      'import $$queue_dead_letters from "./handlers/queue/dead-letters.js";',
-      'import $$queue_orders from "./handlers/queue/orders.js";',
+      'import $$fetchHandler from "../handlers/fetch.js";',
+      'import $$scheduledHandler from "../handlers/scheduled.js";',
+      'import $$queue_dead_letters from "../handlers/queue/dead-letters.js";',
+      'import $$queue_orders from "../handlers/queue/orders.js";',
     ])
     expect(wiring.reexports).toEqual([])
     const delegates = handlerDelegates(wiring).join('\n')
@@ -113,7 +113,7 @@ describe('handlerWiring / handlerDelegates', () => {
     const wiring = handlerWiring(
       projectHandlerModules([{ path: 'handlers/fetch.ts' }, { path: 'handlers/shared.ts' }]),
     )
-    expect(wiring.reexports).toEqual(['export * from "./handlers/shared.js";'])
+    expect(wiring.reexports).toEqual(['export * from "../handlers/shared.js";'])
   })
 })
 
@@ -124,7 +124,7 @@ describe('generated entries with handler modules', () => {
       { triggerCode: '@fetch function handler() { return new Response("annotation") }' },
     )
     const worker = providerEntrySource(bundle)
-    expect(worker).toContain('import $$fetchHandler from "./handlers/fetch.js";')
+    expect(worker).toContain('import $$fetchHandler from "../handlers/fetch.js";')
     expect(worker).toContain('$$fetchHandler({ request, env, execution')
     expect(worker).toContain('case "orders":')
     expect(worker).toContain(

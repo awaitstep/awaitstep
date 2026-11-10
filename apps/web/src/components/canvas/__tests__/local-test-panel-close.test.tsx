@@ -11,6 +11,7 @@ vi.mock('../../../hooks/use-local-dev', () => ({
     state: 'running',
     info: { port: 8787, url: 'http://localhost:8787' },
     error: null,
+    warnings: [],
     triggerError: null,
     triggerResult: null,
     instanceId: null,

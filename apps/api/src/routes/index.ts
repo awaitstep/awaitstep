@@ -411,6 +411,7 @@ export function createRouter(
   router.delete('/workflows/:id', key('workflows', 'delete'))
   router.delete('/workflows/:workflowId/versions/:versionId', key('workflows', 'delete'))
   router.delete('/workflows/:workflowId/files/*', key('workflows', 'delete'))
+  router.put('/workflows/:workflowId/deploy-config/:connectionId', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/deploy', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/deploy-stream', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/takedown', key('workflows', 'deploy'))

@@ -103,6 +103,8 @@ export interface AuditFacts {
   /** A key's grid in words: "read, write on Workflows". */
   summary?: string
   provider?: string
+  /** Deployment-config mapping summary, e.g. `KV_USERS=namespace-id`. */
+  bindings?: string
   /** A connection's or variable's change in words: "Renamed from Prod". */
   change?: string
   secret?: boolean
@@ -298,6 +300,11 @@ export const AUDIT_EVENTS = {
     action: fixed('deployed'),
     target: versioned,
     detail: (f) => f.provider,
+  },
+  'workflow.deploy_config': {
+    kind: 'deploy',
+    action: fixed('updated deployment settings for'),
+    detail: (f) => f.bindings ?? f.provider,
   },
   'version.revert': {
     kind: 'deploy',

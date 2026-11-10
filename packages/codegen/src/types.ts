@@ -105,6 +105,8 @@ export interface LocalDevSession {
   port: number
   url: string
   pid: number
+  /** Bindings the local runtime cannot emulate; the session still starts. */
+  warnings?: string[]
 }
 
 /** One line of output from a worker process — local dev or a test session. */

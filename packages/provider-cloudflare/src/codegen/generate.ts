@@ -70,6 +70,14 @@ export { FUNCTION_MODULE_PATH } from '@awaitstep/codegen'
 export type { GenerateScriptOptions } from './generate-script.js'
 export { exportPlan, nodeYieldsValue } from '@awaitstep/codegen'
 export type { ExportPlanEntry } from '@awaitstep/codegen'
+export {
+  extractCloudflareSource,
+  cloudflareWranglerOverrides,
+  type CloudflareBindingDeclaration,
+  type CloudflareProfile,
+  type CloudflareProfileDiagnostic,
+  type CloudflareProfileExtraction,
+} from './provider-profile.js'
 export { CLOUDFLARE_PRIMITIVES_SOURCE, RUNTIME_MODULE_SOURCE } from './runtime-module.js'
 export { DEFAULT_RETENTION, resolveRetention, retentionLiteral } from './retention.js'
 export type { CloudflareRetention } from './retention.js'

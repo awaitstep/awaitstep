@@ -33,16 +33,18 @@ export interface GeneratedEntry {
  * thrown at the editor.
  */
 export function useGeneratedEntry(): GeneratedEntry {
-  const { metadata, nodes, edges, kind, workflowEnvVars, runtimeResources } = useWorkflowStore(
-    useShallow((s) => ({
-      metadata: s.metadata,
-      nodes: s.nodes,
-      edges: s.edges,
-      kind: s.kind,
-      workflowEnvVars: s.workflowEnvVars,
-      runtimeResources: s.runtimeResources,
-    })),
-  )
+  const { metadata, nodes, edges, kind, workflowEnvVars, runtimeResources, runtimeProvider } =
+    useWorkflowStore(
+      useShallow((s) => ({
+        metadata: s.metadata,
+        nodes: s.nodes,
+        edges: s.edges,
+        kind: s.kind,
+        workflowEnvVars: s.workflowEnvVars,
+        runtimeResources: s.runtimeResources,
+        runtimeProvider: s.runtimeProvider,
+      })),
+    )
   const templateResolver = useNodeTemplates()
 
   return useMemo<GeneratedEntry>(() => {
@@ -60,6 +62,7 @@ export function useGeneratedEntry(): GeneratedEntry {
         kind,
         workflowEnvVars,
         runtimeResources,
+        runtimeProvider,
       })
       if (kind === 'script') {
         const bundle = generateUniversalFunctionBundle(ir as ScriptIR, {
@@ -89,5 +92,14 @@ export function useGeneratedEntry(): GeneratedEntry {
         error: error instanceof Error ? error.message : 'The graph could not be generated.',
       }
     }
-  }, [metadata, nodes, edges, kind, workflowEnvVars, runtimeResources, templateResolver])
+  }, [
+    metadata,
+    nodes,
+    edges,
+    kind,
+    workflowEnvVars,
+    runtimeResources,
+    runtimeProvider,
+    templateResolver,
+  ])
 }

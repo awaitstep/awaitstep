@@ -292,12 +292,94 @@ deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
 
   const adapter = resolveProvider(connection.provider)
   const stored = await db.getDeploymentConfig(workflow.id, connectionId)
-  const config = stored ? JSON.parse(stored.config) : adapter.getDefaultDeploymentConfig()
+  let config: unknown = adapter.getDefaultDeploymentConfig()
+  if (stored) {
+    const raw = JSON.parse(stored.config) as Record<string, unknown>
+    delete raw.triggerCode
+    const parsed = adapter.deploymentConfigSchema.safeParse(raw)
+    if (parsed.success) config = parsed.data
+  }
   const preview = adapter.buildDeploymentConfigPreview(config)
   const uiSchema = adapter.deploymentConfigUiSchema
 
   return c.json({ config, provider: connection.provider, preview, uiSchema })
 })
+
+deploy.put(
+  '/:workflowId/deploy-config/:connectionId',
+  zValidator(
+    'json',
+    z.object({
+      config: z.record(z.string(), z.unknown()),
+    }),
+  ),
+  async (c) => {
+    const db = c.get('db')
+    const workflow = c.get('workflow')
+    if (!workflow) return c.json({ error: 'Not found' }, 404)
+    const connectionId = c.req.param('connectionId')
+    const organizationId = c.get('organizationId')
+
+    const found = await db.getConnectionForProject(connectionId, organizationId, workflow.projectId)
+    if (!found) return c.json({ error: 'Connection not found' }, 404)
+    if (!found.covered) return c.json({ error: CONNECTION_NOT_SERVING }, 403)
+    const { connection } = found
+
+    const adapter = resolveProvider(connection.provider)
+    const stored = await db.getDeploymentConfig(workflow.id, connectionId)
+    let base: Record<string, unknown> = adapter.getDefaultDeploymentConfig() as Record<
+      string,
+      unknown
+    >
+    if (stored) {
+      const raw = JSON.parse(stored.config) as Record<string, unknown>
+      delete raw.triggerCode
+      const existing = adapter.deploymentConfigSchema.safeParse(raw)
+      if (existing.success) base = existing.data as Record<string, unknown>
+    }
+    const incoming = c.req.valid('json').config
+    const merged = {
+      ...base,
+      ...incoming,
+      bindings: {
+        ...((base.bindings as Record<string, unknown> | undefined) ?? {}),
+        ...((incoming.bindings as Record<string, unknown> | undefined) ?? {}),
+      },
+    }
+    const parsed = adapter.deploymentConfigSchema.safeParse(merged)
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid deployment config', details: parsed.error }, 422)
+    }
+
+    await db.upsertDeploymentConfig({
+      id: nanoid(),
+      workflowId: workflow.id,
+      connectionId,
+      provider: connection.provider,
+      config: JSON.stringify(parsed.data),
+      updatedBy: c.get('userId'),
+    })
+    await recordAudit(c, {
+      event: 'workflow.deploy_config',
+      facts: {
+        name: workflow.name,
+        provider: connection.name,
+        bindings: Object.entries(
+          (
+            parsed.data as {
+              bindings?: Record<string, { resourceId?: string; resourceName?: string }>
+            }
+          ).bindings ?? {},
+        )
+          .map(([name, mapping]) => `${name}=${mapping.resourceId ?? mapping.resourceName ?? ''}`)
+          .join(', '),
+      },
+      projectId: workflow.projectId,
+      workspaceId: workflow.workspaceId,
+    })
+    return c.json({ config: parsed.data, provider: connection.provider })
+  },
+)
 
 deploy.post(
   '/:workflowId/deploy-config-preview',
@@ -448,7 +530,10 @@ deploy.post(
       )
       await recordAudit(c, {
         event: 'workflow.takedown',
-        facts: { name: workflow.name, provider: connection.name },
+        facts: {
+          name: workflow.name,
+          provider: connection.name,
+        },
         projectId: workflow.projectId,
         workspaceId: workflow.workspaceId,
       })

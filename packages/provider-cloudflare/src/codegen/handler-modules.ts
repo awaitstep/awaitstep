@@ -40,9 +40,9 @@ export interface HandlerWiring {
   queues: { queue: string; identifier: string }[]
 }
 
-/** `handlers/fetch.ts` → `./handlers/fetch.js`: the path the deploy pipeline compiles to. */
+/** `handlers/fetch.ts` → `../handlers/fetch.js`, relative to `awaitstep/entry.ts`. */
 function moduleSpecifier(path: string): string {
-  return `./${compiledPathKey(path)}`
+  return `../${compiledPathKey(path)}`
 }
 
 // Node modules import as `$<varName>` with varName in [A-Za-z0-9_], so a

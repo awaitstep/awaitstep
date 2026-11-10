@@ -14,6 +14,7 @@ import type { WorkflowIR } from '@awaitstep/ir'
 import { assertRegistryDependencies } from '@awaitstep/ir'
 import { compileBundle } from './compile-bundle.js'
 import { detectBindings, detectBindingsFromSource } from './codegen/bindings.js'
+import { cloudflareWranglerOverrides } from './codegen/provider-profile.js'
 import { getSubScriptBindings } from './codegen/generators/sub-script.js'
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 import { generateWranglerConfig } from './wrangler-config.js'
@@ -91,6 +92,7 @@ export async function buildDevWorkspaceFiles(
       main: `./${compiled.entry}`,
       vars: options.vars,
       bindings: bindings.length > 0 ? bindings : undefined,
+      overrides: ir ? cloudflareWranglerOverrides(ir) : undefined,
       subWorkflowBindings: subWorkflowBindings.length > 0 ? subWorkflowBindings : undefined,
       subScriptBindings: subScriptBindings.length > 0 ? subScriptBindings : undefined,
       localDev: true,

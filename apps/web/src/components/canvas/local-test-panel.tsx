@@ -28,6 +28,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
     state,
     info,
     error,
+    warnings,
     triggerError,
     triggerResult,
     instanceId,
@@ -164,6 +165,13 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
         ) : state === 'running' && info ? (
           <>
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5">
+              {warnings.length > 0 && (
+                <div className="space-y-1 rounded-md bg-status-warning/10 p-3 text-xs text-status-warning">
+                  {warnings.map((warning) => (
+                    <p key={warning}>{warning}</p>
+                  ))}
+                </div>
+              )}
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
                 <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                   Server

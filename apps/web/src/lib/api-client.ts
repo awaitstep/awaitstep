@@ -830,6 +830,19 @@ export function createApiClient(scope: () => ApiScope) {
       )
     },
 
+    putDeployConfig(
+      workflowId: string,
+      connectionId: string,
+      config: Record<string, unknown>,
+    ): Promise<{ config: Record<string, unknown>; provider: string }> {
+      return request(
+        withProject(
+          `/workflows/${pathSegment(workflowId)}/deploy-config/${pathSegment(connectionId)}`,
+        ),
+        { method: 'PUT', body: JSON.stringify({ config }) },
+      )
+    },
+
     getDeployConfigPreview(
       workflowId: string,
       connectionId: string,
@@ -924,7 +937,14 @@ export function createApiClient(scope: () => ApiScope) {
     startLocalDev(
       workflowId: string,
       mode: 'canvas' | 'ide' = 'canvas',
-    ): Promise<{ status: string; port: number; url: string; pid: number; mode: 'canvas' | 'ide' }> {
+    ): Promise<{
+      status: string
+      port: number
+      url: string
+      pid: number
+      mode: 'canvas' | 'ide'
+      warnings: string[]
+    }> {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/start`), {
         method: 'POST',
         body: JSON.stringify({ mode }),
@@ -938,6 +958,7 @@ export function createApiClient(scope: () => ApiScope) {
       url: string | null
       pid: number | null
       startedAt: string
+      warnings: string[]
     }> {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev`))
     },

@@ -18,7 +18,11 @@ import {
 } from 'lucide-react'
 import { HANDLER_QUEUE_DIR, PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { handlerModuleScaffold } from '@awaitstep/codegen'
-import { deriveQueueName, toCFQueueName } from '@awaitstep/provider-cloudflare/codegen'
+import {
+  deriveQueueName,
+  extractCloudflareSource,
+  toCFQueueName,
+} from '@awaitstep/provider-cloudflare/codegen'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import {
   ApiError,
@@ -35,6 +39,10 @@ import { cn } from '../../lib/utils'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { useApi, useQueries } from '../../contexts/api-client-context'
 import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
+import { AddBindingDialog } from './add-binding-dialog'
+import { MapBindingDialog } from './map-binding-dialog'
+import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
 
 const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Database }> = {
   kv: { label: 'KV', icon: HardDrive },
@@ -47,7 +55,36 @@ const BINDING_META: Record<ClientBindingType, { label: string; icon: typeof Data
   hyperdrive: { label: 'Hyperdrive', icon: Zap },
   browser: { label: 'Browser', icon: Globe },
   service: { label: 'Service', icon: Link },
+  workflow: { label: 'Workflow', icon: Link },
 }
+
+const PROVIDER_PROFILE_PATH = 'providers/cloudflare.ts'
+const MAP_RESOURCE_LABELS: Partial<Record<ClientBindingType, string>> = {
+  r2: 'Bucket name',
+  queue: 'Queue name',
+  vectorize: 'Index name',
+  service: 'Service name',
+  workflow: 'Workflow binding',
+}
+
+const CLIENT_BINDING_TYPES = new Set<ClientBindingType>(
+  Object.keys(BINDING_META) as ClientBindingType[],
+)
+
+function isClientBindingType(value: string): value is ClientBindingType {
+  return CLIENT_BINDING_TYPES.has(value as ClientBindingType)
+}
+
+const NAME_MAPPING_KINDS = new Set<ClientBindingType>(['r2', 'queue', 'service', 'vectorize'])
+const MAPPING_KINDS = new Set<ClientBindingType>([
+  'kv',
+  'd1',
+  'r2',
+  'queue',
+  'vectorize',
+  'hyperdrive',
+  'service',
+])
 
 /**
  * The queue a binding produces to, as Cloudflare names it: the same
@@ -109,9 +146,13 @@ export function BindingsPanel() {
     capabilities.length === 1 ? capabilities[0]?.label : capabilities.map((c) => c.label).join(', ')
   const queries = useQueries()
   const [expanded, setExpanded] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [mapTarget, setMapTarget] = useState<ClientBinding | null>(null)
   const nodes = useWorkflowStore((s) => s.nodes)
   const triggerCode = useWorkflowStore((s) => s.triggerCode)
   const workflowId = useWorkflowStore((s) => s.workflowId)
+  const runtimeResources = useWorkflowStore((s) => s.runtimeResources)
+  const upsertRuntimeResource = useWorkflowStore((s) => s.upsertRuntimeResource)
   const queryClient = useQueryClient()
   const switchView = useSwitchView(workflowId ?? 'new')
   const saved = workflowId !== null && workflowId !== 'new'
@@ -123,19 +164,81 @@ export function BindingsPanel() {
     enabled: saved,
   })
   const consumedQueues = full?.handlers.consumedQueues ?? []
+  const { data: profileFile } = useQuery({
+    queryKey: ['project-file', workflowId, PROVIDER_PROFILE_PATH],
+    queryFn: () => api.getProjectFile(workflowId!, PROVIDER_PROFILE_PATH),
+    enabled: saved,
+    retry: false,
+  })
+  const { data: deployConnections } = useQuery({
+    ...queries.connections.forDeploy(saved ? workflowId : ''),
+    enabled: saved,
+  })
+  const connectionId =
+    deployConnections?.deployedWith?.[0]?.id ??
+    deployConnections?.defaultId ??
+    deployConnections?.connections?.[0]?.id ??
+    null
+  const connectionName =
+    deployConnections?.connections?.find((connection) => connection.id === connectionId)?.name ??
+    'this connection'
+  const { data: deployConfig } = useQuery({
+    queryKey: ['deploy-config', workflowId, connectionId],
+    queryFn: () => api.getDeployConfig(workflowId!, connectionId!),
+    enabled: saved && connectionId !== null,
+  })
+  const mappings = (deployConfig?.config.bindings ?? {}) as Record<
+    string,
+    { resourceId?: string; resourceName?: string }
+  >
 
   const supportedKinds = useMemo(
     () => new Set(capabilities.flatMap((capability) => capability.bindingKinds)),
     [capabilities],
   )
-  const bindings: ClientBinding[] = useMemo(() => {
-    if (nodes.length === 0 || supportedKinds.size === 0) return []
-    return detectBindingsFromNodes(nodes as Parameters<typeof detectBindingsFromNodes>[0]).filter(
-      (binding) => supportedKinds.has(binding.type),
-    )
-  }, [nodes, supportedKinds])
-
-  if (bindings.length === 0) return null
+  const bindings = useMemo(() => {
+    const rows = new Map<string, ClientBinding & { declared: boolean }>()
+    if (nodes.length > 0 && supportedKinds.size > 0) {
+      for (const binding of detectBindingsFromNodes(
+        nodes as Parameters<typeof detectBindingsFromNodes>[0],
+      )) {
+        if (supportedKinds.has(binding.type)) {
+          rows.set(`${binding.type}:${binding.name}`, { ...binding, declared: false })
+        }
+      }
+    }
+    for (const node of nodes) {
+      const code = node.data.irNode?.data.code
+      if (typeof code !== 'string') continue
+      for (const binding of extractCloudflareSource(code).usage) {
+        if (!supportedKinds.has(binding.kind)) continue
+        rows.set(`${binding.kind}:${binding.name}`, {
+          name: binding.name,
+          type: binding.kind,
+          declared: false,
+        })
+      }
+    }
+    if (profileFile?.source) {
+      for (const binding of extractCloudflareSource(profileFile.source).profile?.bindings ?? []) {
+        if (!supportedKinds.has(binding.kind)) continue
+        rows.set(`${binding.kind}:${binding.name}`, {
+          name: binding.name,
+          type: binding.kind,
+          declared: true,
+        })
+      }
+    }
+    for (const resource of runtimeResources) {
+      if (!isClientBindingType(resource.kind)) continue
+      rows.set(`${resource.kind}:${resource.name}`, {
+        name: resource.name,
+        type: resource.kind,
+        declared: true,
+      })
+    }
+    return [...rows.values()]
+  }, [nodes, profileFile, runtimeResources, supportedKinds])
 
   // A consumer is a handler module (handlers/queue/<name>.ts) — the file
   // is the declaration. A project still on the annotation model (a stored
@@ -220,34 +323,69 @@ export function BindingsPanel() {
     }
   }
 
+  async function handleMapSave(resourceId: string) {
+    if (!workflowId || !connectionId || !mapTarget) return
+    const config = deployConfig?.config ?? {}
+    const nextBindings = {
+      ...(config.bindings as Record<string, unknown> | undefined),
+      [mapTarget.name]: NAME_MAPPING_KINDS.has(mapTarget.type)
+        ? { kind: mapTarget.type, resourceName: resourceId }
+        : { kind: mapTarget.type, resourceId },
+    }
+    await api.putDeployConfig(workflowId, connectionId, { ...config, bindings: nextBindings })
+    await queryClient.invalidateQueries({ queryKey: ['deploy-config', workflowId] })
+    actionToast.success(`${mapTarget.name} mapped on ${connectionName}`)
+  }
+
   return (
     <div className="absolute top-4 right-4 z-10">
       <div className="rounded-lg border border-border bg-card/95 shadow-md backdrop-blur-sm">
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-muted/50"
-        >
-          {expanded ? (
-            <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
-          )}
-          <span className="font-medium text-muted-foreground">Bindings</span>
-          <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-            {bindings.length}
-          </span>
+        <div className="flex items-center gap-2 px-3 py-1.5 text-xs">
+          <Button
+            onClick={() => setExpanded(!expanded)}
+            variant="ghost"
+            size="sm"
+            className="p-0 gap-2 hover:bg-transparent"
+          >
+            {expanded ? (
+              <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
+            ) : (
+              <ChevronRight className="h-3 w-3 text-muted-foreground/60" />
+            )}
+            <span className="font-medium text-muted-foreground">Bindings</span>
+            <Badge variant="success" className="rounded-full">
+              {bindings.length}
+            </Badge>
+          </Button>
           {providerLabel && (
-            <span
-              className="rounded bg-status-warning/10 px-1 py-px text-[10px] font-medium text-status-warning"
+            <Badge
+              dot
+              variant="warning"
+              className="text-[10px] rounded"
               title={`These resources are supplied by ${providerLabel}`}
             >
               {providerLabel} only
-            </span>
+            </Badge>
           )}
-        </button>
+          <Button
+            type="button"
+            aria-label="Add binding"
+            title={readOnly ? 'Read-only' : 'Add binding'}
+            disabled={readOnly}
+            onClick={() => setAddOpen(true)}
+            size="icon"
+            variant="secondary"
+            className="size-5 ml-auto"
+          >
+            <Plus className="size-2" />
+          </Button>
+        </div>
 
         {expanded && (
           <div className="border-t border-border/50 px-3 py-2 space-y-1">
+            {bindings.length === 0 && (
+              <p className="text-xs text-muted-foreground">No bindings declared yet.</p>
+            )}
             {bindings.map((binding) => {
               const meta = BINDING_META[binding.type]
               const label =
@@ -274,6 +412,38 @@ export function BindingsPanel() {
                     {label}
                   </span>
                   <span className="font-mono text-foreground/70">{binding.name}</span>
+                  <span className="text-[10px] text-muted-foreground/60">
+                    {binding.declared ? 'Declared' : 'Detected'}
+                  </span>
+                  {MAPPING_KINDS.has(binding.type) ? (
+                    connectionId ? (
+                      mappings[binding.name]?.resourceId || mappings[binding.name]?.resourceName ? (
+                        <button
+                          type="button"
+                          onClick={() => setMapTarget(binding)}
+                          disabled={readOnly}
+                          className="rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Mapped
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setMapTarget(binding)}
+                          disabled={readOnly}
+                          className="rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Map
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground/60">
+                        Map when you deploy
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground/60">No mapping needed</span>
+                  )}
                   {isQueue &&
                     supportsQueue &&
                     (alreadyConsumed ? (
@@ -298,9 +468,35 @@ export function BindingsPanel() {
                 </div>
               )
             })}
+            <p className="pt-1 text-[10px] text-muted-foreground/60">
+              Map resources when you deploy. Local test uses local emulation and needs no account.
+            </p>
           </div>
         )}
       </div>
+      <AddBindingDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        existingNames={bindings.map((binding) => binding.name)}
+        onAdd={(resource) => upsertRuntimeResource(resource)}
+      />
+      {mapTarget && (
+        <MapBindingDialog
+          key={`${mapTarget.name}:${mappings[mapTarget.name]?.resourceId ?? mappings[mapTarget.name]?.resourceName ?? ''}`}
+          open
+          onOpenChange={(open) => {
+            if (!open) setMapTarget(null)
+          }}
+          bindingName={mapTarget.name}
+          bindingLabel={BINDING_META[mapTarget.type]?.label ?? mapTarget.type}
+          resourceLabel={MAP_RESOURCE_LABELS[mapTarget.type]}
+          connectionName={connectionName}
+          currentValue={
+            mappings[mapTarget.name]?.resourceId ?? mappings[mapTarget.name]?.resourceName ?? ''
+          }
+          onSave={handleMapSave}
+        />
+      )}
     </div>
   )
 }

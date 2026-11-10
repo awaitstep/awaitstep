@@ -60,6 +60,48 @@ workflow as Cloudflare-only and is checked before a deploy. Sub-workflow and
 sub-script calls are not provider-scoped: they call the runtime's platform
 adapter, and the provider decides how the call is carried out.
 
+### Provider profiles and connection mappings
+
+A workflow can name its runtime and its Cloudflare resources without an account
+being connected. The provider profile is a project file:
+
+```ts
+// providers/cloudflare.ts
+import { defineCloudflare } from '#awaitstep/cloudflare'
+
+export default defineCloudflare({
+  bindings: {
+    KV_USERS: { kind: 'kv' },
+    DB_MAIN: { kind: 'd1' },
+  },
+  wrangler: {
+    compatibility_flags: ['nodejs_compat'],
+  },
+})
+```
+
+`kv(env, 'KV_USERS')` usage declares the same binding without a profile. The
+declaration says _what_ the workflow uses; it never carries a resource ID. The
+physical resource is mapped per deployment connection, in the workflow's
+deployment config:
+
+```json
+{
+  "bindings": {
+    "KV_USERS": { "kind": "kv", "resourceId": "<namespace-id>" },
+    "DB_MAIN": { "kind": "d1", "resourceId": "<database-id>" }
+  }
+}
+```
+
+Local test needs neither the profile nor a connection: KV, D1, R2 and queues use
+local emulation, and resources that cannot be emulated produce a warning. A
+connection and its mappings are required only for a deploy. The generated
+`wrangler.json` is an output; `wrangler` fields in the profile are static
+overrides, while routes, cron schedules and queue settings belong to the
+deployment config. Generated fields (`name`, `main`, `workflows`, queues) are
+protected from profile overrides.
+
 In **script mode**, the same per-node code is emitted without the `flow.step()`
 wrapper — there is no step runner in a fetch handler. Step bodies are inlined
 raw into the generated `runGraph(env, event)` function. There are no retries,

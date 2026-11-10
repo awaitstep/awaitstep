@@ -9,6 +9,7 @@ export type ClientBindingType =
   | 'hyperdrive'
   | 'browser'
   | 'service'
+  | 'workflow'
 
 export interface ClientBinding {
   name: string

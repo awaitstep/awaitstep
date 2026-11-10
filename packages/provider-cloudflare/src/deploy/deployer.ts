@@ -99,6 +99,8 @@ export interface DeployOptions {
     }
   }
   logpush?: boolean
+  /** Provider-profile `wrangler` overrides; protected generated fields win. */
+  overrides?: Record<string, unknown>
   /** Per-queue consumer settings; emitted as `queues.consumers[]` in wrangler.json. */
   queueConsumers?: Array<{
     queue: string

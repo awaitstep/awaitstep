@@ -475,6 +475,34 @@ describe('project connections on the API', () => {
       expect(
         (await call('u-ama', `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`)).status,
       ).toBe(200)
+
+      const withRoute = await send(
+        'u-ama',
+        `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`,
+        { config: { routes: [{ pattern: 'example.com/*', zoneName: 'example.com' }] } },
+        'PUT',
+      )
+      expect(withRoute.status).toBe(200)
+
+      const saved = await send(
+        'u-ama',
+        `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`,
+        { config: { bindings: { KV_USERS: { kind: 'kv', resourceId: 'namespace-1' } } } },
+        'PUT',
+      )
+      expect(saved.status).toBe(200)
+      expect(((await saved.json()) as { config: unknown }).config).toMatchObject({
+        routes: [{ pattern: 'example.com/*', zoneName: 'example.com' }],
+        bindings: { KV_USERS: { kind: 'kv', resourceId: 'namespace-1' } },
+      })
+      const reread = await call(
+        'u-ama',
+        `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`,
+      )
+      expect(((await reread.json()) as { config: unknown }).config).toMatchObject({
+        routes: [{ pattern: 'example.com/*', zoneName: 'example.com' }],
+        bindings: { KV_USERS: { kind: 'kv', resourceId: 'namespace-1' } },
+      })
     })
   })
 })

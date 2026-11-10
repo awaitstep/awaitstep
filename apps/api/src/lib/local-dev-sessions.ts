@@ -9,6 +9,7 @@ export interface LocalDevSession {
   url: string | null
   pid: number | null
   startedAt: string
+  warnings: string[]
 }
 
 function session(input: {
@@ -24,6 +25,7 @@ function session(input: {
     url: null,
     pid: null,
     startedAt: new Date().toISOString(),
+    warnings: [],
   }
 }
 
@@ -54,10 +56,10 @@ export function claimLocalDevSession(input: {
 export function recordLocalDevRuntime(
   workflowId: string,
   organizationId: string,
-  runtime: { port: number; url: string; pid: number },
+  runtime: { port: number; url: string; pid: number; warnings?: string[] },
 ): LocalDevSession | null {
   if (!currentLocalDevSession(workflowId, organizationId)) return null
-  active = { ...active!, ...runtime }
+  active = { ...active!, ...runtime, warnings: runtime.warnings ?? [] }
   return active
 }
 

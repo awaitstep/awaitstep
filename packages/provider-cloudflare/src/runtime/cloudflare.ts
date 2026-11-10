@@ -8,6 +8,49 @@
  * a bundle as-is.
  */
 
+/** The Cloudflare resources a workflow can declare. */
+export type CloudflareBindingKind =
+  | 'kv'
+  | 'd1'
+  | 'r2'
+  | 'queue'
+  | 'service'
+  | 'workflow'
+  | 'ai'
+  | 'vectorize'
+  | 'analytics_engine'
+  | 'hyperdrive'
+  | 'browser'
+
+/**
+ * One logical binding in a provider profile. The physical resource is chosen
+ * per deployment connection, not here.
+ */
+export type CloudflareBindingConfig =
+  | { kind: 'kv' | 'd1' | 'ai' | 'analytics_engine' | 'hyperdrive' | 'browser' }
+  | { kind: 'r2'; bucket?: string }
+  | { kind: 'queue'; queue?: string }
+  | { kind: 'service'; service?: string }
+  | { kind: 'workflow'; workflow?: string }
+  | { kind: 'vectorize'; index?: string }
+
+/** A workflow's Cloudflare profile: declarations and static wrangler overrides. */
+export interface CloudflareProfileConfig {
+  bindings?: Record<string, CloudflareBindingConfig>
+  wrangler?: Record<string, unknown>
+}
+
+/**
+ * Declares the Cloudflare resources a workflow uses. This is compile-time
+ * data: codegen reads the object literal and never executes it. Resource IDs
+ * belong in the deployment connection, not here.
+ */
+export function defineCloudflare<const Config extends CloudflareProfileConfig>(
+  config: Config,
+): Config {
+  return config
+}
+
 /** Resolve a declared binding from the workflow environment. */
 export function binding<Env extends object, Name extends keyof Env & string>(
   env: Env,

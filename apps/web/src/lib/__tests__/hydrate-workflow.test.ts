@@ -370,6 +370,7 @@ describe('buildWorkflowStoreState', () => {
   it('resets runtimeResources on every hydrate — no leak across workflows', () => {
     const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)
     expect(result.runtimeResources).toEqual([])
+    expect(result.runtimeProvider).toBeNull()
   })
 
   it('migrates v2 runtime.bindings into runtimeResources before the next save', () => {
@@ -384,12 +385,18 @@ describe('buildWorkflowStoreState', () => {
     expect(saved.runtime?.resources).toEqual([{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }])
   })
 
-  it('loads binding declarations into runtimeResources', () => {
+  it('loads binding declarations and their provider', () => {
     const ir = JSON.parse(baseVersion.ir)
-    ir.runtime = { resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }] }
+    ir.runtime = {
+      provider: 'cloudflare',
+      resources: [{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc', provider: 'cloudflare' }],
+    }
     const version = { ...baseVersion, ir: JSON.stringify(ir) }
     const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
-    expect(result.runtimeResources).toEqual([{ name: 'KV_CACHE', kind: 'kv', resourceId: 'abc' }])
+    expect(result.runtimeResources).toEqual([
+      { name: 'KV_CACHE', kind: 'kv', resourceId: 'abc', provider: 'cloudflare' },
+    ])
+    expect(result.runtimeProvider).toBe('cloudflare')
   })
 
   it('ignores IR that is not even array-shaped', () => {

@@ -31,7 +31,7 @@ const validIR = {
   entryNodeId: 'step-1',
 }
 
-async function prepareStoredIr(ir: unknown) {
+async function prepareStoredIr(ir: unknown, provider?: string) {
   const version = await mockDb.createVersion({
     id: 'v-1',
     workflowId: 'wf-1',
@@ -44,6 +44,7 @@ async function prepareStoredIr(ir: unknown) {
     workflow,
     organizationId: TEST_ORG_ID,
     projectId: TEST_PROJECT_ID,
+    ...(provider && { provider }),
   })
 }
 
@@ -107,5 +108,24 @@ describe('a strict prepare', () => {
     if (isPrepareError(prepared)) return
     expect(prepared.bundle.files.map((f) => f.path)).toContain('worker.ts')
     expect(prepared.diagnostics).toEqual([])
+  })
+
+  it('uses the artifact’s runtime provider with no connection', async () => {
+    const prepared = await prepareStoredIr({
+      ...validIR,
+      runtime: { provider: 'cloudflare' },
+    })
+    expect(isPrepareError(prepared)).toBe(false)
+  })
+
+  it('refuses a connection that disagrees with the artifact target', async () => {
+    const prepared = await prepareStoredIr(
+      { ...validIR, runtime: { provider: 'cloudflare' } },
+      'inngest',
+    )
+    expect(isPrepareError(prepared)).toBe(true)
+    if (!isPrepareError(prepared)) return
+    expect(prepared.status).toBe(400)
+    expect(prepared.error).toContain('targets cloudflare')
   })
 })

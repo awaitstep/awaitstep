@@ -41,7 +41,13 @@ export function findEntryNodeId(
 
 type BuildState = Pick<
   StoreState,
-  'metadata' | 'nodes' | 'edges' | 'kind' | 'workflowEnvVars' | 'runtimeResources'
+  | 'metadata'
+  | 'nodes'
+  | 'edges'
+  | 'kind'
+  | 'workflowEnvVars'
+  | 'runtimeResources'
+  | 'runtimeProvider'
 >
 
 /**
@@ -63,6 +69,7 @@ function buildRuntime(state: BuildState): WorkflowRuntime | undefined {
   const runtime: WorkflowRuntime = {
     ...(env.length > 0 && { env }),
     ...(state.runtimeResources.length > 0 && { resources: state.runtimeResources }),
+    ...(state.runtimeProvider && { provider: state.runtimeProvider }),
   }
   return Object.keys(runtime).length > 0 ? runtime : undefined
 }

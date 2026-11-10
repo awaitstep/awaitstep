@@ -1,4 +1,9 @@
-import { hasHandlerModules, projectHandlerModules, validateArtifact } from '@awaitstep/ir'
+import {
+  hasHandlerModules,
+  isProjectCodePath,
+  projectHandlerModules,
+  validateArtifact,
+} from '@awaitstep/ir'
 import type {
   ArtifactIR,
   ProjectHandlerModules,
@@ -65,6 +70,7 @@ import {
 import { getSubWorkflowBindings } from './codegen/generators/sub-workflow.js'
 import { getSubScriptBindings } from './codegen/generators/sub-script.js'
 import { parseAnnotations } from './codegen/parse-annotations.js'
+import { cloudflareWranglerOverrides, extractCloudflareSource } from './codegen/provider-profile.js'
 import { resolveRetention } from './codegen/retention.js'
 import {
   cloudflareDefaultDeploymentConfig,
@@ -137,6 +143,114 @@ const BINDING_KIND_LABELS: Record<string, string> = {
   browser: 'Browser Rendering binding',
 }
 
+interface ProfileSource {
+  source: string
+  nodeId?: string
+  path?: string
+}
+
+/** The IR sources a provider profile or accessor use can live in. */
+function cloudflareProfileSources(ir: ArtifactIR): ProfileSource[] {
+  const sources: ProfileSource[] = []
+  for (const node of ir.nodes) {
+    if (typeof node.data.code === 'string') {
+      sources.push({ source: node.data.code, nodeId: node.id })
+    }
+  }
+  if (ir.runtime?.triggerCode) sources.push({ source: ir.runtime.triggerCode })
+  for (const file of ir.runtime?.files ?? []) {
+    if (isProjectCodePath(file.path)) sources.push({ source: file.source, path: file.path })
+  }
+  return sources
+}
+
+/** Bindings declared in a profile or discovered through `kv(env, 'NAME')`. */
+function cloudflareProfileRequirements(ir: ArtifactIR): RuntimeRequirement[] {
+  const requirements: RuntimeRequirement[] = []
+  const seen = new Set<string>()
+  for (const source of cloudflareProfileSources(ir)) {
+    const extracted = extractCloudflareSource(source.source)
+    const bindings = [...(extracted.profile?.bindings ?? []), ...extracted.usage]
+    for (const binding of bindings) {
+      const key = `${binding.kind}:${binding.name}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      requirements.push({
+        kind: 'binding',
+        id: binding.kind,
+        name: binding.name,
+        label: `${BINDING_KIND_LABELS[binding.kind] ?? binding.kind} "${binding.name}"`,
+        ...(source.nodeId && { nodeId: source.nodeId }),
+        ...(source.path && { path: source.path }),
+      })
+    }
+  }
+  return requirements
+}
+
+/** Profile/accessor parse errors, attributed to the source that carried them. */
+function cloudflareProfileErrors(ir: ArtifactIR): ValidationError[] {
+  const errors: ValidationError[] = []
+  for (const source of cloudflareProfileSources(ir)) {
+    const extracted = extractCloudflareSource(source.source)
+    for (const diagnostic of extracted.diagnostics) {
+      errors.push({
+        path: source.path
+          ? `runtime.files.${source.path}`
+          : source.nodeId
+            ? `nodes.${source.nodeId}.data.code`
+            : 'runtime.triggerCode',
+        message: diagnostic.message,
+        ...(source.nodeId && { nodeId: source.nodeId }),
+      })
+    }
+  }
+  return errors
+}
+
+const LOCAL_UNSUPPORTED: ReadonlySet<string> = new Set([
+  'ai',
+  'vectorize',
+  'analytics_engine',
+  'hyperdrive',
+  'browser',
+  'service',
+  'workflow',
+])
+
+/** Bindings wrangler dev cannot provide; the session still starts, with warnings. */
+export function localDevWarnings(ir: ArtifactIR | undefined): string[] {
+  if (!ir) return []
+  const warnings: string[] = []
+  for (const binding of detectBindings(ir as unknown as WorkflowIR)) {
+    if (!LOCAL_UNSUPPORTED.has(binding.type)) continue
+    warnings.push(
+      `${BINDING_KIND_LABELS[binding.type] ?? binding.type} "${binding.name}" is not emulated by local test — calls to it may fail.`,
+    )
+  }
+  return warnings
+}
+
+function cloudflareBindingConflicts(ir: ArtifactIR): ValidationError[] {
+  const declared = new Map(
+    (ir.runtime?.resources ?? []).map((resource) => [resource.name, resource.kind]),
+  )
+  const errors: ValidationError[] = []
+  for (const source of cloudflareProfileSources(ir)) {
+    const extracted = extractCloudflareSource(source.source)
+    for (const binding of [...(extracted.profile?.bindings ?? []), ...extracted.usage]) {
+      const kind = declared.get(binding.name)
+      if (kind && kind !== binding.kind) {
+        errors.push({
+          path: `runtime.resources.${binding.name}`,
+          message: `Binding "${binding.name}" is declared as ${kind} but the provider profile uses ${binding.kind}`,
+        })
+      }
+    }
+  }
+  return errors
+}
+
 export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
   readonly name = 'cloudflare'
   readonly capabilities = {
@@ -181,6 +295,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         label: `${BINDING_KIND_LABELS[binding.type] ?? binding.type} "${binding.name}"`,
       })
     }
+    requirements.push(...cloudflareProfileRequirements(ir))
     for (const binding of getSubWorkflowBindings(ir.nodes)) {
       requirements.push({
         kind: 'binding',
@@ -272,6 +387,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     errors.push(...validateBindingDeclarations(ir as unknown as WorkflowIR))
     errors.push(...validateSubScriptBindings(ir))
     errors.push(...validateSubWorkflowBindings(ir))
+    errors.push(...cloudflareProfileErrors(ir))
+    errors.push(...cloudflareBindingConflicts(ir))
     return errors.length > 0 ? { ok: false, errors } : { ok: true, value: undefined }
   }
 
@@ -461,6 +578,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     let resolvedBindings: BindingRequirement[] | undefined
     if (ir) {
       const detected = detectBindings(ir as unknown as WorkflowIR)
+      const mappings =
+        (config.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined)
+          ?.bindings ?? {}
       if (detected.length > 0) {
         const needsId = detected.filter(
           (b) => b.type === 'kv' || b.type === 'd1' || b.type === 'hyperdrive',
@@ -471,15 +591,32 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
           d1: 'D1 database',
           hyperdrive: 'Hyperdrive config',
         }
+        for (const b of detected) {
+          const mapping = mappings[b.name]
+          if (!mapping) continue
+          if (mapping.kind && mapping.kind !== b.type) {
+            missing.push(
+              `Binding '${b.name}' is mapped as ${mapping.kind}, but the workflow declares ${b.type}`,
+            )
+            continue
+          }
+          const mapped = mapping.resourceId ?? mapping.resourceName
+          if (mapped) b.resourceId = mapped
+        }
         for (const b of needsId) {
+          if (b.resourceId) continue
           if (b.source === 'declaration') {
-            // Declared bindings carry their resource id in the declaration —
-            // the <NAME>_BINDING_ID env-var convention does not apply.
-            if (!b.resourceId) {
-              missing.push(
-                `Binding '${b.name}' is declared without a resourceId — set the ${typeLabels[b.type] ?? b.type} ID on the binding declaration`,
-              )
+            // A declared binding with no id still needs a connection mapping.
+            // The <NAME>_BINDING_ID convention remains the legacy fallback.
+            const envKey = `${b.name}_BINDING_ID`
+            const id = config.envVars?.[envKey]?.value
+            if (id) {
+              b.resourceId = id
+              continue
             }
+            missing.push(
+              `Binding '${b.name}' is not mapped for this deployment connection — map the ${typeLabels[b.type] ?? b.type} in Bindings`,
+            )
             continue
           }
           const envKey = `${b.name}_BINDING_ID`
@@ -488,19 +625,19 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
             b.resourceId = id
           } else {
             missing.push(
-              `Binding '${b.name}' requires env var '${envKey}' with the ${typeLabels[b.type] ?? b.type} ID`,
+              `Binding '${b.name}' is not mapped for this deployment connection — map the ${typeLabels[b.type] ?? b.type} in Bindings or set '${envKey}'`,
             )
           }
         }
 
         // Optionally resolve vectorize index names from env vars (legacy path;
-        // declared vectorize bindings already carry resourceId when set).
+        // a connection mapping or declaration already carries resourceId).
         for (const b of detected.filter(
           (b) => b.type === 'vectorize' && b.source !== 'declaration',
         )) {
           const envKey = `${b.name}_BINDING_ID`
           const id = config.envVars?.[envKey]?.value
-          if (id) b.resourceId = id
+          if (id && !b.resourceId) b.resourceId = id
         }
         if (missing.length > 0) {
           const errorMsg = missing.join('; ')
@@ -617,6 +754,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         limits: deploymentConfig?.limits,
         observability: deploymentConfig?.observability,
         logpush: deploymentConfig?.logpush,
+        overrides: ir ? cloudflareWranglerOverrides(ir) : undefined,
         queueConsumers,
       },
       deployerProgress,
@@ -753,7 +891,9 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
 
   async startLocalDev(bundle: GeneratedBundle, options: LocalDevOptions): Promise<LocalDevSession> {
     const compiledBundle = await compileBundle(bundle)
-    return startLocalDev(compiledBundle, options)
+    const session = await startLocalDev(compiledBundle, options)
+    const warnings = localDevWarnings(options.ir)
+    return warnings.length > 0 ? { ...session, warnings } : session
   }
 }
 

@@ -16,11 +16,41 @@ describe('generateWranglerConfig', () => {
     expect(parsed.compatibility_date).toBe(WRANGLER_BASE_CONFIG.compatibility_date)
     expect(parsed.compatibility_flags).toEqual(WRANGLER_BASE_CONFIG.compatibility_flags)
     expect(parsed.workflows).toHaveLength(1)
+    expect(parsed.kv_namespaces).toBeUndefined()
+    expect(parsed.workers_dev).toBeUndefined()
+    expect(parsed.assets).toBeUndefined()
     expect(parsed.workflows[0]).toEqual({
       binding: 'WORKFLOW',
       name: 'my-workflow',
       class_name: 'MyWorkflow',
     })
+  })
+
+  it('merges static profile overrides but protects generated fields', () => {
+    const config = generateWranglerConfig({
+      workerName: 'awaitstep-my-workflow',
+      className: 'MyWorkflow',
+      workflowName: 'my-workflow',
+      main: './worker.js',
+      overrides: {
+        compatibility_flags: ['nodejs_compat', 'nodejs_compat_populate_process_env'],
+        name: 'hijacked',
+        main: './other.js',
+        workflows: [],
+        queues: { producers: [] },
+        kv_namespaces: [{ binding: 'HIJACK', id: 'x' }],
+        workers_dev: true,
+        assets: { directory: '/' },
+      },
+    })
+    const parsed = JSON.parse(config)
+    expect(parsed.compatibility_flags).toEqual([
+      'nodejs_compat',
+      'nodejs_compat_populate_process_env',
+    ])
+    expect(parsed.name).toBe('awaitstep-my-workflow')
+    expect(parsed.main).toBe('./worker.js')
+    expect(parsed.workflows).toHaveLength(1)
   })
 
   it('always includes nodejs_compat flag', () => {

@@ -46,6 +46,17 @@ export const cloudflareInlineQueueConfigSchema = cloudflareQueueConsumerSchema
 export type CloudflareQueueConsumer = z.infer<typeof cloudflareQueueConsumerSchema>
 export type CloudflareInlineQueueConfig = z.infer<typeof cloudflareInlineQueueConfigSchema>
 
+/** One logical binding mapped to a physical resource for a deployment connection. */
+export const cloudflareBindingMappingSchema = z
+  .object({
+    kind: z.string().min(1).optional(),
+    resourceId: z.string().min(1).optional(),
+    resourceName: z.string().min(1).optional(),
+  })
+  .strict()
+
+export type CloudflareBindingMapping = z.infer<typeof cloudflareBindingMappingSchema>
+
 export const cloudflareDeploymentConfigSchema = z
   .object({
     // Routing
@@ -62,6 +73,9 @@ export const cloudflareDeploymentConfigSchema = z
 
     // Scheduling
     cronTriggers: z.array(z.string().min(1)).optional(),
+
+    // Logical binding name -> the physical resource for this connection.
+    bindings: z.record(z.string(), cloudflareBindingMappingSchema).optional(),
 
     // Performance (boolean true → { mode: 'smart' } from UI toggle)
     placement: z

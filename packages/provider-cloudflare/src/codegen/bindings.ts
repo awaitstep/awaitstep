@@ -1,5 +1,7 @@
+import { isProjectCodePath } from '@awaitstep/ir'
 import type { ArtifactIR, ValidationError, WorkflowIR } from '@awaitstep/ir'
 import { workerNameToBinding } from './generators/sub-script.js'
+import { extractCloudflareSource } from './provider-profile.js'
 
 export type BindingType =
   | 'kv'
@@ -18,7 +20,7 @@ export type BindingType =
 export interface BindingRequirement {
   name: string
   type: BindingType
-  source: 'declaration' | 'env-binding' | 'code-scan'
+  source: 'declaration' | 'env-binding' | 'code-scan' | 'profile' | 'usage'
   nodeId?: string
   resourceId?: string
 }
@@ -91,10 +93,47 @@ const BINDING_PATTERNS: Array<{ pattern: RegExp; type: BindingType }> = [
   { pattern: /env\.(SERVICE\w*)/g, type: 'service' },
 ]
 
+function detectProfileBindings(ir: WorkflowIR): BindingRequirement[] {
+  const sources: Array<{ source: string; nodeId?: string }> = []
+  for (const node of ir.nodes) {
+    if (typeof node.data.code === 'string') {
+      sources.push({ source: node.data.code, nodeId: node.id })
+    }
+  }
+  if (ir.runtime?.triggerCode) sources.push({ source: ir.runtime.triggerCode })
+  for (const file of ir.runtime?.files ?? []) {
+    if (isProjectCodePath(file.path)) sources.push({ source: file.source })
+  }
+
+  const out = new Map<string, BindingRequirement>()
+  for (const source of sources) {
+    const extracted = extractCloudflareSource(source.source)
+    for (const binding of extracted.profile?.bindings ?? []) {
+      if (binding.kind === 'workflow') continue
+      out.set(binding.name, {
+        name: binding.name,
+        type: binding.kind,
+        source: 'profile',
+        ...(binding.resourceName && { resourceId: binding.resourceName }),
+      })
+    }
+    for (const binding of extracted.usage) {
+      if (binding.kind === 'workflow' || out.get(binding.name)?.source === 'profile') continue
+      out.set(binding.name, {
+        name: binding.name,
+        type: binding.kind,
+        source: 'usage',
+      })
+    }
+  }
+  return [...out.values()]
+}
+
 export function detectBindings(
   ir: WorkflowIR,
   envBindings?: Array<{ name: string; type: string }>,
 ): BindingRequirement[] {
+  const profileBindings = detectProfileBindings(ir)
   // Declared resources (ir.runtime.resources) are authoritative: the workflow
   // says exactly what it uses and carries resource ids in the declaration —
   // no regex inference, no <NAME>_BINDING_ID env smuggling. The scan below
@@ -104,15 +143,19 @@ export function detectBindings(
     const seen = new Set<string>()
     const out: BindingRequirement[] = []
     for (const d of declared) {
-      const key = `${d.kind}:${d.name}`
-      if (seen.has(key)) continue
-      seen.add(key)
+      if (seen.has(d.name)) continue
+      seen.add(d.name)
       out.push({
         name: d.name,
         type: d.kind as BindingType,
         source: 'declaration',
         ...(d.resourceId !== undefined && { resourceId: d.resourceId }),
       })
+    }
+    for (const binding of profileBindings) {
+      if (seen.has(binding.name)) continue
+      seen.add(binding.name)
+      out.push(binding)
     }
     return out
   }
@@ -121,11 +164,12 @@ export function detectBindings(
   const bindings: BindingRequirement[] = []
 
   function add(req: BindingRequirement) {
-    const key = `${req.type}:${req.name}`
-    if (seen.has(key)) return
-    seen.add(key)
+    if (seen.has(req.name)) return
+    seen.add(req.name)
     bindings.push(req)
   }
+
+  for (const binding of profileBindings) add(binding)
 
   if (envBindings) {
     for (const b of envBindings) {

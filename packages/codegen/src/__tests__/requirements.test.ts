@@ -224,6 +224,16 @@ describe('collectRuntimeRequirements', () => {
       { kind: 'binding', id: 'd1', name: 'DB', label: 'd1 "DB"' },
     ])
   })
+
+  it('turns an explicit runtime provider into a provider requirement', () => {
+    expect(collectRuntimeRequirements(ir({ runtime: { provider: 'cloudflare' } }))).toEqual([
+      { kind: 'provider', id: 'cloudflare', label: 'cloudflare runtime' },
+    ])
+  })
+
+  it('does not invent a provider for a legacy neutral artifact', () => {
+    expect(collectRuntimeRequirements(ir())).toEqual([])
+  })
 })
 
 describe('mergeRequirements', () => {

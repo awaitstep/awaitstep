@@ -32,6 +32,14 @@ export {
   type BindingRequirement,
   type BindingType,
 } from './codegen/bindings.js'
+export {
+  extractCloudflareSource,
+  cloudflareWranglerOverrides,
+  type CloudflareBindingDeclaration,
+  type CloudflareProfile,
+  type CloudflareProfileDiagnostic,
+  type CloudflareProfileExtraction,
+} from './codegen/provider-profile.js'
 export { CloudflareWorkflowsAdapter } from './adapter.js'
 export { mapCFStatus } from './status-map.js'
 export { mapInstanceSteps, toRunDetail } from './run-detail.js'

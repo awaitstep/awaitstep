@@ -106,6 +106,15 @@ export function collectProviderImports(
 export function collectRuntimeRequirements(ir: ArtifactIR): RuntimeRequirement[] {
   const requirements = new Map<string, RuntimeRequirement>()
 
+  const target = ir.runtime?.provider
+  if (target) {
+    requirements.set(`provider:${target}`, {
+      kind: 'provider',
+      id: target,
+      label: `${describeProvider(target)} runtime`,
+    })
+  }
+
   const sources: { source: string; nodeId?: string; path?: string }[] = []
   for (const node of ir.nodes) {
     // Only the code field is code. Other data values are config text, and a

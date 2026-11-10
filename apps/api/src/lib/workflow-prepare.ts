@@ -220,9 +220,32 @@ export async function prepareWorkflow(
       : []
   const nodeRegistry = createMergedNodeRegistry(input.nodeRegistry, installedNodes)
 
-  const adapter = resolveProvider(input.provider, {
-    templateResolver: nodeRegistry.templateResolver,
-  })
+  // The artifact can name its runtime itself, which is what lets a canvas or
+  // local test work with no deployment connection. A caller that names a
+  // provider (a deploy's connection) must agree with it.
+  const targetProvider = ir.runtime?.provider ?? input.provider
+  if (ir.runtime?.provider && input.provider && ir.runtime.provider !== input.provider) {
+    return {
+      error: `This workflow targets ${ir.runtime.provider}, but this connection uses ${input.provider}`,
+      status: 400,
+      finding: true,
+      checked,
+    }
+  }
+
+  let adapter
+  try {
+    adapter = resolveProvider(targetProvider, {
+      templateResolver: nodeRegistry.templateResolver,
+    })
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Unsupported provider',
+      status: 400,
+      finding: true,
+      checked,
+    }
+  }
 
   // What the workflow needs beyond pure orchestration. Computed before any
   // validation so a read that fails early can still tell a client whether the
@@ -257,7 +280,7 @@ export async function prepareWorkflow(
   if (!presentation) {
     const nodeCheck = validateNodesForProvider(
       ir,
-      input.provider ?? adapter.name,
+      adapter.name,
       (type) => nodeRegistry.registry.get(type)?.providers,
     )
     if (!nodeCheck.valid) {
@@ -336,7 +359,7 @@ export async function prepareWorkflow(
   let bundle: GeneratedBundle
   const triggerCode = ir.runtime?.triggerCode
   const generateConfig: ProviderConfig = {
-    provider: input.provider ?? 'cloudflare',
+    provider: adapter.name,
     credentials: {},
     ...(envResult.envVars && { envVars: envResult.envVars }),
     options: {

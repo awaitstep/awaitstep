@@ -136,6 +136,7 @@ describe('loadArtifact', () => {
     const withRuntime = {
       ...(simpleWorkflow as Record<string, unknown>),
       runtime: {
+        provider: 'cloudflare',
         triggerCode: '@fetch function handler(request, env, ctx) { return new Response(null); }',
         dependencies: { zod: '^4.0.0' },
         env: [{ name: 'API_KEY', required: true, secret: true }],
@@ -145,6 +146,7 @@ describe('loadArtifact', () => {
     const loaded = loadArtifact(withRuntime)
     expect(loaded.ok).toBe(true)
     if (!loaded.ok) return
+    expect(loaded.value.runtime?.provider).toBe('cloudflare')
     expect(loaded.value.runtime?.resources?.[0]).toEqual({
       name: 'KV_CACHE',
       kind: 'kv',

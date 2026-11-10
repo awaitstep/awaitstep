@@ -72,6 +72,8 @@ export interface WranglerWorkflowConfig {
     }
   }
   logpush?: boolean
+  /** Static provider-profile `wrangler` overrides. Generated fields are protected. */
+  overrides?: Record<string, unknown>
   /**
    * Per-queue consumer settings — populated by the adapter from `@queue function NAME`
    * annotations cross-referenced with the deployment config's `queueConsumers`.
@@ -294,6 +296,24 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     const existing = (wranglerConfig.services ?? []) as Array<{ binding: string }>
     const filtered = existing.filter((s) => !subScriptNames.has(s.binding))
     wranglerConfig.services = [...filtered, ...subScriptEntries]
+  }
+
+  if (config.overrides) {
+    // Only provider-neutral, generator-safe fields are accepted. Everything
+    // else is generator-owned (bindings, vars, routes, triggers, access flags
+    // such as workers_dev/preview_urls) or a host path (`assets`); applying it
+    // here would let workflow source silently re-expose or detach the Worker.
+    const allowedKeys = new Set([
+      'compatibility_date',
+      'compatibility_flags',
+      'logpush',
+      'placement',
+      'limits',
+    ])
+    for (const [key, value] of Object.entries(config.overrides)) {
+      if (!allowedKeys.has(key)) continue
+      wranglerConfig[key] = value
+    }
   }
 
   return JSON.stringify(wranglerConfig, null, 2)

@@ -17,6 +17,7 @@ export function useLocalDev(workflowId: string) {
   const [state, setState] = useState<LocalDevState>('idle')
   const [info, setInfo] = useState<{ port: number; url: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [warnings, setWarnings] = useState<string[]>([])
   const [triggerResult, setTriggerResult] = useState<unknown>(null)
   const [instanceId, setInstanceId] = useState<string | null>(null)
 
@@ -36,6 +37,7 @@ export function useLocalDev(workflowId: string) {
     if (session.port !== null && session.url) {
       setInfo({ port: session.port, url: session.url })
     }
+    setWarnings(session.warnings ?? [])
   }, [session])
 
   // ── Log polling (only when running) ────────────────
@@ -64,6 +66,7 @@ export function useLocalDev(workflowId: string) {
     async (mode: 'canvas' | 'ide' = 'canvas') => {
       setState('starting')
       setError(null)
+      setWarnings([])
       setTriggerResult(null)
       setInstanceId(null)
       try {
@@ -77,6 +80,7 @@ export function useLocalDev(workflowId: string) {
           ? `http://localhost:${result.port}`
           : `${window.location.origin}/local-dev/`
         setInfo({ port: result.port, url })
+        setWarnings(result.warnings ?? [])
         setState('running')
         await queryClient.invalidateQueries({ queryKey: ['local-dev-session', workflowId] })
       } catch (err) {
@@ -96,6 +100,7 @@ export function useLocalDev(workflowId: string) {
         error: 'Couldn’t stop the local dev server',
       })
       setInfo(null)
+      setWarnings([])
       setState('idle')
       setTriggerResult(null)
       setInstanceId(null)
@@ -140,6 +145,7 @@ export function useLocalDev(workflowId: string) {
     state,
     info,
     error,
+    warnings,
     triggerResult,
     instanceId,
     instanceStatus,
