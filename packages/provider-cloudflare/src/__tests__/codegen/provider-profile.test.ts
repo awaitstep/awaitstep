@@ -176,8 +176,16 @@ describe('extractCloudflareSource', () => {
     )
   })
 
-  it('refuses an oversized source before parsing it', () => {
-    const result = extractCloudflareSource('x'.repeat(50_001))
+  it('does not reject a large project file that does not use Cloudflare', () => {
+    const result = extractCloudflareSource('x'.repeat(60_000))
+    expect(result.usage).toEqual([])
+    expect(result.diagnostics).toEqual([])
+  })
+
+  it('refuses an oversized Cloudflare source before parsing it', () => {
+    const result = extractCloudflareSource(
+      `import { kv } from '#awaitstep/cloudflare'\n${'x'.repeat(512_000)}`,
+    )
     expect(result.usage).toEqual([])
     expect(result.diagnostics[0]!.message).toContain('too large')
   })

@@ -71,6 +71,36 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(result.ok).toBe(true)
     })
 
+    it('reports a kind conflict between a profile file and step usage', () => {
+      const ir: WorkflowIR = {
+        ...simpleIR,
+        nodes: [
+          {
+            ...simpleIR.nodes[0]!,
+            data: { code: "import { d1 } from '#awaitstep/cloudflare'; d1(env, 'SHARED')" },
+          },
+        ],
+        runtime: {
+          files: [
+            {
+              path: 'providers/cloudflare.ts',
+              source: [
+                "import { defineCloudflare } from '#awaitstep/cloudflare'",
+                "export default defineCloudflare({ bindings: { SHARED: { kind: 'kv' } } })",
+              ].join('\n'),
+            },
+          ],
+        },
+      }
+      const result = adapter.validate(ir)
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.errors.map((e) => e.message)).toContain(
+          'Binding "SHARED" is declared as d1 but the provider profile uses kv',
+        )
+      }
+    })
+
     it('rejects invalid IR', () => {
       const result = adapter.validate({
         ...simpleIR,

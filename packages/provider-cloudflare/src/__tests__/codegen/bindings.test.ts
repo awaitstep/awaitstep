@@ -455,6 +455,7 @@ describe('detectBindings — runtime declarations', () => {
         resources: [
           { name: 'KV_CACHE', kind: 'kv', resourceId: 'kv-123' },
           { name: 'MY_QUEUE', kind: 'queue' },
+          { name: 'BUCKET_ASSETS', kind: 'r2', resourceName: 'assets' },
         ],
       },
     }
@@ -462,6 +463,7 @@ describe('detectBindings — runtime declarations', () => {
     expect(result).toEqual([
       { name: 'KV_CACHE', type: 'kv', source: 'declaration', resourceId: 'kv-123' },
       { name: 'MY_QUEUE', type: 'queue', source: 'declaration' },
+      { name: 'BUCKET_ASSETS', type: 'r2', source: 'declaration', resourceId: 'assets' },
     ])
     // DB_MAIN from the code scan must NOT appear — declarations replace inference.
     expect(result.some((b) => b.name === 'DB_MAIN')).toBe(false)

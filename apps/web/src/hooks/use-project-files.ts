@@ -88,6 +88,7 @@ export function useProjectFiles({
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['workflow-source', workflowId] }),
       queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] }),
+      queryClient.invalidateQueries({ queryKey: ['project-file', workflowId] }),
     ])
   }, [queryClient, workflowId])
 

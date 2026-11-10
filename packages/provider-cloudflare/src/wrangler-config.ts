@@ -306,12 +306,19 @@ export function generateWranglerConfig(config: WranglerWorkflowConfig): string {
     const allowedKeys = new Set([
       'compatibility_date',
       'compatibility_flags',
-      'logpush',
       'placement',
       'limits',
     ])
     for (const [key, value] of Object.entries(config.overrides)) {
       if (!allowedKeys.has(key)) continue
+      if (key === 'compatibility_flags') {
+        const generated = (wranglerConfig.compatibility_flags ?? []) as string[]
+        const extra = Array.isArray(value)
+          ? value.filter((v): v is string => typeof v === 'string')
+          : []
+        wranglerConfig.compatibility_flags = [...new Set([...generated, ...extra])]
+        continue
+      }
       wranglerConfig[key] = value
     }
   }

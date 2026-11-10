@@ -167,6 +167,16 @@ describe('inline create', () => {
     )
   })
 
+  it('still opens an existing bindings profile at the file limit', async () => {
+    const user = userEvent.setup()
+    setup({
+      project: buildFileTree([{ path: 'providers/cloudflare.ts', role: 'module' }]),
+      usage: { files: 100, bytes: 5 },
+    })
+    await user.click(screen.getByRole('button', { name: 'New…' }))
+    expect(screen.getByRole('menuitem', { name: 'Open Cloudflare bindings…' })).toBeEnabled()
+  })
+
   it('disables + with the reason at the file limit', () => {
     setup({ usage: { files: 100, bytes: 5 } })
     const button = screen.getByRole('button', { name: 'New file' })

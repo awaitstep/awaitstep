@@ -1,5 +1,6 @@
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu'
 import { handlerMenuItems, rootConfigMenuItems, type NewMenuItem } from '../../lib/ide/project'
+import { CLOUDFLARE_BINDINGS_PATH } from '../../lib/ide/bindings-template'
 import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 import { DropdownMenuItem, DropdownMenuSeparator } from '../ui/dropdown-menu'
 
@@ -41,11 +42,19 @@ export function NewMenuItems({
       <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         Bindings
       </DropdownMenuPrimitive.Label>
-      <DropdownMenuItem disabled={disabled} onSelect={onCreateBindings} className="text-xs">
-        {existing.includes('providers/cloudflare.ts')
+      <DropdownMenuItem
+        disabled={disabled && !existing.includes(CLOUDFLARE_BINDINGS_PATH)}
+        onSelect={onCreateBindings}
+        className="text-xs"
+      >
+        {existing.includes(CLOUDFLARE_BINDINGS_PATH)
           ? 'Open Cloudflare bindings…'
           : 'Cloudflare bindings…'}
-        <Why reason={disabled ? 'File limit reached' : null} />
+        <Why
+          reason={
+            disabled && !existing.includes(CLOUDFLARE_BINDINGS_PATH) ? 'File limit reached' : null
+          }
+        />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

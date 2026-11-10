@@ -4,6 +4,7 @@ import type { NewMenuItem } from '../../lib/ide/project'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { NewMenuItems } from './new-menu-items'
+import { CLOUDFLARE_BINDINGS_PATH } from '../../lib/ide/bindings-template'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu'
 
 interface ExplorerHeaderProps {
@@ -34,6 +35,7 @@ export function ExplorerHeader({
 }: ExplorerHeaderProps) {
   const hint = formatShortcut(IDE_SHORTCUTS.newFile, isMacPlatform())
   const disabled = limitReason !== null
+  const menuDisabled = disabled && !existing.includes(CLOUDFLARE_BINDINGS_PATH)
 
   function handleMenuCloseAutoFocus(event: Event) {
     event.preventDefault()
@@ -60,7 +62,13 @@ export function ExplorerHeader({
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label="New…" title="New…" className={`${buttonClass} w-5`}>
+              <button
+                type="button"
+                aria-label="New…"
+                title="New…"
+                disabled={menuDisabled}
+                className={`${buttonClass} w-5`}
+              >
                 <ChevronDown className="h-3 w-3" />
               </button>
             </DropdownMenuTrigger>

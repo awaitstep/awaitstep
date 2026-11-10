@@ -13,7 +13,7 @@ import {
 } from './static-literal.js'
 
 const BINDING_NAME = /^[A-Za-z_$][A-Za-z0-9_$]*$/
-const MAX_PROFILE_SOURCE = 50_000
+const MAX_PROFILE_SOURCE = 512_000
 const MAX_CALLS = 500
 
 /** The accessor name a workflow uses, and the binding kind it declares. */
@@ -71,20 +71,21 @@ interface ImportInfo {
  * deploy time. Only object/array/string/number/boolean literals are accepted.
  */
 export function extractCloudflareSource(source: string): CloudflareProfileExtraction {
-  if (source.length > MAX_PROFILE_SOURCE) {
-    return {
-      profile: null,
-      usage: [],
-      diagnostics: [
-        {
-          message: `Provider profile source is too large to scan (limit ${MAX_PROFILE_SOURCE} characters)`,
-          offset: 0,
-        },
-      ],
-    }
-  }
   const imports = readImports(source)
   const diagnostics: CloudflareProfileDiagnostic[] = []
+  // A normal project file must not be rejected just because it is large. Only
+  // a source that actually references the Cloudflare runtime is scanned, and
+  // only that source is subject to the profile size cap.
+  if (!imports.define && imports.primitives.size === 0) {
+    return { profile: null, usage: [], diagnostics }
+  }
+  if (source.length > MAX_PROFILE_SOURCE) {
+    diagnostics.push({
+      message: `Provider profile source is too large to scan (limit ${MAX_PROFILE_SOURCE} characters)`,
+      offset: 0,
+    })
+    return { profile: null, usage: [], diagnostics }
+  }
   const profile = imports.define ? readProfile(source, imports.define, diagnostics) : null
   const usage = readUsage(source, imports, diagnostics).filter((used) => {
     const declared = profile?.bindings.find((binding) => binding.name === used.name)
@@ -364,6 +365,7 @@ function findCalls(masked: string, name: string): Call[] {
     const index = match.index!
     const before = masked.slice(Math.max(0, index - 24), index)
     if (/\b(?:function|class)\s*$/.test(before)) continue
+    if (/[{,]\s*$/.test(masked.slice(0, index).trimEnd())) continue
     if (masked.slice(0, index).trimEnd().endsWith('.')) continue
     calls.push({ open: index + match[0].length - 1 })
   }

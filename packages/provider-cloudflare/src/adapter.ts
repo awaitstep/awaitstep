@@ -222,12 +222,17 @@ const LOCAL_UNSUPPORTED: ReadonlySet<string> = new Set([
 export function localDevWarnings(ir: ArtifactIR | undefined): string[] {
   if (!ir) return []
   const warnings: string[] = []
-  for (const binding of detectBindings(ir as unknown as WorkflowIR)) {
-    if (!LOCAL_UNSUPPORTED.has(binding.type)) continue
+  const seen = new Set<string>()
+  const add = (name: string, type: string) => {
+    if (seen.has(name) || !LOCAL_UNSUPPORTED.has(type)) return
+    seen.add(name)
     warnings.push(
-      `${BINDING_KIND_LABELS[binding.type] ?? binding.type} "${binding.name}" is not emulated by local test — calls to it may fail.`,
+      `${BINDING_KIND_LABELS[type] ?? type} "${name}" is not emulated by local test — calls to it may fail.`,
     )
   }
+  for (const binding of detectBindings(ir as unknown as WorkflowIR)) add(binding.name, binding.type)
+  for (const binding of getSubWorkflowBindings(ir.nodes)) add(binding.binding, 'workflow')
+  for (const binding of getSubScriptBindings(ir.nodes)) add(binding.binding, 'service')
   return warnings
 }
 
@@ -236,15 +241,18 @@ function cloudflareBindingConflicts(ir: ArtifactIR): ValidationError[] {
     (ir.runtime?.resources ?? []).map((resource) => [resource.name, resource.kind]),
   )
   const errors: ValidationError[] = []
+  const seen = new Map<string, string>(declared)
   for (const source of cloudflareProfileSources(ir)) {
     const extracted = extractCloudflareSource(source.source)
     for (const binding of [...(extracted.profile?.bindings ?? []), ...extracted.usage]) {
-      const kind = declared.get(binding.name)
+      const kind = seen.get(binding.name)
       if (kind && kind !== binding.kind) {
         errors.push({
           path: `runtime.resources.${binding.name}`,
           message: `Binding "${binding.name}" is declared as ${kind} but the provider profile uses ${binding.kind}`,
         })
+      } else {
+        seen.set(binding.name, binding.kind)
       }
     }
   }

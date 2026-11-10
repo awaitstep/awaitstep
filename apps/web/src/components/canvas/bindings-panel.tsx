@@ -174,10 +174,13 @@ export function BindingsPanel() {
     ...queries.connections.forDeploy(saved ? workflowId : ''),
     enabled: saved,
   })
+  const availableConnections = deployConnections?.connections ?? []
   const connectionId =
-    deployConnections?.deployedWith?.[0]?.id ??
-    deployConnections?.defaultId ??
-    deployConnections?.connections?.[0]?.id ??
+    [
+      deployConnections?.defaultId,
+      ...(deployConnections?.deployedWith ?? []).map((c) => c.id),
+    ].find((id) => id && availableConnections.some((connection) => connection.id === id)) ??
+    availableConnections[0]?.id ??
     null
   const connectionName =
     deployConnections?.connections?.find((connection) => connection.id === connectionId)?.name ??
@@ -219,6 +222,16 @@ export function BindingsPanel() {
         })
       }
     }
+    if (triggerCode) {
+      for (const binding of extractCloudflareSource(triggerCode).usage) {
+        if (!supportedKinds.has(binding.kind)) continue
+        rows.set(`${binding.kind}:${binding.name}`, {
+          name: binding.name,
+          type: binding.kind,
+          declared: false,
+        })
+      }
+    }
     if (profileFile?.source) {
       for (const binding of extractCloudflareSource(profileFile.source).profile?.bindings ?? []) {
         if (!supportedKinds.has(binding.kind)) continue
@@ -238,7 +251,7 @@ export function BindingsPanel() {
       })
     }
     return [...rows.values()]
-  }, [nodes, profileFile, runtimeResources, supportedKinds])
+  }, [nodes, profileFile, runtimeResources, supportedKinds, triggerCode])
 
   // A consumer is a handler module (handlers/queue/<name>.ts) — the file
   // is the declaration. A project still on the annotation model (a stored
@@ -332,7 +345,7 @@ export function BindingsPanel() {
         ? { kind: mapTarget.type, resourceName: resourceId }
         : { kind: mapTarget.type, resourceId },
     }
-    await api.putDeployConfig(workflowId, connectionId, { ...config, bindings: nextBindings })
+    await api.putDeployConfig(workflowId, connectionId, { bindings: nextBindings })
     await queryClient.invalidateQueries({ queryKey: ['deploy-config', workflowId] })
     actionToast.success(`${mapTarget.name} mapped on ${connectionName}`)
   }

@@ -149,7 +149,9 @@ export function detectBindings(
         name: d.name,
         type: d.kind as BindingType,
         source: 'declaration',
-        ...(d.resourceId !== undefined && { resourceId: d.resourceId }),
+        ...(d.resourceId !== undefined
+          ? { resourceId: d.resourceId }
+          : d.resourceName !== undefined && { resourceId: d.resourceName }),
       })
     }
     for (const binding of profileBindings) {

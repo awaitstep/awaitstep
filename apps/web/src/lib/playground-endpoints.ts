@@ -472,6 +472,37 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
+    id: 'get-deploy-config',
+    group: 'Deployments',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/deploy-config/:connectionId',
+    label: 'Get deployment configuration',
+    permission: 'workflows:deploy',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'connectionId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
+    id: 'put-deploy-config',
+    group: 'Deployments',
+    method: 'PUT',
+    path: '/api/workflows/:workflowId/deploy-config/:connectionId',
+    label: 'Update deployment configuration',
+    permission: 'workflows:deploy',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'connectionId', in: 'path', required: true },
+    ],
+    hasBody: true,
+    bodyExample: JSON.stringify(
+      { config: { bindings: { KV_USERS: { kind: 'kv', resourceId: 'namespace-id' } } } },
+      null,
+      2,
+    ),
+  },
+  {
     id: 'deploy-workflow',
     group: 'Deployments',
     method: 'POST',

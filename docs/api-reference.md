@@ -1664,6 +1664,39 @@ newest first: that account's newest successful deployment, its worker URL, its v
 it. A trigger may only name one of these accounts, whether or not the project
 still has it; a taken-down account drops out.
 
+### `GET /workflows/:workflowId/deploy-config/:connectionId`
+
+Read the deployment settings for one workflow and connection. The response is
+normalized by the provider schema; a legacy `triggerCode` field is removed.
+
+**Permission:** `workflows:deploy`
+
+### `PUT /workflows/:workflowId/deploy-config/:connectionId`
+
+Update deployment settings. The request is merged over the stored settings, and
+`bindings` is merged separately, so a mapping save does not wipe routes, cron
+triggers or other mappings.
+
+**Permission:** `workflows:deploy`
+
+| Param          | In   | Required | Description   |
+| -------------- | ---- | -------- | ------------- |
+| `workflowId`   | path | yes      | Workflow ID   |
+| `connectionId` | path | yes      | Connection ID |
+
+```json
+{
+  "config": {
+    "bindings": {
+      "KV_USERS": { "kind": "kv", "resourceId": "namespace-id" }
+    }
+  }
+}
+```
+
+Declarations live in the project (`providers/cloudflare.ts` or binding accessor
+usage); only physical resource IDs live in this per-connection mapping.
+
 ### `POST /workflows/:workflowId/deploy`
 
 Deploy a workflow version to a connection. Validates environment variables and credentials before deploying.

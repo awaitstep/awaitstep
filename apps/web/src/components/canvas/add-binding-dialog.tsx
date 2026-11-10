@@ -54,14 +54,14 @@ export function AddBindingDialog({
   const [name, setName] = useState('')
   const [kind, setKind] = useState<ClientBindingType>('kv')
   const [resourceName, setResourceName] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
   const resourceLabel = RESOURCE_LABELS[kind]
 
   function reset() {
     setName('')
     setKind('kv')
     setResourceName('')
-    setError(null)
+    setNameError(null)
   }
 
   function handleOpenChange(next: boolean) {
@@ -72,11 +72,11 @@ export function AddBindingDialog({
   function handleAdd() {
     const bindingName = name.trim().toUpperCase()
     if (!NAME_PATTERN.test(bindingName)) {
-      setError('Use letters, digits and underscores, starting with a letter or underscore.')
+      setNameError('Use letters, digits and underscores, starting with a letter or underscore.')
       return
     }
     if (existingNames.includes(bindingName)) {
-      setError(`${bindingName} is already declared.`)
+      setNameError(`${bindingName} is already declared.`)
       return
     }
     const bindingResource = resourceName.trim()
@@ -101,9 +101,8 @@ export function AddBindingDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <FormField label="Type">
+          <FormField label="Type" id="binding-kind">
             <Select
-              id="binding-kind"
               value={kind}
               onValueChange={(value) => setKind(value as ClientBindingType)}
               options={BINDING_OPTIONS}
@@ -112,18 +111,19 @@ export function AddBindingDialog({
 
           <FormField
             label="Binding name"
+            id="binding-name"
+            error={nameError}
             hint={
-              <p className="text-[11px] text-muted-foreground">
+              <span>
                 This is the name your step code uses, e.g. <code>kv(env, 'KV_USERS')</code>.
-              </p>
+              </span>
             }
           >
             <Input
-              id="binding-name"
               value={name}
               onChange={(event) => {
                 setName(event.target.value)
-                setError(null)
+                setNameError(null)
               }}
               placeholder="KV_USERS"
               autoComplete="off"
@@ -132,9 +132,8 @@ export function AddBindingDialog({
           </FormField>
 
           {resourceLabel && (
-            <FormField label={resourceLabel} error={error}>
+            <FormField label={resourceLabel} id="binding-resource">
               <Input
-                id="binding-resource"
                 value={resourceName}
                 onChange={(event) => setResourceName(event.target.value)}
                 placeholder="Optional — defaults to the binding name"
