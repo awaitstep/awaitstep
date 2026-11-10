@@ -1,6 +1,6 @@
 # Node Types
 
-AwaitStep ships 12 built-in nodes. In a workflow, every node is wrapped in `flow.step()` by the compile pipeline, giving it durable execution, automatic retries, and persistent output storage. The generated module imports `#awaitstep/runtime` and is provider-neutral: even `sub_workflow` and `sub_script` call the runtime's platform adapter, which the provider implements over its own primitives.
+AwaitStep ships 12 built-in nodes. A step node is wrapped in `flow.step()` by the compile pipeline, giving it durable execution, automatic retries, and persistent output storage; an HTTP node is a plain request unless it is marked durable. The generated module imports `#awaitstep/runtime` and is provider-neutral: even `sub_workflow` and `sub_script` call the runtime's platform adapter, which the provider implements over its own primitives.
 
 ## step
 
@@ -225,37 +225,51 @@ if (typeof approval_result === 'symbol') {
 
 Make an HTTP API call. Supports all common HTTP methods, custom headers, and request bodies.
 
-| Field        | Type     | Required | Default | Description                              |
-| ------------ | -------- | -------- | ------- | ---------------------------------------- |
-| `method`     | `select` | yes      | `GET`   | HTTP method.                             |
-| `url`        | `string` | yes      | —       | Request URL. Must be a valid URL.        |
-| `headers`    | `json`   | no       | —       | JSON object of request headers.          |
-| `body`       | `code`   | no       | —       | Request body. Used for POST, PUT, PATCH. |
-| `retryLimit` | `number` | no       | 5       | Max retry attempts.                      |
-| `timeout`    | `string` | no       | —       | Request timeout.                         |
+| Field         | Type      | Required | Default | Description                                                        |
+| ------------- | --------- | -------- | ------- | ------------------------------------------------------------------ |
+| `method`      | `select`  | yes      | `GET`   | HTTP method.                                                       |
+| `url`         | `string`  | yes      | —       | Request URL. Must be a valid URL.                                  |
+| `queryParams` | `json`    | no       | —       | Query parameters, appended to the URL by the runtime.              |
+| `headers`     | `json`    | no       | —       | JSON object of request headers.                                    |
+| `body`        | `code`    | no       | —       | Request body. Used for POST, PUT, PATCH.                           |
+| `retryLimit`  | `number`  | no       | 5       | Max retry attempts. Applies only when `durable` is on.             |
+| `timeout`     | `string`  | no       | —       | Request timeout. Applies only when `durable` is on.                |
+| `durable`     | `boolean` | no       | `false` | Run the request inside a step: retries, timeout, durability.       |
+| `export`      | `boolean` | no       | `false` | In a function, return the response under `exportAs` (or its name). |
+| `exportAs`    | `string`  | no       | —       | The response key.                                                  |
 
-**Output:**
+**Output:** the parsed JSON body, as `T`. The runtime reads the response with
+`response.json()`; a non-JSON response rejects the step (and its retries apply).
 
-| Field     | Type     | Description           |
-| --------- | -------- | --------------------- |
-| `status`  | `number` | HTTP status code      |
-| `body`    | `string` | Response body as text |
-| `headers` | `object` | Response headers      |
+By default an HTTP node is a plain request — no step, no retries, no timeout:
 
 ```typescript
-// Generated code
-const fetch_user_result = await step.do('fetch_user', { retries: { limit: 5 } }, async () => {
-  const response = await fetch('https://api.example.com/user', {
-    method: 'GET',
-    headers: { Authorization: 'Bearer token' },
-  })
-  return {
-    status: response.status,
-    body: await response.text(),
-    headers: Object.fromEntries(response.headers.entries()),
-  }
+const fetch_user_result = await flow.http({
+  url: 'https://api.example.com/user',
+  headers: { Authorization: 'Bearer token' },
 })
 ```
+
+A **durable** node wraps the same call in a step, which buys retries, a timeout and — in a
+workflow — a call that survives a restart:
+
+```typescript
+const fetch_user_result = await flow.step(
+  'fetch_user',
+  { retries: { limit: 5, delay: '10 seconds' } },
+  async () =>
+    flow.http({ url: 'https://api.example.com/user', headers: { Authorization: 'Bearer token' } }),
+)
+```
+
+The node's fields are split into tabs — **Headers**, **Query**, and **Body**, the last only for a
+method that sends one — so the panel does not stack three editors.
+
+Step bodies do not receive `flow`: they still call `fetch` (inside a step, so
+retries apply). A node is in a function's response only when its _Return this
+value_ switch is on
+(or its name starts with `EXPORT_`); a sub-workflow and a sub-script start with
+that switch on, a step and an HTTP call with it off.
 
 ---
 

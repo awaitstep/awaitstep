@@ -357,17 +357,18 @@ Override it by setting `triggerCode` on the workflow (`PATCH /workflows/:id`). Y
 
 ### Returning values from a function
 
-By default **no** node's value is in the response — `runGraph` returns an empty object. A step is returned when its node says so:
+A step and an HTTP request are in the response only when their node says so; a sub-workflow and a sub-script are returned unless theirs says otherwise. `runGraph` returns `{}` when nothing is returned:
 
-| Node data                                           | Response              | Notes                                                                                                                                      |
-| --------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `{ code: "…" }`                                     | not returned          | The value still reaches later steps that name it; a step nothing names runs as a bare `await …;`.                                          |
-| `{ code: "…", export: true }`                       | `graph.<var>`         | `<var>` is the node's variable name — its display name as an identifier (`Fetch User` → `Fetch_User`).                                     |
-| `{ code: "…", export: true, exportAs: "user" }`     | `graph.user`          | An identifier (`/^[A-Za-z_$][A-Za-z0-9_$]*$/`); anything else falls back to `<var>`. Two nodes asking for one key get `user` and `user_2`. |
-| a returned step inside a `branch`/`try_catch`/… arm | `graph.<key>`         | The value is hoisted out of the block (`let <var>;` at the top) and is in scope for the steps after the container.                         |
-| `http_request`, `sub_workflow`, `sub_script`        | `graph.<var>`, always | Their whole purpose is a value, so they need no switch.                                                                                    |
+| Node data                                           | Response      | Notes                                                                                                                                      |
+| --------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `{ code: "…" }`                                     | not returned  | The value still reaches later steps that name it; a step nothing names runs as a bare `await …;`.                                          |
+| `{ code: "…", export: true }`                       | `graph.<var>` | `<var>` is the node's variable name — its display name as an identifier (`Fetch User` → `Fetch_User`).                                     |
+| `{ code: "…", export: true, exportAs: "user" }`     | `graph.user`  | An identifier (`/^[A-Za-z_$][A-Za-z0-9_$]*$/`); anything else falls back to `<var>`. Two nodes asking for one key get `user` and `user_2`. |
+| a returned step inside a `branch`/`try_catch`/… arm | `graph.<key>` | The value is hoisted out of the block (`let <var>;` at the top) and is in scope for the steps after the container.                         |
+| `http_request` with `export: true`                  | `graph.<key>` | Off by default, like a step. An inline HTTP node (`inline: true`) still binds its response, so it can be returned.                         |
+| `sub_workflow` / `sub_script` with `export` unset   | `graph.<key>` | Returned by default — their handle or output is usually needed later. `export: false` takes one out.                                       |
 
-On the canvas the switch is **Return this value** in a step's Execution section, with the key beside it and a **Response key** field when on; the Code view's step inspector shows **Returned as** `<key>`. The step manifest (`GET /workflows/:id/source` → `manifest.steps[].exportKey`) carries the key actually used, for the top-level nodes it lists (a returned child inside a container arm is hoisted and returned, but has no manifest entry of its own). A switched-on step whose body has no `return` is not returned — the canvas says so.
+On the canvas the switch is **Return this value** on a step, an HTTP request, a sub-workflow and a sub-script, with the key beside it and a **Response key** field when on; the Code view's step inspector shows **Returned as** `<key>`. A step and an HTTP request start with the switch off; a sub-workflow and a sub-script start with it on. The step manifest (`GET /workflows/:id/source` → `manifest.steps[].exportKey`) carries the key actually used, for the top-level nodes it lists (a returned child inside a container arm is hoisted and returned, but has no manifest entry of its own). A switched-on step whose body has no `return` is not returned — the canvas says so.
 
 The legacy form — a display name starting with `EXPORT_` — still returns the node (the prefix is stripped from the variable name and key) and the canvas shows such a node's switch as on and locked; rename the node to change it. An `inline` step has no return value to return; it surfaces a value by declaring `const <var> = …` itself, where `<var>` is the node's variable name.
 

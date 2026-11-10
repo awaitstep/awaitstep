@@ -268,7 +268,9 @@ By default, `runGraph` returns an empty object — node outputs are internal to 
 | `EXPORT_FetchUser`  | `graph.FetchUser` (prefix stripped from the variable name)                       |
 | `EXPORT_DirectMail` | `graph.DirectMail` (works inside containers — value is hoisted out of the block) |
 
-A node without `EXPORT_` that isn't referenced by any downstream node is dropped entirely (its `await` becomes a bare statement) — keeps the generated code lean.
+A node that isn't returned and isn't referenced by any downstream node is dropped entirely (its `await` becomes a bare statement) — keeps the generated code lean.
+
+The canvas switch **Return this value** writes the same flag per node (`export`, with `exportAs` for the key). It starts off for a step and for an HTTP request, and on for a sub-workflow and a sub-script; `EXPORT_` always wins over it.
 
 ### Trigger code customization
 
