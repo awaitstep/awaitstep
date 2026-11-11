@@ -9,8 +9,8 @@ Run arbitrary TypeScript inside a durable step. The platform retries automatical
 | Field        | Type     | Required | Default       | Description                                                                                                             |
 | ------------ | -------- | -------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `code`       | `code`   | yes      | —             | TypeScript to execute. `ctx.attempt` holds the current retry count (1-indexed). Return value must be JSON-serializable. |
-| `retryLimit` | `number` | no       | 5             | Max retry attempts.                                                                                                     |
-| `retryDelay` | `string` | no       | `10 seconds`  | Delay between retries.                                                                                                  |
+| `retryLimit` | `number` | no       | 2             | Max retry attempts.                                                                                                     |
+| `retryDelay` | `string` | no       | `5 seconds`   | Delay between retries.                                                                                                  |
 | `backoff`    | `select` | no       | `exponential` | Backoff strategy: `exponential`, `linear`, or `constant`.                                                               |
 | `timeout`    | `string` | no       | —             | Per-attempt timeout (e.g. `10 minutes`).                                                                                |
 
@@ -233,7 +233,7 @@ Make an HTTP API call. Supports all common HTTP methods, custom headers, and req
 | `queryParams` | `json`    | no       | —       | Query parameters, appended to the URL by the runtime.              |
 | `headers`     | `json`    | no       | —       | JSON object of request headers.                                    |
 | `body`        | `code`    | no       | —       | Request body. Used for POST, PUT, PATCH.                           |
-| `retryLimit`  | `number`  | no       | 5       | Max retry attempts. Applies only when `durable` is on.             |
+| `retryLimit`  | `number`  | no       | 2       | Max retry attempts. Applies only when `durable` is on.             |
 | `timeout`     | `string`  | no       | —       | Request timeout. Applies only when `durable` is on.                |
 | `durable`     | `boolean` | no       | `false` | Run the request inside a step: retries, timeout, durability.       |
 | `export`      | `boolean` | no       | `false` | In a function, return the response under `exportAs` (or its name). |
@@ -257,7 +257,7 @@ workflow — a call that survives a restart:
 ```typescript
 const fetch_user_result = await flow.step(
   'fetch_user',
-  { retries: { limit: 5, delay: '10 seconds' } },
+  { retries: { limit: 2, delay: '5 seconds' } },
   async () =>
     flow.http({ url: 'https://api.example.com/user', headers: { Authorization: 'Bearer token' } }),
 )

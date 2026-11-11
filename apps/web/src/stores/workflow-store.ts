@@ -338,7 +338,7 @@ function createDefaultNode(
           url: 'https://invoke/',
           headers: {},
           body: '',
-          retryLimit: 3,
+          retryLimit: 2,
           params: {},
         },
       }

@@ -189,7 +189,7 @@ describe('generateHttp', () => {
       }),
     )
     expect(code).toContain(
-      'flow.step("http-1", { retries: { limit: 3, delay: "10 seconds" }, timeout: "30 seconds" },',
+      'flow.step("http-1", { retries: { limit: 3, delay: "5 seconds" }, timeout: "30 seconds" },',
     )
   })
 

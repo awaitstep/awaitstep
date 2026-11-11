@@ -13,8 +13,8 @@ Run arbitrary TypeScript inside a durable step.
 | Field        | Type     | Required | Default       | Description                                                                                                          |
 | ------------ | -------- | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `code`       | `code`   | yes      | —             | TypeScript to execute. `ctx.attempt` is the current retry count (1-indexed). Return value must be JSON-serializable. |
-| `retryLimit` | `number` | no       | `5`           | Max retry attempts. Min: 0.                                                                                          |
-| `retryDelay` | `string` | no       | `10 seconds`  | Delay between retries (duration format).                                                                             |
+| `retryLimit` | `number` | no       | `2`           | Max retry attempts. Min: 0.                                                                                          |
+| `retryDelay` | `string` | no       | `5 seconds`   | Delay between retries (duration format).                                                                             |
 | `backoff`    | `select` | no       | `exponential` | Backoff strategy: `exponential`, `linear`, `constant`.                                                               |
 | `timeout`    | `string` | no       | —             | Per-attempt timeout (duration format).                                                                               |
 
@@ -26,7 +26,7 @@ Run arbitrary TypeScript inside a durable step.
 const my_step_result = await flow.step(
   'my_step',
   {
-    retries: { limit: 5, delay: '10 seconds', backoff: 'exponential' },
+    retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
   },
   async () => {
     const response = await fetch('https://api.example.com')
@@ -287,7 +287,7 @@ Make a durable HTTP API call with configurable retries.
 | `url`        | `string` | yes      | —       | Request URL. Must be a valid URL.                                                                                                                                                                                |
 | `headers`    | `json`   | no       | —       | JSON object of request headers.                                                                                                                                                                                  |
 | `body`       | `code`   | no       | —       | Request body as a JS expression. Used for POST, PUT, PATCH. A single object or array literal (`{ id: 1 }`) is sent as JSON with `Content-Type: application/json`; anything else is passed to `fetch` as written. |
-| `retryLimit` | `number` | no       | `5`     | Max retry attempts. Min: 0.                                                                                                                                                                                      |
+| `retryLimit` | `number` | no       | `2`     | Max retry attempts. Min: 0.                                                                                                                                                                                      |
 | `timeout`    | `string` | no       | —       | Request timeout (duration format).                                                                                                                                                                               |
 
 **Output:**

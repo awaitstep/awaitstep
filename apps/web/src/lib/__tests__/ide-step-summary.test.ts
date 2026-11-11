@@ -97,13 +97,13 @@ describe('stepSettings', () => {
       '2 retries · 5m apart',
     )
     expect(stepSettings(node({ data: { retryLimit: 1, backoff: 'constant' } })).retries).toBe(
-      '1 retry · 10s apart',
+      '1 retry · 5s apart',
     )
   })
 
   it('fills the half that is missing with what the step emits', () => {
     expect(stepSettings(node({ data: { retryDelay: '2 seconds' } })).retries).toBe(
-      '5 retries · 2s apart',
+      '2 retries · 2s apart',
     )
   })
 
@@ -125,7 +125,7 @@ describe('stepSettings', () => {
     })
     expect(
       stepSettings(node({ type: 'http_request', data: { retryLimit: 5, durable: true } })).retries,
-    ).toBe('5 retries · 10s apart')
+    ).toBe('5 retries · 5s apart')
     expect(
       stepSettings(
         node({
