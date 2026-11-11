@@ -9,7 +9,6 @@ export interface DeploymentListRecord {
   versionId: string | null
   connectionId: string | null
   serviceName: string
-  serviceUrl: string | null
   status: string
   error: string | null
   createdAt: string
@@ -29,7 +28,6 @@ export function deploymentListRecord(
     versionId: row.versionId,
     connectionId: row.connectionId,
     serviceName: row.serviceName,
-    serviceUrl: row.serviceUrl,
     status: row.status,
     error: row.error,
     createdAt: row.createdAt,

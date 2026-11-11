@@ -193,6 +193,10 @@ type ResolvedConfig = { config: unknown } | DeployPrepareError
 
 async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<ResolvedConfig> {
   const { provided, db, workflowId, connectionId, workflow, adapter } = input
+  // Each source sits on the kind's defaults: a setting it leaves out deploys as
+  // the default says (a workflow's workers.dev is off, D-9), not as wrangler's.
+  const defaults = adapter.getDefaultDeploymentConfig(workflow.kind) as Record<string, unknown>
+  const onDefaults = (config: unknown) => ({ ...defaults, ...(config as Record<string, unknown>) })
 
   // 1. Request body config (highest priority)
   if (provided !== undefined) {
@@ -200,7 +204,7 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
     if (!parsed.success) {
       return { error: 'Invalid deployment config', status: 422, details: parsed.error }
     }
-    return { config: parsed.data }
+    return { config: onDefaults(parsed.data) }
   }
 
   // 2. Stored deployment config
@@ -213,7 +217,7 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
     delete storedConfig.triggerCode
     const parsed = adapter.deploymentConfigSchema.safeParse(storedConfig)
     if (parsed.success) {
-      return { config: withLegacyCron(parsed.data, adapter, input.legacyCron) }
+      return { config: withLegacyCron(onDefaults(parsed.data), adapter, input.legacyCron) }
     }
     // Stored config is stale/invalid — fall through to legacy/defaults
   }
@@ -223,14 +227,12 @@ async function resolveDeploymentConfig(input: ResolveConfigInput): Promise<Resol
   if (legacyConfig) {
     const parsed = adapter.deploymentConfigSchema.safeParse(legacyConfig)
     if (parsed.success) {
-      return { config: withLegacyCron(parsed.data, adapter, input.legacyCron) }
+      return { config: withLegacyCron(onDefaults(parsed.data), adapter, input.legacyCron) }
     }
   }
 
   // 4. Provider defaults
-  return {
-    config: withLegacyCron(adapter.getDefaultDeploymentConfig(), adapter, input.legacyCron),
-  }
+  return { config: withLegacyCron(defaults, adapter, input.legacyCron) }
 }
 
 function normalizeLegacyConfig(workflow: Workflow): unknown | undefined {

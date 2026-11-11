@@ -80,7 +80,7 @@ describe('workflow routes', () => {
   })
 
   describe('POST /api/workflows/:id/trigger (kind=script)', () => {
-    it('returns 400 — scripts have no instance lifecycle', async () => {
+    it('returns 400 and points to the way a function is run', async () => {
       await mockDb.createWorkflow({
         id: 'script-1',
         projectId: TEST_PROJECT_ID,
@@ -95,7 +95,8 @@ describe('workflow routes', () => {
       })
       expect(res.status).toBe(400)
       const body = await res.json()
-      expect(body.error).toMatch(/no instance lifecycle/i)
+      // Never the worker's own URL, which pages no longer carry (D-8).
+      expect(body.error).toBe('A function is called, not triggered: use POST /api/run/:id or Call')
     })
   })
 

@@ -30,6 +30,7 @@ import { shareBodySchema, shareResponse, sharingRecord } from '../lib/sharing.js
 import { CHANGED_MEANWHILE } from '../lib/locks.js'
 import { recordAudit } from '../lib/audit.js'
 import { workflowListRecord } from '../lib/list-records.js'
+import { liveDeploymentRecords } from '../lib/live-deployments.js'
 import {
   isSecretEnvVar,
   maskedWorkflowEnvVars,
@@ -215,7 +216,7 @@ workflows.get('/:id/full', async (c) => {
       createdAt,
     })),
     // What is live on each account, newest first.
-    liveDeployments,
+    liveDeployments: liveDeploymentRecords(liveDeployments),
   })
 })
 

@@ -25,7 +25,11 @@ import {
   requireWorkspaceCan,
   requireWorkspaceCanWrite,
 } from '../middleware/access.js'
-import { requireWorkflowAccess, requireConnectionAccess } from '../middleware/ownership.js'
+import {
+  requireConnectionAccess,
+  requireKeyWorkflowAccess,
+  requireWorkflowAccess,
+} from '../middleware/ownership.js'
 import { requireLevelCan } from '../middleware/level.js'
 import { workflows } from './workflows.js'
 import { providers } from './providers.js'
@@ -44,6 +48,7 @@ import { notifications } from './notifications.js'
 import { releases } from './releases.js'
 import { deploy } from './deploy.js'
 import { functionCall } from './function-call.js'
+import { externalRun } from './external-run.js'
 import { runs } from './runs.js'
 import { apiKeys } from './api-keys.js'
 import { envVars } from './env-vars.js'
@@ -253,6 +258,9 @@ export function createRouter(
   router.use('/workflows/:workflowId/runs/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deployments', requireWorkflowAccess)
   router.use('/workflows/:workflowId/test-sessions', requireWorkflowAccess)
+  // The API's own way to run (D-1): a project or workspace key, the workflow
+  // found by its id alone; a person runs from the dashboard's routes.
+  router.use('/run/:workflowId', requireKeyWorkflowAccess)
 
   // Workflow writes by the caller's role in the workflow's workspace: a
   // Viewer reads and runs; an Editor builds and deploys; keys act as their
@@ -288,6 +296,7 @@ export function createRouter(
     '/workflows/:workflowId/runs/:runId/resume',
     '/workflows/:workflowId/runs/:runId/terminate',
     '/workflows/:workflowId/runs/:runId/run-again',
+    '/run/:workflowId',
   ]) {
     router.post(path, requireWorkspaceCan('run'))
   }
@@ -420,12 +429,13 @@ export function createRouter(
   router.post('/workflows/:workflowId/deploy', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/deploy-stream', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/takedown', key('workflows', 'deploy'))
-  router.post('/workflows/:workflowId/trigger', key('workflows', 'run'))
-  router.post('/workflows/:workflowId/call', key('workflows', 'run'))
+  // Triggering, calling and running again from the dashboard are a person's
+  // (D-7): with no mapping, the catch-all refuses a key there. A key runs
+  // through `POST /run/:workflowId`, which shares their implementation.
+  router.post('/run/:workflowId', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/pause', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/resume', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/terminate', key('workflows', 'run'))
-  router.post('/workflows/:workflowId/runs/:runId/run-again', key('workflows', 'run'))
   router.post('/test-sessions/:sessionId/trigger', key('workflows', 'run'))
   router.delete('/test-sessions/:sessionId', key('workflows', 'run'))
   for (const path of [
@@ -527,6 +537,7 @@ export function createRouter(
   router.use('/workflows/:workflowId/call', writeLimit)
   // Running again starts a run or makes a call: the same limit.
   router.use('/workflows/:workflowId/runs/:runId/run-again', writeLimit)
+  router.use('/run/:workflowId', writeLimit)
   // Starting a session is the expensive verb; reading one is a poll, and
   // sharing the deploy limiter let polling spend the budget for deploys.
   router.post('/workflows/:workflowId/test-sessions', deployLimit)
@@ -591,6 +602,7 @@ export function createRouter(
   router.route('/workflows', projectFiles)
   router.route('/workflows', deploy)
   router.route('/workflows', functionCall)
+  router.route('/run', externalRun)
   router.route('/workflows', runs)
   router.route('/workflows', workflowTestSessions)
   router.route('/', testSessions)

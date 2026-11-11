@@ -406,6 +406,16 @@ export function storedRun(id: string): WorkflowRun | null {
   return store.runs.get(id) ?? null
 }
 
+/** The account the workflow's newest successful deploy went out on, as the real query picks it. */
+function newestLiveAccount(workflowId: string): string | null {
+  return (
+    [...store.deployments.values()]
+      .filter((d) => d.workflowId === workflowId && d.status === 'success' && d.connectionId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .at(-1)?.connectionId ?? null
+  )
+}
+
 const mockDb: DatabaseAdapter = {
   // Membership
   async isOrgMember(userId, organizationId) {
@@ -1123,9 +1133,10 @@ const mockDb: DatabaseAdapter = {
   async getProviderConnectionById(id) {
     return store.connections.get(id) ?? null
   },
-  async getConnectionDeployedWith(id, organizationId, workflowId) {
-    const connection = store.connections.get(id)
-    if (!connection || connection.organizationId !== organizationId) return null
+  async getConnectionDeployedWith(named, organizationId, workflowId) {
+    const id = named ?? newestLiveAccount(workflowId)
+    const connection = id ? store.connections.get(id) : undefined
+    if (!id || !connection || connection.organizationId !== organizationId) return null
     const deployed = [...store.deployments.values()].filter(
       (d) => d.workflowId === workflowId && d.connectionId === id && d.status === 'success',
     )
@@ -1137,6 +1148,7 @@ const mockDb: DatabaseAdapter = {
           deployedVersionId: newest.versionId,
           deployedVersionNumber: newest.versionNumber,
           deployedName: newest.deployedName ?? null,
+          deploymentConfig: store.deploymentConfigs.get(`${workflowId}|${id}`)?.config ?? null,
         }
       : null
   },
@@ -1145,15 +1157,17 @@ const mockDb: DatabaseAdapter = {
     if (!connection || connection.organizationId !== organizationId) return null
     return { connection, covered: true }
   },
-  async getLiveService(id, organizationId, workflowId) {
-    const connection = store.connections.get(id)
-    if (!connection || connection.organizationId !== organizationId) return null
+  async getLiveService(named, organizationId, workflowId) {
+    const id = named ?? newestLiveAccount(workflowId)
+    const connection = id ? store.connections.get(id) : undefined
+    if (!id || !connection || connection.organizationId !== organizationId) return null
     const newest = [...store.deployments.values()]
       .filter((d) => d.workflowId === workflowId && d.connectionId === id && d.status === 'success')
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
       .at(-1)
     return newest
       ? {
+          connectionId: id,
           provider: connection.provider,
           serviceUrl: newest.serviceUrl ?? null,
           versionId: newest.versionId,
@@ -1258,6 +1272,7 @@ const mockDb: DatabaseAdapter = {
           name: connection.name,
           deploymentId: d.id,
           serviceUrl: d.serviceUrl,
+          provider: connection.provider,
           versionId: d.versionId,
           version: v?.version ?? d.versionNumber,
           versionLocked: v?.locked === 1,
@@ -1278,6 +1293,7 @@ const mockDb: DatabaseAdapter = {
       deployedName: data.deployedName ?? null,
       trigger: data.trigger ?? null,
       params: data.params ?? null,
+      contentType: data.contentType ?? null,
       responseStatus: data.responseStatus ?? null,
       durationMs: data.durationMs ?? null,
       output: data.output ?? null,
@@ -1323,7 +1339,7 @@ const mockDb: DatabaseAdapter = {
     const run = store.runs.get(runId)
     if (!run || run.workflowId !== workflowId) return null
     if (connectionId !== undefined && run.connectionId !== connectionId) return null
-    return { params: run.params }
+    return { params: run.params, contentType: run.contentType ?? null }
   },
   async getRunControl(runId, workflowId, organizationId) {
     const entry = syncEntry(runId, workflowId)
