@@ -283,12 +283,6 @@ export function isWorkflowTimeoutError(error: unknown): boolean {
 }
 
 /**
- * A timed-out wait's value. An event payload is JSON, so it can never be a
- * symbol, and the generated branch can tell the two apart by `typeof`.
- */
-const WAIT_TIMEOUT = Symbol('timeout')
-
-/**
  * Waits for an event and turns a timeout into that sentinel instead of a
  * rejection, so a graph can take its on-timeout path. Only a timeout is
  * handled; every other error rejects as it came. The try/catch lives here
@@ -304,7 +298,7 @@ export async function waitForEventOrTimeout<T = unknown>(
     return await flow.waitForEvent<T>(name, options)
   } catch (error) {
     if (!isWorkflowTimeoutError(error)) throw error
-    return WAIT_TIMEOUT
+    return Symbol('timeout')
   }
 }
 
