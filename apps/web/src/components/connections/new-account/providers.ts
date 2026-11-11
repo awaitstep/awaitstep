@@ -1,19 +1,31 @@
 import type { ComponentType } from 'react'
-import type { ProjectSlugs } from '../../../lib/dashboard-paths'
-import type { NewProjectConnectionInput } from '../../../types/dashboard/project-connections'
 import { CloudflareConnect } from './cloudflare-connect'
 import { CloudflareLogo } from './cloudflare-logo'
+
+/** Where a new account is added: the organization's Connections, or one project's. */
+export interface NewAccountPlace {
+  org: string
+  /** Set when the account becomes that project's own. */
+  project?: string
+}
+
+/** What any provider's form hands back: the account's name and its credentials. */
+export interface NewAccountDetails {
+  name: string
+  accountId: string
+  token: string
+}
 
 /** What a provider's connect step is given by the dialog around it. */
 export interface ConnectStepProps {
   /** The dialog's footer submits the form with this id. */
   formId: string
-  slugs: ProjectSlugs
+  place: NewAccountPlace
   pending: boolean
   /** The message for a field the server refused, else undefined. */
   errorOn: (field: string) => string | undefined
-  /** Called with the account's details; the dialog adds the rest and connects it. */
-  onSubmit: (input: Omit<NewProjectConnectionInput, 'makeDefault'>) => void
+  /** Called with the account's details; the dialog adds the rest (projects, default) and connects it. */
+  onSubmit: (details: NewAccountDetails) => void
   /** Any edit clears the last refusal. */
   onEdit: () => void
 }
@@ -30,7 +42,7 @@ export interface NewAccountProvider {
   Connect: ComponentType<ConnectStepProps>
 }
 
-/** The providers "Connect a new account" offers, in order. A new one is one entry here. */
+/** The providers Add account offers, on the org's and a project's Connections, in order. A new one is one entry here. */
 export const NEW_ACCOUNT_PROVIDERS: NewAccountProvider[] = [
   {
     id: 'cloudflare',

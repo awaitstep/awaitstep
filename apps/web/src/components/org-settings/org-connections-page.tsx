@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Cloud, KeyRound, Lock, Pencil } from 'lucide-react'
+import { KeyRound, Lock, Pencil, Plus } from 'lucide-react'
 import {
   useConnections,
-  useOAuthStatus,
   useRemoveConnection,
   useReplaceToken,
   useUpdateConnection,
@@ -16,7 +15,7 @@ import { Tile } from '../ui/tile'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
-import { ConnectCloudflareDialog } from './connect-cloudflare-dialog'
+import { AddAccountDialog } from './add-account-dialog'
 import { oauthStartUrl } from './oauth-start'
 import { ConnectionCard } from './parts/connection-card'
 import { TextFieldDialog } from './text-field-dialog'
@@ -26,7 +25,7 @@ type Overlay = { kind: 'rename' | 'token' | 'remove'; connection: Connection } |
 
 interface OrgConnectionsPageProps {
   org: string
-  /** `?new=connection` opens Connect Cloudflare. */
+  /** `?new=connection` opens Add account. */
   connectOpen: boolean
   onConnectChange: (open: boolean) => void
 }
@@ -36,7 +35,6 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
   const scope = useOrgScope(org)
   const canManage = scope?.viewerCan.manageSettings.allowed === true
   const connections = useConnections(org)
-  const oauthStatus = useOAuthStatus(canManage)
   // The picker's list is fetched when a card's project picker opens.
   const [projectsOpen, setProjectsOpen] = useState(false)
   const projects = useProjects(org, { enabled: projectsOpen })
@@ -47,7 +45,6 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
 
   if (!scope) return null
   const orgInfo = { slug: org, name: scope.org.name }
-  const oauthEnabled = oauthStatus.data?.enabled === true
 
   function handleConnect() {
     onConnectChange(true)
@@ -179,24 +176,10 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
     <>
       {canManage && (
         <TopBarContent>
-          {oauthEnabled ? (
-            <>
-              <Button asChild size="sm">
-                <a href={oauthStartUrl(org)}>
-                  <Cloud aria-hidden="true" />
-                  Connect Cloudflare
-                </a>
-              </Button>
-              <Button type="button" variant="outline" size="sm" onClick={handleConnect}>
-                Use an API token
-              </Button>
-            </>
-          ) : (
-            <Button type="button" size="sm" onClick={handleConnect}>
-              <Cloud aria-hidden="true" />
-              Connect Cloudflare
-            </Button>
-          )}
+          <Button type="button" size="sm" onClick={handleConnect}>
+            <Plus aria-hidden="true" />
+            Add account
+          </Button>
         </TopBarContent>
       )}
       <PageBody>
@@ -207,9 +190,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
           Credentials stay encrypted and are never shown again after you save them.
         </p>
       </PageBody>
-      {canManage && connectOpen && (
-        <ConnectCloudflareDialog org={orgInfo} onClose={handleCloseConnect} />
-      )}
+      {canManage && connectOpen && <AddAccountDialog org={orgInfo} onClose={handleCloseConnect} />}
       {overlay?.kind === 'rename' && (
         <TextFieldDialog
           title={`Rename ${overlay.connection.name}`}

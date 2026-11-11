@@ -7,7 +7,7 @@ import {
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
 import { DataSourceProvider } from '../../../data/dashboard/source'
 import type { Connection } from '../../../types/dashboard/org-settings'
-import { ConnectCloudflareDialog } from '../connect-cloudflare-dialog'
+import { AddAccountDialog } from '../add-account-dialog'
 import { ConnectionCard, tokenStatus } from '../parts/connection-card'
 
 // What B9 adds to Connections: the token's health as Cloudflare reports it,
@@ -83,7 +83,7 @@ describe('ConnectionCard projects', () => {
   })
 })
 
-describe('Connect Cloudflare on the API', () => {
+describe('Add account on the API', () => {
   const fetchMock = vi.fn()
 
   beforeEach(() => {
@@ -104,13 +104,18 @@ describe('Connect Cloudflare on the API', () => {
     )
   }
 
-  async function submit() {
+  function openDialog() {
     renderWithDashboardData(
       <DataSourceProvider source="api">
-        <ConnectCloudflareDialog org={{ slug: 'acme', name: 'Acme' }} onClose={vi.fn()} />
+        <AddAccountDialog org={{ slug: 'acme', name: 'Acme' }} onClose={vi.fn()} />
       </DataSourceProvider>,
     )
-    const dialog = await screen.findByRole('dialog', { name: 'Connect with an API token' })
+    return screen.findByRole('dialog', { name: 'Add account' })
+  }
+
+  async function submit() {
+    const dialog = await openDialog()
+    await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare\.com/ }))
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Staging')
     await userEvent.type(
       within(dialog).getByRole('textbox', { name: /Account ID/ }),
@@ -121,6 +126,18 @@ describe('Connect Cloudflare on the API', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Check token and connect' }))
     return dialog
   }
+
+  it('asks for the provider first, and goes back to the list from its form', async () => {
+    answer(200, { data: [], nextCursor: null })
+    const dialog = await openDialog()
+    expect(within(dialog).queryByRole('textbox', { name: /Account ID/ })).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: 'Check token and connect' })).toBeNull()
+    await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare\.com/ }))
+    expect(within(dialog).getByRole('textbox', { name: /Account ID/ })).toBeVisible()
+    expect(within(dialog).getByRole('group', { name: /Which projects may deploy/ })).toBeVisible()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Other providers' }))
+    expect(within(dialog).getByRole('button', { name: /Cloudflare\.com/ })).toBeVisible()
+  })
 
   it('puts a refused token under the token field', async () => {
     answer(400, {

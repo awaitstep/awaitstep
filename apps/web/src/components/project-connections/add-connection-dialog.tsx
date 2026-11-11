@@ -6,7 +6,6 @@ import {
   useAvailableConnections,
   useCreateProjectConnection,
 } from '../../data/dashboard/project-connections'
-import type { NewProjectConnectionInput } from '../../types/dashboard/project-connections'
 import type { ProjectSlugs } from '../../lib/dashboard-paths'
 import { Button } from '../ui/button'
 import { ModalDialog } from '../ui/modal-dialog'
@@ -14,8 +13,8 @@ import { SegmentedChoice } from '../ui/segmented-choice'
 import { Bone } from '../ui/skeletons'
 import { AvailableList } from './parts/available-list'
 import { availableNote } from './project-connections-copy'
-import { ProviderPicker } from './new-account/provider-picker'
-import { NEW_ACCOUNT_PROVIDERS } from './new-account/providers'
+import { ProviderPicker } from '../connections/new-account/provider-picker'
+import { NEW_ACCOUNT_PROVIDERS, type NewAccountDetails } from '../connections/new-account/providers'
 
 export type AddTab = 'org' | 'new'
 
@@ -81,8 +80,8 @@ export function AddConnectionDialog({
     add.mutate(picked, { onSuccess: onClose })
   }
 
-  function handleConnect(input: Omit<NewProjectConnectionInput, 'makeDefault'>) {
-    create.mutate({ ...input, makeDefault }, { onSuccess: onClose })
+  function handleConnect(details: NewAccountDetails) {
+    create.mutate({ ...details, makeDefault }, { onSuccess: onClose })
   }
 
   function handleEdit() {
@@ -142,7 +141,7 @@ export function AddConnectionDialog({
         </Button>
         <Connect
           formId={formId}
-          slugs={slugs}
+          place={slugs}
           pending={create.isPending}
           errorOn={errorOn}
           onSubmit={handleConnect}
