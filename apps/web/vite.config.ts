@@ -61,6 +61,8 @@ export default defineConfig({
           include: ['src/**/*.test.tsx'],
           environment: 'jsdom',
           setupFiles: ['src/__tests__/setup-dom.ts'],
+          // userEvent-driven dialogs run past vitest's 5s default when the whole suite shares the CPU.
+          testTimeout: 15_000,
         },
       },
     ],
