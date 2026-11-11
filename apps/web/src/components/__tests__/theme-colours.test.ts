@@ -40,7 +40,7 @@ const NOT_THEME = new Set([
   'y',
 ])
 // Tailwind palette colours: `bg-red-500` reads as `red` here (the shade is digits).
-const PALETTE = /^(red|amber|green|blue|slate|gray|zinc|neutral|emerald|sky)(-|$)/
+const PALETTE = /^(red|orange|amber|green|blue|slate|gray|zinc|neutral|emerald|sky)(-|$)/
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
