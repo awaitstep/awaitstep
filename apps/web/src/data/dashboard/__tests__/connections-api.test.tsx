@@ -133,7 +133,9 @@ describe('useConnections', () => {
         id: 'conn_1',
         name: 'Acme production',
         accountSuffix: '7f2a',
-        addedBy: { id: 'usr_ama', name: 'Ama Mensah' },
+        // The API names who added it, never their id.
+        addedBy: { id: '', name: 'Ama Mensah' },
+        authKind: 'api-token',
         tokenStatus: 'active',
         tokenExpiresAt: '2026-11-05T12:00:00.000Z',
         projects: [{ id: 'p-101', name: 'Project 101' }],

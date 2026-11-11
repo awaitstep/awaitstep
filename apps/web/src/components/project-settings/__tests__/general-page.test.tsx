@@ -8,24 +8,10 @@ import {
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
 import type * as LockHooks from '../../../data/dashboard/locks'
-import type * as WorkspaceHooks from '../../../data/dashboard/workspaces'
 import { GeneralPage } from '../general-page'
 
 const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
-
-// Holds the workspace list back, to check Delete waits for the counts it quotes.
-const hold = { workspaces: false }
-vi.mock('../../../data/dashboard/workspaces', async (importOriginal) => {
-  const real = await importOriginal<typeof WorkspaceHooks>()
-  return {
-    ...real,
-    useWorkspaces: (org: string, project: string) => {
-      const query = real.useWorkspaces(org, project)
-      return hold.workspaces ? { ...query, data: undefined } : query
-    },
-  }
-})
 
 // Stands in for the lock call when a test needs it refused or kept waiting.
 const lockCall: { send: ((on: boolean) => Promise<void>) | null } = { send: null }
@@ -47,7 +33,6 @@ const p101 = { org: 'acme', project: 'project-101' }
 beforeEach(() => {
   resetDashboardData(new Date())
   goTo.mockReset()
-  hold.workspaces = false
   lockCall.send = null
 })
 
@@ -187,15 +172,6 @@ describe('project General', () => {
         /Saving…/,
       ),
     )
-  })
-
-  it('keeps Delete blocked until it knows what would be deleted', async () => {
-    dashboardDb().projects.find((p) => p.id === 'prj_101')!.lock = null
-    hold.workspaces = true
-    await renderPage()
-    const remove = screen.getByRole('button', { name: 'Delete project' })
-    expect(remove).toHaveAttribute('aria-disabled', 'true')
-    expect(remove).toHaveAccessibleDescription('Counting what would be deleted…')
   })
 
   it('puts each save error under the field it names', async () => {

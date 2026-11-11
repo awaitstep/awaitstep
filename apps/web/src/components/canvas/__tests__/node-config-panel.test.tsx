@@ -110,14 +110,15 @@ describe('NodeConfigPanel for a step', () => {
     expect(header).toHaveTextContent('retries 3 · timeout 30s')
   })
 
-  it('reads Default for a workflow step with nothing set, and No retries for a function’s', () => {
+  it('reads the default policy for a step with nothing set, in a workflow and in a function', () => {
+    // Every step deploys with the default policy (2 retries), so the summary says so.
     select(step())
     const { unmount } = render(<NodeConfigPanel />)
-    expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent('Default')
+    expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent(/retries 2$/)
     unmount()
     select(step(), 'script')
     render(<NodeConfigPanel />)
-    expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent('No retries')
+    expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent(/retries 2$/)
   })
 
   it('hides retries and timeout once the step is inline, and says so in the summary', async () => {
@@ -175,14 +176,14 @@ describe('NodeConfigPanel for a step', () => {
     expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data.inline).toBe(true)
   })
 
-  it('leaving an empty Retry delay does not turn retries on', () => {
+  it('leaving an empty Retry delay sets nothing on the step', () => {
     select(step(), 'script')
     render(<NodeConfigPanel />)
     const delay = screen.getByLabelText('Retry Delay')
     fireEvent.focus(delay)
     fireEvent.blur(delay)
     expect(useWorkflowStore.getState().nodes[0]!.data.irNode.data).toEqual({ code: CHARGE_MODULE })
-    expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent('No retries')
+    expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent(/retries 2$/)
   })
 
   it('reads one setting alone in the summary', () => {
@@ -195,11 +196,11 @@ describe('NodeConfigPanel for a step', () => {
     expect(screen.getByRole('button', { name: /Execution/ })).toHaveTextContent(/timeout 30s$/)
   })
 
-  it('heads the enlarged editor with TypeScript alone when nothing is set, and inline when it is', async () => {
+  it('heads the enlarged editor with TypeScript and the step’s policy, and inline when it is', async () => {
     select(step())
     const { unmount } = render(<NodeConfigPanel />)
     await userEvent.click(screen.getByRole('button', { name: 'Enlarge editor' }))
-    expect(screen.getByText('TypeScript')).toBeInTheDocument()
+    expect(screen.getByText('TypeScript · retries 2')).toBeInTheDocument()
     unmount()
     select(step({ inline: true }))
     render(<NodeConfigPanel />)

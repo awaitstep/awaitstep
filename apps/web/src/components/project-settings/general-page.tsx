@@ -140,7 +140,6 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
   const lockSetBy = lock
     ? { name: lock.setBy.name, date: format(new Date(lock.setAt), 'd MMM') }
     : undefined
-  // The summary and the confirm quote these counts, so Delete waits for them.
   const deleteReason = !can.delete.allowed ? can.delete.reason : undefined
   const moveReason = can.move.allowed ? undefined : can.move.reason
   // A change in flight holds the switch; a refused one says why where the state is described.
