@@ -9,12 +9,14 @@ vi.mock('../../../../data/dashboard/org-settings', () => ({
 
 import { CloudflareConnect } from '../cloudflare-connect'
 
-function renderStep(onSubmit = vi.fn()) {
+const PROJECT = { org: 'acme', project: 'project-101' }
+
+function renderStep(onSubmit = vi.fn(), place: { org: string; project?: string } = PROJECT) {
   render(
     <>
       <CloudflareConnect
         formId="connect"
-        slugs={{ org: 'acme', project: 'project-101' }}
+        place={place}
         pending={false}
         errorOn={() => undefined}
         onSubmit={onSubmit}
@@ -45,6 +47,28 @@ describe('CloudflareConnect', () => {
       link.compareDocumentPosition(screen.getByLabelText('Name')) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy()
+  })
+
+  it('signs in for the organization when no project is named', () => {
+    oauth.enabled = true
+    renderStep(vi.fn(), { org: 'acme' })
+    const href = screen
+      .getByRole('link', { name: 'Setup with Cloudflare.com' })
+      .getAttribute('href')
+    expect(href).toContain('org=acme')
+    expect(href).not.toContain('project=')
+  })
+
+  it('lists the permissions the API token needs, with a link to make one', () => {
+    renderStep()
+    const card = screen.getByRole('region', { name: 'Token permissions' })
+    expect(card).toHaveTextContent('Account · Workers Scripts · Admin, Edit, Read')
+    expect(card).toHaveTextContent('Account · Workers KV Storage · Edit')
+    expect(card).toHaveTextContent('Account · Account Settings · Read')
+    expect(screen.getByRole('link', { name: /Open Cloudflare API tokens/ })).toHaveAttribute(
+      'href',
+      'https://dash.cloudflare.com/profile/api-tokens',
+    )
   })
 
   it('shows only the form where sign-in with Cloudflare isn’t set up', () => {

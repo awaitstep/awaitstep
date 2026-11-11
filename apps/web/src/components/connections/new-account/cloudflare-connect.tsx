@@ -1,4 +1,5 @@
 import { useState, type ChangeEvent, type SubmitEvent } from 'react'
+import { Check } from 'lucide-react'
 import { useOAuthStatus } from '../../../data/dashboard/org-settings'
 import { oauthStartUrl } from '../../org-settings/oauth-start'
 import { buttonVariants } from '../../ui/button'
@@ -11,11 +12,18 @@ import { cn } from '../../../lib/utils'
 
 const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/profile/api-tokens'
 
+/** What the token needs to deploy: shown before the form, on the org's and a project's Add account. */
+export const TOKEN_PERMISSIONS = [
+  'Account · Workers Scripts · Admin, Edit, Read',
+  'Account · Workers KV Storage · Edit',
+  'Account · Account Settings · Read',
+]
+
 /**
  * Connecting a Cloudflare account: sign in with Cloudflare when this
  * deployment offers it, or a name, account ID and API token.
  */
-export function CloudflareConnect({ formId, slugs, errorOn, onSubmit, onEdit }: ConnectStepProps) {
+export function CloudflareConnect({ formId, place, errorOn, onSubmit, onEdit }: ConnectStepProps) {
   const oauthStatus = useOAuthStatus()
   const oauthEnabled = oauthStatus.data?.enabled === true
   const [name, setName] = useState('')
@@ -54,7 +62,7 @@ export function CloudflareConnect({ formId, slugs, errorOn, onSubmit, onEdit }: 
               }),
               'w-full bg-orange-500 hover:bg-orange-600',
             )}
-            href={oauthStartUrl(slugs.org, { project: slugs.project })}
+            href={oauthStartUrl(place.org, place.project ? { project: place.project } : {})}
           >
             <CloudflareLogo className="mr-2" fill1="#FFF" fill2="#fff" />
             Setup with Cloudflare.com
@@ -62,6 +70,7 @@ export function CloudflareConnect({ formId, slugs, errorOn, onSubmit, onEdit }: 
           <OrDivider />
         </>
       )}
+      <TokenPermissions />
       <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-3.5">
         <FormField label="Name" error={errorOn('name')}>
           <Input value={name} onChange={handleName} placeholder="Checkout staging" />
@@ -77,19 +86,7 @@ export function CloudflareConnect({ formId, slugs, errorOn, onSubmit, onEdit }: 
         <FormField
           label="API token"
           error={errorOn('token')}
-          hint={
-            <>
-              Needs Workers Scripts · Edit, Workers KV · Edit and Account Settings · Read.{' '}
-              <a
-                href={CLOUDFLARE_TOKENS_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="font-medium text-status-success hover:underline"
-              >
-                Open Cloudflare API tokens ↗
-              </a>
-            </>
-          }
+          hint="Encrypted when saved. You won’t see it again."
         >
           <Input
             type="password"
@@ -101,6 +98,39 @@ export function CloudflareConnect({ formId, slugs, errorOn, onSubmit, onEdit }: 
         </FormField>
       </form>
     </div>
+  )
+}
+
+/** The token's permissions, and where to make one. */
+function TokenPermissions() {
+  return (
+    <section
+      aria-label="Token permissions"
+      className="flex flex-col gap-2.5 rounded-xl border border-border bg-background p-4"
+    >
+      <span className="text-xs font-semibold text-foreground">
+        Create an API token in Cloudflare
+      </span>
+      <span className="text-2xs text-muted-foreground">
+        Use the “Edit Cloudflare Workers” template, or give it these permissions:
+      </span>
+      <ul className="flex flex-col gap-1.5">
+        {TOKEN_PERMISSIONS.map((permission) => (
+          <li key={permission} className="flex items-center gap-2 text-xs text-foreground/90">
+            <Check className="size-3.5 text-status-success" aria-hidden="true" />
+            {permission}
+          </li>
+        ))}
+      </ul>
+      <a
+        href={CLOUDFLARE_TOKENS_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="w-fit text-xs font-medium text-status-success hover:underline"
+      >
+        Open Cloudflare API tokens ↗
+      </a>
+    </section>
   )
 }
 
