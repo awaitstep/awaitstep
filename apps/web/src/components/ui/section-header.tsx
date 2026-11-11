@@ -31,7 +31,7 @@ export function SectionHeader({
         direction === 'column' && 'flex-col gap-y-0',
       )}
     >
-      <Heading id={id} className="text-base font-semibold text-foreground">
+      <Heading id={id} className="text-sm font-semibold text-foreground">
         {title}
       </Heading>
       {hasContent(caption) && <span className="text-xs text-muted-foreground">{caption}</span>}

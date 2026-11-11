@@ -47,7 +47,7 @@ export function AuthCard({
             {title}
           </h1>
           {hasContent(lead) && (
-            <p className="text-xs leading-relaxed text-muted-foreground">{lead}</p>
+            <p className="text-sm leading-relaxed text-muted-foreground">{lead}</p>
           )}
         </div>
       </div>

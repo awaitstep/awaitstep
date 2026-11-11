@@ -69,7 +69,7 @@ export function ActionCard({
         <span id={titleId} className="text-sm font-semibold text-foreground">
           {title}
         </span>
-        <span id={descriptionId} className="text-xs leading-relaxed text-muted-foreground">
+        <span id={descriptionId} className="text-sm leading-relaxed text-muted-foreground">
           {description}
         </span>
       </span>

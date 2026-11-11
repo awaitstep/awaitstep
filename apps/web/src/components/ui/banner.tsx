@@ -4,7 +4,7 @@ import { cva } from 'class-variance-authority'
 import { hasContent } from './has-content'
 
 const bannerVariants = cva(
-  'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-3 text-xs leading-relaxed',
+  'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-4 py-3 text-sm leading-relaxed',
   {
     variants: {
       tone: {

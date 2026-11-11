@@ -82,7 +82,7 @@ export function ListRow({ leading, title, href, badge, description, trailing }: 
           heading
         )}
         {hasContent(description) && (
-          <span className="text-2xs text-muted-foreground">{description}</span>
+          <span className="text-xs text-muted-foreground">{description}</span>
         )}
       </div>
       {hasContent(trailing) && (

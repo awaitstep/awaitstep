@@ -64,7 +64,7 @@ export function DangerRow({
           {title}
           {hasContent(badge) && badge}
         </span>
-        <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>
+        <span className="text-sm leading-relaxed text-muted-foreground">{description}</span>
       </div>
       <div className="flex w-full flex-col items-start gap-1.5 sm:w-[200px] sm:shrink-0 sm:items-end">
         {action}

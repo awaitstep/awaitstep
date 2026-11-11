@@ -39,7 +39,7 @@ export function LinkTabs({ label, tabs, activeKey }: LinkTabsProps) {
             {/* A space, so the name reads "Runs 128"; the gap already spaces it on screen. */}
             {tab.count !== undefined && ' '}
             {tab.count !== undefined && (
-              <span className="rounded-full bg-muted px-1.5 py-px text-[11px] font-medium tabular-nums text-muted-foreground">
+              <span className="rounded-full bg-muted px-1.5 py-px text-2xs font-medium tabular-nums text-muted-foreground">
                 {tab.count}
               </span>
             )}

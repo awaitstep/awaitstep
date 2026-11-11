@@ -67,7 +67,7 @@ export function SecretReveal({ label, value, warning, onCopied, children }: Secr
           {copied && 'Copied'}
         </p>
       </div>
-      <div className="flex gap-2.5 rounded-xl bg-tone-warn px-3.5 py-3 text-xs leading-relaxed text-foreground/90">
+      <div className="flex gap-2.5 rounded-xl bg-tone-warn px-3.5 py-3 text-sm leading-relaxed text-foreground/90">
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-status-warning" aria-hidden="true" />
         <span>{warning}</span>
       </div>
