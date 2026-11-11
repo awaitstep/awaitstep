@@ -29,12 +29,62 @@ describe('page summaries', () => {
     expect(body.shared.first.length).toBeLessThanOrEqual(2)
   })
 
-  it('answers the org home with a failing count and one row', async () => {
+  it('answers the org home with a failing count, one row and recent activity', async () => {
     const res = await h.app.request('/api/orgs/acme/home-summary', h.as('u-ama'))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(keys(body)).toEqual(['failing'])
+    expect(keys(body)).toEqual(['activity', 'failing'])
+    expect(body.activity).toEqual([])
     expect(keys(body.failing)).toEqual(['count', 'first'])
+  })
+
+  it('answers the org home’s activity rows with names, never a worker URL or an account', async () => {
+    const now = '2026-11-01T00:00:00.000Z'
+    await h.db.insert(h.schema.connections).values({
+      id: 'c-acme',
+      organizationId: 'org-acme',
+      createdBy: 'u-ama',
+      provider: 'cloudflare',
+      name: 'Acme production',
+      credentials: '{"accountId":"a","apiToken":"t"}',
+      createdAt: now,
+      updatedAt: now,
+    })
+    await h.db.insert(h.schema.deployments).values({
+      id: 'd-sales',
+      workflowId: 'wf-sales',
+      connectionId: 'c-acme',
+      versionNumber: 3,
+      serviceName: 'svc',
+      serviceUrl: 'https://in-sales.acme.workers.dev',
+      status: 'success',
+      createdAt: now,
+    })
+    const res = await h.app.request('/api/orgs/acme/home-summary', h.as('u-ama'))
+    expect(res.status).toBe(200)
+    const text = await res.text()
+    expect(text).not.toContain('workers.dev')
+    expect(text).not.toContain('Acme production')
+    expect(JSON.parse(text).activity).toEqual([
+      {
+        id: 'deployed:d-sales',
+        kind: 'deployed',
+        workflow: { name: 'In sales', kind: 'workflow' },
+        version: 3,
+        project: { slug: 'project-101', name: 'Project 101' },
+        workspace: { slug: 'sales', name: 'Sales', colour: expect.any(String) },
+        at: now,
+      },
+    ])
+
+    // Gus can open Ops only: Sales's deploy is not his to see.
+    const gus = await h.app.request('/api/orgs/acme/home-summary', h.as('u-gus'))
+    expect((await gus.json()).activity).toEqual([])
+  })
+
+  it('answers Not found to someone outside the org', async () => {
+    const res = await h.app.request('/api/orgs/acme/home-summary', h.as('u-hal'))
+    expect(res.status).toBe(404)
   })
 
   it('answers a workspace overview with counts, attention, recent runs and shares', async () => {

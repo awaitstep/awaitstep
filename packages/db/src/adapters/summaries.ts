@@ -1,6 +1,7 @@
 import { and, eq, sql, aliasedTable, type SQL } from 'drizzle-orm'
 import type {
   FailingSummary,
+  OrgActivityItem,
   OrgHomeSummary,
   ProjectSummary,
   ResourceCounts,
@@ -16,12 +17,13 @@ import type {
 import {
   aliasedFrom,
   fieldOf,
+  isoText,
   jsonArrayOfValues,
   nestedJson,
   readJsonArray,
   type Dialect,
 } from './json-array.js'
-import { OverviewFields, type OverviewTables } from './overview-fields.js'
+import { FAILED_RUN_STATUSES, OverviewFields, type OverviewTables } from './overview-fields.js'
 import { reachesProject, reachesWorkspace } from './variable-reach.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,6 +42,9 @@ export interface SummaryTables extends OverviewTables {
 }
 
 const ORG_ADMINS = sql.raw(`('owner', 'admin')`)
+const FAILED_LIST = sql.raw(FAILED_RUN_STATUSES.map((s) => `'${s}'`).join(', '))
+// The org home shows a glance, not a log: the audit log has the rest.
+const ACTIVITY_LIMIT = 5
 
 /**
  * The page summaries: one statement each, shaped to the section that renders
@@ -108,15 +113,79 @@ export class SummaryAdapter {
       inner,
       sql`x.run_created_at desc, x.run_id desc`,
     )
+    const activity = this.orgActivity(o, viewerId)
     const rows = await this.db
-      .select({ failing: health.failing, first })
+      .select({ failing: health.failing, first, activity })
       .from(o)
       .where(eq(o.id, organizationId))
       .limit(1)
     const row = rows[0]
     if (!row) return null
     const firstRows = readJsonArray<FailingSummary>(row.first)
-    return { failing: { count: Number(row.failing), first: firstRows[0] ?? null } }
+    return {
+      failing: { count: Number(row.failing), first: firstRows[0] ?? null },
+      activity: readJsonArray<OrgActivityItem>(row.activity),
+    }
+  }
+
+  /**
+   * The org home's Recent activity, newest first: every successful deploy,
+   * each workflow's latest failed run (a workflow failing every minute takes
+   * one row, not all of them), and each share to the project — only in
+   * workspaces the viewer can open.
+   */
+  private orgActivity(o: AnyTable, viewerId: string): SQL {
+    const d = aliasedTable(this.t.deployments, 'oad')
+    const r = aliasedTable(this.t.workflowRuns, 'oar')
+    const lr = aliasedTable(this.t.workflowRuns, 'oal')
+    const wf = aliasedTable(this.t.workflows, 'oaw')
+    const w = aliasedTable(this.t.workspaces, 'oas')
+    const p = aliasedTable(this.t.projects, 'oap')
+    const roles = this.fields.roles
+    const visible = sql`${roles.workspaceRoleOf(viewerId, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} is not null`
+    const place = sql`${wf.name} as wf_name, ${wf.kind} as wf_kind, ${p.slug} as project_slug, ${p.name} as project_name, ${w.slug} as workspace_slug, ${w.name} as workspace_name, ${w.colour} as workspace_colour`
+    const from = sql`from ${aliasedFrom(wf)} inner join ${aliasedFrom(w)} on ${w.id} = ${wf.workspaceId} inner join ${aliasedFrom(p)} on ${p.id} = ${wf.projectId}`
+    const scoped = sql`${p.organizationId} = ${o.id} and ${visible}`
+    const noVersion = sql`cast(null as integer)`
+    const latestFailed = sql`(select ${lr.id} from ${aliasedFrom(lr)} where ${lr.workflowId} = ${wf.id} and ${lr.status} in (${FAILED_LIST}) order by ${lr.createdAt} desc, ${lr.id} desc limit 1)`
+
+    const deployed = sql`select 'deployed:' || ${d.id} as id, 'deployed' as kind, ${d.createdAt} as at, ${d.versionNumber} as version, ${place} ${from} inner join ${aliasedFrom(d)} on ${d.workflowId} = ${wf.id} where ${scoped} and ${d.status} = 'success'`
+    const failed = sql`select 'failed:' || ${r.id} as id, 'failed' as kind, ${r.createdAt} as at, ${noVersion} as version, ${place} ${from} inner join ${aliasedFrom(r)} on ${r.id} = ${latestFailed} where ${scoped}`
+    const shared = sql`select 'shared:' || ${wf.id} as id, 'shared' as kind, ${wf.sharedAt} as at, ${noVersion} as version, ${place} ${from} where ${scoped} and ${wf.sharedAt} is not null`
+    const inner = sql`${deployed} union all ${failed} union all ${shared} order by at desc, id desc limit ${sql.raw(String(ACTIVITY_LIMIT))}`
+
+    return this.jsonList(
+      [
+        ['id', sql`x.id`],
+        ['kind', sql`x.kind`],
+        [
+          'workflow',
+          this.object([
+            ['name', sql`x.wf_name`],
+            ['kind', sql`x.wf_kind`],
+          ]),
+        ],
+        ['version', sql`x.version`],
+        [
+          'project',
+          this.object([
+            ['slug', sql`x.project_slug`],
+            ['name', sql`x.project_name`],
+          ]),
+        ],
+        [
+          'workspace',
+          this.object([
+            ['slug', sql`x.workspace_slug`],
+            ['name', sql`x.workspace_name`],
+            ['colour', sql`x.workspace_colour`],
+          ]),
+        ],
+        ['at', isoText(this.dialect, sql`x.at`)],
+      ],
+      inner,
+      sql`x.at desc, x.id desc`,
+    )
   }
 
   /** The workspaces page's Project-wide cards, in one statement. */

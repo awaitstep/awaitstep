@@ -37,6 +37,8 @@ export type {
   NodeUsage,
   ProjectSetupCounts,
   OrgHomeSummary,
+  OrgActivityItem,
+  OrgActivityKind,
   ProjectSummary,
   WorkspaceSettingsCounts,
   ResourceCounts,
