@@ -4,7 +4,12 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import type { ProviderConfig, GeneratedBundle, DeployResult } from '@awaitstep/codegen'
+import type {
+  ProviderConfig,
+  GeneratedBundle,
+  DeployResult,
+  DeployConfigResponse,
+} from '@awaitstep/codegen'
 import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import { deploymentPageRecord } from '../lib/list-records.js'
@@ -281,28 +286,33 @@ deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const connectionId = c.req.param('connectionId')
-  const organizationId = c.get('organizationId')
 
-  const found = await db.getConnectionForProject(connectionId, organizationId, workflow.projectId)
-  if (!found) {
-    return c.json({ error: 'Connection not found' }, 404)
-  }
+  const found = await db.getDeployConfigFor(
+    connectionId,
+    c.get('organizationId'),
+    workflow.projectId,
+    workflow.id,
+  )
+  if (!found) return c.json({ error: 'Connection not found' }, 404)
   if (!found.covered) return c.json({ error: CONNECTION_NOT_SERVING }, 403)
-  const { connection } = found
 
-  const adapter = resolveProvider(connection.provider)
-  const stored = await db.getDeploymentConfig(workflow.id, connectionId)
-  let config: unknown = adapter.getDefaultDeploymentConfig()
-  if (stored) {
-    const raw = JSON.parse(stored.config) as Record<string, unknown>
+  const adapter = resolveProvider(found.provider)
+  const defaults = adapter.getDefaultDeploymentConfig() as Record<string, unknown>
+  let config: Record<string, unknown> = defaults
+  if (found.config) {
+    const raw = JSON.parse(found.config) as Record<string, unknown>
     delete raw.triggerCode
     const parsed = adapter.deploymentConfigSchema.safeParse(raw)
-    if (parsed.success) config = parsed.data
+    if (parsed.success) config = parsed.data as Record<string, unknown>
   }
-  const preview = adapter.buildDeploymentConfigPreview(config)
-  const uiSchema = adapter.deploymentConfigUiSchema
-
-  return c.json({ config, provider: connection.provider, preview, uiSchema })
+  const body: DeployConfigResponse = {
+    config,
+    defaults,
+    provider: found.provider,
+    preview: adapter.buildDeploymentConfigPreview(config),
+    uiSchema: adapter.deploymentConfigUiSchema,
+  }
+  return c.json(body)
 })
 
 deploy.put(

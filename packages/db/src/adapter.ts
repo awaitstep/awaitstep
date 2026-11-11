@@ -4,6 +4,7 @@ import type {
   WorkflowVersionListItem,
   DeploymentListItem,
   Connection,
+  DeployConfigLookup,
   DeployedConnection,
   VersionDeleteCheck,
   LatestVersionForSave,
@@ -639,6 +640,13 @@ export interface DatabaseAdapter {
     organizationId: string,
     projectId: string,
   ): Promise<ConnectionCoverage | null>
+  /** Deploy's settings for one account: provider, project coverage and the workflow's stored config, in one read. */
+  getDeployConfigFor(
+    id: string,
+    organizationId: string,
+    projectId: string,
+    workflowId: string,
+  ): Promise<DeployConfigLookup | null>
   /** The org's connection, only if the workflow has a successful deployment made with it. */
   getConnectionDeployedWith(
     id: string,

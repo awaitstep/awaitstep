@@ -1638,7 +1638,9 @@ chosen: its workspace's own account, else the project default.
       "accountSuffix": "7f2a",
       "scope": "shared",
       "tokenStatus": "active",
-      "tokenExpiresAt": null
+      "tokenExpiresAt": null,
+      "authKind": "api-token",
+      "canDeploy": true
     }
   ],
   "defaultId": "con_1",
@@ -1658,6 +1660,10 @@ chosen: its workspace's own account, else the project default.
 }
 ```
 
+`authKind` says whether the account authenticates with an API token or an OAuth
+grant (which renews itself, so its short `tokenExpiresAt` is no warning);
+`canDeploy` is `false` for an OAuth grant missing every Workers deploy scope.
+
 `deployedWith` is what is live on each account the workflow was deployed with,
 newest first: that account's newest successful deployment, its worker URL, its version
 (`version` outlives a deleted version, when `versionId` is `null`) and who sent
@@ -1668,8 +1674,45 @@ still has it; a taken-down account drops out.
 
 Read the deployment settings for one workflow and connection. The response is
 normalized by the provider schema; a legacy `triggerCode` field is removed.
+`config` is what is stored for this workflow on this account (saved by each
+successful deploy and by `PUT` below), else the provider's defaults; `defaults`
+is always the provider's defaults, so a client can tell which settings were
+changed and reset them. Cloudflare's `observability` is always present: a config
+that leaves it out deploys logs and traces on, and reads back that way.
 
 **Permission:** `workflows:deploy`
+
+```json
+{
+  "config": { "workersDev": true, "previewUrls": true, "cronTriggers": ["0 */6 * * *"] },
+  "defaults": {
+    "workersDev": true,
+    "previewUrls": true,
+    "retention": { "successRetention": "7 days", "errorRetention": "7 days" },
+    "observability": {
+      "enabled": false,
+      "head_sampling_rate": 1,
+      "logs": {
+        "enabled": true,
+        "head_sampling_rate": 1,
+        "persist": true,
+        "invocation_logs": true
+      },
+      "traces": { "enabled": true, "persist": true, "head_sampling_rate": 1 }
+    }
+  },
+  "provider": "cloudflare",
+  "preview": { "filename": "wrangler.json", "content": { "workers_dev": true } },
+  "uiSchema": {
+    "groups": [
+      {
+        "title": "Routing",
+        "fields": [{ "path": "routes", "label": "Route patterns", "widget": "array-of-objects" }]
+      }
+    ]
+  }
+}
+```
 
 ### `PUT /workflows/:workflowId/deploy-config/:connectionId`
 

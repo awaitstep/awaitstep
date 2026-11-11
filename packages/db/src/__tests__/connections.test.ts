@@ -252,6 +252,39 @@ describe.each([
     })
   })
 
+  describe('what Deploy’s settings read', () => {
+    it('answers the provider, coverage and the workflow’s stored config in one read', async () => {
+      await h.adapter.createConnection(write())
+      await addToProjects(h, ['p-101'])
+      await h.adapter.upsertDeploymentConfig({
+        id: 'dc-1',
+        workflowId: 'wf-enrich',
+        connectionId: 'c-1',
+        provider: 'cloudflare',
+        config: '{"cronTriggers":["0 * * * *"]}',
+      })
+      expect(await h.adapter.getDeployConfigFor('c-1', 'org-acme', 'p-101', 'wf-enrich')).toEqual({
+        provider: 'cloudflare',
+        covered: true,
+        config: '{"cronTriggers":["0 * * * *"]}',
+      })
+      // Another workflow has none stored; another project isn't served.
+      expect(await h.adapter.getDeployConfigFor('c-1', 'org-acme', 'p-101', 'wf-sync')).toEqual({
+        provider: 'cloudflare',
+        covered: true,
+        config: null,
+      })
+      expect(
+        (await h.adapter.getDeployConfigFor('c-1', 'org-acme', 'p-202', 'wf-enrich'))?.covered,
+      ).toBe(false)
+    })
+
+    it('reads nothing for another organization', async () => {
+      await h.adapter.createConnection(write())
+      expect(await h.adapter.getDeployConfigFor('c-1', 'org-globex', 'p-g', 'wf-g')).toBeNull()
+    })
+  })
+
   describe('what a trigger may use', () => {
     it('answers only a connection the workflow was deployed with, successfully', async () => {
       await h.adapter.createConnection(write())

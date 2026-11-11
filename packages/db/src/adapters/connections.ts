@@ -20,6 +20,7 @@ import type {
   ConnectionTokenCheck,
   ConnectionUpdate,
   ConnectionWrite,
+  DeployConfigLookup,
   DeployedConnection,
   ExpiringConnectionsCheck,
   ProjectSetupCounts,
@@ -51,6 +52,7 @@ export interface ConnectionTables {
   projectConnections: AnyTable
   projects: AnyTable
   deployments: AnyTable
+  deploymentConfigs: AnyTable
   member: AnyTable
   user: AnyTable
   notifications: AnyTable
@@ -265,6 +267,37 @@ export class ConnectionsAdapter {
     const connection = { ...row.connection }
     connection.credentials = await this.tryDecrypt(connection.credentials)
     return { connection: await this.withFresh(connection), covered: truthy(row.covered) }
+  }
+
+  /**
+   * What Deploy's settings read for one account — its provider, whether it
+   * serves the project, and the workflow's stored config on it — one statement,
+   * without reading the credentials.
+   */
+  async getDeployConfigFor(
+    id: string,
+    organizationId: string,
+    projectId: string,
+    workflowId: string,
+  ): Promise<DeployConfigLookup | null> {
+    const dc = aliasedTable(this.t.deploymentConfigs, 'cdc')
+    const rows = await this.db
+      .select({
+        provider: this.table.provider,
+        covered: fieldOf(
+          sql<unknown>`${isProjectsAccount(this.dialect, this.t, this.table, projectId)}`,
+        ),
+        // Matched by the bound id: an outer column in a select list renders unqualified.
+        config: sql<
+          string | null
+        >`(select ${dc.config} from ${aliasedFrom(dc)} where ${dc.workflowId} = ${workflowId} and ${dc.connectionId} = ${id} limit 1)`,
+      })
+      .from(this.table)
+      .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
+      .limit(1)
+    const row = rows[0] as { provider: string; covered: unknown; config: string | null } | undefined
+    if (!row) return null
+    return { provider: row.provider, covered: truthy(row.covered), config: row.config ?? null }
   }
 
   /** The project's own account (never a shared one), credentials decrypted. */

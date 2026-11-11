@@ -5,6 +5,7 @@ export type {
   DeploymentListItem,
   Authored,
   Connection,
+  DeployConfigLookup,
   DeployedConnection,
   VersionDeleteCheck,
   LatestVersionForSave,

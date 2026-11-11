@@ -15,6 +15,8 @@ import {
 // for the calls that would reach Cloudflare: credentials, deploy, destroy.
 
 const outcome = { success: true, throws: false }
+/** Resolves when a test lets the provider's deploy finish (otherwise it finishes at once). */
+let deployGate: Promise<void> | null = null
 
 vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
   const actual = await importOriginal<typeof ProviderResolver>()
@@ -25,6 +27,17 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
       return new Proxy(adapter, {
         get(target, property, receiver) {
           if (property === 'verifyCredentials') return () => Promise.resolve({ valid: true })
+          if (property === 'deployWithProgress' && deployGate) {
+            const gate = deployGate
+            // Like the Cloudflare adapter's `report`: progress is sent without waiting on it.
+            return async (_b: unknown, _c: unknown, progress: (p: unknown) => Promise<void>) => {
+              void progress({ stage: 'INITIALIZING', message: 'Starting', progress: 0 })
+              await gate
+              void progress({ stage: 'DEPLOYING', message: 'Uploading', progress: 60 })
+              void progress({ stage: 'COMPLETED', message: 'Done', progress: 100 })
+              return { success: true, deploymentId: 'awaitstep-wf-1' }
+            }
+          }
           if (
             property === 'deploy' ||
             property === 'deployWithProgress' ||
@@ -84,6 +97,7 @@ describe('deploys in the audit log', () => {
     resetStore()
     outcome.success = true
     outcome.throws = false
+    deployGate = null
     app = createTestApp()
     await mockDb.createWorkflow({
       id: 'wf-1',
@@ -123,6 +137,21 @@ describe('deploys in the audit log', () => {
     await (await post(app, '/deploy-stream', { connectionId: 'conn-1' })).text()
     const { data } = await mockDb.listDeploymentsByWorkflow('wf-1')
     expect(data.map((d) => d.createdBy)).toEqual([TEST_USER_ID, TEST_USER_ID])
+  })
+
+  it('keeps deploying, and records the deploy, after the page leaves mid-stream', async () => {
+    let release!: () => void
+    deployGate = new Promise((resolve) => (release = resolve))
+    const stream = await post(app, '/deploy-stream', { connectionId: 'conn-1' })
+    const reader = stream.body!.getReader()
+    await reader.read()
+    // The browser goes away: later progress writes have no one to reach.
+    await reader.cancel()
+    release()
+    await vi.waitFor(async () => {
+      const { data } = await mockDb.listDeploymentsByWorkflow('wf-1')
+      expect(data.map((d) => d.status)).toEqual(['success'])
+    })
   })
 
   it('answers a provider crash with a generic reason, never its text', async () => {

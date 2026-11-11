@@ -1089,6 +1089,12 @@ const mockDb: DatabaseAdapter = {
     if (!connection || connection.organizationId !== organizationId) return null
     return { connection, covered: true }
   },
+  async getDeployConfigFor(id, organizationId, _projectId, workflowId) {
+    const connection = store.connections.get(id)
+    if (!connection || connection.organizationId !== organizationId) return null
+    const stored = store.deploymentConfigs.get(`${workflowId}|${id}`)
+    return { provider: connection.provider, covered: true, config: stored?.config ?? null }
+  },
   async listConnectionsByOrganization(organizationId) {
     return {
       data: [...store.connections.values()].filter((c) => c.organizationId === organizationId),
