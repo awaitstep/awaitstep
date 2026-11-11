@@ -25,6 +25,8 @@ export const workflowRuns = pgTable(
     // Null on runs from before they were kept.
     trigger: text('trigger'),
     params: text('params'),
+    // A call's body type as sent, so Run again sends it the same way. Null means JSON.
+    contentType: text('content_type'),
     // A function call's answer: its HTTP status and how long it took. Null for workflow runs.
     responseStatus: integer('response_status'),
     durationMs: integer('duration_ms'),

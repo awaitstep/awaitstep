@@ -169,6 +169,8 @@ export type DeployedConnection = Connection & {
   deployedVersionNumber: number | null
   /** The provider's name for what is live there; null on rows from before it was recorded. */
   deployedName: string | null
+  /** The workflow's stored deploy settings for that account (JSON), or null. */
+  deploymentConfig: string | null
 }
 
 /** One run's sync row with its account, read together; `connection` only when it is the organization's. */
@@ -219,6 +221,8 @@ export interface CreateRunData {
   trigger?: RunTrigger | null
   /** The payload it was started with, as JSON text (a call's body as sent). */
   params?: string | null
+  /** A call's body type as sent; null (JSON) for workflow runs and dashboard calls. */
+  contentType?: string | null
   status: string
   /** A finished call's reply / why it failed; runs get theirs from sync. */
   output?: string | null
@@ -250,6 +254,8 @@ export interface RunControlTarget {
 
 /** Where a workflow is live on one account: its provider and the URL it answers at. */
 export interface LiveService {
+  /** The account it is live on. */
+  connectionId: string
   provider: string
   /** Null when the deploy gave no URL. */
   serviceUrl: string | null
@@ -570,8 +576,12 @@ export interface LiveDeploymentRow {
   id: string
   name: string
   deploymentId: string
-  /** The worker's URL on that account, when the deploy gave one. */
+  /**
+   * The worker's URL there, and its account's provider: the server judges with them whether a
+   * call can be made (the API sends a page only `callable`, never the URL).
+   */
   serviceUrl: string | null
+  provider: string
   /** Null once the version is deleted; `version` still says which it was. */
   versionId: string | null
   version: number | null

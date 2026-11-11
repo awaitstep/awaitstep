@@ -73,6 +73,16 @@ function truthy(value: unknown): boolean {
   return value === true || value === 1 || value === '1' || value === 't'
 }
 
+/**
+ * The account `id` names, else the one the workflow's newest successful deploy
+ * went out on — as a value to compare a connection id with.
+ */
+function accountOf(deployments: AnyTable, id: string | null, workflowId: string): SQL {
+  if (id !== null) return sql`${id}`
+  const n = aliasedTable(deployments, 'cna')
+  return sql`(select ${n.connectionId} from ${aliasedFrom(n)} where ${n.workflowId} = ${workflowId} and ${n.status} = 'success' and ${n.connectionId} is not null order by ${n.createdAt} desc, ${n.id} desc limit 1)`
+}
+
 type ListedRow = Omit<ConnectionListRow, 'projects' | 'allProjects' | 'deployments'> & {
   allProjects: unknown
   projects: unknown
@@ -321,17 +331,20 @@ export class ConnectionsAdapter {
    * The organization's connection, only if the workflow has a successful
    * deployment made with it — one statement. What a trigger may start: the
    * workflow it deployed there, never a same-named one in another project's
-   * account (security review M1).
+   * account (security review M1). A null `id` is the account its newest
+   * successful deploy went out on.
    */
   async getDeployedWith(
-    id: string,
+    id: string | null,
     organizationId: string,
     workflowId: string,
   ): Promise<DeployedConnection | null> {
     const d = aliasedTable(this.t.deployments, 'cdw')
     const live = aliasedTable(this.t.deployments, 'cdv')
+    const dc = aliasedTable(this.t.deploymentConfigs, 'cdwc')
+    const account = accountOf(this.t.deployments, id, workflowId)
     const newestDeploy = (column: SQL | AnyTable) =>
-      sql`select ${column} from ${aliasedFrom(live)} where ${live.connectionId} = ${id} and ${live.workflowId} = ${workflowId} and ${live.status} = 'success' order by ${live.createdAt} desc, ${live.id} desc limit 1`
+      sql`select ${column} from ${aliasedFrom(live)} where ${live.connectionId} = ${account} and ${live.workflowId} = ${workflowId} and ${live.status} = 'success' order by ${live.createdAt} desc, ${live.id} desc limit 1`
     const rows = await this.db
       .select({
         ...getTableColumns(this.table),
@@ -342,11 +355,15 @@ export class ConnectionsAdapter {
         deployedVersionNumber: sql<number | null>`(${newestDeploy(live.versionNumber)})`,
         // What the provider calls it there: a trigger starts its runs under that name.
         deployedName: sql<string | null>`(${newestDeploy(live.deployedName)})`,
+        // The workflow's stored deploy settings there (retention for the runs it starts).
+        deploymentConfig: sql<
+          string | null
+        >`(select ${dc.config} from ${aliasedFrom(dc)} where ${dc.workflowId} = ${workflowId} and ${dc.connectionId} = ${account} limit 1)`,
       })
       .from(this.table)
       .where(
         and(
-          eq(this.table.id, id),
+          sql`${this.table.id} = ${account}`,
           eq(this.table.organizationId, organizationId),
           sql`exists (select 1 from ${aliasedFrom(d)} where ${d.connectionId} = ${this.table.id} and ${d.workflowId} = ${workflowId} and ${d.status} = 'success')`,
         ),
@@ -416,19 +433,22 @@ export class ConnectionsAdapter {
    * Where a workflow is live on one of the organization's accounts — the
    * provider, and the URL and version of its newest successful deploy there —
    * one statement, without reading the credentials. Null when it isn't live there.
+   * A null `id` is the account its newest successful deploy went out on.
    */
   async getLiveService(
-    id: string,
+    id: string | null,
     organizationId: string,
     workflowId: string,
   ): Promise<LiveService | null> {
     const live = aliasedTable(this.t.deployments, 'cls')
-    const where = sql`${live.connectionId} = ${id} and ${live.workflowId} = ${workflowId} and ${live.status} = 'success'`
+    const account = accountOf(this.t.deployments, id, workflowId)
+    const where = sql`${live.connectionId} = ${account} and ${live.workflowId} = ${workflowId} and ${live.status} = 'success'`
     // Matched by the bound id: an outer column in a select list renders unqualified.
     const newest = <T>(column: unknown) =>
       sql<T>`(select ${column} from ${aliasedFrom(live)} where ${where} order by ${live.createdAt} desc, ${live.id} desc limit 1)`
     const rows = await this.db
       .select({
+        connectionId: this.table.id,
         provider: this.table.provider,
         serviceUrl: newest<string | null>(live.serviceUrl),
         versionId: newest<string | null>(live.versionId),
@@ -436,10 +456,11 @@ export class ConnectionsAdapter {
         deployed: sql<unknown>`exists (select 1 from ${aliasedFrom(live)} where ${where})`,
       })
       .from(this.table)
-      .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
+      .where(and(sql`${this.table.id} = ${account}`, eq(this.table.organizationId, organizationId)))
       .limit(1)
     const row = rows[0] as
       | {
+          connectionId: string
           provider: string
           serviceUrl: string | null
           versionId: string | null
@@ -449,6 +470,7 @@ export class ConnectionsAdapter {
       | undefined
     if (!row || !truthy(row.deployed)) return null
     return {
+      connectionId: row.connectionId,
       provider: row.provider,
       serviceUrl: row.serviceUrl ?? null,
       versionId: row.versionId ?? null,

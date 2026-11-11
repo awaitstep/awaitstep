@@ -1169,14 +1169,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     return this._connections.getForProject(id, organizationId, projectId)
   }
   getConnectionDeployedWith(
-    id: string,
+    id: string | null,
     organizationId: string,
     workflowId: string,
   ): Promise<DeployedConnection | null> {
     return this._connections.getDeployedWith(id, organizationId, workflowId)
   }
   getLiveService(
-    id: string,
+    id: string | null,
     organizationId: string,
     workflowId: string,
   ): Promise<LiveService | null> {
@@ -1321,7 +1321,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     runId: string,
     workflowId: string,
     connectionId?: string,
-  ): Promise<{ params: string | null } | null> {
+  ): Promise<{ params: string | null; contentType: string | null } | null> {
     return this._runs.getParams(runId, workflowId, connectionId)
   }
   getRunControl(
@@ -1615,7 +1615,6 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         versionId: d.versionId,
         connectionId: d.connectionId,
         serviceName: d.serviceName,
-        serviceUrl: d.serviceUrl,
         status: d.status,
         error: d.error,
         configSnapshot: d.configSnapshot,
