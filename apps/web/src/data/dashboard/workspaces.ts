@@ -201,7 +201,13 @@ export function useWorkspaceOverview(
         if (recent.length === 4) break
       }
       return {
-        counts: workspace.counts,
+        // Counted off the lists read above, so a scenario that empties them empties these too.
+        counts: {
+          ...workspace.counts,
+          workflows: workflows.length,
+          functions: functions.length,
+          runs24h: page.data.length === 0 ? 0 : workspace.counts.runs24h,
+        },
         needsAttention: items
           .filter((item) => item.lastRun?.result === 'failed')
           .map((item) => ({
