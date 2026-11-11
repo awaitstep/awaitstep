@@ -1,0 +1,240 @@
+import { useState, type ChangeEvent } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Play } from 'lucide-react'
+import { useApi, useQueries } from '../../contexts/api-client-context'
+import type { FunctionCallResponse } from '@awaitstep/codegen'
+import { failureLine } from '../../lib/action-toast'
+import { workerUrl } from '../../lib/workflows/worker-url'
+import { Badge } from '../ui/badge'
+import { ShellLink } from '../ui/shell-link'
+import { Button } from '../ui/button'
+import { FormField } from '../ui/form-field'
+import { ModalDialog } from '../ui/modal-dialog'
+import { Select } from '../ui/select'
+import { Textarea } from '../ui/textarea'
+import { Tile } from '../ui/tile'
+import { useCopyStatus } from '../ui/use-copy-status'
+import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
+import { curlFor, jsonProblem, notCallableReason, prettyBody } from './function-call'
+
+interface FunctionCallDialogProps {
+  workflowId: string
+  /** Where a recorded call's run page is. */
+  runHref: (runId: string) => string
+  onClose: () => void
+}
+
+const COPY_LABEL = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' } as const
+
+function statusVariant(status: number): 'success' | 'error' | 'neutral' {
+  if (status >= 200 && status < 300) return 'success'
+  if (status >= 400) return 'error'
+  return 'neutral'
+}
+
+/**
+ * Call a live function (24i): POST a JSON body to it from the server and see
+ * what it answers, with the curl to do the same. Each call is recorded as one
+ * of the function's runs.
+ */
+export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCallDialogProps) {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  const queries = useQueries()
+  // Where it is live: a call goes to one of these accounts' URL.
+  const targets = useQuery(queries.connections.forDeploy(workflowId))
+  const live = targets.data?.deployedWith ?? []
+  const [picked, setPicked] = useState<string | null>(null)
+  const target = live.find((l) => l.id === picked) ?? live[0]
+  const [body, setBody] = useState('{}')
+  const [sending, setSending] = useState(false)
+  // Each answer belongs to the account it came from: switching shows none.
+  const [answer, setAnswer] = useState<{
+    connectionId: string
+    response: FunctionCallResponse
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const capabilities = useProviderCapabilities()
+  const url = workerUrl(target?.serviceUrl)
+  const problem = jsonProblem(body)
+  // The account's provider says which URLs it calls; an account the project dropped has
+  // none to read, and the server still decides.
+  const provider = targets.data?.connections.find((c) => c.id === target?.id)?.provider
+  const callablePattern = capabilities.find((c) => c.id === provider)?.callableUrlPattern
+  const blocked = target ? notCallableReason(url, callablePattern) : null
+  const shown = answer && answer.connectionId === target?.id ? answer.response : null
+  const curl = url ? curlFor(url, body) : undefined
+  const copy = useCopyStatus(curl)
+
+  function handlePick(id: string) {
+    setPicked(id)
+    setAnswer(null)
+    setError(null)
+  }
+
+  function handleBodyChange(e: ChangeEvent<HTMLTextAreaElement>) {
+    setBody(e.target.value)
+  }
+
+  function handleCopy() {
+    void copy.copy()
+  }
+
+  function handleOpenChange(open: boolean) {
+    if (!open && !sending) onClose()
+  }
+
+  async function handleSend() {
+    if (!target || problem || blocked) return
+    const connectionId = target.id
+    setSending(true)
+    setError(null)
+    try {
+      const response = await api.callFunction(workflowId, { connectionId, body })
+      setAnswer({ connectionId, response })
+      // It is one of the function's runs now: its list and counts move.
+      void queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
+      void queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-run-counts'] })
+      void queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-summary', workflowId] })
+    } catch (err) {
+      setAnswer(null)
+      setError(failureLine(err, 'Couldn’t call the function'))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  let description = 'Not live on any account yet.'
+  if (target) {
+    description =
+      target.version !== null
+        ? `v${target.version}, live on ${target.name}`
+        : `Live on ${target.name}`
+  }
+
+  return (
+    <ModalDialog
+      open
+      onOpenChange={handleOpenChange}
+      size="lg"
+      leading={
+        <Tile tone="ok" size="lg">
+          <Play />
+        </Tile>
+      }
+      title="Call this function"
+      description={description}
+      footerStart={
+        <span className="text-xs text-muted-foreground">
+          Calls the live version. Each call is kept in Runs.
+        </span>
+      }
+      actions={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={sending}>
+            Close
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSend}
+            disabled={!target || problem !== null || blocked !== null}
+            loading={sending}
+          >
+            Send
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {live.length > 1 && (
+          <FormField label="Account">
+            <Select
+              aria-label="Account"
+              disabled={sending}
+              value={target?.id ?? ''}
+              onValueChange={handlePick}
+              options={live.map((l) => ({ value: l.id, label: l.name }))}
+            />
+          </FormField>
+        )}
+        {url && (
+          <span className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+            <Badge variant="info" className="font-semibold tracking-wider">
+              POST
+            </Badge>
+            <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
+              {url.replace(/^https:\/\//, '')}
+            </span>
+          </span>
+        )}
+        <FormField label="Body" error={problem ?? undefined}>
+          <Textarea
+            value={body}
+            onChange={handleBodyChange}
+            spellCheck={false}
+            rows={4}
+            className="resize-none font-mono text-xs"
+            placeholder='{ "key": "value" }'
+          />
+        </FormField>
+        {blocked && <p className="text-xs text-muted-foreground">{blocked}</p>}
+        {shown?.ok && <CallAnswer answer={shown} />}
+        {shown && !shown.ok && (
+          <p role="alert" className="text-xs text-status-error">
+            {shown.reason}
+          </p>
+        )}
+        {shown && (
+          <ShellLink
+            href={runHref(shown.runId)}
+            className="self-start text-xs font-medium text-primary hover:underline"
+          >
+            Open this run →
+          </ShellLink>
+        )}
+        {error && (
+          <p role="alert" className="text-xs text-status-error">
+            {error}
+          </p>
+        )}
+        {curl && (
+          <span className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+            <code className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground">
+              {curl}
+            </code>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto shrink-0 p-0 text-xs"
+              aria-label="Copy the curl command"
+              onClick={handleCopy}
+            >
+              {COPY_LABEL[copy.status]}
+            </Button>
+          </span>
+        )}
+      </div>
+    </ModalDialog>
+  )
+}
+
+function CallAnswer({ answer }: { answer: Extract<FunctionCallResponse, { ok: true }> }) {
+  return (
+    <section aria-label="Response" className="flex flex-col gap-2">
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="flex-1 text-[13px] font-medium text-foreground">Response</span>
+        <Badge variant={statusVariant(answer.status)}>
+          {`${answer.status} ${answer.statusText}`.trim()}
+        </Badge>
+        <span className="text-xs text-muted-foreground">{answer.durationMs} ms</span>
+      </span>
+      <pre className="m-0 max-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-xs leading-relaxed text-foreground">
+        {prettyBody(answer.body, answer.contentType) || '(empty)'}
+      </pre>
+      {answer.truncated && (
+        <span className="text-xs text-muted-foreground">Only the first 100 KB is shown.</span>
+      )}
+    </section>
+  )
+}

@@ -23,6 +23,11 @@ export const workflowRunSteps = pgTable(
     error: text('error'),
     startedAt: text('started_at'),
     endedAt: text('ended_at'),
+    // What the step returned (JSON text), cut at the stored size; read one step at a time.
+    output: text('output'),
+    outputTruncated: integer('output_truncated').notNull().default(0),
+    // Each try, oldest first: [{ start, end, error }] as JSON text.
+    attempts: text('attempts'),
     createdAt: isoTimestamp('created_at')
       .notNull()
       .default(sql`now()`),

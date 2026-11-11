@@ -144,7 +144,7 @@ function runColumns(
     {
       id: 'started',
       header: 'Started',
-      width: '120px',
+      width: '150px',
       cell: (run) => <span className="text-muted-foreground">{timeAgo(run.createdAt)}</span>,
     },
   ]

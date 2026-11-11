@@ -12,6 +12,8 @@ import type {
   DeploymentConfigUiSchema,
   DeploymentConfigValidator,
   DeploymentConfigPreview,
+  FunctionCallRequest,
+  FunctionCallResult,
 } from './types.js'
 
 export interface CredentialsCheckResult {
@@ -88,6 +90,11 @@ export interface ProviderCapabilities {
   scheduleConfigKey?: string
   /** How a deployment is reached; `{deploymentId}` is substituted. */
   runUrlTemplate?: string
+  /**
+   * Regex source (case-insensitive) for the deployment URLs `callFunction`
+   * will call; absent = none. A hint for the UI — the provider still checks.
+   */
+  callableUrlPattern?: string
 }
 
 export interface WorkflowProvider {
@@ -172,6 +179,13 @@ export interface WorkflowProvider {
   ): Record<string, unknown>
 
   deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult>
+
+  /**
+   * Calls a deployed function from the server: a POST of the body to its URL.
+   * The provider decides which URLs it will call (a URL a user can set must
+   * not point the server at an internal host). Absent = no calling from here.
+   */
+  callFunction?(request: FunctionCallRequest): Promise<FunctionCallResult>
 
   getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus>
 

@@ -32,6 +32,15 @@ describe('mapInstanceSteps', () => {
         end: '2026-10-08T00:00:05Z',
         attemptCount: 2,
         error: { name: 'Error', message: 'boom' },
+        // Each try, oldest first, for the run page's selected step.
+        attempts: [
+          {
+            start: '2026-10-08T00:00:00Z',
+            end: '2026-10-08T00:00:02Z',
+            error: { name: 'Error', message: 'boom' },
+          },
+          { start: '2026-10-08T00:00:03Z', end: '2026-10-08T00:00:05Z' },
+        ],
       },
     ])
   })

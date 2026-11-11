@@ -57,7 +57,7 @@ export function RecentRunsCard({ runs, neverDeployed, runsHref, runHref }: Recen
                   <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
                     {tookLabel(runDurationMs(run))}
                   </span>
-                  <span className="w-16 text-right text-xs text-muted-foreground">
+                  <span className="w-fit text-right text-xs text-muted-foreground">
                     {timeAgo(run.createdAt)}
                   </span>
                 </ShellLink>

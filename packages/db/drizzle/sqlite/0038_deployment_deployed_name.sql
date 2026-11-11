@@ -1,0 +1,1 @@
+ALTER TABLE `deployments` ADD `deployed_name` text;

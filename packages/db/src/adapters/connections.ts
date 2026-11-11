@@ -22,6 +22,8 @@ import type {
   ConnectionWrite,
   DeployConfigLookup,
   DeployedConnection,
+  LiveService,
+  RunControlTarget,
   ExpiringConnectionsCheck,
   ProjectSetupCounts,
 } from '../types.js'
@@ -42,6 +44,7 @@ import {
 import type { RoleFields } from './role-fields.js'
 import { reachesProject } from './variable-reach.js'
 import { isProjectsAccount, servesProject } from './connection-reach.js'
+import { latestDeployedName } from './deployment-snapshot.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -53,6 +56,7 @@ export interface ConnectionTables {
   projects: AnyTable
   deployments: AnyTable
   deploymentConfigs: AnyTable
+  workflowRuns: AnyTable
   member: AnyTable
   user: AnyTable
   notifications: AnyTable
@@ -336,6 +340,8 @@ export class ConnectionsAdapter {
         deployedVersionId: sql<string | null>`(${newestDeploy(live.versionId)})`,
         // Its number outlives the version row.
         deployedVersionNumber: sql<number | null>`(${newestDeploy(live.versionNumber)})`,
+        // What the provider calls it there: a trigger starts its runs under that name.
+        deployedName: sql<string | null>`(${newestDeploy(live.deployedName)})`,
       })
       .from(this.table)
       .where(
@@ -350,6 +356,104 @@ export class ConnectionsAdapter {
     if (!row) return null
     row.credentials = await this.tryDecrypt(row.credentials)
     return this.withFresh(row)
+  }
+
+  /**
+   * A connection row read alongside something else, made usable: decrypted,
+   * renewed when due. Never rejects — a failed decrypt keeps the stored value,
+   * a failed renewal the current token — so callers can treat it as a lookup.
+   */
+  async hydrate(row: Connection): Promise<Connection> {
+    return this.withFresh({ ...row, credentials: await this.tryDecrypt(row.credentials) })
+  }
+
+  /**
+   * A run of that workflow with what controlling it needs — its status and
+   * instance, the name its provider knows the workflow by (the run's own
+   * record, else its deploy's), and its account, joined only when the account
+   * is the organization's — one statement. Credentials decrypted (and renewed
+   * when due) as `getById` does. Null when there is no such run.
+   */
+  async getRunControl(
+    runId: string,
+    workflowId: string,
+    organizationId: string,
+  ): Promise<RunControlTarget | null> {
+    const r = this.t.workflowRuns
+    const rows = await this.db
+      .select({
+        runId: r.id,
+        status: r.status,
+        instanceId: r.instanceId,
+        connectionId: r.connectionId,
+        deployedName: sql<
+          string | null
+        >`coalesce(${r.deployedName}, ${latestDeployedName(this.t.deployments, r)})`,
+        connection: this.table,
+      })
+      .from(r)
+      .leftJoin(
+        this.table,
+        and(eq(this.table.id, r.connectionId), eq(this.table.organizationId, organizationId)),
+      )
+      .where(and(eq(r.id, runId), eq(r.workflowId, workflowId)))
+      .limit(1)
+    const row = rows[0] as
+      (Omit<RunControlTarget, 'connection'> & { connection: Connection | null }) | undefined
+    if (!row) return null
+    const connection = row.connection?.id ? await this.hydrate(row.connection) : null
+    return {
+      runId: row.runId,
+      status: row.status,
+      instanceId: row.instanceId,
+      connectionId: row.connectionId,
+      deployedName: row.deployedName ?? null,
+      connection,
+    }
+  }
+
+  /**
+   * Where a workflow is live on one of the organization's accounts — the
+   * provider, and the URL and version of its newest successful deploy there —
+   * one statement, without reading the credentials. Null when it isn't live there.
+   */
+  async getLiveService(
+    id: string,
+    organizationId: string,
+    workflowId: string,
+  ): Promise<LiveService | null> {
+    const live = aliasedTable(this.t.deployments, 'cls')
+    const where = sql`${live.connectionId} = ${id} and ${live.workflowId} = ${workflowId} and ${live.status} = 'success'`
+    // Matched by the bound id: an outer column in a select list renders unqualified.
+    const newest = <T>(column: unknown) =>
+      sql<T>`(select ${column} from ${aliasedFrom(live)} where ${where} order by ${live.createdAt} desc, ${live.id} desc limit 1)`
+    const rows = await this.db
+      .select({
+        provider: this.table.provider,
+        serviceUrl: newest<string | null>(live.serviceUrl),
+        versionId: newest<string | null>(live.versionId),
+        versionNumber: newest<number | null>(live.versionNumber),
+        deployed: sql<unknown>`exists (select 1 from ${aliasedFrom(live)} where ${where})`,
+      })
+      .from(this.table)
+      .where(and(eq(this.table.id, id), eq(this.table.organizationId, organizationId)))
+      .limit(1)
+    const row = rows[0] as
+      | {
+          provider: string
+          serviceUrl: string | null
+          versionId: string | null
+          versionNumber: number | string | null
+          deployed: unknown
+        }
+      | undefined
+    if (!row || !truthy(row.deployed)) return null
+    return {
+      provider: row.provider,
+      serviceUrl: row.serviceUrl ?? null,
+      versionId: row.versionId ?? null,
+      versionNumber: row.versionNumber === null ? null : Number(row.versionNumber),
+    }
   }
 
   /**

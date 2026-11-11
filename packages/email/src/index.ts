@@ -339,6 +339,8 @@ export async function renderRunFailedEmail(props: {
   workspaceName?: string
   /** `recovered` for the one mail sent when runs pass again. */
   state?: 'failing' | 'recovered'
+  /** A call to a function failed, not a workflow run. */
+  call?: boolean
   /** How many of the recent runs failed, "3" of "4". */
   failedRuns?: number
   recentRuns?: number
@@ -359,17 +361,21 @@ export async function renderRunFailedEmail(props: {
   const stepLine = props.stepName ? `at step “${props.stepName}”` : 'before finishing'
   const counted = props.failedRuns !== undefined && props.recentRuns !== undefined
   const stoppedAt = props.stepName ? 'at the same step' : 'before finishing'
-  const leadLine = recovered
-    ? `Runs of ${props.workflowName} in ${props.placeName} are passing again.`
-    : counted
-      ? props.failedRuns === props.recentRuns
-        ? `The last ${props.recentRuns === 1 ? 'run' : `${props.recentRuns} runs`} stopped ${stoppedAt}. Runs that start from now on will hit it too until it’s fixed.`
-        : `${props.failedRuns} of the last ${plural(props.recentRuns!, 'run')} stopped ${stoppedAt}. Runs that start from now on will hit it too until it’s fixed.`
-      : `A run of ${props.workflowName} in ${props.placeName} failed ${stepLine}. Its runs in ${appName} show the error.`
+  const leadLine = props.call
+    ? `A call to ${props.workflowName} in ${props.placeName} failed. Its runs in ${appName} show what it answered.`
+    : recovered
+      ? `Runs of ${props.workflowName} in ${props.placeName} are passing again.`
+      : counted
+        ? props.failedRuns === props.recentRuns
+          ? `The last ${props.recentRuns === 1 ? 'run' : `${props.recentRuns} runs`} stopped ${stoppedAt}. Runs that start from now on will hit it too until it’s fixed.`
+          : `${props.failedRuns} of the last ${plural(props.recentRuns!, 'run')} stopped ${stoppedAt}. Runs that start from now on will hit it too until it’s fixed.`
+        : `A run of ${props.workflowName} in ${props.placeName} failed ${stepLine}. Its runs in ${appName} show the error.`
   const [splitProject, splitWorkspace] = props.placeName.split(' · ')
   const project = props.projectName ?? (props.workspaceName ? undefined : splitProject)
   const workspace = props.workspaceName ?? (props.projectName ? undefined : splitWorkspace)
-  const rows: DetailRow[] = [{ label: 'Workflow', value: props.workflowName }]
+  const rows: DetailRow[] = [
+    { label: props.call ? 'Function' : 'Workflow', value: props.workflowName },
+  ]
   rows.push(
     workspace
       ? { label: 'Workspace', value: workspace, sub: project ? `in ${project}` : undefined }
@@ -383,9 +389,11 @@ export async function renderRunFailedEmail(props: {
     rows.push({ label: 'Last failure', value: props.lastFailure })
   const subject = recovered
     ? `${props.workflowName} recovered`
-    : counted
-      ? `${props.workflowName} failed ${plural(props.failedRuns!, 'time')} in the last hour`
-      : `${props.workflowName} failed`
+    : props.call
+      ? `A call to ${props.workflowName} failed`
+      : counted
+        ? `${props.workflowName} failed ${plural(props.failedRuns!, 'time')} in the last hour`
+        : `${props.workflowName} failed`
   const html = fill(recovered ? RUN_RECOVERED_HTML : RUN_FAILED_HTML, {
     __RUNS_URL__: props.url,
     __HEADLINE__: recovered
@@ -395,7 +403,9 @@ export async function renderRunFailedEmail(props: {
     __LEAD_LINE__: leadLine,
     __RUNS_HTML__: props.runHistory ? runsStrip(props.runHistory) : '',
     __ROWS_HTML__: detailRows(rows),
-    __OPEN_WORKFLOW_HTML__: props.workflowUrl ? link(props.workflowUrl, 'Open workflow') : '',
+    __OPEN_WORKFLOW_HTML__: props.workflowUrl
+      ? link(props.workflowUrl, props.call ? 'Open function' : 'Open workflow')
+      : '',
     __NOTE_LINE__: recovered
       ? 'This is the only email about this recovery.'
       : 'You’ll get one email per hour at most while it keeps failing, and one when it recovers.',

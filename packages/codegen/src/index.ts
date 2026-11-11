@@ -9,6 +9,7 @@ export type {
   WorkflowRunStatus,
   WorkflowRunDetail,
   RunStepDetail,
+  RunStepAttempt,
   RunStepDetailKind,
   RunStepDetailStatus,
   LocalDevSession,
@@ -23,6 +24,9 @@ export type {
   DeploymentConfigValidator,
   DeploymentConfigPreview,
   DeployConfigResponse,
+  FunctionCallRequest,
+  FunctionCallResult,
+  FunctionCallResponse,
   DiagnosticSource,
   SourceDiagnostic,
 } from './types.js'
@@ -90,7 +94,7 @@ export {
   bundleDeployFiles,
   bundlePackageManifest,
 } from './bundle.js'
-export { GenerateInputError } from './errors.js'
+export { GenerateInputError, RunGoneError } from './errors.js'
 export { escName } from './var-names.js'
 export { computeVarNames, createGenerationContext, childContext } from './context.js'
 export type { GenerationContext, GenerationContextOptions } from './context.js'

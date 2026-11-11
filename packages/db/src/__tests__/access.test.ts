@@ -424,7 +424,8 @@ describe.each([
     })
 
     it('lists the org’s members with where they can work, in the viewer’s projects', async () => {
-      const asAma = await h.adapter.listOrgMembers('org-acme', 'u-ama')
+      // An org admin's list (the API passes seeAll for them) names everyone, Fay — in no project — too.
+      const asAma = await h.adapter.listOrgMembers('org-acme', 'u-ama', { seeAll: true })
       const places = Object.fromEntries(
         asAma.map((m) => [
           m.id,
@@ -440,18 +441,21 @@ describe.each([
         'u-gus': [['Project 101', 2, 'Ops', 'editor']],
       })
       expect(asAma.find((m) => m.id === 'u-dan')!.joinedAt).toBe(T0)
+      // Without seeAll, only people the viewer shares a place with: Fay shares none.
+      const scoped = await h.adapter.listOrgMembers('org-acme', 'u-ama')
+      expect(scoped.map((m) => m.id)).not.toContain('u-fay')
       // Fay can open no project: she sees nobody's places.
       const asFay = await h.adapter.listOrgMembers('org-acme', 'u-fay')
       expect(asFay.every((m) => m.places.length === 0)).toBe(true)
-      // Eve can open Sales only: Gus's Ops place is not named to her, and
-      // Project 101 counts one workspace for her.
+      // Eve can open Sales only: Project 101 counts one workspace for her, and
+      // Gus — only in Ops — shares no place with her, so he isn't listed.
       const asEve = await h.adapter.listOrgMembers('org-acme', 'u-eve')
       const eveSees = Object.fromEntries(
         asEve.map((m) => [m.id, m.places.map((p) => [p.workspaceCount, p.workspaceName, p.role])]),
       )
       expect(eveSees['u-dan']).toEqual([[1, null, 'member']])
       expect(eveSees['u-eve']).toEqual([[1, 'Sales', 'viewer']])
-      expect(eveSees['u-gus']).toEqual([])
+      expect(eveSees['u-gus']).toBeUndefined()
       // A workspace row someone holds in a project they are in project-wide adds nothing, and is left out.
       await h.db.insert(h.schema.workspaceMembers).values({
         workspaceId: 'ws-sales',

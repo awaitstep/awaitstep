@@ -43,6 +43,7 @@ import { audit } from './audit.js'
 import { notifications } from './notifications.js'
 import { releases } from './releases.js'
 import { deploy } from './deploy.js'
+import { functionCall } from './function-call.js'
 import { runs } from './runs.js'
 import { apiKeys } from './api-keys.js'
 import { envVars } from './env-vars.js'
@@ -247,6 +248,7 @@ export function createRouter(
   router.use('/workflows/:workflowId/deploy-config-preview', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-stream', requireWorkflowAccess)
   router.use('/workflows/:workflowId/trigger', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/call', requireWorkflowAccess)
   router.use('/workflows/:workflowId/takedown', requireWorkflowAccess)
   router.use('/workflows/:workflowId/runs/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deployments', requireWorkflowAccess)
@@ -280,9 +282,12 @@ export function createRouter(
   router.put('/workflows/:id/share', requireWorkspaceCan('share'))
   for (const path of [
     '/workflows/:workflowId/trigger',
+    // Calling a function is running it, as a trigger runs a workflow.
+    '/workflows/:workflowId/call',
     '/workflows/:workflowId/runs/:runId/pause',
     '/workflows/:workflowId/runs/:runId/resume',
     '/workflows/:workflowId/runs/:runId/terminate',
+    '/workflows/:workflowId/runs/:runId/run-again',
   ]) {
     router.post(path, requireWorkspaceCan('run'))
   }
@@ -416,9 +421,11 @@ export function createRouter(
   router.post('/workflows/:workflowId/deploy-stream', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/takedown', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/trigger', key('workflows', 'run'))
+  router.post('/workflows/:workflowId/call', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/pause', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/resume', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/terminate', key('workflows', 'run'))
+  router.post('/workflows/:workflowId/runs/:runId/run-again', key('workflows', 'run'))
   router.post('/test-sessions/:sessionId/trigger', key('workflows', 'run'))
   router.delete('/test-sessions/:sessionId', key('workflows', 'run'))
   for (const path of [
@@ -427,6 +434,8 @@ export function createRouter(
     '/workflows/:workflowId/runs',
     '/workflows/:workflowId/runs/:runId',
     '/workflows/:workflowId/runs/:runId/steps',
+    '/workflows/:workflowId/runs/:runId/steps/:stepId',
+    '/workflows/:workflowId/runs/:runId/params',
     '/workflows/:workflowId/runs/:runId/stream',
     '/workflows/:workflowId/deployments',
   ]) {
@@ -514,6 +523,10 @@ export function createRouter(
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
   router.use('/workflows/:workflowId/trigger', writeLimit)
+  // A call can hold an outbound request open for 30 s: as many a minute as triggers.
+  router.use('/workflows/:workflowId/call', writeLimit)
+  // Running again starts a run or makes a call: the same limit.
+  router.use('/workflows/:workflowId/runs/:runId/run-again', writeLimit)
   // Starting a session is the expensive verb; reading one is a poll, and
   // sharing the deploy limiter let polling spend the budget for deploys.
   router.post('/workflows/:workflowId/test-sessions', deployLimit)
@@ -577,6 +590,7 @@ export function createRouter(
   router.route('/workflows', source)
   router.route('/workflows', projectFiles)
   router.route('/workflows', deploy)
+  router.route('/workflows', functionCall)
   router.route('/workflows', runs)
   router.route('/workflows', workflowTestSessions)
   router.route('/', testSessions)

@@ -6,6 +6,12 @@ import type {
   Connection,
   DeployConfigLookup,
   DeployedConnection,
+  LiveService,
+  RunControlTarget,
+  RunDetail,
+  CreateRunData,
+  RunStepExtras,
+  RunSyncTarget,
   VersionDeleteCheck,
   LatestVersionForSave,
   ConnectionCoverage,
@@ -27,7 +33,6 @@ import type {
   WorkflowRun,
   RunStepsResult,
   UpsertRunStepData,
-  ActiveRunForSync,
   Deployment,
   DeploymentConfig,
   ApiKey,
@@ -647,6 +652,12 @@ export interface DatabaseAdapter {
     projectId: string,
     workflowId: string,
   ): Promise<DeployConfigLookup | null>
+  /** Where the workflow is live on that account (provider, URL), without its credentials; null if not live there. */
+  getLiveService(
+    id: string,
+    organizationId: string,
+    workflowId: string,
+  ): Promise<LiveService | null>
   /** The org's connection, only if the workflow has a successful deployment made with it. */
   getConnectionDeployedWith(
     id: string,
@@ -743,16 +754,27 @@ export interface DatabaseAdapter {
   listDeployTargets(projectId: string, workspaceId: string | null): Promise<DeployTargetRow[]>
 
   // Workflow Runs
-  createRun(data: {
-    id: string
-    workflowId: string
-    versionId: string | null
-    versionNumber: number | null
-    connectionId: string
-    instanceId: string
-    status: string
-  }): Promise<WorkflowRun>
-  getWorkflowRunById(id: string): Promise<WorkflowRun | null>
+  createRun(data: CreateRunData): Promise<WorkflowRun>
+  /** One run's sync row with its account (only the organization's), read together. */
+  getRunForSyncWithAccount(
+    runId: string,
+    workflowId: string,
+    organizationId: string,
+  ): Promise<RunSyncTarget | null>
+  /** One run of that workflow in the columns its page shows; null when it isn't that workflow's. */
+  getRunDetail(runId: string, workflowId: string): Promise<RunDetail | null>
+  /** The payload a run was started with; with an account, only a run started on it. */
+  getRunParams(
+    runId: string,
+    workflowId: string,
+    connectionId?: string,
+  ): Promise<{ params: string | null } | null>
+  /** A run with its control name and, only when it is the organization's, its account; one read. */
+  getRunControl(
+    runId: string,
+    workflowId: string,
+    organizationId: string,
+  ): Promise<RunControlTarget | null>
   listRunsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
@@ -773,11 +795,13 @@ export interface DatabaseAdapter {
     pagination?: PaginationParams,
     visibleTo?: string,
   ): Promise<PaginatedResult<WorkflowRun>>
-  listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]>
-  getRunForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null>
+  /** The active runs for the sync loop, each with its account (its workflow's organization's), in one read. */
+  listActiveRunsForSyncWithAccounts(limit?: number): Promise<RunSyncTarget[]>
 
   // Run steps (per-step telemetry)
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void>
+  /** One step's output and tries, only for that run of that workflow. */
+  getRunStepExtras(stepId: string, runId: string, workflowId: string): Promise<RunStepExtras | null>
   listRunSteps(runId: string, workflowId: string): Promise<RunStepsResult>
 
   // Project files (user-authored modules/assets/config, folded into the IR at prepare)
@@ -867,6 +891,8 @@ export interface DatabaseAdapter {
     connectionId: string
     serviceName: string
     serviceUrl?: string
+    /** The provider's name for what was deployed, which its runs are found under. */
+    deployedName?: string
     status: string
     error?: string
     configSnapshot?: string

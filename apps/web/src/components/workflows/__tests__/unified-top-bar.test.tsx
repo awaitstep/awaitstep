@@ -65,6 +65,7 @@ function codeBar() {
       canEdit
       saving={false}
       onSave={vi.fn()}
+      onDeploy={vi.fn()}
     />,
   )
 }
@@ -104,7 +105,7 @@ describe('the bar on both surfaces', () => {
     expect(screen.getAllByText('deployed v3').length).toBeGreaterThan(0)
   })
 
-  it('gives the canvas the code preview and Code the canvas preview, and Code no Deploy', () => {
+  it('gives the canvas the code preview and Code the canvas preview; Deploy follows the props', () => {
     const canvas = canvasBar()
     expect(screen.getByRole('button', { name: /generated code preview/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Deploy' })).toBeInTheDocument()
@@ -112,9 +113,8 @@ describe('the bar on both surfaces', () => {
     const code = codeBar()
     expect(screen.getByRole('button', { name: /canvas preview/ })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /generated code preview/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Deploy' })).toBeNull()
-    // The slot stays, empty, so ⋯ does not move.
-    expect(code.container.querySelector('[data-zone=deploy]')?.children).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Deploy' })).toBeInTheDocument()
+    expect(code.container.querySelector('[data-zone=deploy]')?.children).toHaveLength(1)
   })
 
   it('names the Save control for what it saves on each surface', () => {
@@ -336,7 +336,7 @@ describe('the bar does not need the window to be a given size', () => {
     expect(grid.className).toContain('grid-cols-[minmax(2.5rem,1fr)_auto_minmax(max-content,1fr)]')
   })
 
-  it('reserves the empty Deploy slot on Code only where there is room, and never as dead width below', () => {
+  it('reserves an empty Deploy slot where there is room, and never as dead width below', () => {
     const { container } = render(<UnifiedTopBar {...barProps({ surface: 'code' })} />)
     const slot = container.querySelector('[data-zone=deploy]')!
     expect(slot.className).toMatch(/\bhidden\b/)

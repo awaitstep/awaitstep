@@ -185,5 +185,5 @@ function runsLine(runs: { all: number; failed: number; ranEver?: boolean }): str
 }
 
 function failedLine(failed: number): string {
-  return failed === 0 ? 'None failed' : `${failed} failed`
+  return failed === 0 ? '0 failed' : `${failed} failed`
 }

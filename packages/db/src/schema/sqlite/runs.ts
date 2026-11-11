@@ -17,6 +17,16 @@ export const workflowRuns = sqliteTable(
     versionNumber: integer('version_number'),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
+    // The name the run was started under on the provider (the deploy's name for the workflow),
+    // so a rename and redeploy later doesn't lose it. Null on runs from before it was kept.
+    // How it was started ('dashboard' | 'api'), and the payload it was started with (JSON).
+    // Null on runs from before they were kept.
+    trigger: text('trigger'),
+    params: text('params'),
+    // A function call's answer: its HTTP status and how long it took. Null for workflow runs.
+    responseStatus: integer('response_status'),
+    durationMs: integer('duration_ms'),
+    deployedName: text('deployed_name'),
     status: text('status').notNull().default('queued'),
     output: text('output'),
     error: text('error'),

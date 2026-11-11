@@ -393,6 +393,16 @@ export const workflowRuns = sqliteTable(
     versionNumber: integer('version_number'),
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     instanceId: text('instance_id').notNull(),
+    // The name the run was started under on the provider (the deploy's name for the workflow),
+    // so a rename and redeploy later doesn't lose it. Null on runs from before it was kept.
+    // How it was started ('dashboard' | 'api'), and the payload it was started with (JSON).
+    // Null on runs from before they were kept.
+    trigger: text('trigger'),
+    params: text('params'),
+    // A function call's answer: its HTTP status and how long it took. Null for workflow runs.
+    responseStatus: integer('response_status'),
+    durationMs: integer('duration_ms'),
+    deployedName: text('deployed_name'),
     status: text('status').notNull().default('queued'),
     output: text('output'),
     error: text('error'),
@@ -418,6 +428,11 @@ export const workflowRunSteps = sqliteTable(
     error: text('error'),
     startedAt: text('started_at'),
     endedAt: text('ended_at'),
+    // What the step returned (JSON text), cut at the stored size; read one step at a time.
+    output: text('output'),
+    outputTruncated: integer('output_truncated').notNull().default(0),
+    // Each try, oldest first: [{ start, end, error }] as JSON text.
+    attempts: text('attempts'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -529,6 +544,7 @@ export const deployments = sqliteTable(
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),
+    deployedName: text('deployed_name'),
     status: text('status').notNull().default('success'),
     error: text('error'),
     configSnapshot: text('config_snapshot'),

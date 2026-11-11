@@ -271,11 +271,12 @@ describe.each([
         REGION: 2,
         LOG_LEVEL: 0,
       })
-      // Eve opens Project 101 (through Sales), not Project 202; Fay opens nothing.
+      // Eve opens Project 101 (through Sales), not Project 202. Fay opens nothing, so no
+      // org variable reaches a place of hers and none is listed (an admin's seeAll would).
       const forEve = await h.adapter.listEnvVarsByOrganization('org-acme', undefined, 'u-eve')
       expect(forEve.data.find((v) => v.name === 'REGION')!.overriddenIn).toBe(1)
       const forFay = await h.adapter.listEnvVarsByOrganization('org-acme', undefined, 'u-fay')
-      expect(forFay.data.find((v) => v.name === 'REGION')!.overriddenIn).toBe(0)
+      expect(forFay.data).toEqual([])
     })
 
     it('counts an override in a workspace only for someone who can open that workspace', async () => {

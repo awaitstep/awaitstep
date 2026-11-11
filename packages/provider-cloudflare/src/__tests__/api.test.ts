@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { CloudflareAPI } from '../api.js'
+import { CloudflareApiError, goneFrom } from '../api-error.js'
 
 describe('CloudflareAPI input validation', () => {
   const api = new CloudflareAPI({ accountId: 'test-account', apiToken: 'test-token' })
@@ -82,5 +83,43 @@ describe('CloudflareAPI createInstance retention', () => {
     await api.createInstance('my-workflow', undefined, undefined, { errorRetention: '30 days' })
     const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)
     expect(body.instance_retention).toEqual({ error_retention: '30 days' })
+  })
+})
+
+describe('CloudflareAPI refusals', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  function answer(status: number, errors: Array<{ message: string; code?: number }>) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ success: false, errors }), { status })),
+    )
+  }
+
+  it('carries the status and Cloudflare’s code, with the message as before', async () => {
+    answer(404, [{ message: 'workflows.api.error.workflow.not_found', code: 10200 }])
+    const api = new CloudflareAPI({ accountId: 'acct', apiToken: 'tok' })
+    const err = await api.getInstanceStatus('my-workflow', 'inst-1').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(CloudflareApiError)
+    expect(err).toMatchObject({
+      message: 'workflows.api.error.workflow.not_found',
+      status: 404,
+      code: 10200,
+    })
+  })
+
+  it('reads a run as gone only from Cloudflare’s own not_found, on a 404', () => {
+    expect(goneFrom(new CloudflareApiError('workflows.api.error.workflow.not_found', 404))).toBe(
+      'workflow',
+    )
+    expect(goneFrom(new CloudflareApiError('workflows.api.error.instance.not_found', 404))).toBe(
+      'instance',
+    )
+    // A 404 that isn't about the run (a wrong account id, a route), another status, another error.
+    expect(goneFrom(new CloudflareApiError('Could not route to /accounts/x', 404))).toBeNull()
+    expect(
+      goneFrom(new CloudflareApiError('workflows.api.error.workflow.not_found', 500)),
+    ).toBeNull()
+    expect(goneFrom(new Error('workflows.api.error.workflow.not_found'))).toBeNull()
   })
 })

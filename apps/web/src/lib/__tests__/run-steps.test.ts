@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { RunStep } from '../api-client'
 import {
   buildRunTimeline,
+  graphShapeOf,
   isInterruptedStep,
   mapRunStepsToNodeStatuses,
   stepToNodeStatus,
@@ -109,6 +110,184 @@ describe('mapRunStepsToNodeStatuses', () => {
       'complete',
     )
     expect(Object.keys(statuses)).toEqual([])
+  })
+})
+
+describe('the canvas overlay of a run', () => {
+  // entry → branch; the branch's then-path runs a, its else-path b; a try/catch holds c;
+  // a wait w with a timeout.
+  const node = (id: string, type: string) =>
+    ({
+      id,
+      type,
+      name: id,
+      position: { x: 0, y: 0 },
+      version: '1',
+      provider: 'cloudflare',
+      data: {},
+    }) as never
+  const graph = {
+    nodes: [
+      node('entry', 'step'),
+      node('br', 'branch'),
+      node('a', 'step'),
+      node('b', 'step'),
+      node('tc', 'try_catch'),
+      node('c', 'step'),
+      node('h', 'step'),
+      node('w', 'wait_for_event'),
+    ],
+    edges: [
+      { id: 'e1', source: 'entry', target: 'br' },
+      { id: 'e2', source: 'br', target: 'a', label: 'then' },
+      { id: 'e3', source: 'br', target: 'b', label: 'else' },
+      { id: 'e4', source: 'tc', target: 'c', label: 'try' },
+      { id: 'e5', source: 'tc', target: 'h', label: 'catch' },
+    ],
+  }
+  const ids = graph.nodes.map((n: { id: string }) => n.id)
+  const containment = graphShapeOf(graph)
+
+  it('colours nothing for a run that reported no steps (it never started, or is gone)', () => {
+    // Nothing is guessed from the graph: both arms of a wait were painted done before.
+    expect(mapRunStepsToNodeStatuses(ids, [], {}, 'errored', containment)).toEqual({})
+  })
+
+  it('colours the nodes that report no step but certainly ran — never an arm nothing says ran', () => {
+    // The example: entry → sleep → step → wait (onEvent: sunny, onTimeout: no_sunny) → after.
+    const example = {
+      nodes: ['entry', 'sleep', 'step1', 'wait', 'sunny', 'no_sunny', 'after'].map((id) =>
+        node(id, id === 'wait' ? 'wait_for_event' : id === 'sleep' ? 'sleep' : 'step'),
+      ),
+      edges: [
+        { id: 'a', source: 'entry', target: 'sleep' },
+        { id: 'b', source: 'sleep', target: 'step1' },
+        { id: 'c', source: 'step1', target: 'wait' },
+        { id: 'd', source: 'wait', target: 'sunny', label: 'onEvent' },
+        { id: 'e', source: 'wait', target: 'no_sunny', label: 'onTimeout' },
+        { id: 'f', source: 'sunny', target: 'after' },
+        { id: 'g', source: 'no_sunny', target: 'after' },
+      ],
+    }
+    const statuses = mapRunStepsToNodeStatuses(
+      example.nodes.map((n: { id: string }) => n.id),
+      [
+        step({ stepName: 'sleep-1', kind: 'sleep' }),
+        step({ stepName: 'step1-1' }),
+        step({
+          stepName: 'wait-1',
+          kind: 'waitForEvent',
+          status: 'errored',
+          error: 'WorkflowTimeoutError: Execution timed out after 30000ms',
+        }),
+        step({ stepName: 'after-1' }),
+      ],
+      {},
+      'complete',
+      graphShapeOf(example),
+    )
+    expect(statuses).toMatchObject({
+      entry: 'complete', // everything after it ran
+      wait: 'timed_out',
+      no_sunny: 'complete', // the arm a timed-out wait takes, and the step after it ran
+      after: 'complete',
+    })
+    expect(statuses.sunny).toBeUndefined()
+  })
+
+  it('never infers which arm of a branch ran', () => {
+    const statuses = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'entry' })],
+      {},
+      'complete',
+      containment,
+    )
+    expect(statuses.a).toBeUndefined()
+    expect(statuses.b).toBeUndefined()
+  })
+
+  it('reads the entry of a completed run as done even when no step was durable', () => {
+    expect(mapRunStepsToNodeStatuses(ids, [], {}, 'complete', containment).entry).toBe('complete')
+  })
+
+  it('names a step Cloudflare reported with its occurrence count', () => {
+    const statuses = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'entry-1', status: 'complete' })],
+      {},
+      'complete',
+    )
+    expect(statuses.entry).toBe('complete')
+  })
+
+  it('reads a wait that timed out as timed out, not failed', () => {
+    const statuses = mapRunStepsToNodeStatuses(
+      ids,
+      [
+        step({
+          stepName: 'w-1',
+          kind: 'waitForEvent',
+          status: 'errored',
+          error: 'WorkflowTimeoutError: Execution timed out after 30000ms',
+        }),
+      ],
+      {},
+      'complete',
+    )
+    expect(statuses.w).toBe('timed_out')
+  })
+
+  it('colours a container from its children: green done, red failed, blue running', () => {
+    const done = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'a' })],
+      {},
+      'complete',
+      containment,
+    )
+    expect(done.br).toBe('complete')
+    const failed = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'a', status: 'errored' })],
+      {},
+      'errored',
+      containment,
+    )
+    expect(failed.br).toBe('errored')
+    const running = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'a', status: 'running', endedAt: null })],
+      {},
+      'running',
+      containment,
+    )
+    expect(running.br).toBe('running')
+  })
+
+  it('reads a try/catch that handled a failure as done, with the failed step still red', () => {
+    const statuses = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'c', status: 'errored' }), step({ stepName: 'h' })],
+      {},
+      'complete',
+      containment,
+    )
+    expect(statuses.c).toBe('errored')
+    expect(statuses.tc).toBe('complete')
+  })
+
+  it('reads a branch the completed run went through as done, and neither arm', () => {
+    const statuses = mapRunStepsToNodeStatuses(
+      ids,
+      [step({ stepName: 'entry' })],
+      {},
+      'complete',
+      containment,
+    )
+    expect(statuses.br).toBe('complete')
+    expect(statuses.a).toBeUndefined()
+    expect(statuses.b).toBeUndefined()
   })
 })
 

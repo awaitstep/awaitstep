@@ -88,7 +88,9 @@ export function createEmailService(options: EmailServiceOptions) {
       await resend.emails.send({
         from,
         to: data.to,
-        subject: subjectText(`${data.workflowName} failed`),
+        subject: subjectText(
+          data.call ? `A call to ${data.workflowName} failed` : `${data.workflowName} failed`,
+        ),
         html,
         text,
       })
@@ -143,7 +145,8 @@ export function createAppEmails(options: {
     },
     async sendRunFailed(data) {
       if (options.service) return options.service.sendRunFailed(data)
-      options.log(`${data.workflowName} failed; told ${data.to}: ${data.url} (no email service)`)
+      const what = data.call ? `A call to ${data.workflowName}` : data.workflowName
+      options.log(`${what} failed; told ${data.to}: ${data.url} (no email service)`)
     },
   }
 }

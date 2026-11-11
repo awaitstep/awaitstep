@@ -1,6 +1,9 @@
+import { sanitizedWorkflowName } from '../naming.js'
+import { CloudflareApiError } from '../api-error.js'
 import { describe, it, expect, vi } from 'vitest'
 import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import type { ProviderConfig } from '@awaitstep/codegen'
+import { RunGoneError } from '@awaitstep/codegen'
 import { providerEntrySource } from './codegen/bundle-source.js'
 import {
   CloudflareWorkflowsAdapter,
@@ -19,13 +22,21 @@ const mockDeployer: WranglerDeployer = {
   deleteWorker: vi.fn().mockResolvedValue({ success: true }),
 }
 
+/** The Workflow names run lookups asked Cloudflare for. */
+const lookedUp = vi.hoisted(() => ({ names: [] as string[], fail: null as Error | null }))
+
 vi.mock('../api.js', () => ({
   CloudflareAPI: class {
     async createInstance() {
       return { id: 'instance-abc' }
     }
-    async getInstanceStatus() {
+    async getInstanceStatus(workflowName: string) {
+      lookedUp.names.push(workflowName)
+      if (lookedUp.fail) throw lookedUp.fail
       return { id: 'instance-abc', status: 'complete', output: { result: 42 } }
+    }
+    async pauseInstance() {
+      if (lookedUp.fail) throw lookedUp.fail
     }
   },
 }))
@@ -152,6 +163,50 @@ describe('CloudflareWorkflowsAdapter', () => {
       const result = await adapter.deploy(artifact, providerConfig)
       expect(result.success).toBe(true)
       expect(result.deploymentId).toBe('awaitstep-test-workflow')
+    })
+
+    it('hands back the name it deployed under, which lookups name the Workflow from once', async () => {
+      const artifact = adapter.generate(simpleIR)
+      // Names the naming rule changes, and would change again if applied twice.
+      for (const name of ['Lead enrichment', '日本語', `${'x'.repeat(63)} y`]) {
+        const result = await adapter.deploy(artifact, {
+          ...providerConfig,
+          options: { ...providerConfig.options, workflowName: name },
+        })
+        expect(result.deployedName).toBe(name)
+        // The deployers name the Workflow sanitizedWorkflowName(name), once. A run lookup
+        // with the stored name must ask Cloudflare for that same Workflow.
+        lookedUp.names = []
+        await adapter.getRunDetail('i-1', {
+          ...providerConfig,
+          options: { workflowName: result.deployedName },
+        })
+        expect(lookedUp.names).toEqual([sanitizedWorkflowName(name)])
+      }
+    })
+
+    it('says a run is gone when Cloudflare has no such Workflow or instance, and nothing else', async () => {
+      const config = { ...providerConfig, options: { workflowName: 'Lead enrichment' } }
+      lookedUp.fail = new CloudflareApiError('workflows.api.error.workflow.not_found', 404)
+      await expect(adapter.getRunDetail('i-1', config)).rejects.toMatchObject({
+        name: 'RunGoneError',
+        what: 'workflow',
+      })
+      lookedUp.fail = new CloudflareApiError('workflows.api.error.instance.not_found', 404)
+      await expect(adapter.getRunDetail('i-1', config)).rejects.toMatchObject({ what: 'instance' })
+      // Run control says so too, instead of failing with Cloudflare's text.
+      await expect(
+        adapter.controlRun('pause', { workflowName: 'Lead enrichment', instanceId: 'i-1', config }),
+      ).rejects.toBeInstanceOf(RunGoneError)
+      // An outage, a refused token, or a 404 about something else is worth asking again.
+      for (const fail of [
+        new CloudflareApiError('Internal error', 500),
+        new CloudflareApiError('Could not route to /accounts/x', 404),
+      ]) {
+        lookedUp.fail = fail
+        await expect(adapter.getRunDetail('i-1', config)).rejects.not.toBeInstanceOf(RunGoneError)
+      }
+      lookedUp.fail = null
     })
 
     it('returns error when workflowId is missing', async () => {

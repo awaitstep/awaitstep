@@ -340,6 +340,203 @@ describe.each([
       expect(await on('c-1')).toBe('v-enrich-2')
       expect(await on('c-2')).toBe('v-enrich-1')
     })
+
+    it('syncs a run under its own name, else its deploy’s', async () => {
+      await h.adapter.createConnection(write())
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1', deployedName: 'From the deploy' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
+      const base = {
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        connectionId: 'c-1',
+        status: 'running',
+      }
+      await h.adapter.createRun({
+        ...base,
+        id: 'run-own',
+        instanceId: 'i-own',
+        deployedName: 'Started under',
+      })
+      await h.adapter.createRun({ ...base, id: 'run-old', instanceId: 'i-old' })
+      const names = new Map(
+        (await h.adapter.listActiveRunsForSyncWithAccounts()).map((e) => [
+          e.entry.run.id,
+          e.entry.deployedName,
+        ]),
+      )
+      expect(names.get('run-own')).toBe('Started under')
+      expect(names.get('run-old')).toBe('From the deploy')
+    })
+
+    it('reads what run control needs in one go, the account only when it is the organization’s', async () => {
+      await h.adapter.createConnection(write())
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1', deployedName: 'From the deploy' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
+      await h.adapter.createRun({
+        id: 'run-c',
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        connectionId: 'c-1',
+        instanceId: 'i-c',
+        status: 'running',
+      })
+      const target = await h.adapter.getRunControl('run-c', 'wf-enrich', 'org-acme')
+      expect(target).toMatchObject({
+        runId: 'run-c',
+        status: 'running',
+        instanceId: 'i-c',
+        connectionId: 'c-1',
+        deployedName: 'From the deploy',
+      })
+      expect(target?.connection?.credentials).toBe(CREDS)
+      // Another organization's caller gets the run but never its account.
+      expect(
+        (await h.adapter.getRunControl('run-c', 'wf-enrich', 'org-globex'))?.connection,
+      ).toBeNull()
+      // Another workflow's address finds nothing.
+      expect(await h.adapter.getRunControl('run-c', 'wf-sync', 'org-acme')).toBeNull()
+    })
+
+    it('reads a run’s sync row and its account together, the account only for its organization', async () => {
+      await h.adapter.createConnection(write())
+      await h.adapter.createRun({
+        id: 'run-s',
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        connectionId: 'c-1',
+        instanceId: 'i-s',
+        status: 'running',
+      })
+      const found = await h.adapter.getRunForSyncWithAccount('run-s', 'wf-enrich', 'org-acme')
+      expect(found?.entry.run.id).toBe('run-s')
+      expect(found?.entry.workflowName).toBe('Lead enrichment')
+      expect(found?.connection?.credentials).toBe(CREDS)
+      expect(
+        (await h.adapter.getRunForSyncWithAccount('run-s', 'wf-enrich', 'org-globex'))?.connection,
+      ).toBeNull()
+      expect(await h.adapter.getRunForSyncWithAccount('run-s', 'wf-sync', 'org-acme')).toBeNull()
+    })
+
+    it('lists active runs with their accounts in one read, an account only of the workflow’s organization', async () => {
+      await h.adapter.createConnection(write())
+      await h.adapter.createRun({
+        id: 'run-l',
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        connectionId: 'c-1',
+        instanceId: 'i-l',
+        status: 'running',
+      })
+      const rows = await h.adapter.listActiveRunsForSyncWithAccounts()
+      const row = rows.find((r) => r.entry.run.id === 'run-l')
+      expect(row?.connection?.credentials).toBe(CREDS)
+      // Moved to another organization: the run's account is no longer read with it.
+      await h.db
+        .update(h.schema.connections)
+        .set({ organizationId: 'org-globex' })
+        .where(eq(h.schema.connections.id, 'c-1'))
+      const moved = (await h.adapter.listActiveRunsForSyncWithAccounts()).find(
+        (r) => r.entry.run.id === 'run-l',
+      )
+      expect(moved?.connection).toBeNull()
+    })
+
+    it('reads a run’s page in its own columns, only for its workflow', async () => {
+      await h.adapter.createConnection(write())
+      await h.adapter.createRun({
+        id: 'run-d',
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        connectionId: 'c-1',
+        instanceId: 'i-d',
+        deployedName: 'Internal',
+        status: 'queued',
+      })
+      const detail = await h.adapter.getRunDetail('run-d', 'wf-enrich')
+      expect(Object.keys(detail ?? {}).sort()).toEqual(
+        [
+          'connectionId',
+          'createdAt',
+          'durationMs',
+          'error',
+          'hasParams',
+          'id',
+          'instanceId',
+          'output',
+          'responseStatus',
+          'status',
+          'trigger',
+          'updatedAt',
+          'versionId',
+          'versionNumber',
+          'workflowId',
+        ].sort(),
+      )
+      expect(await h.adapter.getRunDetail('run-d', 'wf-sync')).toBeNull()
+    })
+
+    it('names what is live on that account as its deploy named it', async () => {
+      await h.adapter.createConnection(write())
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1', deployedName: 'Lead enrichment' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
+      expect(
+        (await h.adapter.getConnectionDeployedWith('c-1', 'org-acme', 'wf-enrich'))?.deployedName,
+      ).toBe('Lead enrichment')
+    })
+
+    it('answers where it is live on an account: provider and newest URL, and null elsewhere', async () => {
+      await h.adapter.createConnection(write())
+      await h.adapter.createConnection(write({ id: 'c-2' }))
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1', serviceUrl: 'https://old.acme.workers.dev' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
+      await h.db.insert(h.schema.deployments).values([
+        {
+          id: 'd-new',
+          workflowId: 'wf-enrich',
+          versionId: 'v-enrich-2',
+          versionNumber: 2,
+          connectionId: 'c-1',
+          serviceName: 'svc',
+          serviceUrl: 'https://fn.acme.workers.dev',
+          status: 'success',
+          createdAt: '2026-10-30T00:00:00.000Z',
+        },
+        {
+          id: 'd-failed',
+          workflowId: 'wf-enrich',
+          versionId: 'v-enrich-2',
+          connectionId: 'c-2',
+          serviceName: 'svc',
+          serviceUrl: 'https://never.acme.workers.dev',
+          status: 'failed',
+          createdAt: '2026-10-31T00:00:00.000Z',
+        },
+      ])
+      expect(await h.adapter.getLiveService('c-1', 'org-acme', 'wf-enrich')).toEqual({
+        provider: 'cloudflare',
+        serviceUrl: 'https://fn.acme.workers.dev',
+        // The newest deploy's version, so a call records what answered it.
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+      })
+      // Only a failed deploy there; another organization; another workflow.
+      expect(await h.adapter.getLiveService('c-2', 'org-acme', 'wf-enrich')).toBeNull()
+      expect(await h.adapter.getLiveService('c-1', 'org-globex', 'wf-enrich')).toBeNull()
+      expect(await h.adapter.getLiveService('c-1', 'org-acme', 'wf-draft')).toBeNull()
+    })
   })
 
   describe('the list', () => {
@@ -957,6 +1154,31 @@ describe('refreshing a connection on read', () => {
     const [due] = await adapter.connectionsDueForTokenCheck('cloudflare', NOW, 10)
     expect(due?.tokenStatus).toBe('active')
     expect((await h.adapter.getProviderConnectionById('c-due'))?.tokenStatus).toBe('invalid')
+  })
+
+  it('makes each account usable once for the sync loop, however many of its runs are listed', async () => {
+    const h = await sqliteHarness()
+    await seed(h)
+    await h.adapter.createConnection(write({ id: 'c-many' }))
+    for (const id of ['run-1', 'run-2', 'run-3']) {
+      await h.adapter.createRun({
+        id,
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        connectionId: 'c-many',
+        instanceId: `i-${id}`,
+        status: 'running',
+      })
+    }
+    const refresh = vi.fn(async () => null)
+    const adapter = new DrizzleDatabaseAdapter(h.db, h.schema, {
+      dialect: 'sqlite',
+      refreshConnection: refresh,
+    })
+    const rows = await adapter.listActiveRunsForSyncWithAccounts()
+    expect(rows.filter((r) => r.connection?.id === 'c-many')).toHaveLength(3)
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('leaves the row alone when the refresher has nothing to do', async () => {

@@ -18,6 +18,9 @@ export const deployments = sqliteTable(
     connectionId: text('connection_id').references(() => connections.id, { onDelete: 'set null' }),
     serviceName: text('service_name').notNull(),
     serviceUrl: text('service_url'),
+    // The provider's name for what was deployed, which its runs are found under (a Cloudflare
+    // Workflow's name). Null on rows from before it was recorded: the workflow's name stands in.
+    deployedName: text('deployed_name'),
     status: text('status').notNull().default('success'),
     error: text('error'),
     configSnapshot: text('config_snapshot'),

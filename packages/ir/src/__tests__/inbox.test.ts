@@ -63,6 +63,16 @@ describe('renderNotification', () => {
     })
   })
 
+  it('reads a failed function call as a call, not a run', () => {
+    expect(
+      renderNotification(record({ meta: { workflow: 'CRM Sync', call: true } }), NOW).title,
+    ).toBe('A call to CRM Sync failed')
+    expect(
+      renderNotification(record({ count: 2, meta: { workflow: 'CRM Sync', call: true } }), NOW)
+        .title,
+    ).toBe('A call to CRM Sync failed 2 times in the last hour')
+  })
+
   it('reads a single failure without a count, and without a step when none is known', () => {
     expect(
       renderNotification(record({ meta: { workflow: 'Sync', step: 'Fetch' } }), NOW).title,

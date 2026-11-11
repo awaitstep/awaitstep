@@ -133,3 +133,13 @@ export {
   wranglerHome,
 } from './wrangler-exec.js'
 export type { WranglerCommand, WranglerEnvOptions } from './wrangler-exec.js'
+
+export {
+  CALLABLE_URL_PATTERN,
+  CALL_MAX_BYTES,
+  CALL_TIMEOUT_MS,
+  NOT_CALLABLE,
+  callFunction,
+  isCallableUrl,
+} from './call-function.js'
+export { CloudflareApiError, goneFrom } from './api-error.js'

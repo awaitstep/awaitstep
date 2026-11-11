@@ -1,8 +1,15 @@
-import { eq, desc, and, or, lt, notInArray } from 'drizzle-orm'
-import type { ActiveRunForSync, WorkflowRun } from '../types.js'
+import { eq, desc, and, or, lt, notInArray, sql } from 'drizzle-orm'
+import type {
+  ActiveRunForSync,
+  Connection,
+  CreateRunData,
+  RunDetail,
+  RunTrigger,
+  WorkflowRun,
+} from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
-import { latestDeploymentServiceName, latestDeploymentSnapshot } from './deployment-snapshot.js'
+import { latestDeployedName, latestDeploymentSnapshot } from './deployment-snapshot.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -18,8 +25,12 @@ export class RunsAdapter {
     private placeTables?: { projects: AnyTable; workspaces: AnyTable; organization: AnyTable },
   ) {}
 
-  /** The sync rows' select list and joins: the run, its workflow's name and place, its snapshot. */
-  private syncQuery() {
+  /**
+   * The sync rows' select list and joins: the run, its workflow's name and
+   * place, its snapshot — and, when asked, its account, joined only when that
+   * account is the given organization's.
+   */
+  private syncQuery(account?: { connections: AnyTable; organizationId?: string }) {
     const runs = this.table
     const workflows = this.workflowsTable
     const deployments = this.deploymentsTable
@@ -28,11 +39,14 @@ export class RunsAdapter {
       throw new Error('RunsAdapter needs workflows, deployments and place tables for sync queries')
     }
     const { projects: p, workspaces: w, organization: o } = place
-    return this.db
+    const query = this.db
       .select({
         run: runs,
         workflowName: workflows.name,
-        deployedName: latestDeploymentServiceName(deployments, runs),
+        // The run's own record of the name it started under; for older runs, its deploy's.
+        deployedName: sql<
+          string | null
+        >`coalesce(${runs.deployedName}, ${latestDeployedName(deployments, runs)})`,
         configSnapshot: latestDeploymentSnapshot(deployments, runs),
         place: {
           organizationId: p.organizationId,
@@ -44,37 +58,39 @@ export class RunsAdapter {
           workspaceSlug: w.slug,
           workspaceName: w.name,
         },
+        ...(account && { connection: account.connections }),
       })
       .from(runs)
       .innerJoin(workflows, eq(runs.workflowId, workflows.id))
       .leftJoin(p, eq(p.id, workflows.projectId))
       .leftJoin(o, eq(o.id, p.organizationId))
       .leftJoin(w, and(eq(w.id, workflows.workspaceId), eq(w.projectId, p.id)))
+    if (!account) return query
+    const c = account.connections
+    // The caller's organization when one asks; else the workflow's own (the background loop).
+    const owner = account.organizationId ?? p.organizationId
+    return query.leftJoin(c, and(eq(c.id, runs.connectionId), eq(c.organizationId, owner)))
   }
 
-  async create(data: {
-    id: string
-    workflowId: string
-    versionId: string | null
-    /** The version's number, kept on the run once the version is deleted. */
-    versionNumber: number | null
-    connectionId: string
-    instanceId: string
-    status: string
-  }): Promise<WorkflowRun> {
+  async create(data: CreateRunData): Promise<WorkflowRun> {
     const now = new Date().toISOString()
-    const row = {
+    const row: WorkflowRun = {
       id: data.id,
       workflowId: data.workflowId,
       versionId: data.versionId,
       versionNumber: data.versionNumber,
       connectionId: data.connectionId,
       instanceId: data.instanceId,
+      deployedName: data.deployedName ?? null,
+      trigger: data.trigger ?? null,
+      params: data.params ?? null,
+      responseStatus: data.responseStatus ?? null,
+      durationMs: data.durationMs ?? null,
       status: data.status,
-      output: null,
-      error: null,
-      createdAt: now,
-      updatedAt: now,
+      output: data.output ?? null,
+      error: data.error ?? null,
+      createdAt: data.createdAt ?? now,
+      updatedAt: data.updatedAt ?? data.createdAt ?? now,
     }
     await this.db.insert(this.table).values(row)
     return row
@@ -115,24 +131,99 @@ export class RunsAdapter {
    * run's own version — the one whose step manifest matches the running
    * code), all in one query per the no-sequential-awaits rule.
    */
-  async listActiveForSync(limit = 200): Promise<ActiveRunForSync[]> {
-    const rows = await this.syncQuery()
+  /**
+   * The active runs (not ended), newest first, each with its account
+   * (only one of its workflow's own organization), in the same statement —
+   * credentials as stored.
+   */
+  async listActiveForSyncWithAccounts(
+    connections: AnyTable,
+    limit = 200,
+  ): Promise<Array<{ entry: ActiveRunForSync; connection: Connection | null }>> {
+    const rows = (await this.syncQuery({ connections })
       .where(notInArray(this.table.status, TERMINAL_RUN_STATUSES))
       .orderBy(desc(this.table.createdAt))
-      .limit(limit)
-    return rows as ActiveRunForSync[]
+      .limit(limit)) as Array<ActiveRunForSync & { connection: Connection | null }>
+    return rows.map(({ connection, ...entry }) => ({
+      entry,
+      connection: connection?.id ? connection : null,
+    }))
   }
 
   /**
-   * One run with the same JOINed context listActiveForSync provides, for
-   * on-demand reconciliation (the live stream). Ownership is enforced in the
-   * query: a run from another workflow reads as null.
+   * One run's sync row with its account, read together — the account only
+   * when it is the organization's (null otherwise), credentials as stored.
    */
-  async getForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null> {
-    const rows = await this.syncQuery()
+  async getForSyncWithAccount(
+    runId: string,
+    workflowId: string,
+    organizationId: string,
+    connections: AnyTable,
+  ): Promise<{ entry: ActiveRunForSync; connection: Connection | null } | null> {
+    const rows = await this.syncQuery({ connections, organizationId })
       .where(and(eq(this.table.id, runId), eq(this.table.workflowId, workflowId)))
       .limit(1)
-    return (rows[0] as ActiveRunForSync | undefined) ?? null
+    const row = rows[0] as (ActiveRunForSync & { connection: Connection | null }) | undefined
+    if (!row) return null
+    const { connection, ...entry } = row
+    return { entry, connection: connection?.id ? connection : null }
+  }
+
+  /** One run of that workflow, in the columns its page shows; the workflow is checked in the WHERE. */
+  async getDetail(runId: string, workflowId: string): Promise<RunDetail | null> {
+    const r = this.table
+    const rows = await this.db
+      .select({
+        id: r.id,
+        workflowId: r.workflowId,
+        versionId: r.versionId,
+        versionNumber: r.versionNumber,
+        connectionId: r.connectionId,
+        instanceId: r.instanceId,
+        status: r.status,
+        output: r.output,
+        error: r.error,
+        trigger: r.trigger,
+        hasParams: sql<number>`case when ${r.params} is null then 0 else 1 end`,
+        responseStatus: r.responseStatus,
+        durationMs: r.durationMs,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })
+      .from(r)
+      .where(and(eq(r.id, runId), eq(r.workflowId, workflowId)))
+      .limit(1)
+    const row = rows[0]
+    if (!row) return null
+    return {
+      ...row,
+      trigger: row.trigger as RunTrigger | null,
+      hasParams: Number(row.hasParams) === 1,
+    }
+  }
+
+  /**
+   * The payload a run was started with — only when the run is that workflow's
+   * and, given an account, was started on it. Null when no such run.
+   */
+  async getParams(
+    runId: string,
+    workflowId: string,
+    connectionId?: string,
+  ): Promise<{ params: string | null } | null> {
+    const r = this.table
+    const rows = await this.db
+      .select({ params: r.params })
+      .from(r)
+      .where(
+        and(
+          eq(r.id, runId),
+          eq(r.workflowId, workflowId),
+          connectionId === undefined ? undefined : eq(r.connectionId, connectionId),
+        ),
+      )
+      .limit(1)
+    return rows[0] ?? null
   }
 
   async update(

@@ -52,6 +52,14 @@ export function mapInstanceSteps(steps: CFInstanceStep[] | undefined): RunStepDe
       ...(step.end && { end: step.end }),
       attemptCount: step.attempts?.length ?? 1,
       ...(error && { error }),
+      ...(step.output !== undefined && step.output !== null && { output: step.output }),
+      ...(step.attempts?.length && {
+        attempts: step.attempts.map((a) => ({
+          ...(a.start && { start: a.start }),
+          ...(a.end && { end: a.end }),
+          ...(a.error && { error: a.error }),
+        })),
+      }),
     })
   }
   return details

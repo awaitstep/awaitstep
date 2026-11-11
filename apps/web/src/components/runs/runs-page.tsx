@@ -87,13 +87,13 @@ function runColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
     {
       id: 'started',
       header: 'Started',
-      width: '110px',
-      cell: (run) => <span className="text-muted-foreground">{timeAgoOrDay(run.createdAt)}</span>,
+      width: '100px',
+      cell: (run) => <span className="text-muted-foreground ">{timeAgoOrDay(run.createdAt)}</span>,
     },
     {
       id: 'took',
       header: 'Took',
-      width: '80px',
+      width: '130px',
       cell: (run) => <span className="text-muted-foreground">{tookLabel(run.durationMs)}</span>,
     },
   ]

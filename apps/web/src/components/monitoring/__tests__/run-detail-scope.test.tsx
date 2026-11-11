@@ -16,7 +16,7 @@ afterEach(() => {
 })
 
 describe('RunDetail under a workflow URL', () => {
-  it('reads the run in the URL’s project and caches accounts under the org it calls', async () => {
+  it('reads the run and its accounts in the URL’s project', async () => {
     useOrgStore.setState({
       appReady: true,
       activeOrganizationId: 'org_x',
@@ -45,11 +45,15 @@ describe('RunDetail under a workflow URL', () => {
         <ApiClientProvider
           scope={{ organizationId: 'org_acme', projectId: 'prj_url', workspaceId: 'ws_1' }}
         >
-          <RunDetail runId="run_1" workflowId="wf_1" />
+          <RunDetail
+            slugs={{ org: 'acme', project: 'p-101', workspace: 'sales' }}
+            runId="run_1"
+            workflowId="wf_1"
+          />
         </ApiClientProvider>
       </QueryClientProvider>,
     )
-    await waitFor(() => expect(client.getQueryData(['connections', 'org_acme'])).toBeDefined())
+    await waitFor(() => expect(client.getQueryData(['deploy-connections', 'wf_1'])).toBeDefined())
     const keys = client
       .getQueryCache()
       .getAll()
@@ -57,5 +61,6 @@ describe('RunDetail under a workflow URL', () => {
     expect(keys).not.toContainEqual(['connections', ''])
     const urls = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]))
     expect(urls.find((url) => url.includes('/runs/run_1'))).toContain('projectId=prj_url')
+    expect(urls.find((url) => url.includes('/deploy-connections'))).toContain('projectId=prj_url')
   })
 })

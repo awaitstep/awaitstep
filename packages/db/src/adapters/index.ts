@@ -13,6 +13,12 @@ import type {
   Connection,
   DeployConfigLookup,
   DeployedConnection,
+  LiveService,
+  RunControlTarget,
+  RunDetail,
+  CreateRunData,
+  RunStepExtras,
+  RunSyncTarget,
   VersionDeleteCheck,
   LatestVersionForSave,
   LiveDeploymentRow,
@@ -35,7 +41,6 @@ import type {
   WorkflowRun,
   RunStepsResult,
   UpsertRunStepData,
-  ActiveRunForSync,
   WorkflowFile,
   WorkflowFileSummary,
   UpsertWorkflowFileData,
@@ -383,6 +388,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         projects: schema.projects,
         deployments: schema.deployments,
         deploymentConfigs: schema.deploymentConfigs,
+        workflowRuns: schema.workflowRuns,
         member: schema.member,
         user: schema.user,
         notifications: schema.notifications,
@@ -1169,6 +1175,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<DeployedConnection | null> {
     return this._connections.getDeployedWith(id, organizationId, workflowId)
   }
+  getLiveService(
+    id: string,
+    organizationId: string,
+    workflowId: string,
+  ): Promise<LiveService | null> {
+    return this._connections.getLiveService(id, organizationId, workflowId)
+  }
   getDeployConfigFor(
     id: string,
     organizationId: string,
@@ -1280,19 +1293,43 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Runs
-  createRun(data: {
-    id: string
-    workflowId: string
-    versionId: string | null
-    versionNumber: number | null
-    connectionId: string
-    instanceId: string
-    status: string
-  }): Promise<WorkflowRun> {
+  createRun(data: CreateRunData): Promise<WorkflowRun> {
     return this._runs.create(data)
   }
-  getWorkflowRunById(id: string): Promise<WorkflowRun | null> {
-    return this._runs.getById(id)
+  async getRunForSyncWithAccount(
+    runId: string,
+    workflowId: string,
+    organizationId: string,
+  ): Promise<RunSyncTarget | null> {
+    const found = await this._runs.getForSyncWithAccount(
+      runId,
+      workflowId,
+      organizationId,
+      this._schema.connections,
+    )
+    if (!found) return null
+    return {
+      entry: found.entry,
+      connection: found.connection ? await this._connections.hydrate(found.connection) : null,
+    }
+  }
+  getRunDetail(runId: string, workflowId: string): Promise<RunDetail | null> {
+    return this._runs.getDetail(runId, workflowId)
+  }
+
+  getRunParams(
+    runId: string,
+    workflowId: string,
+    connectionId?: string,
+  ): Promise<{ params: string | null } | null> {
+    return this._runs.getParams(runId, workflowId, connectionId)
+  }
+  getRunControl(
+    runId: string,
+    workflowId: string,
+    organizationId: string,
+  ): Promise<RunControlTarget | null> {
+    return this._connections.getRunControl(runId, workflowId, organizationId)
   }
   listRunsByWorkflow(
     workflowId: string,
@@ -1313,14 +1350,33 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<boolean> {
     return this._runs.updateFromStatus(id, fromStatus, data)
   }
-  listActiveRunsForSync(limit?: number): Promise<ActiveRunForSync[]> {
-    return this._runs.listActiveForSync(limit)
-  }
-  getRunForSync(runId: string, workflowId: string): Promise<ActiveRunForSync | null> {
-    return this._runs.getForSync(runId, workflowId)
+  async listActiveRunsForSyncWithAccounts(limit?: number): Promise<RunSyncTarget[]> {
+    const rows = await this._runs.listActiveForSyncWithAccounts(this._schema.connections, limit)
+    // Each account made usable once, however many of its runs are in the batch.
+    const hydrated = new Map<string, Promise<Connection>>()
+    return Promise.all(
+      rows.map(async ({ entry, connection }) => {
+        if (!connection) return { entry, connection: null }
+        let ready = hydrated.get(connection.id)
+        if (!ready) {
+          // `hydrate` doesn't reject (a failed decrypt keeps the stored value, a failed
+          // renewal the old token): a null account here always means none was joined.
+          ready = this._connections.hydrate(connection)
+          hydrated.set(connection.id, ready)
+        }
+        return { entry, connection: await ready }
+      }),
+    )
   }
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void> {
     return this._runSteps.upsertMany(runId, steps)
+  }
+  getRunStepExtras(
+    stepId: string,
+    runId: string,
+    workflowId: string,
+  ): Promise<RunStepExtras | null> {
+    return this._runSteps.getExtras(stepId, runId, workflowId)
   }
   listRunSteps(runId: string, workflowId: string): Promise<RunStepsResult> {
     return this._runSteps.listByRun(runId, workflowId)
@@ -1490,6 +1546,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     connectionId: string
     serviceName: string
     serviceUrl?: string
+    deployedName?: string
     status: string
     error?: string
     configSnapshot?: string

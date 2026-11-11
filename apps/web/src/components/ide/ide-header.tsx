@@ -45,6 +45,8 @@ interface IdeHeaderProps {
   viewOnlyReason?: string
   saving: boolean
   onSave: () => void
+  /** Saves any unsaved files, then opens the Deploy page. */
+  onDeploy: () => void
 }
 
 export function IdeHeader({
@@ -60,6 +62,7 @@ export function IdeHeader({
   viewOnlyReason,
   saving,
   onSave,
+  onDeploy,
 }: IdeHeaderProps) {
   const { explorerOpen, dockOpen, previewOpen, toggleExplorer, toggleDock, togglePreview } =
     useIdeLayoutStore(
@@ -120,6 +123,13 @@ export function IdeHeader({
     if (saving) return 'Saving…'
     if (dirtyCount === 0) return 'No unsaved files'
     return `Save all files (${hint('saveAll')}). ${hint('save')} saves the open file.`
+  }
+
+  function deployTitle() {
+    if (!canEdit || historicalVersion !== undefined)
+      return readOnlyReason({ viewOnlyReason, olderVersion: historicalVersion !== undefined })
+    if (version === undefined) return 'Nothing to deploy yet'
+    return 'Deploy'
   }
 
   const toggles: TopBarToggle[] = [
@@ -219,6 +229,11 @@ export function IdeHeader({
           disabled: !canEdit || saving || dirtyCount === 0,
           title: saveTitle(),
           onClick: onSave,
+        }}
+        deploy={{
+          onClick: onDeploy,
+          disabled: !canEdit || version === undefined || historicalVersion !== undefined,
+          title: deployTitle(),
         }}
         menu={[workflowActions, navigation]}
       />

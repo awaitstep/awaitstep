@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { LiveDeployment } from '@awaitstep/ir'
 import { DeploymentsTab } from '../deployments-tab'
 import { BASE, VERSIONS, VIEWER, renderWithPages } from './fixtures/workspace-pages'
@@ -33,7 +34,7 @@ const deploy = (
   serviceName: id,
   serviceUrl: status === 'success' ? 'https://awaitstep-abc.workers.dev' : null,
   status,
-  error: null,
+  error: null as string | null,
   createdAt: '2026-11-05T09:00:00.000Z',
   createdByName: by,
   version: NUMBERS[versionId] ?? null,
@@ -236,5 +237,52 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
       ),
     ).toBeVisible()
     expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
+  })
+
+  it('opens a row’s details: where it runs, its worker, version, IDs and Roll back (24h)', async () => {
+    renderTab([
+      deploy('d3', 'v3', 'success', 'c-prod', 'Ama Mensah'),
+      deploy('d2', 'v2', 'success', 'c-prod', 'Lena Ortiz'),
+    ])
+    await userEvent.click(
+      screen.getByRole('button', { name: /^Details for v11, on Acme production/ }),
+    )
+    const drawer = await screen.findByRole('dialog', { name: 'v11 on Acme production' })
+    expect(drawer).toHaveTextContent('Replaced')
+    expect(drawer).toHaveTextContent('Where it runs')
+    expect(drawer).toHaveTextContent('d2')
+    expect(drawer).toHaveTextContent('5 Nov 2026')
+    expect(drawer).toHaveTextContent('by Lena Ortiz')
+    expect(drawer).toHaveTextContent('Version IDv2')
+    expect(
+      within(drawer).getByRole('link', { name: /awaitstep-abc\.workers\.dev/ }),
+    ).toHaveAttribute('href', 'https://awaitstep-abc.workers.dev')
+    expect(within(drawer).getByRole('link', { name: 'Roll back to this' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('version=v2'),
+    )
+    expect(within(drawer).queryByText(/Runs on/)).not.toBeInTheDocument()
+  })
+
+  it('shows a failed deploy’s error, and offers no roll back for the live one', async () => {
+    const failed = {
+      ...deploy('d1', 'v1', 'failed', 'c-prod', null),
+      error: 'Authentication error',
+    }
+    renderTab([deploy('d3', 'v3', 'success', 'c-prod', null), failed])
+    await userEvent.click(screen.getByRole('button', { name: /^Details for v10/ }))
+    let drawer = await screen.findByRole('dialog')
+    expect(drawer).toHaveTextContent('Failed')
+    expect(drawer).toHaveTextContent('Authentication error')
+    expect(
+      within(drawer).queryByRole('link', { name: 'Roll back to this' }),
+    ).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(screen.getByRole('button', { name: /^Details for v12/ }))
+    drawer = await screen.findByRole('dialog', { name: 'v12 on Acme production' })
+    expect(drawer).toHaveTextContent('Live')
+    expect(
+      within(drawer).queryByRole('link', { name: 'Roll back to this' }),
+    ).not.toBeInTheDocument()
   })
 })

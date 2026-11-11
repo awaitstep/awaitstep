@@ -99,10 +99,39 @@ export interface HttpRequestOptions {
   readonly body?: unknown
 }
 
+/** How much of a failed reply's body an {@link HttpError} keeps. */
+export const HTTP_ERROR_BODY_LIMIT = 4096
+/** How much of it the error's message quotes. */
+const HTTP_ERROR_MESSAGE_BODY = 200
+
 /**
- * Performs one HTTP request and reads the response as JSON. It holds no state
- * and is not durable on its own — wrap it in a step to get retries, a timeout
- * and (in a workflow) persistence.
+ * A request that failed: no reply came (`status` 0, a DNS or connection
+ * error) or the reply was not 2xx. Its message names the request and what came
+ * back, so a run page or a function's error answer reads on its own; a
+ * Try/Catch around the node reads the fields from `inputs.error`.
+ */
+export class HttpError extends Error {
+  override readonly name = 'HttpError'
+  constructor(
+    readonly method: string,
+    readonly url: string,
+    /** The reply's status; 0 when there was no reply. */
+    readonly status: number,
+    readonly statusText: string,
+    /** The reply's body as text, cut at {@link HTTP_ERROR_BODY_LIMIT}. */
+    readonly body: string,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
+/**
+ * Performs one HTTP request. A 2xx reply comes back parsed when it says it is
+ * JSON, as text otherwise, and as `null` when it is empty; anything else — a
+ * non-2xx reply, or no reply at all — throws an {@link HttpError}. It holds no
+ * state and is not durable on its own — wrap it in a step to get retries, a
+ * timeout and (in a workflow) persistence.
  */
 export async function httpRequest<T = unknown>(options: HttpRequestOptions): Promise<T> {
   const url = new URL(options.url)
@@ -110,9 +139,8 @@ export async function httpRequest<T = unknown>(options: HttpRequestOptions): Pro
     url.searchParams.set(key, value)
   }
   const headers: Record<string, string> = { ...(options.headers ?? {}) }
-  const init: { method: string; headers?: Record<string, string>; body?: string } = {
-    method: options.method ?? 'GET',
-  }
+  const method = options.method ?? 'GET'
+  const init: { method: string; headers?: Record<string, string>; body?: string } = { method }
   if (options.body !== undefined && options.body !== null) {
     if (typeof options.body === 'string') {
       init.body = options.body
@@ -124,8 +152,41 @@ export async function httpRequest<T = unknown>(options: HttpRequestOptions): Pro
     }
   }
   if (Object.keys(headers).length > 0) init.headers = headers
-  const response = await fetch(url.toString(), init)
-  return (await response.json()) as T
+  const target = url.toString()
+
+  let response: Response
+  try {
+    response = await fetch(target, init)
+  } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error)
+    throw new HttpError(method, target, 0, '', '', `${method} ${target} failed: ${cause}`)
+  }
+  const text = await response.text()
+  if (!response.ok) {
+    const status = `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`
+    const said = text.trim().slice(0, HTTP_ERROR_MESSAGE_BODY)
+    throw new HttpError(
+      method,
+      target,
+      response.status,
+      response.statusText,
+      text.slice(0, HTTP_ERROR_BODY_LIMIT),
+      `${method} ${target} answered ${status}${said ? `: ${said}` : ''}`,
+    )
+  }
+  if (text === '') return null as T
+  if (!isJsonType(response.headers.get('content-type'))) return text as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    // It said JSON and wasn't: the text is still the answer.
+    return text as T
+  }
+}
+
+function isJsonType(contentType: string | null): boolean {
+  const type = contentType?.split(';')[0]?.trim().toLowerCase() ?? ''
+  return type === 'application/json' || type.endsWith('+json')
 }
 
 /** The handle of a started workflow instance. */
