@@ -244,10 +244,12 @@ export function createWorkflowContext<Env, Payload>(
     event,
     step,
     sleep: (name, duration) => requireHost('sleep', name).sleep(name, duration),
-    sleepUntil: async (name, at) => requireHost('sleepUntil', name).sleepUntil(name, toDate(name, at)),
+    sleepUntil: async (name, at) =>
+      requireHost('sleepUntil', name).sleepUntil(name, toDate(name, at)),
     waitForEvent: (name, options) => requireHost('waitForEvent', name).waitForEvent(name, options),
     http: <T>(options: HttpRequestOptions) => httpRequest<T>(options),
-    startWorkflow: (options) => requireHost('startWorkflow', options.workflow).startWorkflow(options),
+    startWorkflow: (options) =>
+      requireHost('startWorkflow', options.workflow).startWorkflow(options),
     workflowStatus: (instanceId, options) =>
       requireHost('workflowStatus', options.workflow).workflowStatus(instanceId, options),
     callScript: (options) => requireHost('callScript', options.script).callScript(options),
@@ -266,18 +268,44 @@ function toDate(name: string, at: Date | number | string): Date | number {
 /**
  * Whether a rejection is a wait timeout. Cloudflare keeps the error name
  * locally but serializes it into the message across the runtime boundary, so
- * both forms are recognised.
+ * every form is recognised: the name, a message carrying it, and the plain
+ * "Execution timed out after 30000ms" a run's step history shows.
  */
 export function isWorkflowTimeoutError(error: unknown): boolean {
-  if (error instanceof Error) {
-    return error.name === 'WorkflowTimeoutError' || error.message.includes('WorkflowTimeoutError')
-  }
+  const matches = (name: unknown, message: unknown): boolean =>
+    name === 'WorkflowTimeoutError' ||
+    (typeof message === 'string' &&
+      (message.includes('WorkflowTimeoutError') || /execution timed out after/i.test(message)))
+  if (error instanceof Error) return matches(error.name, error.message)
   if (typeof error !== 'object' || error === null) return false
   const { name, message } = error as { name?: unknown; message?: unknown }
-  return (
-    name === 'WorkflowTimeoutError' ||
-    (typeof message === 'string' && message.includes('WorkflowTimeoutError'))
-  )
+  return matches(name, message)
+}
+
+/**
+ * A timed-out wait's value. An event payload is JSON, so it can never be a
+ * symbol, and the generated branch can tell the two apart by `typeof`.
+ */
+const WAIT_TIMEOUT = Symbol('timeout')
+
+/**
+ * Waits for an event and turns a timeout into that sentinel instead of a
+ * rejection, so a graph can take its on-timeout path. Only a timeout is
+ * handled; every other error rejects as it came. The try/catch lives here
+ * rather than around the await in generated code, which keeps the wait a
+ * plain `const` with no binding outside it.
+ */
+export async function waitForEventOrTimeout<T = unknown>(
+  flow: Pick<WorkflowContext, 'waitForEvent'>,
+  name: string,
+  options: WaitForEventOptions,
+): Promise<T | symbol> {
+  try {
+    return await flow.waitForEvent<T>(name, options)
+  } catch (error) {
+    if (!isWorkflowTimeoutError(error)) throw error
+    return WAIT_TIMEOUT
+  }
 }
 
 /** The `step` object step code already uses (`step.do`, `step.sleep`, …). */

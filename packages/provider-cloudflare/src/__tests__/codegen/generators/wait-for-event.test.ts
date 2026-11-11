@@ -54,19 +54,20 @@ describe('generateWaitForEvent', () => {
       ),
       (node) => `// ${node.id}`,
     )
-    expect(code).toContain('const wait_1 = await flow')
-    expect(code).toContain('.waitForEvent("wait-1", {')
+    expect(code).toContain('const wait_1 = await waitForEventOrTimeout(flow, "wait-1", {')
     expect(code).toContain('type: "user-approval",')
     expect(code).toContain('timeout: "48 hours",')
-    expect(code).toContain('.catch((err) => {')
-    expect(code).toContain('if (!isWorkflowTimeoutError(err)) throw err;')
-    expect(code).toContain('return Symbol("timeout");')
     expect(code).toContain('if (typeof wait_1 === "symbol") {')
     expect(code).toContain('// event')
     expect(code).toContain('// timeout')
-    // The authored branches run after the catch, so their errors propagate.
-    expect(code.indexOf('// event')).toBeGreaterThan(code.indexOf('.catch'))
-    expect(code.indexOf('// timeout')).toBeGreaterThan(code.indexOf('.catch'))
+    // No binding outside the wait, and no catch in the generated code: the
+    // helper owns it. Both authored branches run after the wait, so their
+    // errors propagate.
+    expect(code).not.toMatch(/^let /m)
+    expect(code).not.toContain('try {')
+    expect(code).not.toContain('.catch(')
+    expect(code.indexOf('// event')).toBeGreaterThan(code.indexOf('waitForEventOrTimeout'))
+    expect(code.indexOf('// timeout')).toBeGreaterThan(code.indexOf('waitForEventOrTimeout'))
   })
 
   it('includes a numeric timeout', () => {
@@ -82,14 +83,15 @@ describe('generateWaitForEvent', () => {
 
   it('sanitizes the node id for the variable name', () => {
     const code = generateWaitForEvent(makeNode({ id: 'wait-for-payment' }))
-    expect(code).toContain('const wait_for_payment = await flow')
-    expect(code).toContain('.waitForEvent("wait-for-payment", {')
+    expect(code).toContain(
+      'const wait_for_payment = await waitForEventOrTimeout(flow, "wait-for-payment", {',
+    )
     expect(code).toContain('if (typeof wait_for_payment === "symbol") {')
   })
 
   it('labels are id-derived, so quotes in the node name never reach the source', () => {
     const code = generateWaitForEvent(makeNode({ name: 'Wait for "yes"' }))
-    expect(code).toContain('waitForEvent("wait-1"')
+    expect(code).toContain('waitForEventOrTimeout(flow, "wait-1"')
     expect(code).not.toContain('yes')
   })
 })

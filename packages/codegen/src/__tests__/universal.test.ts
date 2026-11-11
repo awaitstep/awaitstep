@@ -61,14 +61,16 @@ describe('generateUniversalWorkflowBundle', () => {
     const withWait = generateUniversalWorkflow(
       ir([node('w1', 'wait_for_event', 'Wait for approval', { eventType: 'approval' })]),
     )
-    expect(withWait).toContain('isWorkflowTimeoutError')
-    expect(withWait).toContain('.catch((err) => {')
+    expect(withWait).toContain('waitForEventOrTimeout')
+    expect(withWait).toContain('waitForEventOrTimeout(flow, "w1", {')
+    expect(withWait).not.toContain('.catch(')
     expect(withWait).not.toContain('_timedOut')
+    expect(withWait).not.toMatch(/^\s*let /m)
 
     const withoutWait = generateUniversalWorkflow(
       ir([node('s1', 'step', 'Fetch data', { code: 'return 1' })]),
     )
-    expect(withoutWait).not.toContain('isWorkflowTimeoutError')
+    expect(withoutWait).not.toContain('waitForEventOrTimeout')
   })
 
   it('keeps the project’s own handler file in a portable bundle', () => {

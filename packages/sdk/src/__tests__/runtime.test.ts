@@ -8,6 +8,8 @@ import {
   defineWorkflow,
   durableStep,
   isWorkflowTimeoutError,
+  waitForEventOrTimeout,
+  type WorkflowContext,
   type WorkflowHost,
 } from '../runtime.js'
 import { RUNTIME_MODULE_SOURCE } from '../runtime-source.js'
@@ -216,6 +218,15 @@ describe('isWorkflowTimeoutError', () => {
     ).toBe(true)
   })
 
+  it('recognises the bare execution-timeout message a step history shows', () => {
+    expect(isWorkflowTimeoutError(new Error('Execution timed out after 30000ms'))).toBe(true)
+    expect(
+      isWorkflowTimeoutError({ name: 'Error', message: 'Execution timed out after 30000ms' }),
+    ).toBe(true)
+    // A step's own timeout is a different message and stays a plain error.
+    expect(isWorkflowTimeoutError(new Error('Step "x" exceeded timeout of 30 seconds'))).toBe(false)
+  })
+
   it('rejects other errors and non-errors', () => {
     expect(isWorkflowTimeoutError(new Error('boom'))).toBe(false)
     expect(isWorkflowTimeoutError({ message: 'boom' })).toBe(false)
@@ -233,6 +244,53 @@ describe('emitted runtime source', () => {
   it('has no imports, so it can be emitted into a bundle as-is', () => {
     expect(RUNTIME_MODULE_SOURCE).not.toMatch(/^\s*import\b/m)
     expect(RUNTIME_MODULE_SOURCE).not.toMatch(/\brequire\s*\(/)
+  })
+})
+
+describe('waitForEventOrTimeout', () => {
+  const flow = (wait: () => Promise<unknown>) =>
+    ({ waitForEvent: wait }) as unknown as Pick<WorkflowContext, 'waitForEvent'>
+
+  it('resolves the event payload', async () => {
+    await expect(
+      waitForEventOrTimeout(
+        flow(async () => ({ approved: true })),
+        'w',
+        { type: 'e' },
+      ),
+    ).resolves.toEqual({ approved: true })
+  })
+
+  it('turns a timeout into a symbol, in every form Cloudflare surfaces it', async () => {
+    for (const error of [
+      Object.assign(new Error('Execution timed out after 30000ms'), {
+        name: 'WorkflowTimeoutError',
+      }),
+      new Error('Execution timed out after 30000ms'),
+      new Error('WorkflowTimeoutError: timed out after 30s'),
+    ]) {
+      await expect(
+        waitForEventOrTimeout(
+          flow(async () => {
+            throw error
+          }),
+          'w',
+          { type: 'e' },
+        ),
+      ).resolves.toBeTypeOf('symbol')
+    }
+  })
+
+  it('rethrows every other error', async () => {
+    await expect(
+      waitForEventOrTimeout(
+        flow(async () => {
+          throw new Error('connection reset')
+        }),
+        'w',
+        { type: 'e' },
+      ),
+    ).rejects.toThrow('connection reset')
   })
 })
 

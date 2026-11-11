@@ -200,17 +200,18 @@ Pause execution until an external event is sent to this workflow instance via th
 
 **Output:** `payload` — the event payload object sent via `sendEvent()`.
 
+The timeout handling lives in the runtime helper `waitForEventOrTimeout`, so the generated code
+keeps a plain `const`: the helper runs `waitForEvent` in a `try...catch` — the idiom Cloudflare
+documents — returns the event payload, and resolves the timeout sentinel instead of rejecting. Only
+the wait is inside the try, so an error from the on-event path is never mistaken for the wait timing
+out, and no variable is left declared outside the wait.
+
 ```typescript
 // Generated code
-const approval_result = await flow
-  .waitForEvent('wait_for_approval', {
-    type: 'user-approval',
-    timeout: '24 hours',
-  })
-  .catch((err) => {
-    if (!isWorkflowTimeoutError(err)) throw err
-    return Symbol('timeout')
-  })
+const approval_result = await waitForEventOrTimeout(flow, 'wait_for_approval', {
+  type: 'user-approval',
+  timeout: '24 hours',
+})
 
 if (typeof approval_result === 'symbol') {
   // on-timeout path

@@ -37,20 +37,19 @@ export function generateWaitForEvent(
     ? inlineChain(timeoutTarget, containers, generateNode, ir, 2, ctx, mode)
     : ''
 
-  // Catch only the wait's rejection, so an on-event branch that throws (or a
-  // step inside it timing out) can never be mistaken for this wait timing out.
+  // The runtime owns the try/catch: it returns a sentinel on a timeout and
+  // rethrows anything else. Only the wait itself is inside it, so an on-event
+  // branch that throws (or a step inside it timing out) can never be mistaken
+  // for this wait timing out, and the result is a plain const with no binding
+  // left dangling outside the wait.
+  //
   // A symbol marks the timeout arm: event payloads are JSON, so they can never
-  // be a symbol, and no separate flag or result wrapper has to be declared.
+  // be a symbol.
   const lines = [
-    `const ${variable} = await flow`,
-    `  .waitForEvent("${stepLabel(node)}", {`,
-    `    type: ${JSON.stringify(eventType)},`,
-    `    timeout: ${typeof timeout === 'string' ? JSON.stringify(timeout) : timeout},`,
-    '  })',
-    '  .catch((err) => {',
-    '    if (!isWorkflowTimeoutError(err)) throw err;',
-    '    return Symbol("timeout");',
-    '  });',
+    `const ${variable} = await waitForEventOrTimeout(flow, "${stepLabel(node)}", {`,
+    `  type: ${JSON.stringify(eventType)},`,
+    `  timeout: ${typeof timeout === 'string' ? JSON.stringify(timeout) : timeout},`,
+    '});',
     `if (typeof ${variable} === "symbol") {`,
     timeoutCode,
     '} else {',

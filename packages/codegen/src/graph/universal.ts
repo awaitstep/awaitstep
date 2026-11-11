@@ -51,9 +51,9 @@ export const UNIVERSAL_ENV_PATH = 'awaitstep/env.ts'
 /** The import a universal workflow module uses for the authoring surface. */
 const UNIVERSAL_RUNTIME_IMPORT = 'import { defineWorkflow, durableStep } from "#awaitstep/runtime";'
 
-/** Added only when the graph has a wait node, whose catch uses it. */
+/** Added only when the graph has a wait node, which runs through it. */
 const UNIVERSAL_RUNTIME_IMPORT_WITH_WAIT =
-  'import { defineWorkflow, durableStep, isWorkflowTimeoutError } from "#awaitstep/runtime";'
+  'import { defineWorkflow, durableStep, waitForEventOrTimeout } from "#awaitstep/runtime";'
 
 export interface UniversalGenerateOptions {
   templateResolver?: TemplateResolver
