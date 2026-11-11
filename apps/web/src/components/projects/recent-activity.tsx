@@ -7,13 +7,16 @@ import { SectionHeader } from '../ui/section-header'
 import { StatusPill } from '../ui/status-pill'
 import { Tile } from '../ui/tile'
 
-const KIND_LOOK: Record<
-  ActivityKind,
-  { icon: LucideIcon; tone: 'fail' | 'ok' | 'info'; page: 'runs' | 'workflows' }
-> = {
-  failed: { icon: TriangleAlert, tone: 'fail', page: 'runs' },
-  deployed: { icon: ArrowUpCircle, tone: 'ok', page: 'workflows' },
-  shared: { icon: Share2, tone: 'info', page: 'workflows' },
+const KIND_LOOK: Record<ActivityKind, { icon: LucideIcon; tone: 'fail' | 'ok' | 'info' }> = {
+  failed: { icon: TriangleAlert, tone: 'fail' },
+  deployed: { icon: ArrowUpCircle, tone: 'ok' },
+  shared: { icon: Share2, tone: 'info' },
+}
+
+/** A failure opens the workspace's Runs; a deploy or share, the list the item is on. */
+export function activityPage(item: ActivityItem): 'runs' | 'workflows' | 'functions' {
+  if (item.kind === 'failed') return 'runs'
+  return item.workflow.kind === 'script' ? 'functions' : 'workflows'
 }
 
 /** "Lead enrichment deployed as v3", "… published as v3" for a function, "… failed", "… shared to Project 101". */
@@ -53,7 +56,7 @@ export function RecentActivity({ org, items }: RecentActivityProps) {
               title={activityTitle(item)}
               href={workspacePath(
                 { org, project: item.project.slug, workspace: item.workspace.slug },
-                look.page,
+                activityPage(item),
               )}
               description={`${item.project.name} · ${item.workspace.name}`}
               trailing={

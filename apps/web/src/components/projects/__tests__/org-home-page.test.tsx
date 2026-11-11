@@ -163,6 +163,15 @@ describe('OrgHomePage', () => {
       'href',
       '/acme/project-101/sales/runs',
     )
+    // A function is listed under Functions, not Workflows.
+    expect(within(feed).getByRole('link', { name: /Webhook relay published/ })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/functions',
+    )
+    expect(within(feed).getByRole('link', { name: /Lead enrichment deployed/ })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/workflows',
+    )
     expect(within(feed).getAllByText('Project 101 · Sales')).toHaveLength(4)
   })
 
