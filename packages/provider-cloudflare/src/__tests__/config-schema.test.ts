@@ -5,6 +5,7 @@ import {
   cloudflareDeploymentConfigUiSchema,
   cloudflareRouteSchema,
 } from '../config-schema.js'
+import { WRANGLER_BASE_CONFIG } from '../wrangler-config.js'
 
 describe('cloudflareDeploymentConfigSchema', () => {
   it('accepts an empty config', () => {
@@ -168,8 +169,11 @@ describe('cloudflareDefaultDeploymentConfig', () => {
     expect(cloudflareDefaultDeploymentConfig.previewUrls).toBe(true)
   })
 
-  it('does not hardcode observability — falls back to WRANGLER_BASE_CONFIG', () => {
-    expect(cloudflareDefaultDeploymentConfig.observability).toBeUndefined()
+  it('defaults observability to exactly what an unset config deploys', () => {
+    // Shown as on (logs and traces) because that is what WRANGLER_BASE_CONFIG sends.
+    expect(cloudflareDefaultDeploymentConfig.observability).toEqual(
+      WRANGLER_BASE_CONFIG.observability,
+    )
   })
 })
 
@@ -206,11 +210,19 @@ describe('cloudflareDeploymentConfigSchema — observability toggle', () => {
     expect(parsed.data.observability?.logs?.persist).toBe(false)
   })
 
-  it('accepts undefined observability (uses WRANGLER_BASE_CONFIG defaults)', () => {
+  it('reads an unset observability as what it deploys (WRANGLER_BASE_CONFIG), not off', () => {
     const parsed = cloudflareDeploymentConfigSchema.safeParse({})
     expect(parsed.success).toBe(true)
     if (!parsed.success) return
-    expect(parsed.data.observability).toBeUndefined()
+    expect(parsed.data.observability).toEqual(WRANGLER_BASE_CONFIG.observability)
+  })
+
+  it('names the stored form of off, so the switch reads it back as off', () => {
+    const off = cloudflareDeploymentConfigSchema.parse({ observability: false }).observability
+    const field = cloudflareDeploymentConfigUiSchema.groups
+      .flatMap((g) => g.fields)
+      .find((f) => f.path === 'observability')
+    expect(field?.offObject).toEqual(off)
   })
 })
 
@@ -226,6 +238,25 @@ describe('cloudflareDeploymentConfigUiSchema', () => {
         const topKey = field.path.split('.')[0]
         expect(schemaKeys.has(topKey)).toBe(true)
       }
+    }
+  })
+
+  it('reads the CPU limit from the saved form, not the number the toggle-era form sent', () => {
+    // A stored config is the parsed one: a bare number becomes `{ cpuMs }`, which a
+    // field at `limits` would show as "[object Object]".
+    const saved = cloudflareDeploymentConfigSchema.parse({ limits: 300 }) as {
+      limits?: { cpuMs?: number }
+    }
+    const field = cloudflareDeploymentConfigUiSchema.groups
+      .flatMap((g) => g.fields)
+      .find((f) => f.label === 'CPU limit (ms)')
+    expect(field?.path).toBe('limits.cpuMs')
+    expect(saved.limits?.cpuMs).toBe(300)
+  })
+
+  it('gives every group at least one field with a summary label', () => {
+    for (const group of cloudflareDeploymentConfigUiSchema.groups) {
+      expect(group.fields.some((f) => f.summaryLabel)).toBe(true)
     }
   })
 })
