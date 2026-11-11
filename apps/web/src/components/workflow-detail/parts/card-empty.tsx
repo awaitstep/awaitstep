@@ -18,7 +18,7 @@ export function CardEmpty({ icon, title, body, action, className }: CardEmptyPro
     <div className={cn('flex flex-col items-center gap-2 px-5 py-10 text-center', className)}>
       <Tile tone="neutral">{icon}</Tile>
       <span className="text-sm font-semibold text-foreground">{title}</span>
-      <span className="max-w-[44ch] text-xs leading-relaxed text-muted-foreground">{body}</span>
+      <span className="max-w-[44ch] text-sm leading-relaxed text-muted-foreground">{body}</span>
       {hasContent(action) && <span className="mt-2">{action}</span>}
     </div>
   )

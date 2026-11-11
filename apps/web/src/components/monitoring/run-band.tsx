@@ -8,7 +8,7 @@ import { useElapsedSeconds } from '../../hooks/use-elapsed-seconds'
 import type { RunConnection } from './run-connection'
 import { RunPayloadDialog } from './run-payload-dialog'
 
-const LABEL = 'text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground'
+const LABEL = 'text-2xs font-medium uppercase tracking-wider text-muted-foreground'
 const COLUMN = 'flex min-w-0 flex-col gap-1 px-4 py-3.5'
 
 const TRIGGER_NAME: Record<string, string> = { dashboard: 'Dashboard', api: 'API key' }
@@ -42,7 +42,7 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
         <span className={LABEL}>{isTerminalRunStatus(run.status) ? 'Ran for' : 'Running for'}</span>
         <span
           className={cn(
-            'font-mono text-[17px] font-semibold tabular-nums',
+            'font-mono text-lg font-semibold tabular-nums',
             failed ? 'text-status-error' : 'text-foreground',
           )}
         >
@@ -63,7 +63,7 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
       </Column>
       <div className={cn(COLUMN, 'basis-[200px] grow')}>
         <span className={LABEL}>Triggered by</span>
-        <span className="text-[13.5px] text-foreground">
+        <span className="text-sm text-foreground">
           {(run.trigger && TRIGGER_NAME[run.trigger]) ?? 'Not recorded'}
         </span>
         {payloadLink && (
@@ -92,7 +92,7 @@ function Column({ label, sub, children }: { label: string; sub: ReactNode; child
   return (
     <div className={cn(COLUMN, 'basis-[180px] grow')}>
       <span className={LABEL}>{label}</span>
-      <span className="text-[13.5px] text-foreground">{children}</span>
+      <span className="text-sm text-foreground">{children}</span>
       <span className="truncate text-xs text-muted-foreground">{sub}</span>
     </div>
   )

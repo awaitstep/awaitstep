@@ -62,7 +62,7 @@ export function DeployAccountCard({
         <Cable aria-hidden="true" className="size-[18px]" />
       </span>
       <span className="flex min-w-[200px] flex-1 flex-col gap-0.5">
-        <span className="flex flex-wrap items-center gap-2 text-[14.5px] font-semibold text-foreground">
+        <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           {selected?.name ?? 'Pick an account'}
           {tag && <Badge variant="success">{tag}</Badge>}
         </span>
@@ -134,12 +134,12 @@ function AccountItem({
         className={cn('mt-0.5 size-3.5 shrink-0', chosen ? 'text-status-success' : 'invisible')}
       />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+        <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           {account.name}
           {tag && <Badge variant="neutral">{tag}</Badge>}
           {chosen && <span className="sr-only">(chosen)</span>}
         </span>
-        <span className="text-[11.5px] text-muted-foreground">
+        <span className="text-2xs text-muted-foreground">
           {token.text} · {suffix(account)}
         </span>
       </span>

@@ -102,7 +102,7 @@ export function DeployProgressCard(props: DeployProgressCardProps) {
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span
                 className={cn(
-                  'text-[13px] font-medium',
+                  'text-sm font-medium',
                   phase.state === 'idle' && 'text-muted-foreground/70',
                   phase.state === 'failed' && 'text-status-error',
                   phase.state !== 'idle' && phase.state !== 'failed' && 'text-foreground',

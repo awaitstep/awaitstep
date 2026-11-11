@@ -197,7 +197,7 @@ function CallAnswer({ answer }: { answer: Extract<FunctionCallResponse, { ok: tr
   return (
     <section aria-label="Response" className="flex flex-col gap-2">
       <span className="flex flex-wrap items-center gap-2">
-        <span className="flex-1 text-[13px] font-medium text-foreground">Response</span>
+        <span className="flex-1 text-xs font-medium text-foreground">Response</span>
         <Badge variant={statusVariant(answer.status)}>
           {`${answer.status} ${answer.statusText}`.trim()}
         </Badge>

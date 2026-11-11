@@ -66,7 +66,7 @@ export function DeployPreviewCard({
             open && 'rotate-90 text-foreground',
           )}
         />
-        <span className="flex-1 text-[13.5px] font-medium text-foreground">
+        <span className="flex-1 text-sm font-medium text-foreground">
           {preview.data?.filename ?? filename}
         </span>
         {!open && <span className="text-xs text-muted-foreground">What gets sent</span>}

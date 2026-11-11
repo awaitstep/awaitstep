@@ -28,7 +28,7 @@ interface StatusBandProps {
   runs24h?: { all: number; failed: number; byHour: RunHour[]; ranEver?: boolean }
 }
 
-const LABEL = 'text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground'
+const LABEL = 'text-2xs font-medium uppercase tracking-wider text-muted-foreground'
 const COLUMN = 'flex min-w-0 flex-col gap-2 px-5 py-4'
 
 /**
@@ -64,7 +64,7 @@ function LiveColumn({ live, latest }: Pick<StatusBandProps, 'live' | 'latest'>) 
       <>
         <span className="flex items-center gap-2">
           <span aria-hidden="true" className="size-2 rounded-full bg-muted-foreground/60" />
-          <span className="text-[15px] font-semibold text-foreground">Not deployed</span>
+          <span className="text-sm font-semibold text-foreground">Not deployed</span>
         </span>
         <span className="text-xs text-muted-foreground">
           {latest ? `v${latest.version} saved ${timeAgo(latest.at)}` : 'Nothing saved yet'}
@@ -77,7 +77,7 @@ function LiveColumn({ live, latest }: Pick<StatusBandProps, 'live' | 'latest'>) 
     <>
       <span className="flex items-center gap-2">
         <span aria-hidden="true" className="size-2 rounded-full bg-status-success" />
-        <span className="text-[15px] font-semibold text-foreground">
+        <span className="text-sm font-semibold text-foreground">
           {only.version !== undefined ? `Live · v${only.version}` : 'Live'}
         </span>
       </span>
@@ -92,7 +92,7 @@ function LiveAccounts({ live }: { live: BandLive[] }) {
     <>
       <span className="flex items-center gap-2">
         <span aria-hidden="true" className="size-2 rounded-full bg-status-success" />
-        <span className="text-[15px] font-semibold text-foreground">
+        <span className="text-sm font-semibold text-foreground">
           Live on {live.length} accounts
         </span>
       </span>
@@ -145,7 +145,7 @@ function RunsColumn({ runs24h }: Pick<StatusBandProps, 'runs24h'>) {
         {/* Nothing until the day's runs are in. */}
         {runs24h && (
           <span className="flex items-baseline gap-2">
-            <span className="text-[15px] font-semibold tabular-nums text-foreground">
+            <span className="text-sm font-semibold tabular-nums text-foreground">
               {none ? '—' : runs24h.all}
             </span>
             <span

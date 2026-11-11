@@ -124,8 +124,8 @@ export function StepRow({ item, spanMs, selected, onSelect, nested }: StepRowPro
       >
         <StateMark state={item.state} />
         <span className="flex w-[150px] min-w-0 shrink-0 flex-col">
-          <span className="truncate text-[13px] font-medium text-foreground">{item.name}</span>
-          <span className="truncate font-mono text-[11px] text-muted-foreground">{item.label}</span>
+          <span className="truncate text-sm font-medium text-foreground">{item.name}</span>
+          <span className="truncate font-mono text-2xs text-muted-foreground">{item.label}</span>
         </span>
         <Bar
           state={item.state}
@@ -134,7 +134,7 @@ export function StepRow({ item, spanMs, selected, onSelect, nested }: StepRowPro
           spanMs={spanMs}
         />
         {tries > 1 && (
-          <span className="shrink-0 rounded-full bg-status-warning/15 px-1.5 py-0.5 text-[11px] font-medium text-status-warning">
+          <span className="shrink-0 rounded-full bg-status-warning/15 px-1.5 py-0.5 text-2xs font-medium text-status-warning">
             ×{tries}
           </span>
         )}
@@ -188,9 +188,9 @@ export function GroupRow({ group, spanMs, open, onToggle, selectedId, onSelect }
                 open && 'rotate-90',
               )}
             />
-            <span className="truncate text-[13px] font-medium text-foreground">{group.name}</span>
+            <span className="truncate text-sm font-medium text-foreground">{group.name}</span>
           </span>
-          <span className="truncate text-[11px] text-muted-foreground">{group.meta}</span>
+          <span className="truncate text-2xs text-muted-foreground">{group.meta}</span>
         </span>
         <Bar
           state={group.state}
@@ -198,7 +198,7 @@ export function GroupRow({ group, spanMs, open, onToggle, selectedId, onSelect }
           durationMs={group.durationMs}
           spanMs={spanMs}
         />
-        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
+        <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
           ×{group.items.length}
         </span>
         <span className="w-[58px] shrink-0 text-right font-mono text-xs tabular-nums text-muted-foreground">

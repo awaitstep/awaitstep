@@ -36,7 +36,7 @@ export function WorkflowTitle({ name, kind, version, children, href }: WorkflowT
       )}
       {kind === 'script' && (
         <span
-          className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground @[640px]:inline-flex"
+          className="hidden shrink-0 items-center rounded border border-border bg-muted/40 px-1.5 py-0.5 text-3xs font-medium uppercase tracking-wide text-muted-foreground @[640px]:inline-flex"
           title={FUNCTION_BADGE_TITLE}
         >
           Function
