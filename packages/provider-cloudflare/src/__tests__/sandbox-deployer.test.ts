@@ -68,7 +68,7 @@ const baseOptions = {
 }
 
 describe('SandboxWranglerDeployer', () => {
-  it('uploads secrets via `wrangler secret bulk` with a JSON file', async () => {
+  it('attaches secrets to the deploy with `--secrets-file`', async () => {
     let lastSandbox: FakeSandbox | undefined
     const deployer = new SandboxWranglerDeployer((id: string) => {
       expect(id).toBeDefined()
@@ -96,16 +96,14 @@ describe('SandboxWranglerDeployer', () => {
       AWS_SECRET_ACCESS_KEY: 's3cr3t',
     })
 
-    const bulkCall = lastSandbox!.execCalls.find((c) => c.command.includes('secret bulk'))
-    expect(bulkCall).toBeDefined()
-    expect(bulkCall!.command).toBe(
-      'wrangler secret bulk .secrets.bulk.json --name awaitstep-my-workflow',
-    )
-    expect(bulkCall!.cwd).toBe('/workspace')
-    expect(bulkCall!.env?.CLOUDFLARE_API_TOKEN).toBe('token123')
+    const deployCall = lastSandbox!.execCalls.find((c) => c.command.startsWith('wrangler deploy'))
+    expect(deployCall).toBeDefined()
+    expect(deployCall!.command).toBe('wrangler deploy --secrets-file .secrets.bulk.json')
+    expect(deployCall!.cwd).toBe('/workspace')
+    expect(deployCall!.env?.CLOUDFLARE_API_TOKEN).toBe('token123')
 
-    const cleanupCall = lastSandbox!.execCalls.find((c) => c.command.startsWith('rm -f'))
-    expect(cleanupCall).toBeDefined()
+    // A second `secret bulk` would create a second version/deployment.
+    expect(lastSandbox!.execCalls.some((c) => c.command.includes('secret bulk'))).toBe(false)
   })
 
   it('does not call `wrangler secret put` (legacy stdin-based path)', async () => {
@@ -124,12 +122,11 @@ describe('SandboxWranglerDeployer', () => {
     expect(putCall).toBeUndefined()
   })
 
-  it('returns failure when the bulk upload fails and reports a redacted error', async () => {
+  it('returns failure when the deploy with secrets fails and reports a redacted error', async () => {
     const longToken = 'A'.repeat(40)
     const deployer = new SandboxWranglerDeployer(() =>
       makeFakeSandbox((cmd) => {
-        if (cmd.includes('wrangler deploy')) return { success: true, stdout: 'deployed' }
-        if (cmd.includes('secret bulk')) {
+        if (cmd.includes('wrangler deploy')) {
           return { success: false, stderr: `auth failed token=${longToken}` }
         }
         return { success: true }
@@ -156,8 +153,9 @@ describe('SandboxWranglerDeployer', () => {
     await deployer.deploy(bundle, baseOptions)
 
     expect(lastSandbox!.files.has('/workspace/.secrets.bulk.json')).toBe(false)
-    const bulkCall = lastSandbox!.execCalls.find((c) => c.command.includes('secret bulk'))
-    expect(bulkCall).toBeUndefined()
+    const deployCall = lastSandbox!.execCalls.find((c) => c.command.startsWith('wrangler deploy'))
+    expect(deployCall!.command).toBe('wrangler deploy')
+    expect(lastSandbox!.execCalls.some((c) => c.command.includes('secret bulk'))).toBe(false)
   })
 
   it('skips invalid secret keys but still uploads valid ones', async () => {

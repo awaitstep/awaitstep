@@ -85,7 +85,22 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         onProgress,
       )
 
-      // 4. Deploy with wrangler
+      // 4. Write secrets for the same upload. `wrangler secret bulk` after a
+      // deploy creates a second version (and a second deployment in
+      // Cloudflare); `--secrets-file` attaches them to this one.
+      const bulk = buildSecretsBulkJson(options.secrets)
+      for (const skippedKey of bulk.skipped) {
+        onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${skippedKey}"`)
+      }
+      if (bulk.json) {
+        onProgress?.(
+          'UPLOADING_SECRETS',
+          `Uploading ${bulk.valid.length} ${bulk.valid.length === 1 ? 'secret' : 'secrets'}...`,
+        )
+        await writeFile(join(deployDir, SECRETS_BULK_FILENAME), bulk.json, 'utf-8')
+      }
+
+      // 5. Deploy with wrangler
       // An allow-listed environment, not the API's: this runs in a directory
       // whose dependencies the user chose. The credentials are added
       // deliberately because a deploy needs them.
@@ -100,32 +115,17 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       // config beside the script — and deploy without bindings.
       const { stdout } = await execFileAsync(
         wrangler.command,
-        [...wrangler.args, 'deploy', '-c', 'wrangler.json', '--no-bundle', builtEntry],
+        [
+          ...wrangler.args,
+          'deploy',
+          '-c',
+          'wrangler.json',
+          '--no-bundle',
+          ...(bulk.json ? ['--secrets-file', SECRETS_BULK_FILENAME] : []),
+          builtEntry,
+        ],
         { cwd: deployDir, env: deployEnv, timeout: 120_000 },
       )
-
-      // 5. Upload secrets via bulk
-      const bulk = buildSecretsBulkJson(options.secrets)
-      for (const skippedKey of bulk.skipped) {
-        onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${skippedKey}"`)
-      }
-      if (bulk.json) {
-        onProgress?.(
-          'UPLOADING_SECRETS',
-          `Uploading ${bulk.valid.length} ${bulk.valid.length === 1 ? 'secret' : 'secrets'}...`,
-        )
-        const secretsPath = join(deployDir, SECRETS_BULK_FILENAME)
-        await writeFile(secretsPath, bulk.json, 'utf-8')
-        try {
-          await execFileAsync(
-            wrangler.command,
-            [...wrangler.args, 'secret', 'bulk', SECRETS_BULK_FILENAME, '--name', name],
-            { cwd: deployDir, env: deployEnv, timeout: 60_000 },
-          )
-        } finally {
-          await rm(secretsPath, { force: true }).catch(() => {})
-        }
-      }
 
       // 6. Extract URL
       const urlMatch = stdout.match(/https:\/\/[^\s)]+\.workers\.dev/)

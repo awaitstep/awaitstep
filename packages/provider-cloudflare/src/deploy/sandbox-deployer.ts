@@ -126,31 +126,8 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         onProgress?.('INSTALLING_DEPS', 'Dependencies installed')
       }
 
-      // 4. Deploy with wrangler
-      onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
-      const deployResult = await sandbox.exec('wrangler deploy', {
-        cwd: '/workspace',
-        timeout: 120_000,
-        env: {
-          CLOUDFLARE_ACCOUNT_ID: options.accountId,
-          CLOUDFLARE_API_TOKEN: options.apiToken,
-        },
-        stream: true,
-        onOutput: (_stream: string, data: string) => {
-          const trimmed = data.trim()
-          if (trimmed) onProgress?.('DEPLOYING', trimmed)
-        },
-      })
-
-      if (!deployResult.success) {
-        return { success: false, workerName: name, error: redactSensitive(deployResult.stderr) }
-      }
-
-      // 5. Upload secrets via bulk
-      // The Sandbox SDK's exec() does not support stdin, so we write a JSON
-      // file and let `wrangler secret bulk <file>` read it. The file is
-      // deleted as soon as the upload finishes; the container is destroyed
-      // in the `finally` block regardless.
+      // 4. Attach secrets to the same upload. A separate `wrangler secret
+      // bulk` creates a second version and a second deployment.
       const bulk = buildSecretsBulkJson(options.secrets)
       for (const skippedKey of bulk.skipped) {
         onProgress?.('UPLOADING_SECRETS', `Skipping invalid secret key "${skippedKey}"`)
@@ -160,32 +137,30 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
           'UPLOADING_SECRETS',
           `Uploading ${bulk.valid.length} ${bulk.valid.length === 1 ? 'secret' : 'secrets'}...`,
         )
-        const secretsPath = `/workspace/${SECRETS_BULK_FILENAME}`
-        await sandbox.writeFile(secretsPath, bulk.json)
-        try {
-          const bulkResult = await sandbox.exec(
-            `wrangler secret bulk ${SECRETS_BULK_FILENAME} --name ${name}`,
-            {
-              cwd: '/workspace',
-              env: {
-                CLOUDFLARE_ACCOUNT_ID: options.accountId,
-                CLOUDFLARE_API_TOKEN: options.apiToken,
-              },
-              timeout: 60_000,
-            },
-          )
-          if (!bulkResult.success) {
-            return {
-              success: false,
-              workerName: name,
-              error: redactSensitive(bulkResult.stderr),
-            }
-          }
-        } finally {
-          await sandbox
-            .exec(`rm -f ${SECRETS_BULK_FILENAME}`, { cwd: '/workspace' })
-            .catch(() => {})
-        }
+        await sandbox.writeFile(`/workspace/${SECRETS_BULK_FILENAME}`, bulk.json)
+      }
+
+      // 5. Deploy with wrangler
+      onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
+      const deployResult = await sandbox.exec(
+        `wrangler deploy${bulk.json ? ` --secrets-file ${SECRETS_BULK_FILENAME}` : ''}`,
+        {
+          cwd: '/workspace',
+          timeout: 120_000,
+          env: {
+            CLOUDFLARE_ACCOUNT_ID: options.accountId,
+            CLOUDFLARE_API_TOKEN: options.apiToken,
+          },
+          stream: true,
+          onOutput: (_stream: string, data: string) => {
+            const trimmed = data.trim()
+            if (trimmed) onProgress?.('DEPLOYING', trimmed)
+          },
+        },
+      )
+
+      if (!deployResult.success) {
+        return { success: false, workerName: name, error: redactSensitive(deployResult.stderr) }
       }
 
       // 6. Extract URL

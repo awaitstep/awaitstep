@@ -124,4 +124,21 @@ describe('host-side wrangler runs check containment first', () => {
       expect.arrayContaining(['deploy', '-c', 'wrangler.json', '--no-bundle', CHECKED_ENTRY]),
     )
   })
+
+  it('attaches secrets to that one deploy, never a second secret bulk', async () => {
+    containment = 'pass'
+    const result = await new NodeWranglerDeployer().deploy(bundle, {
+      ...deployOptions,
+      secrets: { FOO: 'bar' },
+    })
+
+    expect(result.success).toBe(true)
+    const wrangler = wranglerCalls(executed)
+    const deploys = wrangler.filter((call) => call.includes('deploy'))
+    expect(deploys).toHaveLength(1)
+    expect(deploys[0]).toEqual(
+      expect.arrayContaining(['deploy', '--secrets-file', '.secrets.bulk.json', CHECKED_ENTRY]),
+    )
+    expect(wrangler.some((call) => call.includes('secret') && call.includes('bulk'))).toBe(false)
+  })
 })
