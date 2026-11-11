@@ -3,7 +3,12 @@ import type {
   DeployConnections,
   LiveDeployment,
 } from '@awaitstep/ir'
-import type { ProviderCapabilities, RuntimeRequirement, SourceDiagnostic } from '@awaitstep/codegen'
+import type {
+  DeployConfigResponse,
+  ProviderCapabilities,
+  RuntimeRequirement,
+  SourceDiagnostic,
+} from '@awaitstep/codegen'
 import type { ApiWorkflowPageSummary } from './dashboard-api'
 import type {
   GeneratedFile,
@@ -799,30 +804,7 @@ export function createApiClient(scope: () => ApiScope) {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/deploy-connections`))
     },
 
-    getDeployConfig(
-      workflowId: string,
-      connectionId: string,
-    ): Promise<{
-      config: Record<string, unknown>
-      provider: string
-      preview: { filename: string; content: Record<string, unknown> }
-      uiSchema?: {
-        groups: Array<{
-          title: string
-          description?: string
-          fields: Array<{
-            path: string
-            label?: string
-            help?: string
-            placeholder?: string
-            widget?: string
-            visibleWhen?: { path: string; truthy: true }
-            defaultObject?: Record<string, unknown>
-            advanced?: boolean
-          }>
-        }>
-      }
-    }> {
+    getDeployConfig(workflowId: string, connectionId: string): Promise<DeployConfigResponse> {
       return request(
         withProject(
           `/workflows/${pathSegment(workflowId)}/deploy-config/${pathSegment(connectionId)}`,

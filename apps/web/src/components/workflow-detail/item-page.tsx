@@ -60,7 +60,8 @@ interface ItemPageProps {
 export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
   const source = useDataSource()
   const ready = useItemScopeReady() && source === 'api'
-  const overview = useWorkflowOverview(workflowId, ready)
+  // Deploy shows none of the summary (runs, counts): it isn't asked for there.
+  const overview = useWorkflowOverview(workflowId, ready, page !== 'deploy')
   const { workflow, summary } = overview
   const inOtherWorkspace = useInOtherWorkspace(workflow)
   const accounts = useDeploymentAccounts(workflowId, ready)
@@ -108,24 +109,27 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
     const neverDeployed = draft === true
     body = (
       <>
-        <ItemHeader
-          slugs={slugs}
-          workflow={workflow}
-          overview={overview}
-          page={page}
-          neverDeployed={neverDeployed}
-          canEdit={canEdit}
-          // A draft's tabs carry no counts (24f), nor do they until that's known; a partial
-          // deploy count would read as the total.
-          counts={
-            draft !== false
-              ? undefined
-              : {
-                  runs: summary?.runs.total,
-                  deployments: summary?.deployCount,
-                }
-          }
-        />
+        {/* Deploy heads itself (25a): a title and the version, no tabs or actions. */}
+        {page !== 'deploy' && (
+          <ItemHeader
+            slugs={slugs}
+            workflow={workflow}
+            overview={overview}
+            page={page}
+            neverDeployed={neverDeployed}
+            canEdit={canEdit}
+            // A draft's tabs carry no counts (24f), nor do they until that's known; a partial
+            // deploy count would read as the total.
+            counts={
+              draft !== false
+                ? undefined
+                : {
+                    runs: summary?.runs.total,
+                    deployments: summary?.deployCount,
+                  }
+            }
+          />
+        )}
         {children({ workflow, overview, accounts, runs24h, neverDeployed })}
       </>
     )

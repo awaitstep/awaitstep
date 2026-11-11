@@ -20,8 +20,13 @@ function DeployRoute() {
   const { version, connection } = Route.useSearch()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="deploy">
-      {({ workflow }) => (
-        <DeployBody workflow={workflow} versionId={version} connectionId={connection} />
+      {({ workflow, overview }) => (
+        <DeployBody
+          workflow={workflow}
+          live={overview.live}
+          versionId={version}
+          connectionId={connection}
+        />
       )}
     </ItemPage>
   )

@@ -7,12 +7,12 @@ import { useWorkflowPageSummary } from '../../data/dashboard/items'
  * What a workflow's Overview shows and its actions need: the workflow, its
  * page summary (current version, deploy counts, run counts) and what is live
  * on each account. `ready` holds every read until the page knows the URL's
- * project.
+ * project; `withSummary` false skips the summary for a page that shows none of it.
  */
-export function useWorkflowOverview(workflowId: string, ready: boolean) {
+export function useWorkflowOverview(workflowId: string, ready: boolean, withSummary = true) {
   const queries = useQueries()
   const workflowQuery = useQuery({ ...queries.workflows.detail(workflowId), enabled: ready })
-  const summaryQuery = useWorkflowPageSummary(workflowId, ready)
+  const summaryQuery = useWorkflowPageSummary(workflowId, ready && withSummary)
   const workflow = workflowQuery.data
   const summary = summaryQuery.data
 

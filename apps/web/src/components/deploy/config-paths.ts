@@ -14,6 +14,7 @@
 export interface UiFieldLike {
   path: string
   defaultObject?: Record<string, unknown>
+  offObject?: Record<string, unknown>
   visibleWhen?: { path: string; truthy: true }
   advanced?: boolean
 }
@@ -23,6 +24,46 @@ export interface UiSchemaLike {
 }
 
 export type DefaultsByPath = Map<string, Record<string, unknown>>
+
+/** What each boolean-toggle parent is stored as when switched off (`offObject`), by path. */
+export type OffsByPath = Map<string, Record<string, unknown>>
+
+export function buildOffs(schema: UiSchemaLike): OffsByPath {
+  const map: OffsByPath = new Map()
+  for (const g of schema.groups) {
+    for (const f of g.fields) {
+      if (f.offObject) map.set(f.path, f.offObject)
+    }
+  }
+  return map
+}
+
+/** Whether every key of `off` holds the same value in `value`, nested objects included. */
+function matchesOff(value: Record<string, unknown>, off: Record<string, unknown>): boolean {
+  return Object.entries(off).every(([key, want]) => {
+    const got = value[key]
+    if (want && typeof want === 'object') {
+      return (
+        !!got &&
+        typeof got === 'object' &&
+        matchesOff(got as Record<string, unknown>, want as Record<string, unknown>)
+      )
+    }
+    return got === want
+  })
+}
+
+/**
+ * A switch's state from its stored value: truthy is on, except an object in
+ * its `off` form (a toggle stored as `{ enabled: false, … }`).
+ */
+export function switchedOn(value: unknown, off?: Record<string, unknown>): boolean {
+  if (!value) return false
+  if (off && typeof value === 'object' && matchesOff(value as Record<string, unknown>, off)) {
+    return false
+  }
+  return true
+}
 
 export function buildDefaults(schema: UiSchemaLike): DefaultsByPath {
   const map: DefaultsByPath = new Map()
@@ -104,8 +145,9 @@ export function isVisible(
   field: UiFieldLike,
   config: Record<string, unknown>,
   defaults: DefaultsByPath,
+  offs: OffsByPath = new Map(),
 ): boolean {
   if (!field.visibleWhen) return true
   const v = readPath(config, field.visibleWhen.path, defaults)
-  return Boolean(v)
+  return switchedOn(v, offs.get(field.visibleWhen.path))
 }
