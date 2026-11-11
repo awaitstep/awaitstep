@@ -9,6 +9,7 @@ import { useDeployStream } from '../../hooks/use-deploy-stream'
 import { useApi, useQueries, useApiReady } from '../../contexts/api-client-context'
 import { cn } from '../../lib/utils'
 import { Button, buttonVariants } from '../ui/button'
+import { ConfirmDialog } from '../ui/confirm-dialog'
 import { EmptyState } from '../ui/empty-state'
 import { Bone } from '../ui/skeletons'
 import { DeployAccountCard, providerName } from './deploy-account-card'
@@ -65,6 +66,7 @@ export function DeployPage({
   const connectionId = picked ?? linked ?? targets.data?.defaultId ?? ''
   // Edits belong to the account they were made for; another account starts from its own.
   const [edits, setEdits] = useState<{ connectionId: string; config: Config } | null>(null)
+  const [confirmingRollBack, setConfirmingRollBack] = useState(false)
 
   const stream = useDeployStream({ workflowId, versionId })
   const busy = stream.state !== 'idle'
@@ -90,6 +92,9 @@ export function DeployPage({
   const selected = accounts?.find((c) => c.id === connectionId)
   const live = targets.data?.deployedWith.find((d) => d.id === connectionId)
   const changes = schema && stored ? settingChanges(schema, config, stored, hints) : null
+  // An older version than the one live there: its code goes back, but the
+  // variables are read as they are now, so Deploy asks first.
+  const rollsBack = version !== undefined && live?.version != null && version < live.version
 
   function handlePick(id: string) {
     setPicked(id)
@@ -105,8 +110,18 @@ export function DeployPage({
     }
   }
 
-  function handleDeploy() {
+  function startDeploy() {
     if (connectionId) void stream.startDeploy(connectionId, config)
+  }
+
+  function handleDeploy() {
+    if (rollsBack) setConfirmingRollBack(true)
+    else startDeploy()
+  }
+
+  function handleConfirmRollBack() {
+    setConfirmingRollBack(false)
+    startDeploy()
   }
 
   function handleRetryTargets() {
@@ -230,7 +245,7 @@ export function DeployPage({
             liveVersion={live?.version ?? null}
             deploymentsHref={links.deployments}
             overviewHref={links.overview}
-            onRetry={handleDeploy}
+            onRetry={startDeploy}
             onBack={stream.retry}
           />
         ) : (
@@ -256,6 +271,17 @@ export function DeployPage({
           />
         )}
       </div>
+      {rollsBack && (
+        <ConfirmDialog
+          open={confirmingRollBack}
+          onOpenChange={setConfirmingRollBack}
+          title={`Roll back to v${version}?`}
+          description={`v${version}’s code goes out with the variables as they are now, not as they were when v${version} was deployed.`}
+          confirmLabel={`Roll back to v${version}`}
+          variant="warning"
+          onConfirm={handleConfirmRollBack}
+        />
+      )}
     </div>
   )
 }
