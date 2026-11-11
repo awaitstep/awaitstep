@@ -22,6 +22,7 @@ export type {
   DeploymentConfigUiVisibility,
   DeploymentConfigValidator,
   DeploymentConfigPreview,
+  DeployConfigResponse,
   DiagnosticSource,
   SourceDiagnostic,
 } from './types.js'

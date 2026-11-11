@@ -264,6 +264,15 @@ export interface ConnectionCoverage {
   covered: boolean
 }
 
+/** Deploy's settings lookup for one account: no credentials, the stored config as saved. */
+export interface DeployConfigLookup {
+  provider: string
+  /** Whether it is one of the project's accounts (added or owned, and still serving it). */
+  covered: boolean
+  /** The workflow's stored deployment config on this account (JSON text), if any. */
+  config: string | null
+}
+
 /** One of a project's accounts as its Connections page lists it; credentials decrypted. */
 export interface ProjectConnectionRow {
   id: string

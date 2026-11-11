@@ -210,12 +210,22 @@ export interface DeploymentConfigUiField {
    */
   defaultObject?: Record<string, unknown>
   /**
+   * For the same boolean-toggle parents: the object `false` is stored as.
+   * A value matching it reads as off, so the switch shows what was saved.
+   */
+  offObject?: Record<string, unknown>
+  /**
    * When true, the field renders inside a collapsed "Show advanced" disclosure
    * at the bottom of its group. Use for settings that are valid but rarely
    * needed (e.g. Logpush, which has no effect without an out-of-band
    * destination configured at the account level).
    */
   advanced?: boolean
+  /**
+   * A short name for the field in its group's one-line summary on Deploy
+   * ("Logs" → "Logs on"). Fields without one are left out of the summary.
+   */
+  summaryLabel?: string
 }
 
 export interface DeploymentConfigUiGroup {
@@ -236,4 +246,15 @@ export interface DeploymentConfigValidator {
 export interface DeploymentConfigPreview {
   filename: string
   content: Record<string, unknown>
+}
+
+/** `GET /workflows/:id/deploy-config/:connectionId`: the settings Deploy starts from. */
+export interface DeployConfigResponse {
+  /** The stored settings for this workflow on this account, else the provider's defaults. */
+  config: Record<string, unknown>
+  /** The provider's defaults: what "Default" and Reset to defaults compare against. */
+  defaults: Record<string, unknown>
+  provider: string
+  preview: DeploymentConfigPreview
+  uiSchema?: DeploymentConfigUiSchema
 }

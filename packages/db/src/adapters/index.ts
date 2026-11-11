@@ -11,6 +11,7 @@ import type {
   WorkflowVersionListItem,
   DeploymentListItem,
   Connection,
+  DeployConfigLookup,
   DeployedConnection,
   VersionDeleteCheck,
   LatestVersionForSave,
@@ -381,6 +382,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         projectConnections: schema.projectConnections,
         projects: schema.projects,
         deployments: schema.deployments,
+        deploymentConfigs: schema.deploymentConfigs,
         member: schema.member,
         user: schema.user,
         notifications: schema.notifications,
@@ -1166,6 +1168,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     workflowId: string,
   ): Promise<DeployedConnection | null> {
     return this._connections.getDeployedWith(id, organizationId, workflowId)
+  }
+  getDeployConfigFor(
+    id: string,
+    organizationId: string,
+    projectId: string,
+    workflowId: string,
+  ): Promise<DeployConfigLookup | null> {
+    return this._connections.getDeployConfigFor(id, organizationId, projectId, workflowId)
   }
   listConnectionsByOrganization(
     organizationId: string,

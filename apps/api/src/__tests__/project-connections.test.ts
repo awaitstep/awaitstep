@@ -442,6 +442,11 @@ describe('project connections on the API', () => {
       const sales = await offered()
       expect(sales.defaultId).toBe(own)
       expect(sales.connections.map((c) => c.name)).toEqual(['Acme production', 'Checkout staging'])
+      // Which kind of token each is: an OAuth grant's short expiry is no warning.
+      expect(sales.connections.map((c) => [c.authKind, c.canDeploy])).toEqual([
+        ['api-token', true],
+        ['api-token', true],
+      ])
       expect(JSON.stringify(sales)).not.toMatch(/apiToken|own-tok|"tok"/)
     })
 
@@ -472,9 +477,12 @@ describe('project connections on the API', () => {
 
       await add([prod])
       expect(await deployWith()).not.toEqual({ error: CONNECTION_NOT_SERVING, status: 403 })
-      expect(
-        (await call('u-ama', `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`)).status,
-      ).toBe(200)
+      const fresh = await call('u-ama', `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`)
+      expect(fresh.status).toBe(200)
+      // Nothing stored yet: the settings start at the provider's defaults, sent alongside.
+      const freshBody = (await fresh.json()) as { config: unknown; defaults: unknown }
+      expect(freshBody.defaults).toMatchObject({ workersDev: true, previewUrls: true })
+      expect(freshBody.config).toEqual(freshBody.defaults)
 
       const withRoute = await send(
         'u-ama',
@@ -499,10 +507,13 @@ describe('project connections on the API', () => {
         'u-ama',
         `/workflows/wf-sales/deploy-config/${prod}?projectId=p-101`,
       )
-      expect(((await reread.json()) as { config: unknown }).config).toMatchObject({
+      const rereadBody = (await reread.json()) as { config: unknown; defaults: unknown }
+      expect(rereadBody.config).toMatchObject({
         routes: [{ pattern: 'example.com/*', zoneName: 'example.com' }],
         bindings: { KV_USERS: { kind: 'kv', resourceId: 'namespace-1' } },
       })
+      // The defaults stay the provider's, whatever is stored.
+      expect(rereadBody.defaults).not.toHaveProperty('routes')
     })
   })
 })
