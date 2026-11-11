@@ -19,12 +19,12 @@ export function UnsavedSection({ paths, onReview }: UnsavedSectionProps) {
   if (paths.length === 0) return null
   return (
     <section aria-label="Unsaved files" className="shrink-0 border-b border-border py-1">
-      <div className="flex items-center px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
         <span>Unsaved · {paths.length}</span>
         <button
           type="button"
           onClick={handleReviewAll}
-          className="ml-auto rounded px-1.5 py-0.5 text-[11px] font-medium normal-case tracking-normal text-primary hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-auto rounded px-1.5 py-0.5 text-2xs font-medium normal-case tracking-normal text-primary hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Review
         </button>
@@ -57,7 +57,7 @@ function UnsavedRow({ path, onReview }: { path: string; onReview: (path?: string
         aria-hidden="true"
       />
       <span className="truncate">{basename(path)}</span>
-      {folder && <span className="truncate text-[11px] text-muted-foreground">{folder}</span>}
+      {folder && <span className="truncate text-2xs text-muted-foreground">{folder}</span>}
     </button>
   )
 }

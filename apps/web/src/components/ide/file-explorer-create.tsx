@@ -103,7 +103,7 @@ export function CreateRow({
 
   return (
     <div className="py-1 pr-2" style={{ paddingLeft: `${8 + depth * 12}px` }}>
-      <div className="px-1 pb-0.5 font-mono text-[10.5px] text-muted-foreground">
+      <div className="px-1 pb-0.5 font-mono text-2xs text-muted-foreground">
         {crumbLabel(folder)}
       </div>
       <input
@@ -129,7 +129,7 @@ export function CreateRow({
       />
       <div role="status" aria-live="polite" className="empty:hidden">
         {announced && (
-          <p className="mt-1 rounded border border-status-error/30 bg-status-error/10 px-2 py-1 text-[11.5px] leading-snug text-status-error">
+          <p className="mt-1 rounded border border-status-error/30 bg-status-error/10 px-2 py-1 text-2xs leading-snug text-status-error">
             {announced}
           </p>
         )}

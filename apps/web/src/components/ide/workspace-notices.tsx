@@ -47,7 +47,7 @@ function Notice({
     <div className="fixed inset-0 flex items-center justify-center bg-background">
       <div className="max-w-md text-center">
         <p className="text-sm font-medium text-foreground">{title}</p>
-        <p className="mt-1 break-words text-xs text-muted-foreground">{description}</p>
+        <p className="mt-1 break-words text-sm text-muted-foreground">{description}</p>
         <div className="mt-4">{action}</div>
       </div>
     </div>

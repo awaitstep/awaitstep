@@ -63,7 +63,7 @@ export function TestSessionPanel({
         />
       )}
       {actionError && (
-        <p role="alert" className="text-[11px] text-destructive">
+        <p role="alert" className="text-2xs text-destructive">
           {actionError}
         </p>
       )}

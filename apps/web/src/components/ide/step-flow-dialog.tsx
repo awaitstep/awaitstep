@@ -339,7 +339,7 @@ export function StepFlowDialog({
                 />
               </div>
               {error !== null && (
-                <p role="alert" className="px-4 pb-2 text-[11px] text-destructive">
+                <p role="alert" className="px-4 pb-2 text-2xs text-destructive">
                   {error}
                 </p>
               )}

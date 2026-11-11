@@ -24,7 +24,7 @@ export function SaveVersionFirst({ workflowId, reason }: SaveVersionFirstProps) 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
       <p className="text-xs font-medium text-muted-foreground">{SAVE_VERSION_FIRST}</p>
-      <p className="max-w-md text-[11px] text-muted-foreground">{reason}</p>
+      <p className="max-w-md text-2xs text-muted-foreground">{reason}</p>
       <Button size="sm" variant="outline" className="mt-1.5" onClick={handleOpenCanvas}>
         Open canvas
       </Button>

@@ -374,7 +374,7 @@ export function BindingsPanel() {
             <Badge
               dot
               variant="warning"
-              className="text-[10px] rounded"
+              className="text-2xs rounded"
               title={`These resources are supplied by ${providerLabel}`}
             >
               {providerLabel} only
@@ -425,7 +425,7 @@ export function BindingsPanel() {
                     {label}
                   </span>
                   <span className="font-mono text-foreground/70">{binding.name}</span>
-                  <span className="text-[10px] text-muted-foreground/60">
+                  <span className="text-2xs text-muted-foreground/60">
                     {binding.declared ? 'Declared' : 'Detected'}
                   </span>
                   {MAPPING_KINDS.has(binding.type) ? (
@@ -435,7 +435,7 @@ export function BindingsPanel() {
                           type="button"
                           onClick={() => setMapTarget(binding)}
                           disabled={readOnly}
-                          className="rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded px-1.5 py-0.5 text-2xs text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Mapped
                         </button>
@@ -444,18 +444,16 @@ export function BindingsPanel() {
                           type="button"
                           onClick={() => setMapTarget(binding)}
                           disabled={readOnly}
-                          className="rounded px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded px-1.5 py-0.5 text-2xs text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Map
                         </button>
                       )
                     ) : (
-                      <span className="text-[10px] text-muted-foreground/60">
-                        Map when you deploy
-                      </span>
+                      <span className="text-2xs text-muted-foreground/60">Map when you deploy</span>
                     )
                   ) : (
-                    <span className="text-[10px] text-muted-foreground/60">No mapping needed</span>
+                    <span className="text-2xs text-muted-foreground/60">No mapping needed</span>
                   )}
                   {isQueue &&
                     supportsQueue &&
@@ -481,7 +479,7 @@ export function BindingsPanel() {
                 </div>
               )
             })}
-            <p className="pt-1 text-[10px] text-muted-foreground/60">
+            <p className="pt-1 text-2xs text-muted-foreground/60">
               Map resources when you deploy. Local test uses local emulation and needs no account.
             </p>
           </div>

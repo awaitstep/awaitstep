@@ -152,7 +152,7 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
                           </div>
                         </div>
                       </div>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
+                      <p className="text-sm leading-relaxed text-muted-foreground">
                         {template.description}
                       </p>
                     </button>

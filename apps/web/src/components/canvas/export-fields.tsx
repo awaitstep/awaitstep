@@ -69,7 +69,7 @@ export function ExportFields({ node, kind, scope, onChange }: ExportFieldsProps)
         />
         <label htmlFor={exportId} className="min-w-0 cursor-pointer">
           <div className="text-xs text-foreground">Return this value</div>
-          <div className="text-[11px] text-muted-foreground/60">
+          <div className="text-2xs text-muted-foreground/60">
             {returnsNothing && scope.status === 'ok' ? (
               'Returns nothing yet: the body has no return.'
             ) : (

@@ -142,7 +142,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
       className={cn(
         'group flex w-full cursor-pointer items-center gap-1 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary',
         isSection
-          ? 'h-6 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground'
+          ? 'h-6 px-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground'
           : 'h-6 text-xs',
         !isSection &&
           (selected
@@ -167,7 +167,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
             />
           )}
           {row.section === 'generated' && (
-            <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-muted-foreground">
+            <span className="ml-auto inline-flex items-center gap-1 text-2xs font-normal normal-case tracking-normal text-muted-foreground">
               <Lock className="h-2.5 w-2.5" />
               read-only
             </span>
@@ -570,7 +570,7 @@ export function ProjectEmptyState({
   onCreate: () => void
 }) {
   return (
-    <div className="px-5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+    <div className="px-5 py-2 text-2xs leading-relaxed text-muted-foreground">
       No project files yet.
       {canEdit && (
         <>
@@ -592,7 +592,7 @@ export function ProjectEmptyState({
 /** Shown in place of the generated files while there is no saved version to generate them from. */
 export function GeneratedEmptyState() {
   return (
-    <div className="px-5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+    <div className="px-5 py-2 text-2xs leading-relaxed text-muted-foreground">
       Appears after the first save on the canvas.
     </div>
   )

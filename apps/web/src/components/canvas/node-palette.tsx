@@ -169,7 +169,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
                           <div className="flex items-center gap-1.5">
                             <span className="text-xs font-medium text-foreground">{def.name}</span>
                             {!BUILTIN_IDS.has(def.id) && (
-                              <span className="rounded bg-node-sub/15 px-1 py-px text-[10px] font-medium text-node-sub">
+                              <span className="rounded bg-node-sub/15 px-1 py-px text-2xs font-medium text-node-sub">
                                 Custom
                               </span>
                             )}

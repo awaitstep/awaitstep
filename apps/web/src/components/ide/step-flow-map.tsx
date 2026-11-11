@@ -138,17 +138,17 @@ export function StepFlowMap({
           {getNodeVisuals('step', registry.get('step')?.icon).icon}
         </span>
         {arm && (
-          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-[9px] uppercase tracking-wider text-primary">
+          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-3xs uppercase tracking-wider text-primary">
             {arm}
           </span>
         )}
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
           {name.trim() || 'new_step'}
         </span>
-        <span className="rounded bg-primary/15 px-1 py-px text-[9px] uppercase tracking-wider text-primary">
+        <span className="rounded bg-primary/15 px-1 py-px text-3xs uppercase tracking-wider text-primary">
           New
         </span>
-        <span className="shrink-0 text-[10px] text-primary">lands here</span>
+        <span className="shrink-0 text-2xs text-primary">lands here</span>
       </div>
     )
   }
@@ -214,11 +214,11 @@ export function StepFlowMap({
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-foreground">{node.name}</span>
         {entryNodeId !== null && !reachable.has(row.nodeId) && (
-          <span className="shrink-0 rounded bg-muted px-1 py-px text-[9px] uppercase tracking-wider text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1 py-px text-3xs uppercase tracking-wider text-muted-foreground">
             Not connected
           </span>
         )}
-        {meta && <span className="shrink-0 text-[10px] text-muted-foreground">{meta}</span>}
+        {meta && <span className="shrink-0 text-2xs text-muted-foreground">{meta}</span>}
       </div>
     )
   }
@@ -238,7 +238,7 @@ export function StepFlowMap({
         {row.arm && row.armStart && (
           <span
             className={cn(
-              'rounded border px-1 py-px text-[9px] uppercase tracking-wider',
+              'rounded border px-1 py-px text-3xs uppercase tracking-wider',
               armTone(row.arm),
             )}
           >
@@ -246,7 +246,7 @@ export function StepFlowMap({
           </span>
         )}
         <span className="min-w-0 flex-1 truncate text-xs text-foreground">{node.name}</span>
-        <span className="shrink-0 rounded border border-node-error-handling/30 bg-node-error-handling/10 px-1 py-px text-[9px] uppercase tracking-wider text-node-error-handling">
+        <span className="shrink-0 rounded border border-node-error-handling/30 bg-node-error-handling/10 px-1 py-px text-3xs uppercase tracking-wider text-node-error-handling">
           {nodeMeta(node, { kind, arms }) ?? node.type}
         </span>
       </div>
@@ -321,7 +321,7 @@ export function StepFlowMap({
             {node.row.arm && node.row.armStart && (
               <span
                 className={cn(
-                  'shrink-0 rounded border px-1 py-px text-[9px] uppercase tracking-wider',
+                  'shrink-0 rounded border px-1 py-px text-3xs uppercase tracking-wider',
                   armTone(node.row.arm),
                 )}
               >
@@ -359,7 +359,7 @@ export function StepFlowMap({
         <Zap className="h-3 w-3" />
       </span>
       <span className="min-w-0 flex-1 truncate text-xs text-foreground">{triggerLabel}</span>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">trigger</span>
+      <span className="text-3xs uppercase tracking-wider text-muted-foreground">trigger</span>
     </div>,
   )
   body.push(gate('first-gate', firstChoice))

@@ -94,7 +94,7 @@ export function StepFields({
           Code<span className="ml-0.5 text-destructive">*</span>
         </Label>
         <div className="overflow-hidden rounded-lg border border-input">
-          <div className="flex h-7 items-center gap-2 border-b border-border/60 bg-muted/30 px-2.5 text-[11px] font-medium text-muted-foreground">
+          <div className="flex h-7 items-center gap-2 border-b border-border/60 bg-muted/30 px-2.5 text-2xs font-medium text-muted-foreground">
             <span className="text-primary">TS</span>
             <span className="truncate font-mono">{stepSourcePath(node.id)}</span>
             <span className="flex-1" />
@@ -182,7 +182,7 @@ export function StepFields({
               />
               <label htmlFor={inlineId} className="min-w-0 cursor-pointer">
                 <div className="text-xs text-foreground">Inline — no step</div>
-                <div className="text-[11px] text-muted-foreground/60">
+                <div className="text-2xs text-muted-foreground/60">
                   Runs in the body. No retries, timeout or durability.
                 </div>
               </label>
@@ -206,7 +206,7 @@ export function StepFields({
                         onChange={(value) => onChange(fieldId, value)}
                       />
                       {field.description && (
-                        <p className="text-[11px] text-muted-foreground/60">{field.description}</p>
+                        <p className="text-2xs text-muted-foreground/60">{field.description}</p>
                       )}
                     </div>
                   )

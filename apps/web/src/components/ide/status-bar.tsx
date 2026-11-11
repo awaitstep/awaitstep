@@ -62,7 +62,7 @@ export function StatusBar({
   return (
     <div
       aria-label="Workspace status"
-      className="flex h-6 shrink-0 items-center gap-0.5 border-t border-border bg-card px-1.5 text-[11px] text-muted-foreground"
+      className="flex h-6 shrink-0 items-center gap-0.5 border-t border-border bg-card px-1.5 text-2xs text-muted-foreground"
     >
       {version === null ? (
         <span

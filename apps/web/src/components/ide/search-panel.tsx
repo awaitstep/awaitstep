@@ -110,11 +110,11 @@ export function SearchPanel({ files, active, onEscape }: SearchPanelProps) {
         onKeyDown={handleInputKeyDown}
         invalid={shown?.kind === 'invalid'}
       />
-      <div role="status" aria-live="polite" className="shrink-0 px-3 py-1.5 text-[11px]">
+      <div role="status" aria-live="polite" className="shrink-0 px-3 py-1.5 text-2xs">
         <Summary outcome={shown} searching={searching} includeGenerated={includeGenerated} />
       </div>
       {shown?.kind === 'results' && shown.results.total === 0 && !includeGenerated && (
-        <div className="shrink-0 px-3 pb-1.5 text-[11px] text-muted-foreground">
+        <div className="shrink-0 px-3 pb-1.5 text-2xs text-muted-foreground">
           <p>
             Generated files weren’t searched.{' '}
             <button

@@ -41,7 +41,7 @@ export function TriggerPayload({
   return (
     <div className="flex min-h-0 flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor="trigger-payload" className="text-[11px] font-medium text-foreground">
+        <label htmlFor="trigger-payload" className="text-2xs font-medium text-foreground">
           Trigger payload <span className="font-normal text-muted-foreground">· {LIMIT}</span>
         </label>
       </div>
@@ -59,7 +59,7 @@ export function TriggerPayload({
         )}
       />
       <div className="flex items-center justify-between gap-2">
-        <span id="trigger-payload-error" role="alert" className="text-[11px] text-destructive">
+        <span id="trigger-payload-error" role="alert" className="text-2xs text-destructive">
           {payloadError}
         </span>
         <Button size="sm" variant="outline" disabled={!triggerable} onClick={onTrigger}>
@@ -73,7 +73,7 @@ export function TriggerPayload({
             type="button"
             onClick={handleToggleResponse}
             aria-expanded={responseOpen}
-            className="flex w-full items-center gap-1 px-2 py-1 text-left text-[11px] text-muted-foreground hover:text-foreground"
+            className="flex w-full items-center gap-1 px-2 py-1 text-left text-2xs text-muted-foreground hover:text-foreground"
           >
             {responseOpen ? (
               <ChevronDown className="h-3 w-3" />

@@ -123,13 +123,11 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         <div className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-sm', accent)}>
           {icon}
         </div>
-        <span className="truncate text-[8px] font-medium leading-tight text-foreground">
-          {label}
-        </span>
+        <span className="truncate text-3xs font-medium leading-tight text-foreground">{label}</span>
       </div>
 
       {children && (
-        <div className="border-t border-border px-1.5 py-0.5 text-[7px] leading-tight text-muted-foreground/60 truncate">
+        <div className="border-t border-border px-1.5 py-0.5 text-3xs leading-tight text-muted-foreground/60 truncate">
           {children}
         </div>
       )}

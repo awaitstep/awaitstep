@@ -91,7 +91,7 @@ export function SessionHeader({ state }: { state: TestSessionState }) {
           </span>
         )}
       </span>
-      <span className="text-[11px] text-muted-foreground">{scope}</span>
+      <span className="text-2xs text-muted-foreground">{scope}</span>
     </div>
   )
 }

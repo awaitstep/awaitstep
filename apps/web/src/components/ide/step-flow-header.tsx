@@ -65,18 +65,18 @@ export function StepFlowHeader({
         <DialogTitle className="text-xs font-medium text-foreground">
           Where should it go?
         </DialogTitle>
-        <div className="flex items-center gap-1 rounded-md border border-input px-1.5 font-mono text-[11px] text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
+        <div className="flex items-center gap-1 rounded-md border border-input px-1.5 font-mono text-2xs text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
           <Input
             aria-label="Step name"
             value={name}
             maxLength={256}
             onChange={handleNameChange}
             placeholder={fileStem}
-            className="h-7 border-0 bg-transparent px-0 text-right font-mono text-[11px] text-foreground focus-visible:ring-0"
+            className="h-7 border-0 bg-transparent px-0 text-right font-mono text-2xs text-foreground focus-visible:ring-0"
           />
           <span className="shrink-0">.ts</span>
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           Saved as <span className="font-mono">steps/{fileStem}.ts</span>
         </p>
       </div>

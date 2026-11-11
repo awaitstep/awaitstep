@@ -64,13 +64,13 @@ export function QuickTestResultView({
     <div className="flex min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-2 py-1">
         <span className="flex items-baseline gap-2">
-          <span className={cn('text-[11px] font-medium', STATUS_STYLES[result.status])}>
+          <span className={cn('text-2xs font-medium', STATUS_STYLES[result.status])}>
             {STATUS_LABELS[result.status]}
           </span>
           {/* No duration for something that never ran — "0 ms" reads as a
               measurement rather than an absence. */}
           {result.status !== 'refused' && (
-            <span className="text-[11px] tabular-nums text-muted-foreground">
+            <span className="text-2xs tabular-nums text-muted-foreground">
               {result.durationMs} ms
             </span>
           )}
@@ -98,14 +98,14 @@ export function QuickTestResultView({
         )}
         {result.logs.length > 0 && (
           <div className="mt-2 border-t border-border pt-2">
-            <div className="mb-1 text-[11px] font-medium text-muted-foreground">
+            <div className="mb-1 text-2xs font-medium text-muted-foreground">
               Console · {result.logs.length}
             </div>
             {result.logs.map((log, index) => (
               <pre
                 key={index}
                 className={cn(
-                  'whitespace-pre-wrap break-words font-mono text-[11px]',
+                  'whitespace-pre-wrap break-words font-mono text-2xs',
                   log.level === 'error' && 'text-status-error',
                   log.level === 'warn' && 'text-status-warning',
                   log.level === 'info' && 'text-muted-foreground',

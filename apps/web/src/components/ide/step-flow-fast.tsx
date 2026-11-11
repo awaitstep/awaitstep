@@ -90,7 +90,7 @@ export function StepFlowFast({
 
       <FieldGroup
         legend={
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-3xs font-medium uppercase tracking-wider text-muted-foreground">
             Place it
           </span>
         }
@@ -129,7 +129,7 @@ export function StepFlowFast({
               }))}
             />
           ) : (
-            <p className="rounded-md border border-border px-2.5 py-2 text-[11px] text-muted-foreground">
+            <p className="rounded-md border border-border px-2.5 py-2 text-2xs text-muted-foreground">
               No step can take a new step on this side. Pick on the map instead.
             </p>
           )}
@@ -140,7 +140,7 @@ export function StepFlowFast({
         type="button"
         variant="link"
         onClick={onOpenMap}
-        className="h-auto justify-start gap-1.5 p-0 text-[11px] text-primary"
+        className="h-auto justify-start gap-1.5 p-0 text-2xs text-primary"
       >
         <CornerDownRight className="h-3 w-3" />
         Into a branch? Pick on the map

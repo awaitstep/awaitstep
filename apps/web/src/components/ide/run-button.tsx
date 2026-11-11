@@ -25,7 +25,7 @@ export function RunButton({ label, busy, onRun }: RunButtonProps) {
       >
         {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
         {label}
-        <kbd className="font-sans text-[10px]">{hint}</kbd>
+        <kbd className="font-sans text-2xs">{hint}</kbd>
       </Button>
     </div>
   )

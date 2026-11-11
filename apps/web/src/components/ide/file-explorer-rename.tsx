@@ -126,7 +126,7 @@ export function RenameRow({ path, role, existing, depth, onSubmit, onCancel }: R
       </div>
       <div role="status" aria-live="polite" className="empty:hidden">
         {announced && (
-          <p className="mt-1 rounded border border-status-error/30 bg-status-error/10 px-2 py-1 text-[11.5px] leading-snug text-status-error">
+          <p className="mt-1 rounded border border-status-error/30 bg-status-error/10 px-2 py-1 text-2xs leading-snug text-status-error">
             {announced}
           </p>
         )}

@@ -88,7 +88,7 @@ function DockTabButton({
       tabIndex={active ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'flex h-7 items-center gap-1.5 rounded px-2 text-[11px] font-medium uppercase tracking-wider transition-colors',
+        'flex h-7 items-center gap-1.5 rounded px-2 text-2xs font-medium uppercase tracking-wider transition-colors',
         active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >
@@ -103,7 +103,7 @@ function DockTabButton({
       {badge > 0 && (
         <span
           className={cn(
-            'rounded-full px-1.5 py-px text-[10px] tabular-nums tracking-normal',
+            'rounded-full px-1.5 py-px text-2xs tabular-nums tracking-normal',
             active ? 'bg-muted/80 text-foreground' : 'bg-muted/50 text-muted-foreground',
           )}
         >

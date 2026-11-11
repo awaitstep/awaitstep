@@ -161,7 +161,7 @@ export function CommandPalette({
               <CommandGroup
                 key={group}
                 heading={COMMAND_GROUP_LABELS[group]}
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
+                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-3xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground"
               >
                 {commands.map((command) => (
                   <PaletteItem
@@ -210,12 +210,12 @@ function PaletteItem({
     >
       <span className="group-data-[disabled=true]:opacity-40">{command.label}</span>
       {!command.enabled && command.disabledReason && (
-        <span className="ml-auto mr-3 truncate text-[11px] text-muted-foreground">
+        <span className="ml-auto mr-3 truncate text-2xs text-muted-foreground">
           {command.disabledReason}
         </span>
       )}
       {shortcut && (
-        <kbd className="group-data-[disabled=true]:opacity-40 rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+        <kbd className="group-data-[disabled=true]:opacity-40 rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground">
           {shortcut}
         </kbd>
       )}
