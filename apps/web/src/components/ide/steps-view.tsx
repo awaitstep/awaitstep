@@ -240,14 +240,14 @@ export function StepsView({
         )}
       </div>
       {!map.hasManifest && rows.length > 0 && (
-        <p className="border-b border-border px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="border-b border-border px-3 py-2 text-2xs leading-relaxed text-muted-foreground">
           No step files for this version, so steps here don’t open code.
         </p>
       )}
       {!hasVersion ? (
         <SaveVersionFirst workflowId={workflowId} reason="Steps come from a saved version." />
       ) : rows.length === 0 ? (
-        <p className="px-3 py-3 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="px-3 py-3 text-2xs leading-relaxed text-muted-foreground">
           No steps in this version. {canEdit ? 'Add one with + above.' : 'Add them on the canvas.'}
         </p>
       ) : showing ? (

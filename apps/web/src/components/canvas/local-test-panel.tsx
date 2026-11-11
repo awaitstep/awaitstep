@@ -107,9 +107,9 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
       <div className="flex items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">
           <Terminal className="h-4 w-4 text-muted-foreground" />
-          <span className="text-base font-semibold">Local test</span>
+          <span className="text-lg font-semibold">Local test</span>
           {state === 'running' && (
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
+            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-2xs font-medium text-emerald-400">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
               Running
             </span>
@@ -173,7 +173,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                 </div>
               )}
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                   Server
                 </span>
                 <div className="flex items-center gap-2">
@@ -213,13 +213,13 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                     Trigger payload
                   </span>
                   <div className="flex items-center gap-2">
                     <span
                       className={cn(
-                        'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                        'flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium',
                         validJson
                           ? 'bg-emerald-500/10 text-emerald-400'
                           : 'bg-status-error/10 text-status-error',
@@ -231,7 +231,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 gap-1.5 px-2 text-[11px]"
+                      className="h-7 gap-1.5 px-2 text-2xs"
                       onClick={handleFormat}
                     >
                       <span className="font-mono">{'{}'}</span>
@@ -278,7 +278,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
 
               {triggerResult !== null && (
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                     Response
                   </span>
                   <pre className="max-h-32 overflow-auto rounded-lg border border-border bg-muted/20 p-3 font-mono text-xs leading-5 text-foreground/80">
@@ -289,7 +289,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
 
               {instanceId && (
                 <div className="space-y-1.5">
-                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
                     Instance{' '}
                     <span className="font-mono normal-case tracking-normal">
                       {instanceId.slice(0, 12)}…
@@ -350,16 +350,16 @@ function LogViewer({ logs }: { logs: ReturnType<typeof useLocalDev>['logs'] }) {
       <div className="flex items-center justify-between px-5 py-2">
         <div className="flex items-center gap-2">
           <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
             Logs
           </span>
-          <span className="text-[11px] text-muted-foreground/50">{visible.length} lines</span>
+          <span className="text-2xs text-muted-foreground/50">{visible.length} lines</span>
         </div>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
             size="sm"
-            className={cn('h-7 px-2 text-[11px]', follow && 'bg-muted text-foreground')}
+            className={cn('h-7 px-2 text-2xs', follow && 'bg-muted text-foreground')}
             onClick={() => setFollow((value) => !value)}
           >
             Follow
@@ -367,7 +367,7 @@ function LogViewer({ logs }: { logs: ReturnType<typeof useLocalDev>['logs'] }) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-[11px]"
+            className="h-7 px-2 text-2xs"
             onClick={() => setClearedAt(Date.now())}
           >
             Clear

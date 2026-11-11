@@ -123,7 +123,7 @@ export function HttpRequestFields({
         />
         <label htmlFor={durableId} className="min-w-0 cursor-pointer">
           <div className="text-xs text-foreground">Durable</div>
-          <div className="text-[11px] text-muted-foreground/60">
+          <div className="text-2xs text-muted-foreground/60">
             Runs inside a step: retries, a timeout, and a workflow can resume it. Off, it is a plain
             request.
           </div>

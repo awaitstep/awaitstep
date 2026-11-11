@@ -66,7 +66,7 @@ export function SearchBox({ inputRef, onKeyDown, invalid }: SearchBoxProps) {
           <ToggleButton key={t.option} {...t} on={pressed[t.option]} />
         ))}
       </div>
-      <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground">
+      <label className="flex cursor-pointer items-center gap-1.5 text-2xs text-muted-foreground">
         <input
           type="checkbox"
           checked={includeGenerated}
@@ -104,7 +104,7 @@ function ToggleButton({
       title={label}
       onClick={handleClick}
       className={cn(
-        'flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-[10px] transition-colors',
+        'flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-2xs transition-colors',
         on
           ? 'bg-primary/20 text-foreground'
           : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',

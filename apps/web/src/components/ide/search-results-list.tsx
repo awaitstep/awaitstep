@@ -133,7 +133,7 @@ function SectionHeading({ generated, hits }: { generated: boolean; hits: number 
   return (
     <div
       aria-hidden="true"
-      className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+      className="px-3 pb-1 pt-3 text-3xs font-semibold uppercase tracking-wider text-muted-foreground"
     >
       {generated ? 'Generated · read-only' : 'Your files'} · {hits}
     </div>
@@ -178,7 +178,7 @@ function ResultRowView({ row, tabbable, current, onActivate, onFocusRow }: Resul
         <Chevron className="h-3 w-3 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium">{basename(row.path)}</span>
         {folder && <span className="truncate text-muted-foreground">{folder}</span>}
-        <span className="ml-auto rounded-full bg-muted px-1.5 text-[10px] tabular-nums text-muted-foreground">
+        <span className="ml-auto rounded-full bg-muted px-1.5 text-2xs tabular-nums text-muted-foreground">
           {row.count}
         </span>
       </div>
@@ -208,7 +208,7 @@ function HitText({ hit }: { hit: SearchHit }) {
   const start = Math.min(Math.max(hit.matchStart, 0), hit.text.length)
   const end = Math.min(Math.max(hit.matchEnd, start), hit.text.length)
   return (
-    <span className="truncate whitespace-pre font-mono text-[11px] text-foreground/80">
+    <span className="truncate whitespace-pre font-mono text-2xs text-foreground/80">
       {hit.text.slice(0, start)}
       <mark className="rounded-sm bg-primary/25 text-foreground">{hit.text.slice(start, end)}</mark>
       {hit.text.slice(end)}

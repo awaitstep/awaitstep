@@ -44,7 +44,7 @@ export function ExplorerHeader({
   return (
     <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
       {tabs ?? (
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
           Explorer
         </span>
       )}

@@ -90,7 +90,7 @@ export function MapBindingDialog({
             autoComplete="off"
             spellCheck={false}
           />
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-2xs text-muted-foreground">
             You can find this in the Cloudflare dashboard. Other connections can map the same
             binding to a different resource.
           </p>

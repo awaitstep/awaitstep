@@ -19,7 +19,7 @@ export function EditorPlaceholder() {
           <div key={hint.label} className="contents">
             <dt className="text-right text-muted-foreground">{hint.label}</dt>
             <dd>
-              <kbd className="rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
+              <kbd className="rounded border border-border bg-muted/40 px-1.5 py-0.5 font-mono text-2xs text-muted-foreground">
                 {hint.keys}
               </kbd>
             </dd>

@@ -252,7 +252,7 @@ export function CompareView({ path, bindings }: { path: string; bindings: Review
           onChangeCount={setChanges}
         />
       </div>
-      <p className="shrink-0 border-t border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+      <p className="shrink-0 border-t border-border px-3 py-1.5 text-2xs text-muted-foreground">
         To keep parts of both, edit your copy on the right, then overwrite. There is no automatic
         merge.
       </p>

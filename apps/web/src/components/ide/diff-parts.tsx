@@ -40,14 +40,14 @@ export function SideCaptions({
 }) {
   if (!sideBySide) {
     return (
-      <div className="shrink-0 border-b border-border px-3 py-1 text-[11px] text-muted-foreground">
+      <div className="shrink-0 border-b border-border px-3 py-1 text-2xs text-muted-foreground">
         {left} <span aria-hidden="true">→</span> {right}. Red lines are only in the first, green
         only in the second.
       </div>
     )
   }
   return (
-    <div className="grid shrink-0 grid-cols-2 border-b border-border text-[11px] text-muted-foreground">
+    <div className="grid shrink-0 grid-cols-2 border-b border-border text-2xs text-muted-foreground">
       <span className="truncate px-3 py-1">{left}</span>
       <span className="truncate border-l border-border px-3 py-1">{right}</span>
     </div>

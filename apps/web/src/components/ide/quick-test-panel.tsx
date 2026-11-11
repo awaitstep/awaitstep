@@ -99,13 +99,13 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
             <Play className="h-3.5 w-3.5" />
           )}
           {view.running ? 'Running…' : 'Run step'}
-          {!view.running && <kbd className="ml-1 font-sans text-[10px]">{runHint}</kbd>}
+          {!view.running && <kbd className="ml-1 font-sans text-2xs">{runHint}</kbd>}
         </Button>
         <Button size="sm" variant="ghost" disabled={refusal !== null} onClick={handleResetInputs}>
           <RotateCcw className="h-3 w-3" />
           Reset inputs
         </Button>
-        <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+        <span className="min-w-0 truncate text-2xs text-muted-foreground">
           Runs this step in your browser · imports not resolved · {QUICK_TEST_TIMEOUT_MS / 1000} s
           limit
         </span>
@@ -126,7 +126,7 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
                 onSelect={handleSelectTab}
                 onChange={handleFieldChange}
               />
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-2xs text-muted-foreground">
                 Uses what’s in the editor, saved or not.
               </p>
             </>
@@ -153,7 +153,7 @@ function PanelNotice({
     <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
       <FlaskConical className="mb-1 h-5 w-5 text-muted-foreground/30" />
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
-      <p className="max-w-md break-words text-[11px] text-muted-foreground">{description}</p>
+      <p className="max-w-md break-words text-2xs text-muted-foreground">{description}</p>
       {children && <div className="mt-1.5">{children}</div>}
     </div>
   )

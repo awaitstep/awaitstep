@@ -27,7 +27,7 @@ export function ProblemsList({ groups, savedAt, onSelect }: ProblemsListProps) {
       <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 py-6 text-center">
         <CircleAlert className="mb-1 h-5 w-5 text-muted-foreground/30" />
         <p className="text-xs font-medium text-muted-foreground">No problems detected</p>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-2xs text-muted-foreground">
           Errors and warnings in your files appear here.
         </p>
       </div>
@@ -38,7 +38,7 @@ export function ProblemsList({ groups, savedAt, onSelect }: ProblemsListProps) {
 
   return (
     <div className="py-1">
-      <div className="px-3 pb-1 text-[11px] text-muted-foreground">
+      <div className="px-3 pb-1 text-2xs text-muted-foreground">
         {counts.error} error{counts.error === 1 ? '' : 's'}, {counts.warning} warning
         {counts.warning === 1 ? '' : 's'}
         {counts.info > 0 && `, ${counts.info} info`}
@@ -82,7 +82,7 @@ function Group({
   if (count === 0) return null
   return (
     <section aria-label={title}>
-      <h3 className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <h3 className="px-3 pb-0.5 pt-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
         {title} · {count}
       </h3>
       {children}

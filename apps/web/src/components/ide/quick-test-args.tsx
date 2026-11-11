@@ -75,7 +75,7 @@ export function QuickTestArgs({
         ))}
         <span
           className={cn(
-            'ml-2 truncate text-[11px]',
+            'ml-2 truncate text-2xs',
             invalid === active ? 'text-destructive' : 'text-muted-foreground',
           )}
         >
@@ -124,7 +124,7 @@ function ArgTab({
       tabIndex={active ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'rounded px-2 py-0.5 font-mono text-[11px] transition-colors',
+        'rounded px-2 py-0.5 font-mono text-2xs transition-colors',
         active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
         invalid && 'text-destructive',
       )}

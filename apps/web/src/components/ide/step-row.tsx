@@ -110,23 +110,23 @@ export function StepRowItem({
       <span className="min-w-0 flex-1 py-1">
         <span className="block truncate text-xs">
           {row.arm && (
-            <span className="mr-1.5 rounded border border-border bg-muted/40 px-1 py-px text-[9px] uppercase tracking-wider">
+            <span className="mr-1.5 rounded border border-border bg-muted/40 px-1 py-px text-3xs uppercase tracking-wider">
               {row.arm}
             </span>
           )}
           {name}
           {entry && (
-            <span className="ml-1.5 rounded bg-primary/10 px-1 py-px text-[9px] uppercase tracking-wider text-primary">
+            <span className="ml-1.5 rounded bg-primary/10 px-1 py-px text-3xs uppercase tracking-wider text-primary">
               Entry
             </span>
           )}
           {unreachable && (
-            <span className="ml-1.5 rounded bg-muted px-1 py-px text-[9px] uppercase tracking-wider text-muted-foreground">
+            <span className="ml-1.5 rounded bg-muted px-1 py-px text-3xs uppercase tracking-wider text-muted-foreground">
               Not connected
             </span>
           )}
         </span>
-        {meta && <span className="block truncate text-[11px] text-muted-foreground">{meta}</span>}
+        {meta && <span className="block truncate text-2xs text-muted-foreground">{meta}</span>}
       </span>
       <StepRowMenu
         nodeId={row.nodeId}

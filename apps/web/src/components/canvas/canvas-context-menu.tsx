@@ -93,7 +93,7 @@ function MenuItem({ icon: Icon, label, shortcut, destructive, onClick }: MenuIte
     >
       <Icon className="h-3.5 w-3.5" />
       <span className="flex-1 text-left">{label}</span>
-      {shortcut && <span className="text-[10px] text-muted-foreground">{shortcut}</span>}
+      {shortcut && <span className="text-2xs text-muted-foreground">{shortcut}</span>}
     </button>
   )
 }

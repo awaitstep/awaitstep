@@ -125,11 +125,11 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="text-[11px] font-medium uppercase tracking-wider text-foreground">
+          <span className="text-2xs font-medium uppercase tracking-wider text-foreground">
             Canvas preview
           </span>
           {nodes.length > 0 && (
-            <span className="rounded-full bg-muted/60 px-1.5 py-px text-[10px] tabular-nums text-muted-foreground">
+            <span className="rounded-full bg-muted/60 px-1.5 py-px text-2xs tabular-nums text-muted-foreground">
               {nodes.length}
             </span>
           )}
@@ -139,7 +139,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
             type="button"
             onClick={handleEditOnCanvas}
             title="Open the full canvas, where the graph can be edited"
-            className="inline-flex h-6 items-center gap-1.5 rounded px-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+            className="inline-flex h-6 items-center gap-1.5 rounded px-1.5 text-2xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
           >
             <Maximize2 className="h-3 w-3" />
             Edit on canvas
@@ -156,7 +156,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
         </div>
       </div>
       {(syncLabel || usedByCount > 0) && (
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1 text-[11px] text-muted-foreground">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1 text-2xs text-muted-foreground">
           <span className="truncate">{syncLabel}</span>
           {usedByCount > 0 && (
             <span className="shrink-0 text-foreground">
@@ -251,7 +251,7 @@ function PreviewEmptyState() {
     <div className="flex h-full flex-col items-center justify-center gap-1.5 px-6 text-center">
       <Workflow className="mb-1 h-5 w-5 text-muted-foreground/30" />
       <p className="text-xs font-medium text-muted-foreground">No graph in this version</p>
-      <p className="text-[11px] text-muted-foreground">Nodes added on the canvas appear here.</p>
+      <p className="text-2xs text-muted-foreground">Nodes added on the canvas appear here.</p>
     </div>
   )
 }

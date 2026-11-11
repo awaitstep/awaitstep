@@ -234,7 +234,7 @@ function EditorTab({
         >
           <DropdownMenuItem onSelect={handleMenuClose} className="text-xs">
             Close
-            <span className="ml-auto pl-4 text-[11px] text-muted-foreground">{closeHint}</span>
+            <span className="ml-auto pl-4 text-2xs text-muted-foreground">{closeHint}</span>
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={onCloseAll} className="text-xs">
             Close all

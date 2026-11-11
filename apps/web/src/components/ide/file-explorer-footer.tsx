@@ -7,7 +7,7 @@ export function LimitsFooter({ usage }: { usage: ProjectUsage }) {
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center gap-2 border-t border-border px-3 py-1.5 text-[11px]',
+        'flex shrink-0 items-center gap-2 border-t border-border px-3 py-1.5 text-2xs',
         level === 'ok' && 'text-muted-foreground',
         level === 'warn' && 'text-status-warning',
         level === 'full' && 'text-status-error',

@@ -102,7 +102,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
             {visuals.icon}
           </span>
           <h3 className="min-w-0 truncate text-xs font-semibold text-foreground">{node.name}</h3>
-          <span className="shrink-0 text-[11px] text-muted-foreground">{kindLabel(node.type)}</span>
+          <span className="shrink-0 text-2xs text-muted-foreground">{kindLabel(node.type)}</span>
         </div>
         <button
           type="button"
@@ -196,7 +196,7 @@ function FileLink({ path }: { path: string }) {
     <button
       type="button"
       onClick={handleClick}
-      className="max-w-full truncate rounded font-mono text-[11px] text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
+      className="max-w-full truncate rounded font-mono text-2xs text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
     >
       {path}
     </button>
@@ -222,7 +222,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="inline-flex h-7 items-center gap-1.5 rounded border border-border px-2 text-[11px] font-medium text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
+      className="inline-flex h-7 items-center gap-1.5 rounded border border-border px-2 text-2xs font-medium text-foreground transition-colors hover:bg-muted/60 disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:bg-transparent"
     >
       {icon}
       {children}
@@ -257,7 +257,7 @@ function LastRun({
         <span className={cn('font-medium', TONE_CLASS[summary.tone])}>{summary.headline}</span>
         {summary.detail && <span className="text-muted-foreground"> · {summary.detail}</span>}
       </p>
-      {summary.error && <p className="break-words font-mono text-[11px]">{summary.error}</p>}
+      {summary.error && <p className="break-words font-mono text-2xs">{summary.error}</p>}
       <p className="text-muted-foreground">
         {summary.occurrences > 1 && `${summary.occurrences} times · `}
         {when}

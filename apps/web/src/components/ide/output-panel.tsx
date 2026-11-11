@@ -110,7 +110,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
             placeholder="Filter output"
             aria-label="Filter output"
             spellCheck={false}
-            className="h-6 w-full rounded border border-input bg-editor pl-6 pr-2 text-[11px]"
+            className="h-6 w-full rounded border border-input bg-editor pl-6 pr-2 text-2xs"
           />
         </label>
         <Chip active={follow} onClick={handleToggleFollow} pressed={follow}>
@@ -122,7 +122,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
           onClick={handleClear}
           disabled={shown.length === 0}
           title="Clears this view. The session keeps logging."
-          className="inline-flex h-6 items-center gap-1 rounded border border-border px-2 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="inline-flex h-6 items-center gap-1 rounded border border-border px-2 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
           <Eraser className="h-3 w-3" />
           Clear view
@@ -136,7 +136,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
         className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-editor p-2 font-mono text-xs"
       >
         {empty ? (
-          <p className="font-sans text-[11px] text-muted-foreground">{empty}</p>
+          <p className="font-sans text-2xs text-muted-foreground">{empty}</p>
         ) : (
           visible.map((line) => <LogRow key={line.id} line={line} />)
         )}
@@ -178,7 +178,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={pressed ?? active}
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded border px-2 text-[11px] transition-colors',
+        'inline-flex h-6 items-center gap-1 rounded border px-2 text-2xs transition-colors',
         active
           ? 'border-primary/40 bg-primary/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground',
