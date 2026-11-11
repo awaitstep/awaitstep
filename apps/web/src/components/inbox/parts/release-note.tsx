@@ -33,7 +33,7 @@ export function ReleaseNote({ release }: ReleaseNoteProps) {
       <h3 id={titleId} className="text-sm font-semibold text-foreground">
         {release.title}
       </h3>
-      <p className="text-xs leading-relaxed text-muted-foreground">{release.body}</p>
+      <p className="text-sm leading-relaxed text-muted-foreground">{release.body}</p>
       <ShellLink
         href={release.link.href}
         className="flex w-fit items-center gap-1 text-xs font-medium text-status-success hover:underline"

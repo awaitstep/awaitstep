@@ -90,7 +90,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
 
       <section aria-labelledby="get-ready" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 id="get-ready" className="text-base font-semibold">
+          <h2 id="get-ready" className="text-sm font-semibold">
             Get {org.name} ready
           </h2>
           <ProgressMeter done={0} total={3} label={`Get ${org.name} ready`} />

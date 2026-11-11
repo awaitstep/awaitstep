@@ -110,7 +110,7 @@ export function OpenInvite({
       }
     >
       <FactList items={facts} />
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         You won’t see other projects or workspaces in {invite.org.name} unless someone adds you. The
         invite expires on {shortDay(invite.expiresAt)}.
       </p>
@@ -206,7 +206,7 @@ export function WrongAccountInvite({ invite, viewerEmail, onSwitchAccount }: Wro
           },
         ]}
       />
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Sign in as {invite.email} to accept it. If you can’t use that address, ask{' '}
         {invite.invitedBy.name} to invite this one instead.
       </p>
@@ -255,7 +255,7 @@ export function ExpiredInvite({ invite, asked, busy, error, onAsk }: ExpiredInvi
           },
         ]}
       />
-      <p className="text-xs leading-relaxed text-muted-foreground">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Invites last 7 days. We can ask {inviter} to send you a new one.
       </p>
       {asked ? (

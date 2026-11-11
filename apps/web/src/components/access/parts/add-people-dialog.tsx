@@ -159,8 +159,8 @@ export function AddPeopleDialog({
       >
         <div className="flex shrink-0 items-start gap-3 border-b border-border px-6 pt-[22px] pb-4">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <DialogTitle className="text-lg font-semibold tracking-normal">{title}</DialogTitle>
-            <DialogDescription className="text-[13px]">{description}</DialogDescription>
+            <DialogTitle className="text-base font-semibold tracking-normal">{title}</DialogTitle>
+            <DialogDescription className="text-sm">{description}</DialogDescription>
           </div>
           <DialogClose asChild>
             <Button
@@ -181,8 +181,8 @@ export function AddPeopleDialog({
                 <Check className="size-[22px]" aria-hidden="true" />
               </span>
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-[17px] font-semibold text-foreground">{done.title}</h3>
-                <p className="text-[13.5px] leading-relaxed text-muted-foreground">{done.body}</p>
+                <h3 className="text-base font-semibold text-foreground">{done.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{done.body}</p>
               </div>
               <DoneList picks={picks} outcomes={outcomes} ctx={ctx} />
             </div>
@@ -202,7 +202,7 @@ export function AddPeopleDialog({
                 poolState={poolState}
               />
               <div className="mt-3 border-t border-border px-6 pt-3.5">{access}</div>
-              <p className="mx-6 mt-3.5 mb-4 flex items-start gap-2 text-[12.5px] leading-[1.55] text-muted-foreground">
+              <p className="mx-6 mt-3.5 mb-4 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
                 <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                 <span>{summaryText(picks, ctx)}</span>
               </p>
@@ -222,7 +222,7 @@ export function AddPeopleDialog({
             </>
           ) : (
             <>
-              <span className="flex-1 text-[12.5px] text-muted-foreground">
+              <span className="flex-1 text-xs text-muted-foreground">
                 {picks.length > 0 && `${picks.length} selected`}
                 {picks.length >= MAX_PICKS && ` · ${MAX_PICKS} at a time`}
               </span>

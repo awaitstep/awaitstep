@@ -160,7 +160,7 @@ export function NodesTab({ org, nodes, canManage, reason, asDialog }: NodesTabPr
       {installed && (
         <section aria-labelledby="installed-nodes" className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-baseline gap-2.5">
-            <h2 id="installed-nodes" className="text-base font-semibold">
+            <h2 id="installed-nodes" className="text-sm font-semibold">
               Installed
             </h2>
             <span className="text-xs text-muted-foreground">
@@ -173,7 +173,7 @@ export function NodesTab({ org, nodes, canManage, reason, asDialog }: NodesTabPr
       {available && (
         <section aria-labelledby="available-nodes" className="flex flex-col gap-3.5">
           <div className="flex flex-wrap items-baseline gap-2.5">
-            <h2 id="available-nodes" className="text-base font-semibold">
+            <h2 id="available-nodes" className="text-sm font-semibold">
               Available from the marketplace
             </h2>
             <span className="text-xs text-muted-foreground">

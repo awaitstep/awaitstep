@@ -38,7 +38,7 @@ export function AuditRow({ event }: AuditRowProps) {
         <Icon />
       </Tile>
       <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
-        <p className="text-xs text-foreground">
+        <p className="text-sm text-foreground">
           <strong className="font-semibold">{event.actor}</strong> {event.action}{' '}
           <strong className="font-semibold">{event.target}</strong>
         </p>

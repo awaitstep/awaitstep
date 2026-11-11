@@ -27,7 +27,7 @@ export function NoReleaseNotes() {
       <p className="max-w-[330px] text-sm leading-relaxed text-muted-foreground">
         Release notes will show up here, with a link to what changed.
       </p>
-      <p className="max-w-[330px] text-xs leading-relaxed text-muted-foreground">
+      <p className="max-w-[330px] text-sm leading-relaxed text-muted-foreground">
         Older releases are in the full changelog below.
       </p>
     </div>
@@ -53,7 +53,7 @@ export function NoMatchingNotes({ tag, onShowAll }: NoMatchingNotesProps) {
         <Search />
       </Tile>
       <p className="text-sm font-semibold text-foreground">No {TAG_NOUN[tag]} in these notes</p>
-      <p className="max-w-[320px] text-xs leading-relaxed text-muted-foreground">
+      <p className="max-w-[320px] text-sm leading-relaxed text-muted-foreground">
         Older releases are in the full changelog.
       </p>
       <Button type="button" variant="outline" size="sm" onClick={onShowAll}>

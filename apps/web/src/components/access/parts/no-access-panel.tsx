@@ -86,11 +86,11 @@ export function NoAccessPanel({
           <Lock className="size-5" aria-hidden="true" />
         </span>
         <div className="flex max-w-[460px] flex-col items-center gap-2.5">
-          <h2 id={titleId} className="text-xl font-semibold tracking-tight text-foreground">
+          <h2 id={titleId} className="text-2xl font-semibold tracking-tight text-foreground">
             {title}
           </h2>
           <p className="text-sm leading-relaxed text-muted-foreground">{why}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             You’re {articleFor(ORG_ROLE_LABEL[viewerRole])}{' '}
             <strong className="font-semibold text-foreground">{ORG_ROLE_LABEL[viewerRole]}</strong>{' '}
             of {orgName}.

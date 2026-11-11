@@ -161,7 +161,7 @@ export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageP
             <Tile tone="ok" size="sm">
               <Mail />
             </Tile>
-            <span className="text-xs leading-relaxed text-muted-foreground">
+            <span className="text-sm leading-relaxed text-muted-foreground">
               {/* Better Auth's magic link lasts 300 s; the board said 10 minutes. */}
               The link works once and expires in 5 minutes. Open it on this device.
             </span>

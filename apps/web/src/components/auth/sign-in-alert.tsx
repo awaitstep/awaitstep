@@ -11,7 +11,7 @@ export function SignInAlert({ title, body }: ProblemCopy) {
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-status-error" aria-hidden="true" />
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-sm font-semibold leading-snug text-status-error">{title}</span>
-        <span className="text-xs leading-relaxed text-muted-foreground">{body}</span>
+        <span className="text-sm leading-relaxed text-muted-foreground">{body}</span>
       </div>
     </div>
   )

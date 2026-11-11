@@ -31,7 +31,7 @@ export function ConnectionsEmpty({
         <Plug className="size-[19px]" aria-hidden="true" />
       </span>
       <span className="text-sm font-semibold text-foreground">No account connected yet</span>
-      <p className="max-w-[460px] text-xs leading-relaxed text-muted-foreground">
+      <p className="max-w-[460px] text-sm leading-relaxed text-muted-foreground">
         Workflows in {projectName} can be built and tested, but{' '}
         <b className="font-semibold text-foreground">Deploy stays disabled</b> until this project
         can reach a provider account.{already}

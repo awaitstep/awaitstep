@@ -16,10 +16,8 @@ export function OverviewEmpty({ icon: Icon, title, body, action }: OverviewEmpty
       <span className="flex size-10 items-center justify-center rounded-[11px] border border-border bg-muted text-muted-foreground">
         <Icon className="size-[18px]" aria-hidden="true" />
       </span>
-      <span className="text-[14.5px] font-semibold text-foreground">{title}</span>
-      <span className="max-w-[430px] text-[13px] leading-relaxed text-muted-foreground">
-        {body}
-      </span>
+      <span className="text-sm font-semibold text-foreground">{title}</span>
+      <span className="max-w-[430px] text-sm leading-relaxed text-muted-foreground">{body}</span>
       <ShellLink
         href={action.href}
         className={buttonVariants({ variant: 'outline', size: 'sm', className: 'mt-[3px]' })}

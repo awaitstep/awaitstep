@@ -41,7 +41,7 @@ function StartCardBody({ icon: Icon, title, body, cta }: StartCardBodyProps) {
       </Tile>
       <span className="flex flex-col gap-1">
         <span className="text-sm font-semibold text-foreground">{title}</span>{' '}
-        <span className="text-xs leading-relaxed text-muted-foreground">{body}</span>
+        <span className="text-sm leading-relaxed text-muted-foreground">{body}</span>
       </span>
       <span className="mt-auto text-xs font-medium text-status-success">{cta}</span>
     </>

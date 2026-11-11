@@ -93,7 +93,7 @@ export function AddWorkspacePeopleDialog({
       }}
       access={
         <>
-          <p className="text-[11.5px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          <p className="text-2xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             Role in {workspaceName}
           </p>
           <div className="mt-3">
