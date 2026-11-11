@@ -163,7 +163,15 @@ export interface LiveDeployment {
 export interface DeployConnections {
   connections: Pick<
     ProjectConnection,
-    'id' | 'provider' | 'name' | 'accountSuffix' | 'scope' | 'tokenStatus' | 'tokenExpiresAt'
+    | 'id'
+    | 'provider'
+    | 'name'
+    | 'accountSuffix'
+    | 'scope'
+    | 'tokenStatus'
+    | 'tokenExpiresAt'
+    | 'authKind'
+    | 'canDeploy'
   >[]
   /** The workflow's workspace's account, else the project default; null when neither is set. */
   defaultId: string | null
