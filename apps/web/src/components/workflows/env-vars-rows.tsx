@@ -94,7 +94,7 @@ export function EnvRowFields({
             <Globe className="h-3 w-3" />
             Global
           </span>
-          <span className="truncate font-mono text-[11.5px] text-foreground/80">{global}</span>
+          <span className="truncate font-mono text-sm text-foreground/80">{global}</span>
         </div>
       ) : (
         <div className="relative flex items-center">

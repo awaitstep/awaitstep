@@ -145,7 +145,7 @@ export function StepRow({ item, spanMs, selected, onSelect, nested }: StepRowPro
       {item.state === 'failed' && row.error && (
         <span
           className={cn(
-            'pb-2.5 pr-4 font-mono text-[11.5px] leading-normal text-status-error/90',
+            'pb-2.5 pr-4 font-mono text-sm leading-normal text-status-error/90',
             nested ? 'pl-[66px]' : 'pl-[46px]',
           )}
         >

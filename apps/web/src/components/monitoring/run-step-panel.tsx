@@ -71,7 +71,7 @@ function SelectedStep({
         {error && (
           <div className="flex flex-col gap-1.5">
             <span className={SECTION}>Error</span>
-            <pre className="whitespace-pre-wrap rounded-lg border border-status-error/25 bg-background p-3 font-mono text-[11.5px] leading-relaxed text-status-error">
+            <pre className="whitespace-pre-wrap rounded-lg border border-status-error/25 bg-background p-3 font-mono text-sm leading-relaxed text-status-error">
               {stepErrorLine(error)}
             </pre>
             {errorHint(item) && (
@@ -111,7 +111,7 @@ function StepOutput({
     return <span className="text-xs text-muted-foreground">Nothing was returned.</span>
   return (
     <>
-      <pre className="max-h-[200px] overflow-auto rounded-lg border border-border bg-background p-3 font-mono text-[11.5px] leading-relaxed text-foreground/80">
+      <pre className="max-h-[200px] overflow-auto rounded-lg border border-border bg-background p-3 font-mono text-sm leading-relaxed text-foreground/80">
         {text}
       </pre>
       {extras.outputTruncated && (
