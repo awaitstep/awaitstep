@@ -57,9 +57,38 @@ describe('buildOutputConsumption', () => {
   it('always keeps EXPORT_-marked nodes', () => {
     expect(consumption.isConsumed('keep')).toBe(true)
   })
+
+  it('counts a module that reads `inputs` whole as consuming its upstream', () => {
+    const whole = ir(
+      [
+        node('a', 'step', { code: 'return 1;' }),
+        node('b', 'step', { code: 'console.log(inputs);' }),
+      ],
+      [{ id: 'e1', source: 'a', target: 'b' }],
+    )
+    expect(buildOutputConsumption(whole, (id) => `Node_${id}`).isConsumed('a')).toBe(true)
+  })
 })
 
 describe('lean stored state in generated workflows', () => {
+  it('stores a step a whole-inputs reader receives', () => {
+    // The sleep keeps the two steps from coalescing into one group.
+    const demo = ir(
+      [
+        node('producer', 'step', { code: 'return 1;' }),
+        node('gap', 'sleep', { duration: '1 minute' }),
+        node('reader', 'step', { code: 'console.log(inputs);' }),
+      ],
+      [
+        { id: 'e1', source: 'producer', target: 'gap' },
+        { id: 'e2', source: 'gap', target: 'reader' },
+      ],
+    )
+    const code = workflowSource(generateWorkflowBundle(demo))
+    expect(code).toMatch(/const Node_producer = await flow\.step\("producer"/)
+    expect(code).not.toContain('async (ctx) => {')
+  })
+
   it('a sleep-separated unreferenced step swallows its return; a referenced one stores it', () => {
     // The sleep keeps used/unused from coalescing into one group, so both
     // singleton emission paths are exercised.

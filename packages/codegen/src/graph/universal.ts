@@ -150,7 +150,7 @@ function generate(ir: WorkflowIR, options: UniversalGenerateOptions): PortableWo
   const leanCandidates = new Set(
     ir.nodes.filter((node) => node.type === 'step' && !inlineTargets.has(node.id)).map((n) => n.id),
   )
-  const consumption = buildOutputConsumption(resolvedIR, varNameFor)
+  const consumption = buildOutputConsumption(resolvedIR, varNameFor, upstream)
   const mustStore = (nodeId: string, exclude?: ReadonlySet<string>): boolean =>
     !leanCandidates.has(nodeId) || consumption.isConsumed(nodeId, exclude)
 
