@@ -3,6 +3,7 @@ import type { DeployTargetRow } from '@awaitstep/db'
 import { resolveProvider } from './provider-resolver.js'
 import { hasProvider } from './provider-registry.js'
 import { parseCredentials } from './connection-token.js'
+import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 
 /** A provider's own credential-shape refusal, if it has one. */
 export function credentialError(
@@ -47,14 +48,20 @@ export function deployConnections(
   return {
     defaultId: rows.find((row) => row.chosen)?.id ?? null,
     deployedWith,
-    connections: rows.map((row) => ({
-      id: row.id,
-      provider: row.provider,
-      name: row.name,
-      accountSuffix: accountSuffixOf(row.credentials),
-      scope: row.scope,
-      tokenStatus: parseTokenStatus(row.tokenStatus),
-      tokenExpiresAt: row.tokenExpiresAt,
-    })),
+    connections: rows.map((row) => {
+      const authKind = authKindOf(row.credentials)
+      return {
+        id: row.id,
+        provider: row.provider,
+        name: row.name,
+        accountSuffix: accountSuffixOf(row.credentials),
+        scope: row.scope,
+        tokenStatus: parseTokenStatus(row.tokenStatus),
+        tokenExpiresAt: row.tokenExpiresAt,
+        // An OAuth grant renews itself: Deploy's token line must not read its expiry as a warning.
+        authKind,
+        canDeploy: authKind !== 'oauth' || canDeployWithScopes(scopesOf(row.credentials)),
+      }
+    }),
   }
 }
