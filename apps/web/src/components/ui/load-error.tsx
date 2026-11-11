@@ -55,7 +55,7 @@ export function LoadError({
       </Tile>
       <div role="alert" className="flex flex-col items-center gap-2">
         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-        <p className="max-w-[440px] text-xs leading-relaxed text-muted-foreground">{detail}</p>
+        <p className="max-w-[440px] text-sm leading-relaxed text-muted-foreground">{detail}</p>
       </div>
       <div className="flex flex-wrap justify-center gap-2.5">
         <Button

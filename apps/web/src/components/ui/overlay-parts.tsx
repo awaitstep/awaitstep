@@ -48,7 +48,7 @@ export function OverlayHeader({ leading, title, description, divided }: OverlayH
           {title}
         </DialogPrimitive.Title>
         {hasContent(description) && (
-          <DialogPrimitive.Description className="text-xs text-muted-foreground">
+          <DialogPrimitive.Description className="text-sm text-muted-foreground">
             {description}
           </DialogPrimitive.Description>
         )}

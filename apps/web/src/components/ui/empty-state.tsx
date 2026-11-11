@@ -39,7 +39,7 @@ const TITLE_CLASS: Record<EmptyStateSize, string> = {
 }
 
 const DESCRIPTION_CLASS: Record<EmptyStateSize, string> = {
-  sm: 'mt-1 max-w-xs text-xs leading-relaxed text-muted-foreground',
+  sm: 'mt-1 max-w-xs text-sm leading-relaxed text-muted-foreground',
   lg: 'mt-2 max-w-[460px] text-sm leading-relaxed text-muted-foreground',
 }
 

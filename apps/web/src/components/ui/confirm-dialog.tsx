@@ -199,7 +199,7 @@ function SectionedContent(props: ConfirmDialogProps) {
           <AlertDialog.Title className="text-base font-semibold text-foreground">
             {title}
           </AlertDialog.Title>
-          <AlertDialog.Description className="text-xs leading-relaxed text-muted-foreground">
+          <AlertDialog.Description className="text-sm leading-relaxed text-muted-foreground">
             {description}
           </AlertDialog.Description>
           {confirmText !== undefined && (
