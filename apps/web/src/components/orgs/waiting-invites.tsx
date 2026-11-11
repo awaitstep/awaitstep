@@ -79,7 +79,7 @@ export function WaitingInvites({ invites }: { invites: PendingInvite[] }) {
   if (rows.length === 0) return null
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <h2 id={headingId} className="text-base font-semibold text-foreground">
+      <h2 id={headingId} className="text-sm font-semibold text-foreground">
         Waiting for you
       </h2>
       <ul className="flex flex-col gap-2.5">

@@ -45,7 +45,7 @@ export function InboxEmpty({ kind, total, settingsHref, onShowAll }: InboxEmptyP
         {caughtUp ? <Check /> : <Bell />}
       </Tile>
       <p className="text-sm font-semibold text-foreground">{title}</p>
-      <p className="max-w-[290px] text-xs leading-relaxed text-muted-foreground">{body}</p>
+      <p className="max-w-[290px] text-sm leading-relaxed text-muted-foreground">{body}</p>
       {first ? (
         <ShellLink href={settingsHref} className="text-xs font-medium text-status-success">
           Choose what you’re notified about →

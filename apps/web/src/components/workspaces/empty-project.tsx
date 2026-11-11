@@ -178,7 +178,7 @@ export function EmptyProject({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5.5">
           <span className="flex items-center justify-between gap-2.5">
-            <h2 className="text-base font-semibold">Set up {project.name}</h2>
+            <h2 className="text-sm font-semibold">Set up {project.name}</h2>
             {setup.data && (
               <ProgressMeter done={done} total={steps.length} label={`Set up ${project.name}`} />
             )}
@@ -190,7 +190,7 @@ export function EmptyProject({
           </ul>
         </section>
         <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5.5">
-          <h2 className="text-base font-semibold">More than one team here?</h2>
+          <h2 className="text-sm font-semibold">More than one team here?</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             Give each team its own workspace, with separate people, keys and workflows. Anything set
             for the whole project still applies to every workspace.

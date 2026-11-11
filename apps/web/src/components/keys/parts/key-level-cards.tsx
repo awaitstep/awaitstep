@@ -75,7 +75,7 @@ export function KeyLevelCards({ current, links }: KeyLevelCardsProps) {
                 </Badge>
               )}
             </span>
-            <span className="flex flex-col gap-1.5 text-xs text-foreground/90">
+            <span className="flex flex-col gap-1.5 text-sm text-foreground/90">
               {info.can.map((line) => (
                 <span key={line} className="flex items-start gap-2">
                   <Check

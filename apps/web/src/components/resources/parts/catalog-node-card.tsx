@@ -95,7 +95,7 @@ export function CatalogNodeCard({
           <span className="truncate text-2xs text-muted-foreground">{describeVersion(node)}</span>
         </div>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{node.description}</p>
+      <p className="text-sm leading-relaxed text-muted-foreground">{node.description}</p>
       {node.updateAvailable && (
         <p className="text-2xs text-muted-foreground">
           v{node.latestVersion} is out.

@@ -5,7 +5,7 @@ import { hasContent } from '../ui/has-content'
 import { ShellLink } from '../ui/shell-link'
 
 const rowClass =
-  'relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-sm font-medium transition-colors'
+  'relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-xs font-medium transition-colors'
 const inactiveRowClass =
   'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
 const activeRowClass = 'bg-sidebar-accent text-sidebar-foreground'

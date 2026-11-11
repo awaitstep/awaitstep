@@ -109,7 +109,7 @@ function ScopeChoice({ value, projectName, onChange }: ScopeChoiceProps) {
               )}
             />
             <span className="flex flex-col gap-0.5">
-              <span className="text-[13.5px] font-medium text-foreground">{scope.label}</span>
+              <span className="text-sm font-medium text-foreground">{scope.label}</span>
               <span className="text-xs text-muted-foreground">{scope.hint(projectName)}</span>
             </span>
           </label>
@@ -219,7 +219,7 @@ export function AddProjectPeopleDialog({
       ctx={{ kind: 'project', orgName, projectName, roleLabel, where }}
       access={
         <>
-          <p className="mb-2.5 text-[11.5px] font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          <p className="mb-2.5 text-2xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
             What they get in {projectName}
           </p>
           <ScopeChoice value={scope} projectName={projectName} onChange={handleScope} />

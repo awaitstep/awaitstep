@@ -25,7 +25,7 @@ function PickChip({ pick, onRemove }: PickChipProps) {
         name={pick.kind === 'person' ? pick.entry.person.name : null}
         email={pick.kind === 'person' ? pick.entry.person.email : pick.email}
         src={pick.kind === 'person' ? pick.entry.person.image : null}
-        className="size-[22px] text-[9px]"
+        className="size-[22px] text-3xs"
       />
       <span className="text-xs text-foreground">{label}</span>
       <button

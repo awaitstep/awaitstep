@@ -128,7 +128,7 @@ function DataRow({ title, description, danger, action }: DataRowProps) {
         >
           {title}
         </span>
-        <span className="text-xs leading-relaxed text-muted-foreground">{description}</span>
+        <span className="text-sm leading-relaxed text-muted-foreground">{description}</span>
       </div>
       <div className="flex flex-col items-start gap-1.5 sm:items-end">{action}</div>
     </div>

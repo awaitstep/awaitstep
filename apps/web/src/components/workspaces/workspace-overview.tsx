@@ -144,10 +144,8 @@ export function WorkspaceOverview({
               <Play className="size-4" aria-hidden="true" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-[13.5px] font-semibold text-foreground">
-                Nothing has run yet
-              </span>
-              <span className="text-[12.5px] text-muted-foreground">
+              <span className="text-sm font-semibold text-foreground">Nothing has run yet</span>
+              <span className="text-xs text-muted-foreground">
                 Deploy a workflow and its runs appear here.
               </span>
             </span>
