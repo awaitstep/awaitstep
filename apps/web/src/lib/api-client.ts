@@ -200,7 +200,6 @@ export interface DeploymentSummary {
   versionId: string | null
   connectionId: string | null
   serviceName: string
-  serviceUrl: string | null
   /** 'success', 'failed' or 'taken_down' (kept as history once its account was taken down). */
   status: string
   error: string | null

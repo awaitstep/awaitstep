@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react'
 import { format } from 'date-fns'
-import { ExternalLink } from 'lucide-react'
 import type { DeploymentSummary } from '../../lib/api-client'
-import { workerUrl } from '../../lib/workflows/worker-url'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { SidePanel } from '../ui/side-panel'
@@ -37,7 +35,7 @@ const COPY_LABEL = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' }
 const ROLL_BACK_LABEL = { rollback: 'Roll back to this', redeploy: 'Redeploy this' } as const
 
 /**
- * One deploy's details (24h): where it runs, its worker and URL, the version,
+ * One deploy's details (24h): where it runs, its worker, the version,
  * when and by whom, its IDs, and why it failed; Roll back to this.
  */
 export function DeploymentDrawer({
@@ -55,7 +53,6 @@ export function DeploymentDrawer({
   const version = d?.version != null ? `v${d.version}` : 'A deleted version'
   const account = d?.connectionName ?? accountName ?? 'a removed account'
   const badge = state ? STATE_BADGE[state] : null
-  const url = d ? workerUrl(d.serviceUrl) : null
   const title = d ? `${version} on ${account}` : ''
   const description = badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : null
   const actions = rollBack ? (
@@ -82,7 +79,7 @@ export function DeploymentDrawer({
       {d && (
         <div className="flex flex-col gap-4">
           {d.status === 'failed' && d.error && (
-            <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-status-error/30 bg-background px-3 py-2.5 font-mono text-[11.5px] leading-relaxed text-status-error">
+            <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-status-error/30 bg-background px-3 py-2.5 font-mono text-sm leading-relaxed text-status-error">
               {d.error}
             </pre>
           )}
@@ -91,19 +88,6 @@ export function DeploymentDrawer({
             {d.serviceName && (
               <Detail label="Worker" copy={d.serviceName} mono>
                 {d.serviceName}
-              </Detail>
-            )}
-            {url && (
-              <Detail label="URL">
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 break-all text-status-success hover:underline"
-                >
-                  {url.replace(/^https:\/\//, '')}
-                  <ExternalLink aria-hidden="true" className="size-3 shrink-0" />
-                </a>
               </Detail>
             )}
           </DetailCard>

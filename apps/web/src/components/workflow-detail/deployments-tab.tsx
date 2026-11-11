@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { ChevronRight, ExternalLink, Rocket } from 'lucide-react'
+import { ChevronRight, Rocket } from 'lucide-react'
 import type { LiveDeployment } from '@awaitstep/ir'
 import type { DeploymentSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
@@ -9,9 +9,8 @@ import { DeployFor } from './deploy-for'
 import { flatPages } from '../../lib/queries'
 import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
-import { workerUrl } from '../../lib/workflows/worker-url'
 import { Badge } from '../ui/badge'
-import { Button, buttonVariants } from '../ui/button'
+import { Button } from '../ui/button'
 import { plural } from '../../lib/plural'
 import { DeployLink } from './parts/deploy-link'
 import { DeploymentDrawer } from './deployment-drawer'
@@ -101,8 +100,8 @@ export function DeploymentsTab({
           title={neverDeployed ? 'Never deployed' : 'Not deployed'}
           body={
             neverDeployed
-              ? 'The live URL, who deployed what, and rollback all appear here after the first deploy.'
-              : 'It was taken down. Deploy it again to see the live URL, who deployed what, and rollback here.'
+              ? 'Who deployed what, and rollback, appear here after the first deploy.'
+              : 'It was taken down. Deploy it again to see who deployed what, and roll back here.'
           }
           action={<DeployFor workflow={workflow} />}
         />
@@ -172,7 +171,6 @@ function LiveCard({ live, dropped }: LiveCardProps) {
     `on ${live.name}`,
   ].join(' ')
   const by = live.deployedByName ? `deployed by ${live.deployedByName}, ` : 'deployed '
-  const url = workerUrl(live.serviceUrl)
   return (
     <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-status-success/30 bg-card px-5 py-4">
       <Tile tone="ok">
@@ -185,22 +183,9 @@ function LiveCard({ live, dropped }: LiveCardProps) {
           {dropped && <Badge variant="neutral">Not this project’s any more</Badge>}
         </span>
         <span className="truncate text-xs text-muted-foreground">
-          {[url?.replace(/^https:\/\//, ''), `${by}${timeAgo(live.deployedAt)}`]
-            .filter(Boolean)
-            .join(' · ')}
+          {`${by}${timeAgo(live.deployedAt)}`}
         </span>
       </div>
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'outline', size: 'sm', className: 'gap-1.5' })}
-        >
-          <ExternalLink aria-hidden="true" className="size-3.5" />
-          Open
-        </a>
-      )}
     </section>
   )
 }

@@ -1,9 +1,10 @@
-import { ExternalLink } from 'lucide-react'
 import { timeAgo } from '../../../lib/time'
 import { cn } from '../../../lib/utils'
+import { runCurl } from '../../../lib/workflows/run-endpoint'
 import type { RunHour } from '../../../types/dashboard/workspaces'
+import { CopyCommand } from '../../ui/copy-command'
+import { NOT_CALLABLE } from '../function-call'
 import { HourBars } from '../../workspaces/parts/hour-bars'
-import { CopyUrl } from './copy-url'
 
 export interface BandLive {
   /** The account's id. */
@@ -12,11 +13,13 @@ export interface BandLive {
   account: string | undefined
   /** When it went out. */
   at: string
-  /** The worker's URL, https only; null when there's none to offer. */
-  url: string | null
 }
 
 interface StatusBandProps {
+  /** The workflow or function: the API runs it at `/api/run/<id>`. */
+  workflowId: string
+  /** A live function the API can't call (no URL it will call): its curl would only be refused. */
+  notCallable?: boolean
   /** What is live on each account, newest first; empty while nothing is. */
   live: BandLive[]
   /** The newest saved version, for the not-deployed line. */
@@ -30,10 +33,10 @@ const COLUMN = 'flex min-w-0 flex-col gap-2 px-5 py-4'
 
 /**
  * The band across a workflow's or function's Overview (`WorkflowDetail`,
- * 24a/24f): what is live, where a POST runs it, and the day's runs hour by
+ * 24a/24f): what is live, how the API runs it, and the day's runs hour by
  * hour. Both kinds read the same.
  */
-export function StatusBand({ live, latest, runs24h }: StatusBandProps) {
+export function StatusBand({ workflowId, notCallable, live, latest, runs24h }: StatusBandProps) {
   return (
     <section
       aria-label="Status"
@@ -44,7 +47,7 @@ export function StatusBand({ live, latest, runs24h }: StatusBandProps) {
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         <span className={LABEL}>Trigger</span>
-        <TriggerColumn url={live[0]?.url ?? null} live={live.length > 0} />
+        <TriggerColumn workflowId={workflowId} live={live.length > 0} notCallable={notCallable} />
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         <RunsColumn runs24h={runs24h} />
@@ -79,17 +82,6 @@ function LiveColumn({ live, latest }: Pick<StatusBandProps, 'live' | 'latest'>) 
         </span>
       </span>
       <span className="text-xs text-muted-foreground">{where}</span>
-      {only.url && (
-        <a
-          href={only.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-fit items-center gap-1 text-xs font-medium text-status-success hover:underline"
-        >
-          Open
-          <ExternalLink aria-hidden="true" className="size-3" />
-        </a>
-      )}
     </>
   )
 }
@@ -119,26 +111,26 @@ function LiveAccounts({ live }: { live: BandLive[] }) {
   )
 }
 
-function TriggerColumn({ url, live }: { url: string | null; live: boolean }) {
-  // Live, but the deployment gave no https URL to offer.
-  if (!url && live) {
-    return (
-      <span className="text-xs text-muted-foreground">No URL to show for this deployment.</span>
-    )
+interface TriggerColumnProps {
+  workflowId: string
+  live: boolean
+  notCallable?: boolean
+}
+
+function TriggerColumn({ workflowId, live, notCallable }: TriggerColumnProps) {
+  if (live && notCallable) {
+    return <span className="text-xs text-muted-foreground">{NOT_CALLABLE}</span>
   }
-  if (!url) {
+  if (!live) {
     return (
-      <span className="text-xs text-muted-foreground">
-        The URL appears once the workflow is deployed.
-      </span>
+      <span className="text-xs text-muted-foreground">Runs from the API once it’s deployed.</span>
     )
   }
   return (
     <>
-      <CopyUrl url={url} />
-      {/* Runs are recorded when started from AwaitStep (▶ or the API), not by a POST to the worker. */}
+      <CopyCommand command={runCurl(workflowId)} label="Copy the curl command" />
       <span className="text-xs text-muted-foreground">
-        POST to run it. Only runs started from AwaitStep show in Runs.
+        POST with an API key that can run it. Each call shows in Runs.
       </span>
     </>
   )

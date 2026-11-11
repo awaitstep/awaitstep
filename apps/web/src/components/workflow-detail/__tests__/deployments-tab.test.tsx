@@ -32,7 +32,6 @@ const deploy = (
   versionId,
   connectionId,
   serviceName: id,
-  serviceUrl: status === 'success' ? 'https://awaitstep-abc.workers.dev' : null,
   status,
   error: null as string | null,
   createdAt: '2026-11-05T09:00:00.000Z',
@@ -60,7 +59,7 @@ function liveOf(deployments: Row[], locked: string[] = []): LiveDeployment[] {
         id: d.connectionId,
         name: ACCOUNTS.get(d.connectionId) ?? d.connectionId,
         deploymentId: d.id,
-        serviceUrl: d.serviceUrl,
+        callable: true,
         versionId: d.versionId,
         version: d.version,
         versionLocked: locked.includes(d.connectionId),
@@ -98,7 +97,7 @@ function renderTab(
 const rows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1)
 
 describe('DeploymentsTab (WorkflowDeployments)', () => {
-  it('says what is live on each account, by whom, with its URL to open', () => {
+  it('says what is live on each account and by whom, never its worker URL', () => {
     renderTab([
       deploy('d3', 'v3', 'success', 'c-prod', 'Ama Mensah'),
       deploy('d2', 'v2', 'success', 'c-stage', null),
@@ -106,11 +105,9 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
     ])
     expect(screen.getByText('v12 on Acme production')).toBeVisible()
     expect(screen.getByText('v11 on Checkout staging')).toBeVisible()
-    expect(screen.getByText(/awaitstep-abc\.workers\.dev · deployed by Ama Mensah,/)).toBeVisible()
-    expect(screen.getAllByRole('link', { name: 'Open' })[0]).toHaveAttribute(
-      'href',
-      'https://awaitstep-abc.workers.dev',
-    )
+    expect(screen.getByText(/^deployed by Ama Mensah,/)).toBeVisible()
+    // The API runs it (D-8): no link out to the worker.
+    expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument()
   })
 
   it('marks an account the project no longer deploys to', () => {
@@ -232,9 +229,7 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
     renderTab([])
     expect(screen.getByText('Never deployed')).toBeVisible()
     expect(
-      screen.getByText(
-        'The live URL, who deployed what, and rollback all appear here after the first deploy.',
-      ),
+      screen.getByText('Who deployed what, and rollback, appear here after the first deploy.'),
     ).toBeVisible()
     expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
   })
@@ -254,9 +249,7 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
     expect(drawer).toHaveTextContent('5 Nov 2026')
     expect(drawer).toHaveTextContent('by Lena Ortiz')
     expect(drawer).toHaveTextContent('Version IDv2')
-    expect(
-      within(drawer).getByRole('link', { name: /awaitstep-abc\.workers\.dev/ }),
-    ).toHaveAttribute('href', 'https://awaitstep-abc.workers.dev')
+    expect(drawer).not.toHaveTextContent('workers.dev')
     expect(within(drawer).getByRole('link', { name: 'Roll back to this' })).toHaveAttribute(
       'href',
       expect.stringContaining('version=v2'),

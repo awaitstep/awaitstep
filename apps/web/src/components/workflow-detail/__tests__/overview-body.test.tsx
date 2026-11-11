@@ -19,7 +19,7 @@ const LIVE: LiveDeployment = {
   id: 'c-prod',
   name: 'Acme production',
   deploymentId: 'd1',
-  serviceUrl: 'https://awaitstep-abc.workers.dev',
+  callable: true,
   versionId: 'v3',
   version: 12,
   versionLocked: false,
@@ -115,7 +115,7 @@ describe('OverviewBody (WorkflowDetail)', () => {
     expect(screen.queryByRole('link', { name: 'Deploy' })).not.toBeInTheDocument()
   })
 
-  it('reads as never deployed: no URL yet, no runs yet, and what to do (WorkflowDraft)', () => {
+  it('reads as never deployed: not runnable yet, no runs yet, and what to do (WorkflowDraft)', () => {
     renderWithPages(
       <OverviewBody
         workflow={WORKFLOW}
@@ -128,7 +128,7 @@ describe('OverviewBody (WorkflowDetail)', () => {
     const band = screen.getByRole('region', { name: 'Status' })
     expect(within(band).getByText('Not deployed')).toBeVisible()
     expect(within(band).getByText(/^v12 saved /)).toBeVisible()
-    expect(within(band).getByText('The URL appears once the workflow is deployed.')).toBeVisible()
+    expect(within(band).getByText('Runs from the API once it’s deployed.')).toBeVisible()
     expect(within(band).getByText('No runs yet')).toBeVisible()
     expect(screen.getByText('Deploy it, then trigger a run.')).toBeVisible()
     expect(screen.queryByRole('link', { name: 'All runs →' })).not.toBeInTheDocument()
@@ -136,7 +136,7 @@ describe('OverviewBody (WorkflowDetail)', () => {
 })
 
 describe('OverviewBody for a function (FunctionDetail)', () => {
-  it('renders like a workflow: the band, its URL, versions and recent runs', () => {
+  it('renders like a workflow: the band, its API curl, versions and recent runs', () => {
     renderWithPages(
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
@@ -148,9 +148,11 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
     )
     const band = screen.getByRole('region', { name: 'Status' })
     expect(within(band).getByText('Live · v12')).toBeVisible()
-    expect(within(band).getByText('awaitstep-abc.workers.dev')).toBeVisible()
+    // The API runs it with a key (D-8); the worker's own URL is never shown.
+    expect(within(band).getByText(/^curl -X POST '.*\/api\/run\/wf_1'/)).toBeVisible()
+    expect(band).not.toHaveTextContent('workers.dev')
     expect(
-      within(band).getByText('POST to run it. Only runs started from AwaitStep show in Runs.'),
+      within(band).getByText('POST with an API key that can run it. Each call shows in Runs.'),
     ).toBeVisible()
     expect(within(band).getByText('Runs, 24h')).toBeVisible()
     expect(within(band).queryByText('Requests, 24h')).toBeNull()
@@ -174,22 +176,22 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
     expect(screen.queryByRole('link', { name: 'Publish' })).toBeNull()
   })
 
-  it('says no URL to show when a live function’s deployment has none', () => {
+  it('says a live function it can’t call can’t be run from the API', () => {
     const live = overview(true)
-    const noUrl = {
+    const notCallable = {
       ...live,
-      live: [{ ...LIVE, serviceUrl: null }],
+      live: [{ ...LIVE, callable: false }],
     } as WorkflowOverview
     renderWithPages(
       <OverviewBody
         workflow={{ ...WORKFLOW, kind: 'script' }}
-        overview={noUrl}
+        overview={notCallable}
         neverDeployed={false}
       />,
       PAGES,
     )
     const band = screen.getByRole('region', { name: 'Status' })
-    expect(within(band).getByText('No URL to show for this deployment.')).toBeVisible()
+    expect(within(band).getByText('This deployment has no URL AwaitStep can call.')).toBeVisible()
     expect(within(band).queryByText(/once the function is published/)).toBeNull()
   })
 
@@ -205,7 +207,7 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
     )
     const band = screen.getByRole('region', { name: 'Status' })
     expect(within(band).getByText('Not deployed')).toBeVisible()
-    expect(within(band).getByText('The URL appears once the workflow is deployed.')).toBeVisible()
+    expect(within(band).getByText('Runs from the API once it’s deployed.')).toBeVisible()
     expect(within(band).getByText('No runs yet')).toBeVisible()
     expect(screen.getByText('Deploy it, then trigger a run.')).toBeVisible()
     expect(screen.queryByRole('link', { name: 'All runs →' })).not.toBeInTheDocument()

@@ -463,7 +463,7 @@ describe('deriveDeploymentState', () => {
     id: account,
     name: account,
     deploymentId: `d-${account}`,
-    serviceUrl: null,
+    callable: false,
     versionId,
     version,
     versionLocked: false,

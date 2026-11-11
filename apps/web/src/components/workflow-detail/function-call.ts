@@ -19,23 +19,5 @@ export function prettyBody(body: string, contentType: string | null): string {
   }
 }
 
-function shellQuote(text: string): string {
-  return `'${text.replace(/'/g, `'\\''`)}'`
-}
-
-/** The curl that makes the same call, URL and body quoted for a POSIX shell. */
-export function curlFor(url: string, body: string): string {
-  return `curl -X POST ${shellQuote(url)} -H 'content-type: application/json' -d ${shellQuote(body)}`
-}
-
-/**
- * Why Send can't go to this deployment, or null when it can: it has no URL,
- * or one the provider won't call from the server (its `callableUrlPattern`).
- */
-export function notCallableReason(url: string | null, callablePattern?: string): string | null {
-  if (!url) return 'This deployment has no URL to call.'
-  if (callablePattern && !new RegExp(callablePattern, 'i').test(url)) {
-    return 'This deployment’s URL can’t be called from here, only the function’s own address.'
-  }
-  return null
-}
+/** Why a deployment can't be called: no URL, or only one the server won't call (a route's). */
+export const NOT_CALLABLE = 'This deployment has no URL AwaitStep can call.'

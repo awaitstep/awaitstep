@@ -88,7 +88,7 @@ function liveOn(id: string, version: number, over: Partial<LiveDeployment> = {})
     id,
     name: 'Acme production',
     deploymentId: `d-${id}`,
-    serviceUrl: 'https://lead-enrichment.acme.workers.dev',
+    callable: true,
     versionId: `v-${version}`,
     version,
     versionLocked: false,
@@ -255,7 +255,9 @@ describe('DeployPage summary', () => {
     answer(settings())
     expect(await screen.findByText('Same as what is live')).toBeVisible()
     expect(screen.getByText(/v13 replaces v12, deployed/)).toBeVisible()
-    expect(screen.getByText('lead-enrichment.acme.workers.dev')).toBeVisible()
+    // It runs through the API (D-8): the worker's own URL is never shown.
+    expect(screen.getByText(/\/api\/run\/wf-1$/)).toBeVisible()
+    expect(document.body).not.toHaveTextContent('acme.workers.dev')
     expect(screen.getByText('v12 keeps serving until this one is live.')).toBeVisible()
 
     await userEvent.click(await screen.findByRole('button', { name: /Preview & access/ }))
@@ -269,7 +271,7 @@ describe('DeployPage summary', () => {
     renderPage({ kind: 'script' })
     expect(await screen.findByText('First deploy to this account')).toBeVisible()
     expect(screen.getByText('v13, the first deploy to this account')).toBeVisible()
-    expect(screen.getByText('Shown after the first deploy')).toBeVisible()
+    expect(screen.getByText(/\/api\/run\/wf-1$/)).toBeVisible()
     expect(await screen.findByRole('button', { name: 'Publish v13' })).toBeEnabled()
   })
 
@@ -321,7 +323,7 @@ describe('DeployPage progress', () => {
     expect(screen.getByRole('button', { name: 'Change' })).toBeDisabled()
   })
 
-  it('shows the URL and the next places to go once live; a function also gets its curl', async () => {
+  it('shows the API curl and the next places to go once live', async () => {
     getDeployConnections.mockResolvedValue(TWO)
     Object.assign(stream, {
       state: 'success',
@@ -337,9 +339,12 @@ describe('DeployPage progress', () => {
     let card = await screen.findByRole('region', { name: 'Deploy progress' })
     expect(card).toHaveTextContent('v13 is live')
     expect(card).toHaveTextContent('Deployed just now · 38s')
-    expect(card).toHaveTextContent('lead-enrichment.acme.workers.dev')
-    // A workflow's fetch handler is its own code: no command is promised.
-    expect(card).not.toHaveTextContent('curl')
+    // The API runs it with a key (D-8); the deploy's own URL isn't the way in.
+    expect(card).toHaveTextContent(
+      /curl -X POST '.*\/api\/run\/wf-1' -H 'Authorization: Bearer <your key>'/,
+    )
+    expect(card).not.toHaveTextContent('workers.dev')
+    expect(card).toHaveTextContent('Answers with the run it started.')
     expect(
       within(card).getByRole('link', { name: /View in the Cloudflare dashboard/ }),
     ).toBeVisible()
@@ -349,8 +354,8 @@ describe('DeployPage progress', () => {
 
     renderPage({ kind: 'script' })
     card = await screen.findByRole('region', { name: 'Deploy progress' })
-    expect(card).toHaveTextContent('curl -X POST https://lead-enrichment.acme.workers.dev')
-    expect(card).toHaveTextContent('The response body is the function’s return value.')
+    expect(card).toHaveTextContent(/curl -X POST '.*\/api\/run\/wf-1'/)
+    expect(card).toHaveTextContent('Answers with the function’s own response.')
   })
 
   it('says it lost the connection, and claims nothing about the outcome', async () => {
