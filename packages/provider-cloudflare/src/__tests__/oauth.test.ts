@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   authorizationUrl,
+  canDeployWithScopes,
   CloudflareOAuthError,
   createPkcePair,
   exchangeAuthorizationCode,
@@ -41,6 +42,15 @@ function base64Url(bytes: Buffer): string {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+})
+
+describe('canDeployWithScopes', () => {
+  it('needs Admin, because creating a Worker is not an Editor action', () => {
+    expect(canDeployWithScopes(['workers-scripts.admin'])).toBe(true)
+    expect(canDeployWithScopes(['workers-scripts.edit'])).toBe(false)
+    expect(canDeployWithScopes(['workers-scripts.write'])).toBe(false)
+    expect(canDeployWithScopes(undefined)).toBe(true)
+  })
 })
 
 describe('authorizationUrl', () => {

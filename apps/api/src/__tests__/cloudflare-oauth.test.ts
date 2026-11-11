@@ -22,7 +22,7 @@ const CONFIG: CloudflareOAuthRuntime = {
   revokeUrl: 'https://cf.test/oauth2/revoke',
   apiBaseUrl: 'https://cf.test/client/v4',
   redirectUri: 'http://api.test/api/oauth/cloudflare/callback',
-  scopes: ['account.read', 'workers-scripts.write'],
+  scopes: ['account.read', 'workers-scripts.admin'],
 }
 
 function json(body: unknown, status = 200): Response {
@@ -80,7 +80,7 @@ describe('Cloudflare OAuth routes', () => {
     expect(location.searchParams.get('code_challenge_method')).toBe('S256')
     expect(location.searchParams.get('code_challenge')).toBeTruthy()
     expect(location.searchParams.get('scope')).toBe(
-      'account.read workers-scripts.write offline_access',
+      'account.read workers-scripts.admin offline_access',
     )
     expect(location.searchParams.get('state')).toBeTruthy()
   })
@@ -129,7 +129,7 @@ describe('Cloudflare OAuth routes', () => {
       accountId: 'acct-1',
       apiToken: 'access-1',
       refreshToken: 'refresh-1',
-      scopes: 'account.read workers-scripts.write',
+      scopes: 'account.read workers-scripts.admin',
     })
 
     const listed = await app.request(`/api/connections?organizationId=${TEST_ORG_ID}`)

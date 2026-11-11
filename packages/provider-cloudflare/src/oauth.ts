@@ -11,12 +11,11 @@
  * `refresh_token` grant, which is what makes a refresh token come back.
  */
 
-/** Scopes that let a connection deploy, update and take down a Worker. */
-export const CLOUDFLARE_DEPLOY_SCOPES = [
-  'workers-scripts.edit',
-  'workers-scripts.admin',
-  'workers-scripts.write',
-]
+/**
+ * AwaitStep creates a Worker per workflow, and Cloudflare puts creating a
+ * Worker under product-level Admin; Editor can only deploy one that exists.
+ */
+export const CLOUDFLARE_DEPLOY_SCOPES = ['workers-scripts.admin']
 
 /** Unknown scopes stay optimistic: a grant stored before scope capture may still deploy. */
 export function canDeployWithScopes(scopes: string[] | undefined): boolean {

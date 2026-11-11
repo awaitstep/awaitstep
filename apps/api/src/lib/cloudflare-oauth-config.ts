@@ -21,9 +21,9 @@ export interface CloudflareOAuthRuntime extends CloudflareOAuthClientConfig {
  * What the connection needs to do its job: list the account, deploy, update
  * and take down Workers (and drive the Workflow instances the API owns), and
  * read/write KV for the Resources UI. Cloudflare's Workers scopes are
- * role-named — `workers-scripts.edit` (Editor), `workers-scripts.admin`
- * (Admin, a superset) — and `workers-scripts.write` is the retired name, kept
- * in the accepted set for grants made before it.
+ * role-named: `workers-scripts.admin` (Admin) is required because AwaitStep
+ * creates a Worker on first deploy, and Editor (`workers-scripts.edit`) may
+ * only deploy one that already exists. `workers-scripts.write` is retired.
  *
  * Other products keep their own names. Add only what a feature uses:
  * `workers-r2.read`/`.write` and `workers-r2-bucket-item.read`/`.write`,
@@ -36,7 +36,7 @@ export interface CloudflareOAuthRuntime extends CloudflareOAuthClientConfig {
  */
 export const DEFAULT_CLOUDFLARE_OAUTH_SCOPES = [
   'account-settings.read',
-  'workers-scripts.edit',
+  'workers-scripts.admin',
   // KV Read and Write are separate; the Resources UI lists keys and writes them.
   'workers-kv-storage.read',
   'workers-kv-storage.write',
