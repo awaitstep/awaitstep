@@ -23,6 +23,15 @@ export interface DeployResult {
 
 export type DeployState = 'idle' | 'deploying' | 'success' | 'error'
 
+/**
+ * Who ended a failed deploy: the server said so (a refusal, a FAILED stage, a
+ * failed result), or the page lost the stream and can't tell how it went —
+ * the server keeps deploying without it.
+ */
+export type DeployFailure = 'server' | 'connection'
+
+const LOST_STREAM = 'Lost the connection before the deploy finished. It may still be deploying.'
+
 interface UseDeployStreamOptions {
   workflowId: string
   versionId?: string
@@ -38,6 +47,11 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
   const [progress, setProgress] = useState<DeployProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<DeployResult | null>(null)
+  // The last real stage reached (FAILED carries none): where a failed deploy stopped.
+  const [reachedStage, setReachedStage] = useState<string | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [finishedAt, setFinishedAt] = useState<number | null>(null)
+  const [failure, setFailure] = useState<DeployFailure | null>(null)
 
   function invalidateDeployQueries() {
     queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
@@ -48,6 +62,20 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
     queryClient.invalidateQueries({ queryKey: ['deploy-connections', workflowId] })
     queryClient.invalidateQueries({ queryKey: ['workflow-full', workflowId] })
     queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-summary', workflowId] })
+    // The settings each account stores, saved by a successful deploy: Deploy
+    // must start from them, not from what it cached before.
+    queryClient.invalidateQueries({ queryKey: ['deploy-config', workflowId] })
+    queryClient.invalidateQueries({ queryKey: ['deploy-config-preview', workflowId] })
+  }
+
+  function lostTrack() {
+    setError(LOST_STREAM)
+    setFailure('connection')
+    setFinishedAt(Date.now())
+    setState('error')
+    // It may have gone out: what is live, and the stored settings, are read again.
+    invalidateDeployQueries()
+    actionToast.error(LOST_STREAM)
   }
 
   const startDeploy = useCallback(
@@ -56,6 +84,10 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
       setError(null)
       setProgress(null)
       setResult(null)
+      setReachedStage(null)
+      setStartedAt(Date.now())
+      setFinishedAt(null)
+      setFailure(null)
 
       try {
         const response = await fetch(
@@ -89,8 +121,11 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
 
           if (data.stage) {
             setProgress(data)
+            if (data.stage !== 'FAILED') setReachedStage(data.stage)
             if (data.stage === 'FAILED') {
               setError(data.message)
+              setFailure('server')
+              setFinishedAt(Date.now())
               setState('error')
               actionToast.error(data.message || DEPLOY_FAILED)
               settled = true
@@ -100,6 +135,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
 
           if (data.success !== undefined) {
             setResult(data)
+            setFinishedAt(Date.now())
             if (data.success) {
               setState('success')
               invalidateDeployQueries()
@@ -109,6 +145,7 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
             } else {
               const msg = data.error ?? 'Deploy failed'
               setError(msg)
+              setFailure('server')
               setState('error')
               actionToast.error(msg)
             }
@@ -119,15 +156,21 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
         })
         if (settled) return
 
-        // Stream ended without result event — treat as success
-        setState('success')
-        invalidateDeployQueries()
-        actionToast.success('Workflow deployed')
+        // The stream ended without a result: nothing says it went live.
+        lostTrack()
       } catch (err) {
-        const msg = failureLine(err, DEPLOY_FAILED)
-        setError(msg)
-        setState('error')
-        actionToast.error(msg)
+        // A refusal is the server's answer; anything else (no answer, a dropped
+        // stream, a broken read) may have happened after the deploy started.
+        if (err instanceof ApiError) {
+          const msg = failureLine(err, DEPLOY_FAILED)
+          setError(msg)
+          setFailure('server')
+          setFinishedAt(Date.now())
+          setState('error')
+          actionToast.error(msg)
+        } else {
+          lostTrack()
+        }
       }
     },
     [api, workflowId, versionId, queryClient],
@@ -136,7 +179,19 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
   function retry() {
     setState('idle')
     setError(null)
+    setFailure(null)
   }
 
-  return { state, progress, error, result, startDeploy, retry }
+  return {
+    state,
+    progress,
+    error,
+    result,
+    reachedStage,
+    startedAt,
+    finishedAt,
+    failure,
+    startDeploy,
+    retry,
+  }
 }

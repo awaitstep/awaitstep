@@ -49,8 +49,8 @@ export function ItemHeader({
   const isFunction = workflow.kind === 'script'
   const locked = overview.deployedVersion?.locked === 1
   const live = overview.deployedVersion?.version
-  // Deploy is the page's own action there; a run has its own.
-  const showActions = page !== 'deploy' && page !== 'run'
+  // A run has its own actions.
+  const showActions = page !== 'run'
   const editorHref = links.editor(workflow.currentVersionId ? 'ide' : 'canvas')
 
   function handleOpenTrigger() {

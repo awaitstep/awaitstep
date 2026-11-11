@@ -24,22 +24,29 @@ vi.mock('../../navigation/router-shell-link', () => ({
   ),
 }))
 
-const WORKFLOW = { id: 'wf_1', name: 'Lead enrichment', createdAt: '', updatedAt: '' }
+const WORKFLOW = {
+  id: 'wf_1',
+  name: 'Lead enrichment',
+  currentVersionId: 'v-13',
+  createdAt: '',
+  updatedAt: '',
+}
+const HEAD = { live: [] }
 
 beforeEach(() => vi.clearAllMocks())
 
 describe('DeployBody', () => {
   it('names the version a link asks for, however far back it is, and hands it to the form', async () => {
     calls.getVersion.mockResolvedValue({ id: 'v-old', version: 4 })
-    renderWithPages(<DeployBody workflow={WORKFLOW} versionId="v-old" />, {})
-    expect(await screen.findByText('Deploys v4, not the latest.')).toBeVisible()
+    renderWithPages(<DeployBody workflow={WORKFLOW} {...HEAD} versionId="v-old" />, {})
+    expect(await screen.findByText('v4 · not the latest')).toBeVisible()
     expect(screen.getByText('deploy form for v-old')).toBeVisible()
     expect(calls.getVersion).toHaveBeenCalledWith('wf_1', 'v-old')
   })
 
   it('says a version that isn’t this workflow’s isn’t, and shows no form', async () => {
     calls.getVersion.mockRejectedValue(new ApiError('Not found', 404))
-    renderWithPages(<DeployBody workflow={WORKFLOW} versionId="v-other" />, {})
+    renderWithPages(<DeployBody workflow={WORKFLOW} {...HEAD} versionId="v-other" />, {})
     expect(await screen.findByRole('link', { name: 'Deploy the latest instead' })).toHaveAttribute(
       'href',
       `${BASE}/deploy`,
@@ -51,7 +58,7 @@ describe('DeployBody', () => {
   })
 
   it('tells a Viewer they can’t deploy, instead of showing the form', () => {
-    renderWithPages(<DeployBody workflow={WORKFLOW} versionId="v-old" />, {}, VIEWER)
+    renderWithPages(<DeployBody workflow={WORKFLOW} {...HEAD} versionId="v-old" />, {}, VIEWER)
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Building, deploying and sharing need an Editor',
     )
@@ -59,10 +66,27 @@ describe('DeployBody', () => {
     expect(calls.getVersion).not.toHaveBeenCalled()
   })
 
-  it('deploys the current version without asking which, when the link names none', () => {
-    renderWithPages(<DeployBody workflow={WORKFLOW} versionId={undefined} />, {})
+  it('deploys the current version without waiting for its number, when the link names none', () => {
+    calls.getVersion.mockReturnValue(new Promise(() => {}))
+    renderWithPages(<DeployBody workflow={WORKFLOW} {...HEAD} versionId={undefined} />, {})
     expect(screen.getByText('deploy form for current')).toBeVisible()
-    expect(calls.getVersion).not.toHaveBeenCalled()
+    expect(calls.getVersion).toHaveBeenCalledWith('wf_1', 'v-13')
+  })
+
+  it('heads the page with the version going out: a draft until it is live somewhere', async () => {
+    calls.getVersion.mockResolvedValue({ id: 'v-13', version: 13 })
+    const { unmount } = renderWithPages(
+      <DeployBody workflow={WORKFLOW} {...HEAD} versionId={undefined} />,
+      {},
+    )
+    expect(screen.getByRole('heading', { name: 'Deploy' })).toBeVisible()
+    expect(await screen.findByText('v13 · draft')).toBeVisible()
+    unmount()
+    renderWithPages(
+      <DeployBody workflow={WORKFLOW} live={[{ versionId: 'v-13' }]} versionId={undefined} />,
+      {},
+    )
+    expect(await screen.findByText('v13')).toBeVisible()
   })
 })
 
