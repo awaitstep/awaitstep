@@ -173,9 +173,24 @@ describe('Add connection (AttachConnection)', () => {
     )
   })
 
+  it('asks for the provider first, and goes back to it', async () => {
+    renderPage('new')
+    const dialog = await screen.findByRole('dialog', { name: 'Add a connection to Project 101' })
+    // Nothing to submit before a provider is picked; no provider's fields yet.
+    expect(within(dialog).queryByLabelText('API token')).toBeNull()
+    expect(within(dialog).queryByRole('button', { name: /connect/i })).toBeNull()
+    await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare.com/ }))
+    expect(within(dialog).getByLabelText('API token')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Check token and connect' })).toBeEnabled()
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Other providers' }))
+    expect(within(dialog).queryByLabelText('API token')).toBeNull()
+    expect(within(dialog).getByRole('button', { name: /Cloudflare.com/ })).toBeVisible()
+  })
+
   it('connects an account for this project only, with no way to share it with the org', async () => {
     renderPage('new', { userId: TOM })
     const dialog = await screen.findByRole('dialog', { name: 'Add a connection to Project 101' })
+    await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare.com/ }))
     expect(
       within(dialog).getByText(/Only Project 101 can see it or deploy with it/),
     ).toBeInTheDocument()
@@ -189,6 +204,7 @@ describe('Add connection (AttachConnection)', () => {
   it('connects a new account as the project’s own, and shows the field’s refusal', async () => {
     renderPage('new')
     const dialog = await screen.findByRole('dialog', { name: 'Add a connection to Project 101' })
+    await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare.com/ }))
     // Not for an org owner either: the org's page connects accounts for everyone.
     expect(within(dialog).queryByText(/Everyone in Acme Inc/)).toBeNull()
     await userEvent.type(within(dialog).getByLabelText('Name'), 'Edge staging')
