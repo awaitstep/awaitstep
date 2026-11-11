@@ -84,6 +84,7 @@ export class RunsAdapter {
       deployedName: data.deployedName ?? null,
       trigger: data.trigger ?? null,
       params: data.params ?? null,
+      contentType: data.contentType ?? null,
       responseStatus: data.responseStatus ?? null,
       durationMs: data.durationMs ?? null,
       status: data.status,
@@ -210,10 +211,10 @@ export class RunsAdapter {
     runId: string,
     workflowId: string,
     connectionId?: string,
-  ): Promise<{ params: string | null } | null> {
+  ): Promise<{ params: string | null; contentType: string | null } | null> {
     const r = this.table
     const rows = await this.db
-      .select({ params: r.params })
+      .select({ params: r.params, contentType: r.contentType })
       .from(r)
       .where(
         and(

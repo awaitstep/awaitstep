@@ -652,15 +652,21 @@ export interface DatabaseAdapter {
     projectId: string,
     workflowId: string,
   ): Promise<DeployConfigLookup | null>
-  /** Where the workflow is live on that account (provider, URL), without its credentials; null if not live there. */
+  /**
+   * Where the workflow is live on that account (provider, URL), without its credentials; null if
+   * not live there. A null `id` means the account of its newest successful deploy.
+   */
   getLiveService(
-    id: string,
+    id: string | null,
     organizationId: string,
     workflowId: string,
   ): Promise<LiveService | null>
-  /** The org's connection, only if the workflow has a successful deployment made with it. */
+  /**
+   * The org's connection, only if the workflow has a successful deployment made with it. A null
+   * `id` means the account of its newest successful deploy.
+   */
   getConnectionDeployedWith(
-    id: string,
+    id: string | null,
     organizationId: string,
     workflowId: string,
   ): Promise<DeployedConnection | null>
@@ -763,12 +769,15 @@ export interface DatabaseAdapter {
   ): Promise<RunSyncTarget | null>
   /** One run of that workflow in the columns its page shows; null when it isn't that workflow's. */
   getRunDetail(runId: string, workflowId: string): Promise<RunDetail | null>
-  /** The payload a run was started with; with an account, only a run started on it. */
+  /**
+   * The payload a run was started with, and a call's body type; with an account, only a run
+   * started on it.
+   */
   getRunParams(
     runId: string,
     workflowId: string,
     connectionId?: string,
-  ): Promise<{ params: string | null } | null>
+  ): Promise<{ params: string | null; contentType: string | null } | null>
   /** A run with its control name and, only when it is the organization's, its account; one read. */
   getRunControl(
     runId: string,

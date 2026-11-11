@@ -19,7 +19,7 @@ function createTestDb() {
     INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Sales', 'sales');
     CREATE TABLE connections (id text PRIMARY KEY, organization_id text NOT NULL, created_by text, provider text NOT NULL, name text NOT NULL, credentials text NOT NULL, all_projects integer, token_status text NOT NULL DEFAULT 'unchecked', token_expires_at text, token_checked_at text, project_id text, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL, position integer, archived_at text, deleted_at text);
-    CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, version_number integer, connection_id text, instance_id text NOT NULL, deployed_name text, trigger text, params text, response_status integer, duration_ms integer, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, version_number integer, connection_id text, instance_id text NOT NULL, deployed_name text, trigger text, params text, content_type text, response_status integer, duration_ms integer, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text, version_number integer, connection_id text, service_name text NOT NULL, service_url text, deployed_name text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
     CREATE TABLE workflow_run_steps (
       id text PRIMARY KEY, run_id text NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
@@ -367,9 +367,36 @@ describe('a run’s trigger and payload', () => {
       trigger: null,
       hasParams: false,
     })
-    expect(await adapter.getRunParams('run-2', 'wf-1')).toEqual({ params: '{"n":1}' })
-    expect(await adapter.getRunParams('run-2', 'wf-1', 'conn-1')).toEqual({ params: '{"n":1}' })
+    expect(await adapter.getRunParams('run-2', 'wf-1')).toEqual({
+      params: '{"n":1}',
+      contentType: null,
+    })
+    expect(await adapter.getRunParams('run-2', 'wf-1', 'conn-1')).toEqual({
+      params: '{"n":1}',
+      contentType: null,
+    })
     expect(await adapter.getRunParams('run-2', 'wf-1', 'conn-other')).toBeNull()
     expect(await adapter.getRunParams('run-2', 'wf-other')).toBeNull()
+  })
+
+  it('keeps a call’s body type, so it is sent again the same way', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'seed')
+    await adapter.createRun({
+      id: 'call-1',
+      workflowId: 'wf-1',
+      versionId: null,
+      versionNumber: 1,
+      connectionId: 'conn-1',
+      instanceId: 'call_1',
+      trigger: 'api',
+      params: '"a=1"',
+      contentType: 'application/x-www-form-urlencoded',
+      status: 'complete',
+    })
+    expect(await adapter.getRunParams('call-1', 'wf-1', 'conn-1')).toEqual({
+      params: '"a=1"',
+      contentType: 'application/x-www-form-urlencoded',
+    })
   })
 })

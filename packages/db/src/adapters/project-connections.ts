@@ -688,6 +688,7 @@ export class ProjectConnectionsAdapter {
         name: c.name,
         deploymentId: d.id,
         serviceUrl: d.serviceUrl,
+        provider: c.provider,
         versionId: d.versionId,
         // Its number outlives the version row.
         version: sql<number | null>`coalesce(${v.version}, ${d.versionNumber})`,

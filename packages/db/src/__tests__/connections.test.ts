@@ -341,6 +341,63 @@ describe.each([
       expect(await on('c-2')).toBe('v-enrich-1')
     })
 
+    it('without an account, answers the one its newest successful deploy went out on', async () => {
+      await h.adapter.createConnection(write())
+      await h.adapter.createConnection(write({ id: 'c-2' }))
+      await h.db
+        .update(h.schema.deployments)
+        .set({ connectionId: 'c-1' })
+        .where(eq(h.schema.deployments.workflowId, 'wf-enrich'))
+      await h.db.insert(h.schema.deployments).values([
+        {
+          id: 'd-4',
+          workflowId: 'wf-enrich',
+          versionId: 'v-enrich-1',
+          connectionId: 'c-2',
+          serviceName: 'svc',
+          status: 'success',
+          createdAt: '2026-10-23T00:00:00.000Z',
+        },
+        // A newer failed deploy on c-1 does not make it the live one.
+        {
+          id: 'd-5',
+          workflowId: 'wf-enrich',
+          versionId: 'v-enrich-2',
+          connectionId: 'c-1',
+          serviceName: 'svc',
+          status: 'failed',
+          createdAt: '2026-10-24T00:00:00.000Z',
+        },
+      ])
+      await h.adapter.upsertDeploymentConfig({
+        id: 'dc-2',
+        workflowId: 'wf-enrich',
+        connectionId: 'c-2',
+        provider: 'cloudflare',
+        config: '{"workersDev":false}',
+      })
+      const newest = await h.adapter.getConnectionDeployedWith(null, 'org-acme', 'wf-enrich')
+      expect(newest?.id).toBe('c-2')
+      expect(newest?.deployedVersionId).toBe('v-enrich-1')
+      // The workflow's settings on that account come with it, for the run's retention.
+      expect(newest?.deploymentConfig).toBe('{"workersDev":false}')
+      expect(
+        (await h.adapter.getConnectionDeployedWith('c-1', 'org-acme', 'wf-enrich'))
+          ?.deploymentConfig,
+      ).toBeNull()
+      // Taken down there, the account before it is the live one.
+      await h.db
+        .update(h.schema.deployments)
+        .set({ status: 'taken_down' })
+        .where(eq(h.schema.deployments.id, 'd-4'))
+      expect((await h.adapter.getConnectionDeployedWith(null, 'org-acme', 'wf-enrich'))?.id).toBe(
+        'c-1',
+      )
+      // Another organization, or a workflow never deployed: nothing.
+      expect(await h.adapter.getConnectionDeployedWith(null, 'org-globex', 'wf-enrich')).toBeNull()
+      expect(await h.adapter.getConnectionDeployedWith(null, 'org-acme', 'wf-draft')).toBeNull()
+    })
+
     it('syncs a run under its own name, else its deploy’s', async () => {
       await h.adapter.createConnection(write())
       await h.db
@@ -526,6 +583,7 @@ describe.each([
         },
       ])
       expect(await h.adapter.getLiveService('c-1', 'org-acme', 'wf-enrich')).toEqual({
+        connectionId: 'c-1',
         provider: 'cloudflare',
         serviceUrl: 'https://fn.acme.workers.dev',
         // The newest deploy's version, so a call records what answered it.
@@ -536,6 +594,13 @@ describe.each([
       expect(await h.adapter.getLiveService('c-2', 'org-acme', 'wf-enrich')).toBeNull()
       expect(await h.adapter.getLiveService('c-1', 'org-globex', 'wf-enrich')).toBeNull()
       expect(await h.adapter.getLiveService('c-1', 'org-acme', 'wf-draft')).toBeNull()
+      // No account named: the newest successful deploy's (the failed one on c-2 is not live).
+      expect(await h.adapter.getLiveService(null, 'org-acme', 'wf-enrich')).toMatchObject({
+        connectionId: 'c-1',
+        serviceUrl: 'https://fn.acme.workers.dev',
+      })
+      expect(await h.adapter.getLiveService(null, 'org-globex', 'wf-enrich')).toBeNull()
+      expect(await h.adapter.getLiveService(null, 'org-acme', 'wf-draft')).toBeNull()
     })
   })
 
