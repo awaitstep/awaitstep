@@ -141,6 +141,26 @@ export function useReplaceProjectConnectionToken(org: string, project: string) {
   )
 }
 
+/** Renames an account the project owns. */
+export function useRenameProjectConnection(org: string, project: string) {
+  const ctx = useMockContext()
+  return useProjectMutation<{ connectionId: string; name: string }>(
+    org,
+    project,
+    { success: 'Account renamed', error: 'Couldn’t rename the account' },
+    (projectId, v) =>
+      dashboardApi.renameProjectConnection(org, projectId, v.connectionId, v.name.trim()),
+    (v) =>
+      mockServer.projectConnections.renameProjectConnection(
+        ctx,
+        org,
+        project,
+        v.connectionId,
+        v.name,
+      ),
+  )
+}
+
 export function useRemoveProjectConnection(org: string, project: string) {
   const ctx = useMockContext()
   return useProjectMutation<string>(

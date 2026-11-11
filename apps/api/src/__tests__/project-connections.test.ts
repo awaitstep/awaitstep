@@ -221,6 +221,40 @@ describe('project connections on the API', () => {
     })
   })
 
+  describe('renaming', () => {
+    it('renames an account the project owns without touching its token, never a shared one', async () => {
+      const { id } = await (await connectOwn()).json()
+      const renamed = await send(
+        'u-fay',
+        `/projects/p-101/connections/${id}`,
+        { name: '  Checkout prod  ' },
+        'PATCH',
+      )
+      expect(renamed.status).toBe(200)
+      expect(await renamed.json()).toMatchObject({ id, name: 'Checkout prod' })
+
+      await add([prod])
+      const shared = await send(
+        'u-fay',
+        `/projects/p-101/connections/${prod}`,
+        { name: 'Mine now' },
+        'PATCH',
+      )
+      expect(shared.status).toBe(404)
+      expect((await shared.json()).error).toBe(PROJECT_CONNECTION_REASONS.ownedOnly)
+    })
+
+    it('refuses a blank name, an empty body, and an account ID without a token', async () => {
+      const { id } = await (await connectOwn()).json()
+      const path = `/projects/p-101/connections/${id}`
+      expect((await send('u-fay', path, { name: '   ' }, 'PATCH')).status).toBe(422)
+      expect((await send('u-fay', path, {}, 'PATCH')).status).toBe(422)
+      expect(
+        (await send('u-fay', path, { name: 'X', accountId: 'a'.repeat(32) }, 'PATCH')).status,
+      ).toBe(422)
+    })
+  })
+
   describe('the default and each workspace', () => {
     it('moves the default, points a workspace elsewhere, and records each change', async () => {
       await add([prod])

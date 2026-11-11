@@ -18,6 +18,8 @@ interface AccountRowProps {
   /** Without it the row is read-only. */
   actions?: {
     onMakeDefault: () => void
+    /** Only an account the project owns: a shared one is renamed on the org's page. */
+    onRename: () => void
     onReplaceToken: () => void
     onReconnect?: () => void
     onRemove: () => void
@@ -85,6 +87,7 @@ export function AccountRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {owned && <DropdownMenuItem onSelect={actions.onRename}>Rename…</DropdownMenuItem>}
               {owned && connection.authKind !== 'oauth' && (
                 <DropdownMenuItem onSelect={actions.onReplaceToken}>
                   Replace token…

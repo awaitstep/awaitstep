@@ -43,11 +43,22 @@ const createSchema = z
   // A field this endpoint doesn't take (an old client's `share`) is refused, not ignored.
   .strict()
 
-const replaceTokenSchema = z.object({
-  token: z.string().min(1).max(1000),
-  /** A new account id with the token; the stored one is kept when omitted. */
-  accountId: z.string().trim().min(1).max(100).optional(),
-})
+const updateSchema = z
+  .object({
+    /** A new name; on its own, a rename that touches no credentials. */
+    name: z.string().trim().min(1).max(255).optional(),
+    token: z.string().min(1).max(1000).optional(),
+    /** A new account id with the token; the stored one is kept when omitted. */
+    accountId: z.string().trim().min(1).max(100).optional(),
+  })
+  .strict()
+  .refine((body) => body.name !== undefined || body.token !== undefined, {
+    message: 'Send a name or a token',
+  })
+  .refine((body) => body.accountId === undefined || body.token !== undefined, {
+    message: 'An account ID goes with a new token',
+    path: ['accountId'],
+  })
 
 const NOT_FOUND = { error: 'Not found' }
 
@@ -196,15 +207,37 @@ projectConnectionRoutes.post('/connections/new', zValidator('json', createSchema
   )
 })
 
-/** Replaces the token (and optionally the account id) of an account the project owns. */
+/**
+ * Renames an account the project owns, or replaces its token (and optionally
+ * the account id). A rename alone is one statement, the ownership in its WHERE.
+ */
 projectConnectionRoutes.patch(
   '/connections/:connectionId',
-  zValidator('json', replaceTokenSchema),
+  zValidator('json', updateSchema),
   async (c) => {
     const { projectId, organizationId } = projectOf(c)
     const connectionId = c.req.param('connectionId')
     const body = c.req.valid('json')
     const db = c.get('db')
+    if (body.token === undefined) {
+      const renamed = await db.updateConnection(connectionId, {
+        organizationId,
+        ownedBy: projectId,
+        name: body.name,
+      })
+      if (!renamed) return c.json({ error: PROJECT_CONNECTION_REASONS.ownedOnly }, 404)
+      await recordAudit(c, {
+        event: 'project_connection.update',
+        facts: { name: renamed.name, change: 'Renamed' },
+        projectId,
+      })
+      return c.json({
+        id: renamed.id,
+        name: renamed.name,
+        tokenStatus: parseTokenStatus(renamed.tokenStatus),
+        tokenExpiresAt: renamed.tokenExpiresAt,
+      })
+    }
     const owned = await db.getProjectOwnedConnection(connectionId, projectId)
     if (!owned) return c.json({ error: PROJECT_CONNECTION_REASONS.ownedOnly }, 404)
     if (authKindOf(owned.credentials) === 'oauth') {
@@ -235,6 +268,7 @@ projectConnectionRoutes.patch(
     const updated = await db.updateConnection(connectionId, {
       organizationId,
       ownedBy: projectId,
+      ...(body.name !== undefined && { name: body.name }),
       credentials: JSON.stringify(merged),
       token: check.token,
     })
@@ -243,7 +277,10 @@ projectConnectionRoutes.patch(
     await clearConnectionNotices(db, organizationId, connectionId)
     await recordAudit(c, {
       event: 'project_connection.update',
-      facts: { name: updated.name, change: 'Token replaced' },
+      facts: {
+        name: updated.name,
+        change: body.name !== undefined ? 'Renamed and token replaced' : 'Token replaced',
+      },
       projectId,
     })
     return c.json({

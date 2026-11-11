@@ -196,6 +196,16 @@ export const replaceProjectConnectionToken = mutation(
   },
 )
 
+export const renameProjectConnection = mutation(
+  (ctx, orgSlug: string, projectSlug: string, connectionId: string, name: string): void => {
+    const { db, project } = managedProject(ctx, orgSlug, projectSlug)
+    const row = db.connections.find((c) => c.id === connectionId && c.projectId === project.id)
+    if (!row) throw notFoundError()
+    if (!name.trim()) throw invalidError('Name the account', 'name')
+    row.name = name.trim()
+  },
+)
+
 export const removeProjectConnection = mutation(
   (ctx, orgSlug: string, projectSlug: string, connectionId: string): void => {
     const { db, project } = managedProject(ctx, orgSlug, projectSlug)

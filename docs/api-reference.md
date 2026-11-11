@@ -2513,9 +2513,11 @@ the project's default. Answers `201` `{ "id", "name", "scope": "project", "isDef
 
 ### `PATCH /projects/:id/connections/:connectionId`
 
-Replace the token of an account the project owns (`{ "token", "accountId"? }`),
-checked with Cloudflare first. A shared account answers `404` — it's changed on
-the organization's page.
+Rename an account the project owns (`{ "name" }`), or replace its token
+(`{ "token", "accountId"?, "name"? }`), checked with Cloudflare first. A rename
+alone touches no credentials. An `accountId` without a `token`, or a body with
+neither `name` nor `token`, answers `422`. A shared account answers `404` — it's
+changed on the organization's page. Answers `{ "id", "name", "tokenStatus", "tokenExpiresAt" }`.
 
 **Permission:** `connections:write` — project admins
 

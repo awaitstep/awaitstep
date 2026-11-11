@@ -993,6 +993,19 @@ export const dashboardApi = {
     })
   },
 
+  /** Renames an account the project owns. */
+  renameProjectConnection(
+    org: string,
+    projectId: string,
+    connectionId: string,
+    name: string,
+  ): Promise<unknown> {
+    return request(apiPath`/projects/${projectId}/connections/${connectionId}` + query({ org }), {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    })
+  },
+
   replaceProjectConnectionToken(
     org: string,
     projectId: string,

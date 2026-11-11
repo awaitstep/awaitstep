@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Info, KeyRound, Plus } from 'lucide-react'
+import { Info, KeyRound, Pencil, Plus } from 'lucide-react'
 import {
   useAvailableConnections,
   useProjectConnections,
   useRemoveProjectConnection,
+  useRenameProjectConnection,
   useReplaceProjectConnectionToken,
   useSetDefaultConnection,
   useSetWorkspaceConnection,
@@ -35,7 +36,7 @@ import { WorkspaceDeploys } from './parts/workspace-deploys'
 import { accountsCaption, removeText } from './project-connections-copy'
 
 type Overlay =
-  | { kind: 'remove' | 'token'; connection: ProjectConnection }
+  | { kind: 'remove' | 'token' | 'rename'; connection: ProjectConnection }
   | { kind: 'workspace'; workspace: ProjectWorkspaceConnection }
   | null
 
@@ -65,6 +66,7 @@ export function ProjectConnectionsPage({
   const setDefault = useSetDefaultConnection(slugs.org, slugs.project)
   const setWorkspace = useSetWorkspaceConnection(slugs.org, slugs.project)
   const replace = useReplaceProjectConnectionToken(slugs.org, slugs.project)
+  const rename = useRenameProjectConnection(slugs.org, slugs.project)
   const remove = useRemoveProjectConnection(slugs.org, slugs.project)
   const [overlay, setOverlay] = useState<Overlay>(null)
 
@@ -96,6 +98,7 @@ export function ProjectConnectionsPage({
   function open(next: NonNullable<Overlay>) {
     setWorkspace.reset()
     replace.reset()
+    rename.reset()
     remove.reset()
     setOverlay(next)
   }
@@ -104,6 +107,7 @@ export function ProjectConnectionsPage({
     if (!canManage) return undefined
     return {
       onMakeDefault: () => setDefault.mutate(connection.id),
+      onRename: () => open({ kind: 'rename', connection }),
       onReplaceToken: () => open({ kind: 'token', connection }),
       onReconnect: () =>
         window.location.assign(
@@ -131,6 +135,11 @@ export function ProjectConnectionsPage({
       { connectionId: overlay.connection.id, token },
       { onSuccess: handleCloseOverlay },
     )
+  }
+
+  function handleRename(name: string) {
+    if (overlay?.kind !== 'rename') return
+    rename.mutate({ connectionId: overlay.connection.id, name }, { onSuccess: handleCloseOverlay })
   }
 
   function handleRemoveOpenChange(isOpen: boolean) {
@@ -276,6 +285,24 @@ export function ProjectConnectionsPage({
               : undefined
           }
           onSubmit={handleWorkspaceSubmit}
+          onClose={handleCloseOverlay}
+        />
+      )}
+      {overlay?.kind === 'rename' && (
+        <TextFieldDialog
+          title={`Rename ${overlay.connection.name}`}
+          description="Renames the account in AwaitStep only. Your Cloudflare account is unchanged."
+          leading={
+            <Tile tone="info" size="lg">
+              <Pencil />
+            </Tile>
+          }
+          label="Name"
+          initial={overlay.connection.name}
+          submitLabel="Rename"
+          error={rename.error?.message}
+          pending={rename.isPending}
+          onSubmit={handleRename}
           onClose={handleCloseOverlay}
         />
       )}

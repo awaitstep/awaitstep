@@ -104,6 +104,32 @@ describe('the project’s accounts', () => {
     )
   })
 
+  it('renames an account the project owns; a shared one has no Rename', async () => {
+    renderPage()
+    const prod = await screen.findByRole('listitem', { name: 'Acme production' })
+    await userEvent.click(
+      within(prod).getByRole('button', { name: 'More actions for Acme production' }),
+    )
+    expect(await screen.findByRole('menuitem', { name: /Remove from project/ })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: 'Rename…' })).toBeNull()
+    await userEvent.keyboard('{Escape}')
+
+    const own = screen.getByRole('listitem', { name: 'Checkout staging' })
+    await userEvent.click(
+      within(own).getByRole('button', { name: 'More actions for Checkout staging' }),
+    )
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename…' }))
+    const dialog = screen.getByRole('dialog', { name: 'Rename Checkout staging' })
+    const name = within(dialog).getByRole('textbox', { name: 'Name' })
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Checkout prod')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }))
+    expect(await screen.findByRole('listitem', { name: 'Checkout prod' })).toBeVisible()
+    expect(dashboardDb().connections.find((c) => c.id === 'conn_checkout')!.name).toBe(
+      'Checkout prod',
+    )
+  })
+
   it('is read-only for someone who isn’t a project admin', async () => {
     renderPage(null, { userId: DANIEL })
     const prod = await screen.findByRole('listitem', { name: 'Acme production' })
