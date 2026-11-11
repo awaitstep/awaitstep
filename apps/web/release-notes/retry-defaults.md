@@ -6,4 +6,4 @@ link: projects
 linkLabel: Open a workflow
 ---
 
-A new step or durable HTTP call starts with 2 retries, 5 seconds apart, instead of 5 and 10 seconds, so a failing call settles sooner. A node that sets its own retry limit or delay keeps it.
+Steps and durable HTTP calls now retry twice, five seconds apart, instead of Cloudflare's five retries ten seconds apart, so a failing call settles sooner. A node that sets its own retry limit or delay keeps it.

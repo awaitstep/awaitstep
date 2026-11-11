@@ -1,7 +1,7 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerateMode, type GenerationContext } from '../internal.js'
 import { generateStepConfig } from './config.js'
-import { resolveStepConfig } from './step.js'
+import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
 
 /**
  * A call to another deployed function/script, provider-neutrally. The runtime
@@ -34,7 +34,7 @@ export function generateSubScript(
 
   if (mode === 'script') return `const ${varName} = await ${call};`
 
-  const config = generateStepConfig(resolveStepConfig(node))
+  const config = generateStepConfig(resolveStepConfig(node) ?? DEFAULT_STEP_CONFIG)
   const configArg = config ? `, ${config}` : ''
   return `const ${varName} = await flow.step("${stepLabel(node)}"${configArg}, () => ${call});`
 }

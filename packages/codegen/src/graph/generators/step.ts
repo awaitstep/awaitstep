@@ -20,6 +20,16 @@ function isDurationSet(value: unknown): boolean {
   return typeof value === 'number' || (typeof value === 'string' && value.trim() !== '')
 }
 
+/**
+ * The retry policy every durable step carries unless its node says otherwise.
+ * Cloudflare's own default is 5 retries 10 seconds apart; AwaitStep opts for
+ * a smaller default, and emits it explicitly so the deployed step does not
+ * fall back to the runtime's.
+ */
+export const DEFAULT_STEP_CONFIG: StepConfig = {
+  retries: { limit: 2, delay: '5 seconds', backoff: 'exponential' },
+}
+
 export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
   if (node.config) return node.config
 
@@ -62,7 +72,7 @@ export function generateStep(node: WorkflowNode, ctx: GenerationContext): string
   // analysis explicitly says nothing reads it (absent analysis = store).
   const lean = hasReturn && !(ctx.isOutputConsumed?.(node.id) ?? true)
   const prefix = hasReturn && !lean ? `const ${varName} = ` : ''
-  const config = generateStepConfig(resolveStepConfig(node))
+  const config = generateStepConfig(resolveStepConfig(node) ?? DEFAULT_STEP_CONFIG)
   const configArg = config ? `, ${config}` : ''
 
   if (lean) {
@@ -157,7 +167,7 @@ export function generateStepGroup(
   const body = members.map((m) => m.stmt).join('\n')
   const ret = returned.length > 0 ? `\n  return { ${returned.join(', ')} };` : ''
   const prefix = returned.length > 0 ? `const { ${returned.join(', ')} } = ` : ''
-  return `${prefix}await flow.step("${stepLabel(nodes[0]!)}", async (ctx) => {
+  return `${prefix}await flow.step("${stepLabel(nodes[0]!)}", ${generateStepConfig(DEFAULT_STEP_CONFIG)}, async (ctx) => {
 ${indent(body, 2)}${ret}
 });`
 }

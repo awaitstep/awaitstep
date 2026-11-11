@@ -1,6 +1,6 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerateMode, type GenerationContext } from '@awaitstep/codegen'
-import { generateStepConfig } from '@awaitstep/codegen'
+import { DEFAULT_STEP_CONFIG, generateStepConfig, resolveStepConfig } from '@awaitstep/codegen'
 
 /**
  * Generates code for a `sub_script` node: an HTTP-shaped call to another
@@ -34,7 +34,7 @@ export function generateSubScript(
       : undefined
   const body = node.data.body as string | undefined
 
-  const config = generateStepConfig(node.config)
+  const config = generateStepConfig(resolveStepConfig(node) ?? DEFAULT_STEP_CONFIG)
   const configArg = config ? `, ${config}` : ''
 
   const fetchOptions: string[] = [`method: ${JSON.stringify(method)}`]

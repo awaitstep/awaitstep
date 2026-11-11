@@ -79,8 +79,8 @@ describe('generateWorkflowBundle', () => {
     expect(entry).toContain(
       'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data({ env, event, inputs: {}, step, ctx }),\n    );',
     )
-    expect(entry).toContain(
-      'await flow.step("report", async (ctx) => {\n      await $Report({ env, event, inputs: { Fetch_data }, step, ctx });\n    });',
+    expect(entry).toMatch(
+      /await flow\.step\("report", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(\{ env, event, inputs: \{ Fetch_data \}, step, ctx \}\);/,
     )
     // No user code left in the entry to need env rewriting.
     expect(entry).not.toContain('z.object')
