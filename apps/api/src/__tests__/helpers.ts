@@ -707,7 +707,7 @@ const mockDb: DatabaseAdapter = {
     return 0
   },
   async orgHomeSummary() {
-    return { failing: { count: 0, first: null } }
+    return { failing: { count: 0, first: null }, activity: [] }
   },
   async projectSummary() {
     return {

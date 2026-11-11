@@ -1218,6 +1218,26 @@ export interface WorkflowPageSummary {
 /** The org home's "Failing now" tile: a count and the first row behind it. */
 export interface OrgHomeSummary {
   failing: { count: number; first: FailingSummary | null }
+  /** Recent activity: the newest deploys, failures and shares the viewer can see. */
+  activity: OrgActivityItem[]
+}
+
+export type OrgActivityKind = 'deployed' | 'failed' | 'shared'
+
+/**
+ * One row of the org home's Recent activity: a successful deploy (with its
+ * version), a workflow's latest failed run, or a share to its project.
+ */
+export interface OrgActivityItem {
+  /** The kind and its source row's id: `deployed:<deployment id>`. */
+  id: string
+  kind: OrgActivityKind
+  workflow: { name: string; kind: 'workflow' | 'script' }
+  /** The deployed version's number; null for a failure or a share. */
+  version: number | null
+  project: { slug: string; name: string }
+  workspace: { slug: string; name: string; colour: string }
+  at: string
 }
 
 /** A workspace's settings tab pills, without opening any tab. */

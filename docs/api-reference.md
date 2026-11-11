@@ -729,9 +729,14 @@ One request per page section, shaped to what it renders. They are dashboard
 reads: no whole rows, no emails outside the audience `/scope` and
 `/members` define, and no secret or credential.
 
-- `GET /orgs/:slug/home-summary` — `{ failing: { count, first } }` for the org
-  home; `first` is the same workflow/project/workspace/run record `/failing`
-  returns, or `null`.
+- `GET /orgs/:slug/home-summary` — `{ failing: { count, first }, activity[≤5] }`
+  for the org home; `first` is the same workflow/project/workspace/run record
+  `/failing` returns, or `null`. `activity` is Recent activity, newest first:
+  each successful deploy, each workflow's latest failed run and each share to
+  the project, in workspaces the viewer can open — `{ id, kind:
+"deployed"|"failed"|"shared", workflow: { name, kind }, version, project: {
+slug, name }, workspace: { slug, name, colour }, at }`, `version` set on a
+  deploy only.
 - `GET /projects/:id/summary?org=` — `{ admins: { count, people[≤5] },
 projectKeys, variables: { total, own, inherited, first[≤2] }, shared: {
 count, first[≤2] } }` for the workspaces page's Project-wide cards.
