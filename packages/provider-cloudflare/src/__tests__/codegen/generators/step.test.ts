@@ -103,9 +103,7 @@ describe('generateStep', () => {
     const code = generateStep(
       makeNode({ data: { code: 'return 1;', retryDelay: '', timeout: '' } }),
     )
-    expect(code).toContain(
-      'retries: { limit: 2, delay: "5 seconds", backoff: "exponential" }',
-    )
+    expect(code).toContain('retries: { limit: 2, delay: "5 seconds", backoff: "exponential" }')
     expect(code).not.toContain('timeout')
   })
 
