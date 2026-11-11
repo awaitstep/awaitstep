@@ -67,6 +67,11 @@ export function CloudflareConnect({ formId, place, errorOn, onSubmit, onEdit }: 
             <CloudflareLogo className="mr-2" fill1="#FFF" fill2="#fff" />
             Setup with Cloudflare.com
           </a>
+          {!place.project && (
+            <p className="text-xs text-muted-foreground">
+              Signing in with Cloudflare connects the account for every project.
+            </p>
+          )}
           <OrDivider />
         </>
       )}

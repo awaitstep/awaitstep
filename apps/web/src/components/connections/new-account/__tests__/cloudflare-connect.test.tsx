@@ -57,6 +57,10 @@ describe('CloudflareConnect', () => {
       .getAttribute('href')
     expect(href).toContain('org=acme')
     expect(href).not.toContain('project=')
+    // The org's sign-in always covers every project, whatever the dialog's picker says.
+    expect(
+      screen.getByText('Signing in with Cloudflare connects the account for every project.'),
+    ).toBeVisible()
   })
 
   it('lists the permissions the API token needs, with a link to make one', () => {
@@ -69,6 +73,12 @@ describe('CloudflareConnect', () => {
       'href',
       'https://dash.cloudflare.com/profile/api-tokens',
     )
+  })
+
+  it('says nothing about every project when the account is a project’s own', () => {
+    oauth.enabled = true
+    renderStep()
+    expect(screen.queryByText(/connects the account for every project/)).toBeNull()
   })
 
   it('shows only the form where sign-in with Cloudflare isn’t set up', () => {
