@@ -69,25 +69,6 @@ export interface FailingNowSummary {
   first: FailingItem | null
 }
 
-export function useOrgHomeSummary(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
-  return useQuery({
-    queryKey: key(dashKeys.failing(org)),
-    queryFn: (): Promise<FailingNowSummary> =>
-      source === 'api'
-        ? dashboardApi.getOrgHomeSummary(org).then((summary) => ({
-            count: summary.failing.count,
-            first: summary.failing.first ? toFailingItem(summary.failing.first) : null,
-          }))
-        : mockServer.runs.listFailingNow(ctx, org).then((list) => ({
-            count: list.length,
-            first: list[0] ?? null,
-          })),
-  })
-}
-
 export function useFailingNow(org: string) {
   const source = useDataSource()
   const ctx = useMockContext()

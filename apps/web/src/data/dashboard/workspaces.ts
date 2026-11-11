@@ -259,7 +259,7 @@ const workspaceKeys = (org: string, project: string) => [
   dashKeys.shared(org, project),
   dashKeys.runs(org, project),
   dashKeys.failing(org),
-  dashKeys.activity(org),
+  dashKeys.homeSummary(org),
   // Workspace keys, overrides and grants go with a deleted workspace.
   dashKeys.setup(org, project),
   dashKeys.inProject('keys', org, project),

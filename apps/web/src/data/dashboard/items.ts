@@ -116,7 +116,7 @@ function itemKeys(slugs: WorkspaceSlugs) {
     dashKeys.inProject('workspaces', slugs.org, slugs.project),
     dashKeys.projects(slugs.org),
     dashKeys.failing(slugs.org),
-    dashKeys.activity(slugs.org),
+    dashKeys.homeSummary(slugs.org),
     dashKeys.setup(slugs.org, slugs.project),
     dashKeys.workspaceOverview(slugs),
     dashKeys.scope(),

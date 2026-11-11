@@ -19,7 +19,8 @@ describe('recent activity', () => {
     expect(times).toEqual([...times].sort().reverse())
     expect(feed[0]).toMatchObject({
       kind: 'failed',
-      title: 'Lead enrichment failed at step "Fetch company"',
+      workflow: { name: 'Lead enrichment' },
+      version: null,
       project: { name: 'Project 101' },
       workspace: { name: 'Sales', colour: 'green' },
     })
@@ -50,7 +51,8 @@ describe('recent activity', () => {
     expect(after[0]).toMatchObject({
       id: `shared:${item.id}`,
       kind: 'shared',
-      title: `${item.name} shared to Project 101`,
+      workflow: { name: item.name, kind: item.kind },
+      version: null,
     })
   })
 })

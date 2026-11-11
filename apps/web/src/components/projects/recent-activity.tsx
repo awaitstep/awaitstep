@@ -16,6 +16,15 @@ const KIND_LOOK: Record<
   shared: { icon: Share2, tone: 'info', page: 'workflows' },
 }
 
+/** "Lead enrichment deployed as v3", "… published as v3" for a function, "… failed", "… shared to Project 101". */
+export function activityTitle(item: ActivityItem): string {
+  const name = item.workflow.name
+  if (item.kind === 'failed') return `${name} failed`
+  if (item.kind === 'shared') return `${name} shared to ${item.project.name}`
+  const verb = item.workflow.kind === 'script' ? 'published' : 'deployed'
+  return item.version !== null ? `${name} ${verb} as v${item.version}` : `${name} ${verb}`
+}
+
 interface RecentActivityProps {
   org: string
   items: ActivityItem[]
@@ -41,7 +50,7 @@ export function RecentActivity({ org, items }: RecentActivityProps) {
                   <Icon />
                 </Tile>
               }
-              title={item.title}
+              title={activityTitle(item)}
               href={workspacePath(
                 { org, project: item.project.slug, workspace: item.workspace.slug },
                 look.page,

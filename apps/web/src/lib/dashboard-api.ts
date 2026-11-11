@@ -31,6 +31,7 @@ import {
   type WorkflowSummary,
 } from './api-client'
 import { apiPath } from './api-path'
+import type { ActivityItem } from '../types/dashboard/activity'
 
 // The dashboard's calls, addressed by the slugs its URLs carry rather than
 // by the org store: `GET /scope`, the workspace routes, and the project,
@@ -329,6 +330,8 @@ export interface ApiFailing {
 
 export interface ApiOrgHomeSummary {
   failing: { count: number; first: ApiFailing | null }
+  /** Recent activity: up to five deploys, failures and shares, newest first. */
+  activity: ActivityItem[]
 }
 
 export interface ApiProjectSummary {
@@ -598,7 +601,7 @@ export const dashboardApi = {
     return request(apiPath`/failing` + query({ org }))
   },
 
-  /** The org home's failing count and first row: the list itself lives behind the tile. */
+  /** The org home's failing count and first row (the list lives behind the tile) and its recent activity. */
   getOrgHomeSummary(org: string): Promise<ApiOrgHomeSummary> {
     return request(apiPath`/orgs/${org}/home-summary`)
   },

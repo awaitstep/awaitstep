@@ -28,7 +28,8 @@ export const dashKeys = {
   failing: (org: string) => ['dash', 'failing', org] as const,
   workflowRunCounts: (s: WorkspaceSlugs, workflowId: string, period: string) =>
     ['dash', 'workflow-run-counts', s.org, s.project, s.workspace, workflowId, period] as const,
-  activity: (org: string) => ['dash', 'activity', org] as const,
+  /** The org home's Failing now tile and Recent activity: one request. */
+  homeSummary: (org: string) => ['dash', 'home-summary', org] as const,
   scope: () => ['dash', 'scope'] as const,
   scopeOf: (slugs: ScopeSlugs) =>
     ['dash', 'scope', slugs.org, slugs.project ?? null, slugs.workspace ?? null] as const,

@@ -51,8 +51,10 @@ vi.mock('../../../data/dashboard/projects', () => ({
   useProjects: () => state.projects,
   useCreateProject: () => createProject,
 }))
-vi.mock('../../../data/dashboard/runs', () => ({ useOrgHomeSummary: () => state.failing }))
-vi.mock('../../../data/dashboard/activity', () => ({ useOrgActivity: () => state.activity }))
+vi.mock('../../../data/dashboard/org-home', () => ({
+  useOrgHomeSummary: () => state.failing,
+  useOrgActivity: () => state.activity,
+}))
 
 const FAILING = {
   item: { id: 'i1', name: 'Lead enrichment', kind: 'workflow' },
@@ -113,6 +115,61 @@ describe('OrgHomePage', () => {
       '/acme/projects?new=project',
     ])
     expect(screen.getByRole('region', { name: 'Recent activity' })).toBeVisible()
+  })
+
+  it('lists recent activity with what happened, where, and a link to that workspace', () => {
+    settle()
+    const where = {
+      project: { slug: 'project-101', name: 'Project 101' },
+      workspace: { slug: 'sales', name: 'Sales', colour: 'blue' },
+      at: new Date().toISOString(),
+    }
+    state.activity = ok([
+      {
+        id: 'deployed:d1',
+        kind: 'deployed',
+        workflow: { name: 'Lead enrichment', kind: 'workflow' },
+        version: 3,
+        ...where,
+      },
+      {
+        id: 'deployed:d2',
+        kind: 'deployed',
+        workflow: { name: 'Webhook relay', kind: 'script' },
+        version: 2,
+        ...where,
+      },
+      {
+        id: 'failed:r1',
+        kind: 'failed',
+        workflow: { name: 'CRM sync', kind: 'workflow' },
+        version: null,
+        ...where,
+      },
+      {
+        id: 'shared:w1',
+        kind: 'shared',
+        workflow: { name: 'Nightly', kind: 'workflow' },
+        version: null,
+        ...where,
+      },
+    ])
+    renderPage()
+    const feed = screen.getByRole('region', { name: 'Recent activity' })
+    expect(within(feed).getByText('Lead enrichment deployed as v3')).toBeVisible()
+    expect(within(feed).getByText('Webhook relay published as v2')).toBeVisible()
+    expect(within(feed).getByText('Nightly shared to Project 101')).toBeVisible()
+    expect(within(feed).getByRole('link', { name: /CRM sync failed/ })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/runs',
+    )
+    expect(within(feed).getAllByText('Project 101 · Sales')).toHaveLength(4)
+  })
+
+  it('says nothing has happened yet on an org without activity', () => {
+    settle()
+    renderPage()
+    expect(screen.getByText('Nothing yet. Deploys, failures and shares appear here.')).toBeVisible()
   })
 
   it('puts the project you were last in first', () => {
