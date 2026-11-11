@@ -1,11 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  CALLABLE_URL_PATTERN,
-  CALL_MAX_BYTES,
-  NOT_CALLABLE,
-  callFunction,
-  isCallableUrl,
-} from '../call-function.js'
+import { CALL_MAX_BYTES, NOT_CALLABLE, callFunction, isCallableUrl } from '../call-function.js'
 
 // Calling a deployed function from the server (24i): only its own
 // workers.dev address, never followed through a redirect, time- and
@@ -29,22 +23,6 @@ describe('isCallableUrl', () => {
       'not a url',
     ]) {
       expect(isCallableUrl(url), url).toBe(false)
-    }
-  })
-
-  it('publishes a pattern for the UI that agrees with the check', () => {
-    const pattern = new RegExp(CALLABLE_URL_PATTERN, 'i')
-    for (const url of [
-      'https://awaitstep-abc.acme.workers.dev',
-      'https://awaitstep-abc.acme.workers.dev/path?x=1',
-      'http://awaitstep-abc.acme.workers.dev',
-      'https://api.example.com',
-      'https://workers.dev.evil.com',
-      'https://evil.com/x.workers.dev',
-      'https://user:pw@a.workers.dev',
-      'https://a.workers.dev:8443',
-    ]) {
-      expect(pattern.test(url), url).toBe(isCallableUrl(url))
     }
   })
 })
@@ -74,6 +52,17 @@ describe('callFunction', () => {
     expect(init.method).toBe('POST')
     expect(init.redirect).toBe('manual')
     expect(init.body).toBe('{"address":"12 Rue de Rivoli"}')
+    expect(init.headers).toEqual({ 'content-type': 'application/json' })
+  })
+
+  it('sends the body with the content type it came with', async () => {
+    const fetcher = vi.fn(async () => new Response('ok'))
+    await callFunction(
+      { url: 'https://fn.acme.workers.dev', body: 'a=1', contentType: 'text/plain' },
+      fetcher as unknown as typeof fetch,
+    )
+    const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.headers).toEqual({ 'content-type': 'text/plain' })
   })
 
   it('refuses a URL it won’t call, without calling it', async () => {

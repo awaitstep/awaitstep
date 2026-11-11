@@ -132,7 +132,9 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       const routeUrl = options.routes?.[0]
         ? `https://${options.routes[0].pattern.replace(/\/\*$/, '')}`
         : undefined
-      return { success: true, workerName: name, workerUrl: routeUrl ?? urlMatch?.[0] }
+      // The workers.dev address first: it is the one a function is called at
+      // from the server (a route's host is whatever pattern was typed).
+      return { success: true, workerName: name, workerUrl: urlMatch?.[0] ?? routeUrl }
     } catch (err) {
       const error = err as Error & { stderr?: string }
       const safeError = error.stderr
