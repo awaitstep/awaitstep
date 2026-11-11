@@ -52,8 +52,8 @@ export const subScriptDefinition: NodeDefinition = {
     retryLimit: {
       type: 'number',
       label: 'Retry Limit',
-      default: 3,
-      placeholder: '3',
+      default: 2,
+      placeholder: '2',
       validation: { min: 0 },
     },
     timeout: {

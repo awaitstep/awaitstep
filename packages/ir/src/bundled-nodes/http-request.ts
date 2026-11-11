@@ -41,8 +41,8 @@ export const httpRequestDefinition: NodeDefinition = {
     retryLimit: {
       type: 'number',
       label: 'Retry Limit',
-      default: 5,
-      placeholder: '5',
+      default: 2,
+      placeholder: '2',
       validation: { min: 0 },
     },
     timeout: {

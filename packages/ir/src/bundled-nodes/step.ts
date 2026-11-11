@@ -26,15 +26,15 @@ export const stepDefinition: NodeDefinition = {
     retryLimit: {
       type: 'number',
       label: 'Retry Limit',
-      default: 5,
-      placeholder: '5',
+      default: 2,
+      placeholder: '2',
       validation: { min: 0 },
     },
     retryDelay: {
       type: 'string',
       label: 'Retry Delay',
-      default: '10 seconds',
-      placeholder: '10 seconds',
+      default: '5 seconds',
+      placeholder: '5 seconds',
       validation: { format: 'duration' },
     },
     backoff: {

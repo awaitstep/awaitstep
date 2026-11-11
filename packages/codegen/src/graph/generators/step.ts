@@ -36,8 +36,8 @@ export function resolveStepConfig(node: WorkflowNode): StepConfig | undefined {
 
   if (hasRetry) {
     config.retries = {
-      limit: typeof retryLimit === 'number' ? retryLimit : 5,
-      delay: delaySet && typeof retryDelay === 'string' ? retryDelay : '10 seconds',
+      limit: typeof retryLimit === 'number' ? retryLimit : 2,
+      delay: delaySet && typeof retryDelay === 'string' ? retryDelay : '5 seconds',
     }
     if (backoff && typeof backoff === 'string') {
       config.retries.backoff = backoff as RetryBackoff

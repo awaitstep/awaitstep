@@ -12,12 +12,12 @@ When a step throws an error, the platform retries it automatically according to 
 
 Open any node's config drawer and set the retry fields:
 
-| Field       | Default      | Description                            |
-| ----------- | ------------ | -------------------------------------- |
-| Retry Limit | 5            | Maximum number of retry attempts       |
-| Retry Delay | `10 seconds` | Delay between retries                  |
-| Backoff     | `constant`   | `constant`, `linear`, or `exponential` |
-| Timeout     | —            | Max duration for a single attempt      |
+| Field       | Default     | Description                            |
+| ----------- | ----------- | -------------------------------------- |
+| Retry Limit | 2           | Maximum number of retry attempts       |
+| Retry Delay | `5 seconds` | Delay between retries                  |
+| Backoff     | `constant`  | `constant`, `linear`, or `exponential` |
+| Timeout     | —           | Max duration for a single attempt      |
 
 ### Generated retry config
 

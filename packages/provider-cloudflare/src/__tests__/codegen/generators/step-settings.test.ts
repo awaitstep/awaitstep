@@ -115,7 +115,7 @@ describe('appliedStepSettings agrees with what the generators emit', () => {
 
   it('step uses the loose fields and fills the missing half with the emitter’s defaults', () => {
     const applied = appliedStepSettings(node('step', { retryLimit: 2 }))
-    expect(applied.config).toEqual({ retries: { limit: 2, delay: '10 seconds' } })
+    expect(applied.config).toEqual({ retries: { limit: 2, delay: '5 seconds' } })
   })
 
   it('an http request that is not durable takes neither, as it emits no step', () => {
@@ -128,7 +128,7 @@ describe('appliedStepSettings agrees with what the generators emit', () => {
 
   it('a durable http request applies the loose fields, as its generator does', () => {
     const applied = appliedStepSettings(node('http_request', { durable: true, retryLimit: 5 }))
-    expect(applied.config).toEqual({ retries: { limit: 5, delay: '10 seconds' } })
+    expect(applied.config).toEqual({ retries: { limit: 5, delay: '5 seconds' } })
     expect(applied.retries).toBe(true)
   })
 

@@ -109,7 +109,7 @@ describe('generateStep', () => {
     const code = generateStep(
       makeNode({ data: { code: 'return 1;', retryLimit: 1, retryDelay: '  ', timeout: ' ' } }),
     )
-    expect(code).toContain('retries: { limit: 1, delay: "10 seconds" }')
+    expect(code).toContain('retries: { limit: 1, delay: "5 seconds" }')
     expect(code).not.toContain('timeout')
   })
 
@@ -117,7 +117,7 @@ describe('generateStep', () => {
     const code = generateStep(
       makeNode({ data: { code: 'return 1;', retryLimit: 2, retryDelay: '' } }),
     )
-    expect(code).toContain('retries: { limit: 2, delay: "10 seconds" }')
+    expect(code).toContain('retries: { limit: 2, delay: "5 seconds" }')
   })
 
   it('sanitizes node id for variable name', () => {
