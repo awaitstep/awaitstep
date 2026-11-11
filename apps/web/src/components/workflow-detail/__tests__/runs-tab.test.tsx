@@ -69,7 +69,7 @@ describe('RunsTab', () => {
 
   it('names the version a run kept after that version was deleted', () => {
     renderWithPages(<RunsTab workflow={WORKFLOW} neverDeployed={false} />, {
-      '["workflow-runs","wf_1"]': [run('run_old', 'complete', null, 900, 4)],
+      '["workflow-runs","wf_1",null]': [run('run_old', 'complete', null, 900, 4)],
     })
     const [old] = within(screen.getByRole('table')).getAllByRole('row').slice(1)
     expect(old).toHaveTextContent('v4')
