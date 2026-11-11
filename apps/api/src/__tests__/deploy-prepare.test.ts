@@ -187,6 +187,78 @@ describe('prepareDeploy', () => {
     expect(workflowModule.source).toContain('7 days')
   })
 
+  it('deploys a workflow with no workers.dev URL when no config is stored (D-9)', async () => {
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+    })
+    if (isDeployError(prepared)) throw new Error(prepared.error)
+    expect(prepared.resolvedDeploymentConfig).toMatchObject({
+      workersDev: false,
+      previewUrls: false,
+    })
+  })
+
+  it('keeps workers.dev off for a deploy whose config leaves it out', async () => {
+    // An API deploy may send only what it changes; the rest is the kind's defaults.
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+      deploymentConfig: { compatibilityDate: '2026-11-01' },
+    })
+    if (isDeployError(prepared)) throw new Error(prepared.error)
+    expect(prepared.resolvedDeploymentConfig).toMatchObject({
+      compatibilityDate: '2026-11-01',
+      workersDev: false,
+      previewUrls: false,
+    })
+  })
+
+  it('fills a stored config that predates a setting from the defaults', async () => {
+    await mockDb.upsertDeploymentConfig({
+      id: 'dc-1',
+      workflowId: 'wf-1',
+      connectionId: 'conn-1',
+      provider: 'cloudflare',
+      config: JSON.stringify({ compatibilityDate: '2026-01-01' }),
+    })
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+    })
+    if (isDeployError(prepared)) throw new Error(prepared.error)
+    expect(prepared.resolvedDeploymentConfig).toMatchObject({
+      compatibilityDate: '2026-01-01',
+      workersDev: false,
+    })
+  })
+
+  it('keeps workers.dev on when the deploy asks for it', async () => {
+    const workflow = (await mockDb.getWorkflowById('wf-1'))!
+    const prepared = await prepareDeploy({
+      db: mockDb,
+      workflow,
+      organizationId: TEST_ORG_ID,
+      projectId: TEST_PROJECT_ID,
+      connectionId: 'conn-1',
+      deploymentConfig: { workersDev: true },
+    })
+    if (isDeployError(prepared)) throw new Error(prepared.error)
+    expect(prepared.resolvedDeploymentConfig).toMatchObject({ workersDev: true })
+  })
+
   it('reads the version row once when a version is named', async () => {
     const versions = vi.spyOn(mockDb, 'getWorkflowVersionById')
     const workflow = (await mockDb.getWorkflowById('wf-1'))!

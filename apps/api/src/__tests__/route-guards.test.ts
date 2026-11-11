@@ -75,6 +75,13 @@ function sessionOnly(method: string, path: string): boolean {
   }
   // OAuth is a person's browser flow; a key has no browser or session to bind it to.
   if (/^\/api\/oauth(\/|$)/.test(path)) return true
+  // The dashboard's run routes (D-7): a key runs through POST /api/run/:workflowId.
+  if (
+    /^\/api\/workflows\/:workflowId\/(trigger|call|runs\/:runId\/run-again)$/.test(path) &&
+    method === 'POST'
+  ) {
+    return true
+  }
   return path === '/api/projects/:id/move' || path === '/api/workflows/:id/move'
 }
 
@@ -236,7 +243,9 @@ describe('mutation route guards', () => {
 
   it('refuses every project-scoped mutation to an organization-level key', async () => {
     const projectScoped = (path: string) =>
-      path.startsWith('/api/workflows') || path.startsWith('/api/test-sessions')
+      path.startsWith('/api/workflows') ||
+      path.startsWith('/api/test-sessions') ||
+      path.startsWith('/api/run/')
     expect(await refusals(ORG_KEY, projectScoped)).toEqual([])
   })
 
@@ -247,6 +256,7 @@ describe('mutation route guards', () => {
     const orgLevel = (path: string) =>
       !path.startsWith('/api/workflows') &&
       !path.startsWith('/api/test-sessions') &&
+      !path.startsWith('/api/run/') &&
       !path.startsWith('/api/workspaces') &&
       !path.startsWith('/api/api-keys') &&
       // People, invitations and requests are session-only: a key is refused

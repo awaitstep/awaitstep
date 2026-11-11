@@ -15,9 +15,16 @@ import type { AppEnv } from '../types.js'
 import { deploymentPageRecord } from '../lib/list-records.js'
 import { runDetailRecord } from '../lib/run-records.js'
 import { callFunction } from './function-call.js'
+import {
+  callBody,
+  MAX_RUN_PAYLOAD_BYTES,
+  runStartDeps,
+  startWorkflowRun,
+} from '../lib/run-start.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError, CONNECTION_NOT_SERVING } from '../lib/deploy-prepare.js'
 import { deployConnections } from '../lib/connection-fields.js'
+import { liveDeploymentRecords } from '../lib/live-deployments.js'
 import { auditActor, recordAudit } from '../lib/audit.js'
 import { sharedDeployGroupKey } from '@awaitstep/ir'
 import { notify } from '../lib/notify.js'
@@ -38,21 +45,22 @@ const deploySchema = z.object({
   config: z.record(z.string(), z.unknown()).optional(),
 })
 
-const MAX_TRIGGER_PARAMS_BYTES = 102_400 // 100 KB
-
 const triggerSchema = z.object({
   connectionId: z.string().min(1),
   params: z
     .unknown()
     .optional()
-    .refine((val) => val === undefined || JSON.stringify(val).length <= MAX_TRIGGER_PARAMS_BYTES, {
-      message: `Trigger params must be under ${MAX_TRIGGER_PARAMS_BYTES / 1024} KB`,
+    .refine((val) => val === undefined || JSON.stringify(val).length <= MAX_RUN_PAYLOAD_BYTES, {
+      message: `Trigger params must be under ${MAX_RUN_PAYLOAD_BYTES / 1024} KB`,
     }),
 })
 
-/** A deploy's result as the page reads it: the name runs are found under stays with the row. */
-function deployAnswer(result: DeployResult): Omit<DeployResult, 'deployedName'> {
-  const { deployedName: _stored, ...answer } = result
+/**
+ * A deploy's result as the page reads it: the name runs are found under stays
+ * with the row, and the worker's URL on the server (D-8) — the API runs it.
+ */
+export function deployAnswer(result: DeployResult): Omit<DeployResult, 'deployedName' | 'url'> {
+  const { deployedName: _stored, url: _url, ...answer } = result
   return answer
 }
 
@@ -288,7 +296,7 @@ deploy.get('/:workflowId/deploy-connections', async (c) => {
     db.listDeployTargets(workflow.projectId, workflow.workspaceId),
     db.listLiveDeployments(workflow.id),
   ])
-  return c.json(deployConnections(rows, deployedWith))
+  return c.json(deployConnections(rows, liveDeploymentRecords(deployedWith)))
 })
 
 deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
@@ -307,7 +315,7 @@ deploy.get('/:workflowId/deploy-config/:connectionId', async (c) => {
   if (!found.covered) return c.json({ error: CONNECTION_NOT_SERVING }, 403)
 
   const adapter = resolveProvider(found.provider)
-  const defaults = adapter.getDefaultDeploymentConfig() as Record<string, unknown>
+  const defaults = adapter.getDefaultDeploymentConfig(workflow.kind) as Record<string, unknown>
   let config: Record<string, unknown> = defaults
   if (found.config) {
     const raw = JSON.parse(found.config) as Record<string, unknown>
@@ -347,10 +355,7 @@ deploy.put(
 
     const adapter = resolveProvider(connection.provider)
     const stored = await db.getDeploymentConfig(workflow.id, connectionId)
-    let base: Record<string, unknown> = adapter.getDefaultDeploymentConfig() as Record<
-      string,
-      unknown
-    >
+    let base = adapter.getDefaultDeploymentConfig(workflow.kind) as Record<string, unknown>
     if (stored) {
       const raw = JSON.parse(stored.config) as Record<string, unknown>
       delete raw.triggerCode
@@ -462,12 +467,15 @@ deploy.post(
     if (!workflow) return c.json({ error: 'Not found' }, 404)
     const { connectionId } = c.req.valid('json')
     const runId = c.req.param('runId')
-    // A function's run is a call: call it again with the body it was sent.
+    // A function's run is a call: call it again with the body it was sent, as it was typed.
     if (workflow.kind === 'script') {
       return callFunction(c, workflow, connectionId, async () => {
         const row = await db.getRunParams(runId, workflow.id, connectionId)
         if (!row) return null
-        return callBody(row.params)
+        return {
+          body: callBody(row.params),
+          ...(row.contentType && { contentType: row.contentType }),
+        }
       })
     }
     return startRun(c, workflow, connectionId, async () => {
@@ -478,95 +486,16 @@ deploy.post(
   },
 )
 
-/** A call's kept payload as the body to send again: JSON text as kept, a kept string as itself. */
-function callBody(params: string | null): string {
-  if (params === null) return ''
-  const value = JSON.parse(params) as unknown
-  return typeof value === 'string' ? value : params
-}
-
-/**
- * Starts one run of `workflow` on `connectionId` and records it, with how it
- * was started and its payload. `readPayload` runs alongside the account reads;
- * null from it means the run to repeat isn't there.
- */
+/** Starts a run of `workflow` on `connectionId` and answers it as the dashboard reads it. */
 async function startRun(
   c: Context<AppEnv>,
   workflow: Workflow,
   connectionId: string,
   readPayload: () => Promise<{ params: unknown } | null>,
 ) {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
-
-  if (workflow.kind === 'script') {
-    return c.json(
-      {
-        error:
-          'Scripts have no instance lifecycle — invoke the deployed worker URL directly via HTTP POST',
-      },
-      400,
-    )
-  }
-
-  // Only a connection this workflow was deployed with: the Cloudflare workflow is
-  // found by name, so any other account could hold another project's of that name.
-  const [connection, storedDeployConfig, payload] = await Promise.all([
-    db.getConnectionDeployedWith(connectionId, organizationId, workflow.id),
-    db.getDeploymentConfig(workflow.id, connectionId),
-    readPayload(),
-  ])
-  if (!payload) return c.json({ error: 'Run not found' }, 404)
-  if (!connection) {
-    return c.json({ error: 'This workflow isn’t deployed with that connection' }, 404)
-  }
-
-  const adapter = resolveProvider(connection.provider, {
-    templateResolver: c.get('nodeRegistry')?.templateResolver,
-  })
-  // Stored deployment config carries instance retention for created runs.
-  // Invalid/stale/corrupt rows fall back to provider defaults (7-day
-  // retention) — a bad row must never block triggering.
-  let deploymentConfig: unknown
-  if (storedDeployConfig) {
-    try {
-      const parsed = adapter.deploymentConfigSchema.safeParse(JSON.parse(storedDeployConfig.config))
-      if (parsed.success) deploymentConfig = parsed.data
-    } catch {
-      /* corrupt JSON — use defaults */
-    }
-  }
-  // The name it was deployed under there, so a rename since doesn't lose it.
-  const deployedName = connection.deployedName ?? workflow.name
-  const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const config = {
-    provider: connection.provider,
-    credentials: triggerCreds,
-    options: {
-      workflowName: deployedName,
-      ...(deploymentConfig !== undefined && { deploymentConfig }),
-    },
-  }
-
-  const { instanceId } = await adapter.trigger(workflow.id, payload.params, config)
-
-  const run = await db.createRun({
-    id: nanoid(),
-    workflowId: workflow.id,
-    // What that account runs, not the latest save.
-    versionId: connection.deployedVersionId,
-    versionNumber: connection.deployedVersionNumber,
-    connectionId,
-    instanceId,
-    // Found again under this name, whatever is deployed or renamed later.
-    deployedName,
-    trigger: c.get('apiKey') ? 'api' : 'dashboard',
-    // Kept so the run page can show it and start the run again (already capped at 100 KB).
-    params: payload.params === undefined ? null : JSON.stringify(payload.params),
-    status: 'queued',
-  })
-
-  return c.json(runDetailRecord(run), 201)
+  const started = await startWorkflowRun(runStartDeps(c), { workflow, connectionId }, readPayload)
+  if (!started.ok) return c.json({ error: started.error }, started.status)
+  return c.json(runDetailRecord(started.run), 201)
 }
 
 deploy.post(

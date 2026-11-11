@@ -1,5 +1,7 @@
+import { eq } from 'drizzle-orm'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { createSqliteApp, seedAcme, type SqliteApp } from './sqlite-app.js'
+import { deployAnswer } from '../routes/deploy.js'
 
 // The page summaries answer one section, not a list: their key sets are the
 // contract a page renders against. A new field is a deliberate change.
@@ -82,5 +84,84 @@ describe('page summaries', () => {
     const res = await h.app.request('/api/resources/counts?org=acme', h.as('u-ama'))
     expect(res.status).toBe(200)
     expect(keys(await res.json())).toEqual(['installedNodes', 'variables'])
+  })
+})
+
+describe('the worker’s URL', () => {
+  // D-8: the API runs a workflow (POST /api/run/:id); the worker's own URL
+  // stays on the server, so no page can send anyone to it unrecorded.
+  it('is in no page response', async () => {
+    const h = createSqliteApp()
+    await seedAcme(h)
+    const now = '2026-11-01T00:00:00.000Z'
+    await h.db.insert(h.schema.connections).values({
+      id: 'c-acme',
+      organizationId: 'org-acme',
+      createdBy: 'u-ama',
+      provider: 'cloudflare',
+      name: 'Acme production',
+      credentials: '{"accountId":"a","apiToken":"t"}',
+      createdAt: now,
+      updatedAt: now,
+    })
+    await h.db.insert(h.schema.deployments).values({
+      id: 'd-sales',
+      workflowId: 'wf-sales',
+      connectionId: 'c-acme',
+      serviceName: 'svc',
+      serviceUrl: 'https://in-sales.acme.workers.dev',
+      status: 'success',
+      createdAt: now,
+    })
+    for (const path of [
+      '/api/workflows/wf-sales/full?projectId=p-101',
+      '/api/workflows/wf-sales/summary?projectId=p-101',
+      '/api/workflows/wf-sales/deploy-connections?projectId=p-101',
+      '/api/workflows/wf-sales/deployments?projectId=p-101',
+      '/api/deployments?projectId=p-101',
+    ]) {
+      const res = await h.app.request(path, h.as('u-ama'))
+      expect(res.status, path).toBe(200)
+      expect(await res.text(), path).not.toContain('workers.dev')
+    }
+    // What a call needs to know is whether it can be made there.
+    const offered = await h.app.request(
+      '/api/workflows/wf-sales/deploy-connections?projectId=p-101',
+      h.as('u-ama'),
+    )
+    expect(
+      ((await offered.json()) as { deployedWith: { callable: boolean }[] }).deployedWith,
+    ).toEqual([expect.objectContaining({ id: 'c-acme', callable: true })])
+
+    // A route's address is not one the server calls: not callable, and still not sent.
+    await h.db
+      .update(h.schema.deployments)
+      .set({ serviceUrl: 'https://api.acme.com' })
+      .where(eq(h.schema.deployments.id, 'd-sales'))
+    const routed = await h.app.request(
+      '/api/workflows/wf-sales/deploy-connections?projectId=p-101',
+      h.as('u-ama'),
+    )
+    const text = await routed.text()
+    expect(text).not.toContain('api.acme.com')
+    expect((JSON.parse(text) as { deployedWith: { callable: boolean }[] }).deployedWith).toEqual([
+      expect.objectContaining({ callable: false }),
+    ])
+  })
+
+  it('is not in a deploy’s answer', () => {
+    expect(
+      deployAnswer({
+        success: true,
+        deploymentId: 'svc',
+        deployedName: 'in-sales',
+        url: 'https://in-sales.acme.workers.dev',
+        dashboardUrl: 'https://dash.cloudflare.com/a/workers/services/view/svc',
+      }),
+    ).toEqual({
+      success: true,
+      deploymentId: 'svc',
+      dashboardUrl: 'https://dash.cloudflare.com/a/workers/services/view/svc',
+    })
   })
 })

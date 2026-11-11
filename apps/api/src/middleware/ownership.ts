@@ -1,7 +1,21 @@
+import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
+import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
-import { apiKeyLevel, apiKeyProjectScopes, apiKeyWorkspaceScopes } from './auth.js'
+import { apiKeyLevel, apiKeyProjectScopes, apiKeyWorkspaceScopes, isSession } from './auth.js'
 import { applyGrantRows } from './access.js'
+import { ORG_KEY_ON_PROJECT } from './key-permissions.js'
+
+/**
+ * Whether a scoped key reaches the workflow: a project-level key by the
+ * workflow's project, a workspace-level key by its workspace.
+ */
+function keyReaches(c: Context<AppEnv>, workflow: Workflow): boolean {
+  const level = apiKeyLevel(c)
+  if (level === 'project') return apiKeyProjectScopes(c).includes(workflow.projectId)
+  if (level === 'workspace') return apiKeyWorkspaceScopes(c).includes(workflow.workspaceId)
+  return true
+}
 
 /**
  * A workflow item route: the workflow, read together with the caller's rows
@@ -14,21 +28,45 @@ export const requireWorkflowAccess = createMiddleware<AppEnv>(async (c, next) =>
   if (!workflowId) return c.json({ error: 'Not found' }, 404)
 
   const found = await c.get('db').getWorkflowForUser(c.get('userId'), workflowId)
-  if (!found || found.workflow.projectId !== c.get('projectId')) {
-    return c.json({ error: 'Not found' }, 404)
-  }
-  // A scoped key reaches the workflow only if its place is in the key's set:
-  // a project-level key by the workflow's project, a workspace-level key by
-  // its workspace.
-  const level = apiKeyLevel(c)
-  if (level === 'project' && !apiKeyProjectScopes(c).includes(found.workflow.projectId)) {
-    return c.json({ error: 'Not found' }, 404)
-  }
-  if (level === 'workspace' && !apiKeyWorkspaceScopes(c).includes(found.workflow.workspaceId)) {
+  if (
+    !found ||
+    found.workflow.projectId !== c.get('projectId') ||
+    // A scoped key reaches the workflow only if its place is in the key's set.
+    !keyReaches(c, found.workflow)
+  ) {
     return c.json({ error: 'Not found' }, 404)
   }
 
   c.set('workflow', found.workflow)
+  c.set('workspaceId', found.workflow.workspaceId)
+  applyGrantRows(c, found, true)
+  await next()
+})
+
+/**
+ * `POST /run/:workflowId`: the workflow addressed by its id alone, for a
+ * project or workspace key — the key's organization and scope set stand in
+ * for the project a dashboard route names. One the key's creator can't open,
+ * another organization's, or one outside the key's set is not found; an
+ * organization key does no workflow work.
+ */
+export const requireKeyWorkflowAccess = createMiddleware<AppEnv>(async (c, next) => {
+  if (isSession(c)) return c.json({ error: 'Use an API key' }, 401)
+  if (apiKeyLevel(c) === 'organization') return c.json({ error: ORG_KEY_ON_PROJECT }, 403)
+  const workflowId = c.req.param('workflowId')
+  if (!workflowId) return c.json({ error: 'Not found' }, 404)
+
+  const found = await c.get('db').getWorkflowForUser(c.get('userId'), workflowId)
+  if (
+    !found ||
+    found.organizationId !== c.get('organizationId') ||
+    !keyReaches(c, found.workflow)
+  ) {
+    return c.json({ error: 'Not found' }, 404)
+  }
+
+  c.set('workflow', found.workflow)
+  c.set('projectId', found.workflow.projectId)
   c.set('workspaceId', found.workflow.workspaceId)
   applyGrantRows(c, found, true)
   await next()

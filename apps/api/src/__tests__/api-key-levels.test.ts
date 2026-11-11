@@ -715,10 +715,21 @@ describe('local-dev routes', () => {
   })
 })
 
-describe('calling a function', () => {
-  it('needs the run cell, as a trigger does', async () => {
+describe('the dashboard’s run routes', () => {
+  // Session-only (D-7): a key runs through POST /api/run/:workflowId instead.
+  it.each([
+    ['trigger', '/api/workflows/wf-1/trigger', { connectionId: 'c' }],
+    ['call', '/api/workflows/fn-1/call', { connectionId: 'c', body: '{}' }],
+    ['run again', '/api/workflows/wf-1/runs/run-1/run-again', { connectionId: 'c' }],
+  ])('refuses %s to a key that may run', async (_name, path, body) => {
     resetStore()
     const app = createTestApp()
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Lead enrichment',
+    })
     await mockDb.createWorkflow({
       id: 'fn-1',
       projectId: TEST_PROJECT_ID,
@@ -726,13 +737,10 @@ describe('calling a function', () => {
       name: 'Normalise',
       kind: 'script',
     })
-    await seedProjectKey({ workflows: ['read', 'write'] })
-    const res = await app.request(
-      '/api/workflows/fn-1/call',
-      asKey({ method: 'POST', body: JSON.stringify({ connectionId: 'c', body: '{}' }) }),
-    )
+    await seedProjectKey(presetPermissions('project', 'full'))
+    const res = await app.request(path, asKey({ method: 'POST', body: JSON.stringify(body) }))
     expect(res.status).toBe(403)
-    expect(await errorOf(res)).toBe('API key lacks permission: workflows:run')
+    expect(await errorOf(res)).toBe('This endpoint is not available to API keys')
   })
 })
 

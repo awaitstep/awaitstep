@@ -355,7 +355,8 @@ describe('project connections on the API', () => {
           id: own,
           name: 'Checkout staging',
           deploymentId: 'd-sales',
-          serviceUrl: null,
+          // Whether it can be called, never the URL itself (D-8).
+          callable: false,
           versionId: 'v-sales-1',
           version: 1,
           versionLocked: false,
@@ -481,7 +482,8 @@ describe('project connections on the API', () => {
       expect(fresh.status).toBe(200)
       // Nothing stored yet: the settings start at the provider's defaults, sent alongside.
       const freshBody = (await fresh.json()) as { config: unknown; defaults: unknown }
-      expect(freshBody.defaults).toMatchObject({ workersDev: true, previewUrls: true })
+      // A workflow's own URL is off by default (D-9): the API runs it.
+      expect(freshBody.defaults).toMatchObject({ workersDev: false, previewUrls: false })
       expect(freshBody.config).toEqual(freshBody.defaults)
 
       const withRoute = await send(

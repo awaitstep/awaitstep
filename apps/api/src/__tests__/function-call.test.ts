@@ -116,6 +116,9 @@ describe('POST /workflows/:id/call', () => {
     })
     expect(typeof answer.durationMs).toBe('number')
     expect(answer.ok).toBe(true)
+    // The dialog reads text: the raw bytes and Location are /api/run's passthrough only.
+    expect(answer).not.toHaveProperty('bytes')
+    expect(answer).not.toHaveProperty('location')
     expect(fetched.calls).toEqual([{ url: 'https://fn.acme.workers.dev', body: '{"address":"x"}' }])
   })
 
