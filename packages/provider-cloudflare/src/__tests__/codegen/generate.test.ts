@@ -205,6 +205,65 @@ describe('generateWorkflow', () => {
     expect(code).not.toContain('flow.step("task_b"')
   })
 
+  it('runs the merge after a wait on both paths, each with its own scope', () => {
+    const node = (id: string, name: string, data: Record<string, unknown>, type = 'step') => ({
+      id,
+      name,
+      type,
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data,
+    })
+    const waitJoin: WorkflowIR = {
+      metadata: { name: 'wait-join', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'sleep',
+      nodes: [
+        // A valueless node before the wait: bound to no variable, so no copy of
+        // the merge may list it as an input.
+        node('sleep', '10s sleep', { duration: '10 seconds' }, 'sleep'),
+        node(
+          'w',
+          'wait for sunny',
+          { eventType: 'sunny', timeout: '30 seconds' },
+          'wait_for_event',
+        ),
+        // Neither is bound either: an inline step runs raw, with no variable.
+        node('entry', 'entry', { code: 'console.log("entry");', inline: true }),
+        node('sunny', 'sunny', { code: 'return inputs.wait_for_sunny;' }),
+        node('nosunny', 'nosunny', { code: 'console.log("none");', inline: true }),
+        node('join', 'New step', { code: 'console.log(inputs);' }),
+      ],
+      edges: [
+        { id: 'e0', source: 'sleep', target: 'w' },
+        { id: 'e1', source: 'w', target: 'entry', label: 'onEvent' },
+        { id: 'e2', source: 'w', target: 'nosunny', label: 'onTimeout' },
+        { id: 'e3', source: 'entry', target: 'sunny' },
+        { id: 'e4', source: 'sunny', target: 'join' },
+        { id: 'e5', source: 'nosunny', target: 'join' },
+      ],
+    }
+    const code = programOf(waitJoin)
+    // The arm step reads the wait's own payload, which is bound before the arms.
+    expect(code).toContain('const wait_for_sunny = await waitForEventOrTimeout')
+    // Both paths carry the merge, and each copy passes what its own path has
+    // in scope: the event path its step's value, the timeout path only the
+    // wait's payload. The sleep and the inline steps bind nothing, so neither
+    // copy may list them.
+    const joinInputs = [...code.matchAll(/\$New_step\(\{ env, event, inputs: \{ ([^}]*) \}/g)].map(
+      (match) => match[1],
+    )
+    expect(joinInputs).toHaveLength(2)
+    expect(joinInputs).toContain('wait_for_sunny')
+    expect(joinInputs).toContain('wait_for_sunny, sunny')
+    for (const inputs of joinInputs) {
+      expect(inputs).not.toContain('sleep')
+      expect(inputs).not.toContain('entry')
+    }
+    // One module, called from both arms.
+    expect(code.match(/from "#app\/steps\/join.js"/g)).toHaveLength(1)
+  })
+
   it('generates a wait-for-event workflow', () => {
     const code = programOf(eventWorkflow as unknown as WorkflowIR)
     expect(code).toContain('step.waitForEvent')

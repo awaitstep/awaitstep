@@ -1,6 +1,6 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { stepLabel, type GenerateMode, type GenerationContext } from '../internal.js'
-import { prepareContainerContext, inlineChain } from './container-utils.js'
+import { collectChain, stepLabel, type GenerateMode, type GenerationContext } from '../internal.js'
+import { armContext, inlineChain, prepareContainerContext, joinTarget } from './container-utils.js'
 
 export function generateWaitForEvent(
   node: WorkflowNode,
@@ -30,12 +30,36 @@ export function generateWaitForEvent(
   const timeoutTarget = targetFor('onTimeout', 'onTimeoutNode')
 
   const variable = ctx.varName(node.id)
-  const eventCode = eventTarget
-    ? inlineChain(eventTarget, containers, generateNode, ir, 2, ctx, mode)
-    : ''
-  const timeoutCode = timeoutTarget
-    ? inlineChain(timeoutTarget, containers, generateNode, ir, 2, ctx, mode)
-    : ''
+  // When both arms fall into one node, that node runs on either path: emit it
+  // inside each arm, with that arm's own scope, instead of after the if/else
+  // where a value created inside one arm would be out of scope.
+  const join = joinTarget(containers, [eventTarget, timeoutTarget])
+  const armCode = (target: string): string => {
+    if (!target) return ''
+    const code = inlineChain(target, containers, generateNode, ir, 2, ctx, mode)
+    if (!join) return code
+    const chain = collectChain(
+      target,
+      containers.adj,
+      containers.inDegree,
+      containers.nodeMap,
+      containers.edgeLabels,
+    )
+    const armLast = chain[chain.length - 1]?.id ?? target
+    const merged = inlineChain(
+      join.id,
+      containers,
+      generateNode,
+      ir,
+      2,
+      ctx,
+      mode,
+      armContext(ir, ctx, armLast, join.id),
+    )
+    return [code, merged].filter(Boolean).join('\n')
+  }
+  const eventCode = armCode(eventTarget)
+  const timeoutCode = armCode(timeoutTarget)
 
   // The runtime owns the try/catch: it returns a sentinel on a timeout and
   // rethrows anything else. Only the wait itself is inside it, so an on-event

@@ -364,7 +364,7 @@ describe('collectBranchInlineTargets', () => {
     expect(inlineTargets.has('after')).toBe(false)
   })
 
-  it('does not include join nodes with in-degree > 1', () => {
+  it('inlines a join into every arm, so each path keeps its scope', () => {
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
       nodes: [
@@ -421,6 +421,6 @@ describe('collectBranchInlineTargets', () => {
     const inlineTargets = collectBranchInlineTargets(ir)
     expect(inlineTargets.has('a')).toBe(true)
     expect(inlineTargets.has('b')).toBe(true)
-    expect(inlineTargets.has('join')).toBe(false)
+    expect(inlineTargets.has('join')).toBe(true)
   })
 })

@@ -42,4 +42,6 @@ export {
   containerArms,
   getEdgeLabels,
   topologicalSort,
+  upstreamVarNames,
+  upstreamVarNamesOf,
 } from '../dag.js'

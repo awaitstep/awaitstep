@@ -10,6 +10,18 @@ export const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   'race',
 ])
 
+/**
+ * Nodes that emit an arm as a block and take over their own successors: the
+ * containers above, and a wait, whose on-event and on-timeout chains the wait
+ * generator inlines itself.
+ */
+function isArmContainer(type: string): boolean {
+  return CONTAINER_TYPES.has(type) || type === 'wait_for_event'
+}
+
+/** A wait's arms; every other container's are its edges but `then`. */
+const WAIT_ARM_LABELS = new Set(['onEvent', 'onTimeout'])
+
 export function buildAdjacencyList(ir: WorkflowIR): Map<string, string[]> {
   const adj = new Map<string, string[]>()
   for (const node of ir.nodes) {
@@ -123,7 +135,7 @@ export function collectChain(
 
     chain.push(node)
 
-    if (CONTAINER_TYPES.has(node.type)) {
+    if (isArmContainer(node.type)) {
       // Container's normal successors are emitted by the container's own
       // generator (branches/body/etc.); the only thing that flows past it in
       // the parent context is the `then` continuation. Follow it if present
@@ -195,11 +207,13 @@ export function containerArms(ir: WorkflowIR): Map<string, ArmBlock> {
   }
   const blocks = new Map<string, ArmBlock>()
   for (const node of nodes) {
-    if (!CONTAINER_TYPES.has(node.type)) continue
+    if (!isArmContainer(node.type)) continue
     const armEdges = (bySource.get(node.id) ?? []).filter((edge) =>
       node.type === 'loop' || node.type === 'try_catch'
         ? ARM_LABELS.has(edge.label ?? '')
-        : edge.label !== 'then',
+        : node.type === 'wait_for_event'
+          ? WAIT_ARM_LABELS.has(edge.label ?? '')
+          : edge.label !== 'then',
     )
     for (const edge of armEdges) {
       const block: ArmBlock = { owner: node.id, arm: edge.target }
@@ -293,6 +307,7 @@ function scopeIndex(
 ): { sorted: WorkflowNode[]; of(nodeId: string): string[] } {
   const sorted = topologicalSort(ir)
   const index = new Map(sorted.map((node, i) => [node.id, i]))
+  const nodeById = new Map(sorted.map((node) => [node.id, node]))
   const blocks = containerArms(ir)
   const blockKey = (block: ArmBlock | undefined) => (block ? `${block.owner}\0${block.arm}` : '')
 
@@ -326,7 +341,13 @@ function scopeIndex(
     const known = opening.get(key)
     if (known) return known
     const owner = block.owner
-    const scope = scopeEntries(owner)
+    const scope = [...scopeEntries(owner)]
+    // A wait's arms run after the wait bound its result, so they can read it;
+    // no other container's arms see the container's own value.
+    if (nodeById.get(owner)?.type === 'wait_for_event') {
+      const name = names.get(owner)
+      if (name) scope.push({ index: index.get(owner)!, name })
+    }
     opening.set(key, scope)
     return scope
   }

@@ -1,7 +1,7 @@
 import type { WorkflowIR, WorkflowNode, BranchCondition } from '@awaitstep/ir'
 import type { GenerateMode, GenerationContext } from '../internal.js'
 import { CONTAINER_TYPES, collectChain, computeInDegree } from '../internal.js'
-import { prepareContainerContext, inlineChain } from './container-utils.js'
+import { prepareContainerContext, inlineChain, joinTarget, armContext } from './container-utils.js'
 
 export { CONTAINER_TYPES, collectChain, computeInDegree }
 
@@ -16,6 +16,13 @@ export function generateBranch(
   const containers = prepareContainerContext(ir)
   const targets = containers.adj.get(node.id) ?? []
   const nodeLabels = containers.edgeLabels.get(node.id) ?? new Map()
+  // The node the arms fall into runs on each path: emit it inside every arm,
+  // with that arm's own scope, instead of after the if/else.
+  const arms = branches.map((branch) => targets.find((t) => nodeLabels.get(t) === branch.label))
+  const join = joinTarget(
+    containers,
+    arms.filter((target): target is string => typeof target === 'string'),
+  )
 
   const lines: string[] = []
 
@@ -34,7 +41,30 @@ export function generateBranch(
 
     const target = targets.find((t) => nodeLabels.get(t) === branch.label)
     if (target) {
-      lines.push(inlineChain(target, containers, generateNode, ir, 2, ctx, mode))
+      const arm = inlineChain(target, containers, generateNode, ir, 2, ctx, mode)
+      if (!join) {
+        lines.push(arm)
+      } else {
+        const chain = collectChain(
+          target,
+          containers.adj,
+          containers.inDegree,
+          containers.nodeMap,
+          containers.edgeLabels,
+        )
+        const armLast = chain[chain.length - 1]?.id ?? target
+        const merged = inlineChain(
+          join.id,
+          containers,
+          generateNode,
+          ir,
+          2,
+          ctx,
+          mode,
+          armContext(ir, ctx, armLast, join.id),
+        )
+        lines.push([arm, merged].filter(Boolean).join('\n'))
+      }
     }
   }
 
@@ -83,6 +113,47 @@ export function collectBranchInlineTargets(ir: WorkflowIR): Set<string> {
       for (const chainNode of chain) {
         inlineTargets.add(chainNode.id)
       }
+    }
+
+    if (node.type !== 'branch' && node.type !== 'wait_for_event') continue
+    if (node.type === 'branch') {
+      const join = joinTarget(containers, targets)
+      if (!join) continue
+      for (const chainNode of collectChain(
+        join.id,
+        containers.adj,
+        containers.inDegree,
+        containers.nodeMap,
+        containers.edgeLabels,
+      )) {
+        inlineTargets.add(chainNode.id)
+      }
+      continue
+    }
+    // A merge of the two arms is emitted inside each arm, so the top level
+    // must not emit it again.
+    const declared = (field: string): string => {
+      const value = node.data[field]
+      return typeof value === 'string' ? value : ''
+    }
+    const onEvent =
+      declared('onEventNode') ||
+      ir.edges.find((edge) => edge.source === node.id && edge.label === 'onEvent')?.target ||
+      ''
+    const onTimeout =
+      declared('onTimeoutNode') ||
+      ir.edges.find((edge) => edge.source === node.id && edge.label === 'onTimeout')?.target ||
+      ''
+    const join = joinTarget(containers, [onEvent, onTimeout])
+    if (!join) continue
+    for (const chainNode of collectChain(
+      join.id,
+      containers.adj,
+      containers.inDegree,
+      containers.nodeMap,
+      containers.edgeLabels,
+    )) {
+      inlineTargets.add(chainNode.id)
     }
   }
 
