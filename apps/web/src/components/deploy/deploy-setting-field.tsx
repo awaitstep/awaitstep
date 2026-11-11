@@ -90,9 +90,9 @@ export function SettingField({ field, value, onChange }: SettingFieldProps) {
         <span className="flex min-w-[200px] flex-1 flex-col gap-0.5">
           {isList ? (
             // A list has no one control to label: its Add and items name it themselves.
-            <span className="text-[13px] font-medium text-foreground">{label}</span>
+            <span className="text-xs font-medium text-foreground">{label}</span>
           ) : (
-            <label htmlFor={id} className="text-[13px] font-medium text-foreground">
+            <label htmlFor={id} className="text-xs font-medium text-foreground">
               {label}
             </label>
           )}

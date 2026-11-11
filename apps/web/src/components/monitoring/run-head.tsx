@@ -46,7 +46,7 @@ export function RunHead({ slugs, workflowId, run, call = false }: RunHeadProps) 
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <h2 className="truncate text-[22px] font-semibold tracking-tight">
+      <h2 className="truncate text-2xl font-semibold tracking-tight">
         {call ? 'Call' : 'Run'} <span className="font-mono">{shortRunId(run.instanceId)}</span>
       </h2>
       <RunStatusBadge status={run.status} />

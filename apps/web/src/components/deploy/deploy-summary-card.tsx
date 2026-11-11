@@ -43,7 +43,7 @@ function versionLine(version: number | undefined, live: LiveDeployment | undefin
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="flex items-baseline gap-2.5 text-[13px]">
+    <span className="flex items-baseline gap-2.5 text-sm">
       <span className="w-[72px] shrink-0 text-muted-foreground">{label}</span>
       <span className="min-w-0 flex-1 break-all text-foreground">{children}</span>
     </span>
@@ -120,13 +120,13 @@ function ChangesBlock({ live, changes }: Pick<DeploySummaryCardProps, 'live' | '
     <div className="flex flex-col gap-2 border-t border-border px-5 py-3.5">
       <span className="flex items-center gap-2">
         <span aria-hidden="true" className={cn('size-[7px] shrink-0 rounded-full', dot)} />
-        <span className="text-[13px] font-semibold text-foreground">{title}</span>
+        <span className="text-sm font-semibold text-foreground">{title}</span>
       </span>
       {live && changes.length > 0 && (
         <>
           <ul className="flex flex-col gap-1">
             {changes.map((change, i) => (
-              <li key={`${change.what}-${i}`} className="flex gap-2 text-[12.5px] leading-normal">
+              <li key={`${change.what}-${i}`} className="flex gap-2 text-xs leading-normal">
                 <span aria-hidden="true" className="text-status-warning">
                   ·
                 </span>
@@ -137,7 +137,7 @@ function ChangesBlock({ live, changes }: Pick<DeploySummaryCardProps, 'live' | '
               </li>
             ))}
           </ul>
-          <span className="text-[12.5px] text-muted-foreground">
+          <span className="text-xs text-muted-foreground">
             Everything else matches the live deployment.
           </span>
         </>

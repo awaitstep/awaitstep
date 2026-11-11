@@ -134,7 +134,7 @@ function Detail({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <dt className="text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground">
+      <dt className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
       <dd className="m-0 flex min-w-0 items-center gap-2">
@@ -142,7 +142,7 @@ function Detail({
           className={
             mono
               ? 'min-w-0 flex-1 break-all font-mono text-xs text-foreground'
-              : 'min-w-0 flex-1 break-all text-[13px] text-foreground'
+              : 'min-w-0 flex-1 break-all text-xs text-foreground'
           }
         >
           {children}

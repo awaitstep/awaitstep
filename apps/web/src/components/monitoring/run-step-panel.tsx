@@ -18,7 +18,7 @@ const STATE_CHIP: Record<StepRowState, { label: string; variant: BadgeProps['var
   interrupted: { label: 'Interrupted', variant: 'neutral' },
 }
 
-const SECTION = 'text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground'
+const SECTION = 'text-2xs font-medium uppercase tracking-wider text-muted-foreground'
 
 interface RunStepPanelProps {
   workflowId: string
@@ -75,7 +75,7 @@ function SelectedStep({
               {stepErrorLine(error)}
             </pre>
             {errorHint(item) && (
-              <span className="text-xs leading-relaxed text-muted-foreground">
+              <span className="text-sm leading-relaxed text-muted-foreground">
                 {errorHint(item)}
               </span>
             )}

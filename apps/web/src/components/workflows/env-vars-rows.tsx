@@ -23,14 +23,14 @@ export function EnvGroupHeading({ group, count }: { group: EnvGroup; count: numb
   return (
     <div
       className={cn(
-        'mb-2 mt-4 flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-wider first:mt-1',
+        'mb-2 mt-4 flex items-center gap-2 text-3xs font-semibold uppercase tracking-wider first:mt-1',
         alert ? 'text-status-warning' : 'text-muted-foreground',
       )}
     >
       {GROUP_LABEL[group]}
       <span
         className={cn(
-          'rounded-full px-1.5 text-[10px] font-medium normal-case tracking-normal',
+          'rounded-full px-1.5 text-2xs font-medium normal-case tracking-normal',
           alert ? 'bg-status-warning/15 text-status-warning' : 'bg-muted text-foreground/80',
         )}
       >
@@ -90,7 +90,7 @@ export function EnvRowFields({
       />
       {global !== null ? (
         <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 text-xs text-muted-foreground">
-          <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10.5px] font-medium text-primary">
+          <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-2xs font-medium text-primary">
             <Globe className="h-3 w-3" />
             Global
           </span>
@@ -118,7 +118,7 @@ export function EnvRowFields({
           />
           {isSecret && (
             <span className="absolute right-1.5 flex items-center gap-1">
-              <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-[10.5px] font-medium text-primary">
+              <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-2xs font-medium text-primary">
                 <Lock className="h-3 w-3" />
                 Encrypted
               </span>

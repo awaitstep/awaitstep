@@ -107,10 +107,10 @@ function SettingsGroup({
             open && 'rotate-90 text-foreground',
           )}
         />
-        <span className="w-[150px] shrink-0 text-[13.5px] font-medium text-foreground">
+        <span className="w-[150px] shrink-0 text-sm font-medium text-foreground">
           {group.title}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
           {groupSummary(group, config, hints)}
         </span>
         <Badge variant={changed ? 'warning' : 'neutral'}>{changed ? 'Changed' : 'Default'}</Badge>

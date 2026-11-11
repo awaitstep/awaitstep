@@ -27,7 +27,7 @@ function DeployHeader({ name, pill }: { name: string; pill: string | null }) {
     <div className="flex flex-wrap items-center gap-3">
       <h1 className="text-2xl font-semibold tracking-tight text-foreground">Deploy</h1>
       {pill && <Badge className="px-2.5 py-1 text-xs">{pill}</Badge>}
-      <span className="text-[13px] text-muted-foreground">{name}</span>
+      <span className="text-xs text-muted-foreground">{name}</span>
     </div>
   )
 }

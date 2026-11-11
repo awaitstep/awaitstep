@@ -380,7 +380,7 @@ function SaveButton({ save }: { save: TopBarSave }) {
             {save.saving ? 'Saving…' : save.label}
           </span>
           {save.count !== undefined && save.count > 0 && (
-            <span className="rounded-full bg-status-warning/15 px-1.5 py-px text-[10px] tabular-nums text-status-warning">
+            <span className="rounded-full bg-status-warning/15 px-1.5 py-px text-3xs tabular-nums text-status-warning">
               {save.count}
             </span>
           )}

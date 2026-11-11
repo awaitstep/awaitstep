@@ -218,7 +218,7 @@ function EnvVarsForm({ workflowId, onDone, onEditedChange }: EnvVarsFormProps) {
         <EmptyEnvVars canEdit={access.canEdit} onAdd={handleAdd} onImport={handleImportClick} />
       ) : (
         <div className="-mx-1 max-h-[52vh] overflow-y-auto px-1 py-1">
-          <div className="grid grid-cols-[minmax(0,184px)_minmax(0,1fr)_28px_28px] gap-2 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[minmax(0,184px)_minmax(0,1fr)_28px_28px] gap-2 text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
             <span>Name</span>
             <span>Value</span>
           </div>
@@ -270,10 +270,10 @@ function EnvVarsForm({ workflowId, onDone, onEditedChange }: EnvVarsFormProps) {
         className="hidden"
         onChange={handleFile}
       />
-      <p role="status" className="mt-2 min-h-4 text-[11px] text-status-error">
+      <p role="status" className="mt-2 min-h-4 text-2xs text-status-error">
         {serverError ?? refusal ?? ''}
       </p>
-      {notice && <p className="text-[11px] text-muted-foreground">{notice}</p>}
+      {notice && <p className="text-2xs text-muted-foreground">{notice}</p>}
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-3">
         <span className="text-xs text-muted-foreground">{footerSummary(counts)}</span>
         <span className="flex-1" />

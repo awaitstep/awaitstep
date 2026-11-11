@@ -58,7 +58,7 @@ export function FailureDetails({ error, heading, untouchedVersion }: FailureDeta
         {error ?? 'The deploy failed without a reason.'}
       </pre>
       {untouchedVersion !== null && (
-        <span className="text-xs leading-relaxed text-muted-foreground">
+        <span className="text-sm leading-relaxed text-muted-foreground">
           v{untouchedVersion} is untouched and still serving.
         </span>
       )}
