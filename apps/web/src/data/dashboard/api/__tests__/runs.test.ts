@@ -110,8 +110,6 @@ describe('toWorkspaceItem', () => {
       description: null,
       recentRuns: ['succeeded', 'succeeded', 'failed'],
       lastRun: { result: 'failed', at: '2026-10-28T07:00:00.000Z' },
-      route: null,
-      traffic: null,
       sharing: null,
       usedBy: [],
     })

@@ -33,7 +33,7 @@ interface ItemHeaderProps {
 /**
  * A workflow or function's head (boards `WorkflowDetail`, `FunctionDetail`):
  * its name and state, Open editor · Deploy · Trigger · ⋯, the lock banner,
- * and for a workflow its tabs.
+ * and its Overview/Runs/Deployments tabs. Both kinds read the same.
  */
 export function ItemHeader({
   slugs,
@@ -89,11 +89,7 @@ export function ItemHeader({
               </Badge>
             )}
             {/* Live reads in the band below; only a draft says so up here (24a, 24f). */}
-            {/* A function's board draws no state pill, live or not (24d, 24g). */}
-            {neverDeployed && !isFunction && <StatusPill status="draft" />}
-            {isFunction && workflow.sharedBy && (
-              <Badge variant="neutral">Shared with the project</Badge>
-            )}
+            {neverDeployed && <StatusPill status="draft" />}
             {locked && (
               <Badge variant="warning">
                 <Lock aria-hidden="true" className="size-3" />
@@ -123,27 +119,25 @@ export function ItemHeader({
               currentVersionId={workflow.currentVersionId}
               kind={workflow.kind}
               deployBlocked={overview.deployBlocked}
-              // A function's deploy publishes its latest version (24d, 24g).
-              label={
-                isFunction && overview.currentVersion > 0
-                  ? `Publish v${overview.currentVersion}`
-                  : 'Deploy'
-              }
             />
-            {!isFunction && (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                className="size-8"
-                aria-label="Trigger a run"
-                title={overview.hasActiveDeployment ? 'Trigger a run' : 'Deploy it first'}
-                disabled={!overview.hasActiveDeployment}
-                onClick={handleOpenTrigger}
-              >
-                <Play aria-hidden="true" className="size-3.5" />
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8"
+              aria-label="Trigger a run"
+              title={
+                isFunction
+                  ? 'Functions run when called at their URL'
+                  : overview.hasActiveDeployment
+                    ? 'Trigger a run'
+                    : 'Deploy it first'
+              }
+              disabled={isFunction || !overview.hasActiveDeployment}
+              onClick={handleOpenTrigger}
+            >
+              <Play aria-hidden="true" className="size-3.5" />
+            </Button>
             <ItemActionsMenu
               slugs={slugs}
               workflow={workflow}
@@ -160,7 +154,7 @@ export function ItemHeader({
           version={live}
         />
       )}
-      {!isFunction && <LinkTabs label="Workflow pages" tabs={tabs} activeKey={tabKey(page)} />}
+      <LinkTabs label="Item pages" tabs={tabs} activeKey={tabKey(page)} />
       {triggerOpen && <TriggerDialog workflowId={workflow.id} onClose={handleCloseTrigger} />}
     </div>
   )

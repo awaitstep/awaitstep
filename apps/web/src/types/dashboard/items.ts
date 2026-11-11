@@ -18,15 +18,6 @@ export interface Sharing {
   sharedBy: { id: string; name: string }
 }
 
-/** A function's request traffic over the last 24 hours. */
-export interface FunctionTraffic {
-  requests: number
-  /** 0–1. */
-  errorRate: number
-  /** Requests per 2-hour bucket, oldest first (12 buckets). */
-  buckets: number[]
-}
-
 /** A workflow or function on a workspace's Workflows / Functions list. */
 export interface WorkspaceItem extends Pick<
   WorkflowSummary,
@@ -38,12 +29,9 @@ export interface WorkspaceItem extends Pick<
   status: 'deployed' | 'draft'
   /** The deployed version, null for drafts. */
   version: number | null
-  /** A function's route, e.g. "POST /crm/sync". */
-  route: string | null
   /** The last 10 results, oldest first. */
   recentRuns: RunResult[]
   lastRun: { result: RunResult; at: string } | null
-  traffic: FunctionTraffic | null
   sharing: Sharing | null
   /** Other workspaces that call it (shared items only). */
   usedBy: WorkspaceRef[]

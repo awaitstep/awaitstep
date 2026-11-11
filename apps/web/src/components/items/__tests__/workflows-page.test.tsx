@@ -258,53 +258,175 @@ describe('Workflows page for a Viewer', () => {
   })
 })
 
+const functionsList = () => screen.getAllByRole('list', { name: 'Functions in Sales' })[0]!
+
+function renderFunctions(
+  options: { userId?: string; scenario?: 'loading' | 'error' } = {},
+  slugs = sales,
+) {
+  return renderWithDashboardData(<FunctionsPage slugs={slugs} />, options)
+}
+
 describe('Functions page', () => {
-  it('lists functions with route, status, traffic and a sharing pill', async () => {
-    renderWithDashboardData(<FunctionsPage slugs={sales} />, { userId: AMA })
-    const table = await screen.findByRole('table', { name: 'Functions in Sales' })
-    const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows).toHaveLength(2)
-    expect(within(rows[0]!).getByText('CRM sync')).toBeInTheDocument()
-    expect(within(rows[0]!).getByRole('link', { name: 'CRM sync' }).getAttribute('href')).toMatch(
+  it('lists functions in the same rows as workflows, with description, status and runs', async () => {
+    renderFunctions({ userId: AMA })
+    const list = await waitFor(functionsList)
+    expect(
+      within(list)
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['CRM sync', 'Pricing webhook'])
+    const crm = within(list).getByRole('link', { name: 'CRM sync' })
+    expect(crm.getAttribute('href')).toMatch(
       /^\/acme\/project-101\/sales\/workflows\/[^/]+\/overview$/,
     )
-    expect(within(rows[0]!).getByText('POST /crm/sync · updates leads from the CRM')).toBeVisible()
-    expect(within(rows[0]!).getByText('2,140 req · 0.2% errors')).toBeInTheDocument()
-    expect(within(rows[0]!).getByText('Private')).toBeInTheDocument()
-    // WsFunctions draws Pricing webhook as Shared, but WsOverview and ProjectShared
-    // count Sales as "1 out" (Lead enrichment); the fixture follows those two.
-    expect(within(rows[1]!).getByText('Private')).toBeInTheDocument()
+    expect(within(list).getByText('Updates leads from the CRM')).toBeVisible()
+    expect(within(list).getByText('Deployed · v3')).toBeInTheDocument()
+    expect(within(crm.closest('li')!).getByText('Succeeded 31m ago')).toBeVisible()
     expect(
-      within(rows[0]!).getByRole('img', { name: /Requests over the last 24 hours/ }),
+      within(crm.closest('li')!).getByRole('img', { name: 'Last 10 runs: 10 succeeded' }),
+    ).toBeInTheDocument()
+    expect(
+      within(list).getByRole('switch', { name: 'Shared with Project 101: CRM sync' }),
+    ).not.toBeChecked()
+    const filters = screen.getByRole('group', { name: 'Filter functions' })
+    expect(within(filters).getByRole('button', { name: 'All 2' })).toBeInTheDocument()
+    expect(within(filters).getByRole('button', { name: 'Deployed 2' })).toBeInTheDocument()
+    expect(within(filters).getByRole('button', { name: 'Drafts 0' })).toBeInTheDocument()
+    expect(within(filters).getByRole('button', { name: 'Failing 0' })).toBeInTheDocument()
+  })
+
+  it('leads each row to its Overview, under this workspace, on desktop and phone', async () => {
+    renderFunctions()
+    const list = await waitFor(functionsList)
+    const link = within(list).getByRole('link', { name: 'CRM sync' })
+    const phone = screen.getAllByRole('list', { name: 'Functions in Sales' })[1]!
+    expect(
+      within(phone)
+        .getByRole('link', { name: /CRM sync/ })
+        .getAttribute('href'),
+    ).toBe(link.getAttribute('href'))
+    expect(within(phone).getByText('Succeeded 31m ago')).toBeVisible()
+  })
+
+  it('narrows to the draft function', async () => {
+    const draft = dashboardDb().items.find((i) => i.name === 'Pricing webhook')!
+    draft.status = 'draft'
+    draft.version = null
+    renderFunctions()
+    await waitFor(functionsList)
+    await userEvent.click(screen.getByRole('button', { name: 'Drafts 1' }))
+    expect(
+      within(functionsList())
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['Pricing webhook'])
+  })
+
+  it('counts a function whose last run failed under Failing', async () => {
+    dashboardDb().runs.push({
+      id: 'run_crm_failed',
+      itemId: 'itm_crm_sync',
+      result: 'failed',
+      trigger: 'http',
+      startedAt: new Date().toISOString(),
+      durationMs: 12,
+      waitingOn: null,
+      httpStatus: 500,
+      failure: null,
+    })
+    renderFunctions()
+    await waitFor(functionsList)
+    await userEvent.click(screen.getByRole('button', { name: 'Failing 1' }))
+    expect(
+      within(functionsList())
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['CRM sync'])
+  })
+
+  it('shows what IT shares, read-only, under "Shared with Sales"', async () => {
+    renderFunctions()
+    const heading = await screen.findByRole('heading', { name: 'Shared with Sales' })
+    const section = heading.closest('section')!
+    expect(within(section).getByText('Provision account')).toBeInTheDocument()
+    expect(within(section).getByText('Send Slack alert')).toBeInTheDocument()
+  })
+
+  it('shares a function, which then shows as shared with IT', async () => {
+    renderFunctions({ userId: AMA })
+    await waitFor(functionsList)
+    const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: CRM sync' })
+    await userEvent.click(toggle)
+    await waitFor(() => expect(toggle).toBeChecked())
+
+    renderFunctions({}, it_)
+    const heading = await screen.findByRole('heading', { name: 'Shared with IT' })
+    expect(within(heading.closest('section')!).getByText('CRM sync')).toBeInTheDocument()
+  })
+
+  it('shows the failed run for a function that has one', async () => {
+    dashboardDb().runs.push({
+      id: 'run_crm_failed',
+      itemId: 'itm_crm_sync',
+      result: 'failed',
+      trigger: 'http',
+      startedAt: new Date().toISOString(),
+      durationMs: 12,
+      waitingOn: null,
+      httpStatus: 500,
+      failure: null,
+    })
+    renderFunctions({ userId: AMA })
+    const list = await waitFor(functionsList)
+    const row = within(list).getByRole('link', { name: 'CRM sync' }).closest('li')!
+    expect(within(row).getByText(/^Failed /)).toHaveClass('text-status-error')
+    expect(
+      within(row).getByRole('img', { name: 'Last 10 runs: 9 succeeded, 1 failed' }),
     ).toBeInTheDocument()
   })
 
-  it('says requests aren’t recorded for a function with no traffic', async () => {
-    dashboardDb().items.find((i) => i.name === 'CRM sync')!.traffic = null
-    renderWithDashboardData(<FunctionsPage slugs={sales} />, { userId: AMA })
-    const table = await screen.findByRole('table', { name: 'Functions in Sales' })
-    const row = within(table).getByRole('link', { name: 'CRM sync' }).closest('tr')!
-    expect(within(row).getByText('Not recorded')).toBeVisible()
-  })
-
   it('New function adds the function named in its dialog', async () => {
-    renderWithDashboardData(<FunctionsPage slugs={sales} />)
-    await screen.findByRole('table', { name: 'Functions in Sales' })
+    renderFunctions()
+    await waitFor(functionsList)
     await userEvent.click(within(topBar()).getByRole('button', { name: 'New function' }))
     const dialog = await screen.findByRole('dialog', { name: 'New function' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Pricing hook')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create function' }))
-    expect(await screen.findByText('Pricing hook')).toBeInTheDocument()
+    // The dialog stays up until the editor opens, so the list behind it is hidden from roles.
+    const list = () => screen.getAllByRole('list', { name: 'Functions in Sales', hidden: true })[0]!
+    await waitFor(() =>
+      expect(within(list()).getAllByRole('link', { hidden: true })[0]).toHaveTextContent(
+        'Pricing hook',
+      ),
+    )
     // Templates are workflow-shaped: a function opens straight on its canvas.
     expect(goTo).toHaveBeenCalledWith(
       expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/[^/?]+$/),
     )
   })
 
-  it('gives a Viewer the request instead of New function', async () => {
-    renderWithDashboardData(<FunctionsPage slugs={sales} />, { userId: PRIYA })
-    await screen.findByRole('table', { name: 'Functions in Sales' })
+  it('gives a Viewer the request instead of New function, with the share switches locked', async () => {
+    renderFunctions({ userId: PRIYA })
+    const list = await waitFor(functionsList)
     expect(within(topBar()).getByRole('button', { name: 'Ask for edit access' })).toBeVisible()
     expect(within(topBar()).queryByRole('button', { name: 'New function' })).not.toBeInTheDocument()
+    expect(screen.getByText(/Read-only in Sales/)).toBeInTheDocument()
+    expect(
+      within(list).getByRole('switch', { name: 'Shared with Project 101: CRM sync' }),
+    ).toHaveAccessibleDescription('Only Editors can share')
+  })
+
+  it('reads as the same skeleton as Workflows while loading, with New function disabled', async () => {
+    renderFunctions({ scenario: 'loading' })
+    expect(await screen.findByRole('status')).toHaveTextContent('Loading functions')
+    expect(within(topBar()).getByRole('button', { name: 'New function' })).toBeDisabled()
+  })
+
+  it('shows the load error with its ID and the reassurance', async () => {
+    renderFunctions({ scenario: 'error' })
+    expect(await screen.findByRole('heading', { name: 'We couldn’t load functions' })).toBeVisible()
+    expect(screen.getByText(/^req_/)).toBeInTheDocument()
+    expect(screen.getByText(/Your deployed workflows keep running/)).toBeInTheDocument()
   })
 })

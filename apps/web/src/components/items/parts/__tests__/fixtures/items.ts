@@ -14,10 +14,8 @@ function workflow(overrides: Partial<WorkspaceItem>): WorkspaceItem {
     description: null,
     status: 'deployed',
     version: 1,
-    route: null,
     recentRuns: [],
     lastRun: null,
-    traffic: null,
     sharing: null,
     usedBy: [],
     shareToggle: { allowed: true },
@@ -67,13 +65,9 @@ export const CRM_SYNC = workflow({
   name: 'CRM sync',
   kind: 'script',
   description: 'Updates leads from the CRM',
-  route: 'POST /crm/sync',
   version: 3,
-  traffic: {
-    requests: 2140,
-    errorRate: 0.002,
-    buckets: [120, 180, 240, 160, 280, 300, 260, 320, 210, 120, 70, 60],
-  },
+  recentRuns: runs('ppppfpppff'),
+  lastRun: { result: 'failed', at: ago(5) },
 })
 
 export const PROVISION_ACCOUNT: SharedItem = {

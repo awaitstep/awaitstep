@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkspaceItem } from '../../../types/dashboard/items'
-import {
-  filterCounts,
-  functionSummary,
-  lastRunLabel,
-  matchesFilter,
-  runOutcomes,
-  statusLabel,
-  trafficLabel,
-} from '../item-format'
+import { filterCounts, lastRunLabel, matchesFilter, runOutcomes, statusLabel } from '../item-format'
 
 const NOW = new Date('2026-10-27T12:00:00Z')
 const minutesAgo = (n: number) => new Date(NOW.getTime() - n * 60_000).toISOString()
@@ -22,10 +14,8 @@ function item(overrides: Partial<WorkspaceItem> = {}): WorkspaceItem {
     description: null,
     status: 'deployed',
     version: 12,
-    route: null,
     recentRuns: [],
     lastRun: null,
-    traffic: null,
     sharing: null,
     usedBy: [],
     shareToggle: { allowed: true },
@@ -55,20 +45,6 @@ describe('item labels, in the boards’ words', () => {
       'ok',
       'fail',
     ])
-  })
-
-  it('reads traffic as "2,140 req · 0.2% errors" and "312 req · 0 errors"', () => {
-    expect(trafficLabel({ requests: 2140, errorRate: 0.002, buckets: [] })).toBe(
-      '2,140 req · 0.2% errors',
-    )
-    expect(trafficLabel({ requests: 312, errorRate: 0, buckets: [] })).toBe('312 req · 0 errors')
-  })
-
-  it('joins a function’s route and description as the board does', () => {
-    expect(
-      functionSummary({ route: 'POST /crm/sync', description: 'Updates leads from the CRM' }),
-    ).toBe('POST /crm/sync · updates leads from the CRM')
-    expect(functionSummary({ route: null, description: null })).toBe('')
   })
 })
 

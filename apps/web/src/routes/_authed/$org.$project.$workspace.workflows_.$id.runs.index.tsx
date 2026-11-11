@@ -1,6 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { FunctionHasNoRuns } from '../../components/workflow-detail/function-has-no-runs'
 import { ItemPage } from '../../components/workflow-detail/item-page'
 import { RunsTab } from '../../components/workflow-detail/runs-tab'
 
@@ -16,13 +15,9 @@ function RunsRoute() {
   const { id, ...slugs } = Route.useParams()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="runs">
-      {({ workflow, runs24h, neverDeployed }) =>
-        workflow.kind === 'script' ? (
-          <FunctionHasNoRuns workflowId={id} />
-        ) : (
-          <RunsTab workflow={workflow} neverDeployed={neverDeployed} runs24h={runs24h} />
-        )
-      }
+      {({ workflow, runs24h, neverDeployed }) => (
+        <RunsTab workflow={workflow} neverDeployed={neverDeployed} runs24h={runs24h} />
+      )}
     </ItemPage>
   )
 }

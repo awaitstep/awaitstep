@@ -39,11 +39,8 @@ describe('workspace items', () => {
     expect(byName['Quote follow-up']!.lastRun?.result).toBe('succeeded')
 
     const functions = await items.listItems(ama, sales, 'script')
-    expect(functions.map((f) => [f.name, f.route])).toEqual([
-      ['CRM sync', 'POST /crm/sync'],
-      ['Pricing webhook', 'POST /pricing'],
-    ])
-    expect(functions[0]!.traffic).toMatchObject({ requests: 2140, errorRate: 0.002 })
+    expect(functions.map((f) => f.name)).toEqual(['CRM sync', 'Pricing webhook'])
+    expect(functions[0]!.lastRun?.result).toBe('succeeded')
   })
 
   it('counts each workspace and rolls them up into project health', async () => {

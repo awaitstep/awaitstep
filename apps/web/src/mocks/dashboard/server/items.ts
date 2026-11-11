@@ -196,11 +196,9 @@ function addDraft(
     description: draft.description,
     status: 'draft',
     version: null,
-    route: null,
     createdAt: now,
     updatedAt: now,
     sharing: null,
-    traffic: null,
   }
   // Newest first: the list shows it at the top.
   db.items.unshift(row)

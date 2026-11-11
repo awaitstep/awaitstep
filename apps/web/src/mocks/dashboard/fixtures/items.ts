@@ -26,10 +26,8 @@ interface ItemSeed {
   description: string
   version: number | null
   kind?: ItemRow['kind']
-  route?: string
   ageDays?: number
   sharing?: ItemRow['sharing']
-  traffic?: ItemRow['traffic']
 }
 
 export function seedItems(now: Date): ItemRow[] {
@@ -41,11 +39,9 @@ export function seedItems(now: Date): ItemRow[] {
     description: seed.description,
     status: seed.version === null ? 'draft' : 'deployed',
     version: seed.version,
-    route: seed.route ?? null,
     createdAt: daysAgo(now, seed.ageDays ?? 60),
     updatedAt: daysAgo(now, 2),
     sharing: seed.sharing ?? null,
-    traffic: seed.traffic ?? null,
   })
   const workflows = (workspaceId: string, prefix: string, names: string[]) =>
     names.map((name, i) =>
@@ -89,13 +85,7 @@ export function seedItems(now: Date): ItemRow[] {
       kind: 'script',
       name: 'CRM sync',
       description: 'Updates leads from the CRM',
-      route: 'POST /crm/sync',
       version: 3,
-      traffic: {
-        requests: 2140,
-        errorRate: 0.002,
-        buckets: [120, 180, 240, 160, 280, 300, 260, 320, 210, 120, 70, 60],
-      },
     }),
     item({
       id: PRICING,
@@ -103,13 +93,7 @@ export function seedItems(now: Date): ItemRow[] {
       kind: 'script',
       name: 'Pricing webhook',
       description: 'Returns a quote',
-      route: 'POST /pricing',
       version: 1,
-      traffic: {
-        requests: 312,
-        errorRate: 0,
-        buckets: [12, 18, 12, 24, 30, 18, 12, 36, 24, 18, 12, 18],
-      },
     }),
     item({
       id: PROVISION,
@@ -146,14 +130,8 @@ export function seedItems(now: Date): ItemRow[] {
       kind: 'script',
       name: 'Send Slack alert',
       description: 'Posts an alert to a Slack channel',
-      route: 'POST /alerts/slack',
       version: 3,
       sharing: { sharedAt: minutesAgo(now, 180), sharedBy: LENA },
-      traffic: {
-        requests: 860,
-        errorRate: 0.01,
-        buckets: [40, 60, 80, 70, 90, 100, 80, 90, 70, 60, 60, 60],
-      },
     }),
     ...workflows(MARKETING_DEFAULT, 'mkt', [
       'Contact form',

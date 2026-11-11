@@ -34,13 +34,12 @@ export function DeployLink({ href, label, blockedReason }: DeployLinkProps) {
   )
 }
 
-/** Why a version can't be deployed (a function's, published): it, or the one live, is locked. */
+/** Why a version can't be deployed: it, or the one live, is locked. */
 export function deployBlockedReason(
   versionLocked: boolean,
   liveLocked: boolean,
-  isFunction = false,
 ): string | undefined {
   if (versionLocked) return 'This version is locked'
-  if (liveLocked) return `The ${isFunction ? 'published' : 'deployed'} version is locked`
+  if (liveLocked) return 'The deployed version is locked'
   return undefined
 }

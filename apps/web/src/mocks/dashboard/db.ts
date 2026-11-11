@@ -3,7 +3,7 @@ import type { SessionDevice, SignInProvider } from '../../types/dashboard/accoun
 import type { AuditActorType, AuditKind, AuditLevel } from '../../types/dashboard/audit'
 import type { KeyLevel, KeyPermissions } from '../../types/dashboard/api-keys'
 import type { NotificationKind } from '../../types/dashboard/inbox'
-import type { FunctionTraffic, ItemKind } from '../../types/dashboard/items'
+import type { ItemKind } from '../../types/dashboard/items'
 import type { OrgDestination, ProjectPage, WorkspacePage } from '../../lib/dashboard-paths'
 import type { RunResult, RunTrigger } from '../../types/dashboard/runs'
 import type { ProjectRole } from '../../types/dashboard/projects'
@@ -81,11 +81,9 @@ export interface ItemRow {
   description: string | null
   status: 'deployed' | 'draft'
   version: number | null
-  route: string | null
   createdAt: string
   updatedAt: string
   sharing: { sharedAt: string; sharedBy: string } | null
-  traffic: FunctionTraffic | null
 }
 
 export interface RunRow {

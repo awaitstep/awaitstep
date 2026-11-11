@@ -9,7 +9,7 @@ interface ItemLinkRowProps {
   href: string
 }
 
-/** A workflow on a phone (`MobileWorkflows`): the whole row opens it. */
+/** A workflow or function on a phone (`MobileWorkflows`): the whole row opens it. */
 export function ItemLinkRow({ item, href }: ItemLinkRowProps) {
   return (
     <li>

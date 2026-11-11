@@ -17,30 +17,10 @@ interface RecentRunsCardProps {
   /** The Runs tab. */
   runsHref: string
   runHref: (runId: string) => string
-  /** A function: calls to its URL aren't recorded. */
-  isFunction?: boolean
 }
 
 /** Recent runs (`WorkflowDetail`): the latest five, each opening its run; All runs → the Runs tab. */
-export function RecentRunsCard({
-  runs,
-  neverDeployed,
-  runsHref,
-  runHref,
-  isFunction = false,
-}: RecentRunsCardProps) {
-  if (isFunction) {
-    return (
-      <OverviewCard title="Recent requests" caption="Not recorded">
-        <CardEmpty
-          icon={<Play />}
-          title="No requests to show"
-          body="Calls to its URL aren’t kept."
-        />
-      </OverviewCard>
-    )
-  }
-
+export function RecentRunsCard({ runs, neverDeployed, runsHref, runHref }: RecentRunsCardProps) {
   const action = (
     <ShellLink href={runsHref} className="text-xs font-medium text-status-success">
       All runs →

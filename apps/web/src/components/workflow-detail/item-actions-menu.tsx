@@ -6,12 +6,9 @@ import {
   EyeOff,
   Lock,
   MoreHorizontal,
-  Share2,
   Trash2,
   Unlock,
 } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
-import { useSetShared } from '../../data/dashboard/items'
 import type { WorkflowSummary } from '../../lib/api-client'
 import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { useWorkflowActions } from '../dashboard/use-workflow-actions'
@@ -41,24 +38,21 @@ interface ItemActionsMenuProps {
 
 /**
  * ⋯ on a workflow or function's page (boards `WorkflowActions`, `FunctionDetail`):
- * Duplicate · Move (Stop sharing on a shared function) · Lock · Export IR,
- * then Take down and Delete. The name and description are edited in place in
- * the header. Each write needs the right the API checks for it; a Viewer keeps
- * Export, and the menu says why the rest are off.
+ * Duplicate · Move · Lock · Export IR, then Take down and Delete. The name and
+ * description are edited in place in the header. Each write needs the right the
+ * API checks for it; a Viewer keeps Export, and the menu says why the rest are off.
  */
 export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemActionsMenuProps) {
-  const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<OpenDialog>(null)
   const actions = useWorkflowActions(workflow)
   // The newest live version's lock.
   const lock = useLockDeployed(workflow.id, overview.deployedVersion?.id)
-  const share = useSetShared(slugs)
   const isFunction = workflow.kind === 'script'
   const hasVersion = !!workflow.currentVersionId
   const deployed = overview.hasActiveDeployment
   const locked = overview.deployedVersion?.locked === 1
   const word = isFunction ? 'function' : 'workflow'
-  const { canEdit, canDeploy, canShare, canMove, reason } = useEditorAccess()
+  const { canEdit, canDeploy, canMove, reason } = useEditorAccess()
 
   function close() {
     setDialog(null)
@@ -88,13 +82,6 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
 
   function handleToggleLock() {
     lock.mutate(!locked)
-  }
-
-  function handleStopSharing() {
-    share.mutate(
-      { itemId: workflow.id, shared: false },
-      { onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workflow', workflow.id] }) },
-    )
   }
 
   return (
@@ -127,19 +114,13 @@ export function ItemActionsMenu({ slugs, workflow, overview, runCount }: ItemAct
           >
             <Copy size={14} /> Duplicate
           </DropdownMenuItem>
-          {isFunction && workflow.sharedBy ? (
-            <DropdownMenuItem onSelect={handleStopSharing} disabled={!canShare || share.isPending}>
-              <Share2 size={14} /> Stop sharing
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onSelect={handleMove} disabled={!canMove}>
-              <ArrowRightLeft size={14} /> Move to workspace
-              {/* An Editor gets no reason line: say why this one is off. */}
-              {canEdit && !canMove && (
-                <span className="ml-auto text-xs text-muted-foreground">Admins only</span>
-              )}
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuItem onSelect={handleMove} disabled={!canMove}>
+            <ArrowRightLeft size={14} /> Move to workspace
+            {/* An Editor gets no reason line: say why this one is off. */}
+            {canEdit && !canMove && (
+              <span className="ml-auto text-xs text-muted-foreground">Admins only</span>
+            )}
+          </DropdownMenuItem>
           {/* The newest live version's lock: nothing replaces it where it runs. */}
           <DropdownMenuItem
             onSelect={handleToggleLock}

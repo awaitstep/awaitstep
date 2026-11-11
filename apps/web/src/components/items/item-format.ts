@@ -1,10 +1,10 @@
 import { timeAgoOrDay } from '../../lib/time'
-import type { FunctionTraffic, WorkspaceItem } from '../../types/dashboard/items'
+import type { WorkspaceItem } from '../../types/dashboard/items'
 import { RESULT_LABEL } from '../runs/run-format'
 import type { RunOutcome } from '../ui/run-history-bars'
 
 // How a workspace's workflows and functions read on their lists, in the
-// boards' words: "Deployed · v12", "Failed 5m ago", "2,140 req · 0.2% errors".
+// boards' words: "Deployed · v12", "Failed 5m ago".
 
 export type WorkflowFilter = 'all' | 'deployed' | 'draft' | 'failing'
 
@@ -52,20 +52,4 @@ export function runOutcomes(item: WorkspaceItem): RunOutcome[] {
   return item.recentRuns.flatMap((result): RunOutcome[] =>
     result === 'succeeded' ? ['ok'] : result === 'failed' ? ['fail'] : [],
   )
-}
-
-/** "2,140 req · 0.2% errors", "312 req · 0 errors". */
-export function trafficLabel(traffic: FunctionTraffic): string {
-  const requests = `${traffic.requests.toLocaleString('en-US')} req`
-  if (traffic.errorRate === 0) return `${requests} · 0 errors`
-  const percent = Math.round(traffic.errorRate * 1000) / 10
-  return `${requests} · ${percent}% errors`
-}
-
-/** A function's second line: "POST /crm/sync · updates leads from the CRM". */
-export function functionSummary(item: Pick<WorkspaceItem, 'route' | 'description'>): string {
-  const description = item.description
-    ? item.description.charAt(0).toLowerCase() + item.description.slice(1)
-    : null
-  return [item.route, description].filter(Boolean).join(' · ')
 }

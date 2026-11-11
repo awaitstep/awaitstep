@@ -123,7 +123,7 @@ describe('upstreamVarNames', () => {
     expect(up.get('other')).toEqual([])
   })
 
-  it('treats the node two arms join into as the container’s continuation', () => {
+  it('treats the node two arms join into as running inside each arm', () => {
     const graph = ir(
       [node('first'), node('gate', 'branch'), node('x'), node('other'), node('joined')],
       [
@@ -135,11 +135,13 @@ describe('upstreamVarNames', () => {
       ],
     )
     const up = upstreamVarNames(graph, names('first', 'gate', 'x', 'other', 'joined'), never)
-    expect(up.get('joined')).toEqual(['first', 'gate'])
+    // The merge is emitted inside each arm, so it sees that arm's scope — the
+    // branch itself has no value to pass.
+    expect(up.get('joined')).toEqual(['first', 'x'])
     expect(up.get('x')).toEqual(['first'])
   })
 
-  it('treats a join as top level however deep its container, as the emitter does', () => {
+  it('treats a merge as part of its arm, however deep its container', () => {
     // O's arm A holds a0 and a nested branch X whose arms x1, x2 join at J.
     const graph = ir(
       [
@@ -164,9 +166,9 @@ describe('upstreamVarNames', () => {
       ],
     )
     const up = upstreamVarNames(graph, names('start', 'O', 'a0', 'X', 'x1', 'x2', 'J', 'T'), never)
-    // J runs at the top level: it reads start, O and the `then` step T (emitted
-    // before it, as the sort has them), not a0 inside the arm.
-    expect(up.get('J')).toEqual(['start', 'O', 'T'])
+    // J is emitted inside X's arms, which are inside O's arm: it reads start,
+    // a0 and the arm step x1, not the top-level `then` step T.
+    expect(up.get('J')).toEqual(['start', 'a0', 'x1'])
     expect(up.get('T')).toEqual(['start', 'O'])
   })
 

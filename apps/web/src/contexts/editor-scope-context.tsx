@@ -27,7 +27,7 @@ export function useItemSlugs(): WorkspaceSlugs {
 export interface EditorAccess {
   canEdit: boolean
   canDeploy: boolean
-  /** Stop sharing a function shared from here. */
+  /** Share it to the project, or stop sharing it. */
   canShare: boolean
   /** Move it to another workspace: this workspace's admins only. */
   canMove: boolean

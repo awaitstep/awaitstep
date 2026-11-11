@@ -22,20 +22,16 @@ interface OverviewBodyProps {
 
 /**
  * A workflow's or function's Overview (`WorkflowDetail` 24a, `WorkflowDraft`
- * 24f): the band, then Versions and Recent runs. A function looks the same; it
- * is published and called, and its requests aren't recorded.
+ * 24f): the band, then Versions and Recent runs. Both kinds read the same.
  */
 export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: OverviewBodyProps) {
   const queries = useQueries()
   const links = useWorkflowLinks(workflow.id)
   const { canDeploy } = useEditorAccess()
-  const isFunction = workflow.kind === 'script'
   const { data: runs } = useInfiniteQuery({
     // The card shows six runs; the Runs tab keeps its own paged list.
     ...queries.runs.byWorkflow(workflow.id, { limit: 6 }),
     select: (data) => flatPages(data),
-    // A function has no runs.
-    enabled: !isFunction,
   })
   // The Versions card is Overview's own list; other subpages never load it.
   const versionsQuery = useInfiniteQuery({
@@ -62,7 +58,7 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
 
   return (
     <>
-      <StatusBand live={live} latest={latest} runs24h={runs24h} isFunction={isFunction} />
+      <StatusBand live={live} latest={latest} runs24h={runs24h} />
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">
           <VersionsCard
@@ -75,7 +71,6 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
             loadingMore={versionsQuery.isFetchingNextPage}
             onLoadMore={() => void versionsQuery.fetchNextPage()}
             draft={neverDeployed}
-            isFunction={isFunction}
           />
         </div>
         <div className="flex min-w-0 basis-[320px] grow flex-col [&>*]:flex-1">
@@ -84,7 +79,6 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
             neverDeployed={neverDeployed}
             runsHref={links.runs}
             runHref={links.run}
-            isFunction={isFunction}
           />
         </div>
       </div>

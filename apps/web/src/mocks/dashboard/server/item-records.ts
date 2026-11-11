@@ -118,10 +118,8 @@ export function itemRecord(
     description: row.description,
     status: row.status,
     version: row.version,
-    route: row.route,
     recentRuns,
     lastRun: finished[0] ? { result: finished[0].result, at: finished[0].startedAt } : null,
-    traffic: row.traffic,
     sharing: sharingRecord(db, row),
     usedBy: callersOf(db, row)
       .filter((w) => visible.has(w.id))

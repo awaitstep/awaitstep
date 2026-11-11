@@ -12,7 +12,6 @@ import { EditorAccessProvider, type EditorAccess } from '../../../contexts/edito
 
 const calls = vi.hoisted(() => ({
   lock: vi.fn(),
-  share: vi.fn(),
   duplicate: vi.fn(),
   takedown: vi.fn(),
 }))
@@ -30,7 +29,6 @@ vi.mock('../use-lock-deployed', () => ({
   useLockDeployed: () => ({ mutate: calls.lock, isPending: false }),
 }))
 vi.mock('../../../data/dashboard/items', () => ({
-  useSetShared: () => ({ mutate: calls.share, isPending: false }),
   useMoveWorkflows: () => idle(),
 }))
 
@@ -121,17 +119,6 @@ describe('ItemActionsMenu (WorkflowActions)', () => {
     expect(screen.getByRole('menuitem', { name: 'Export IR' })).not.toHaveAttribute('aria-disabled')
   })
 
-  it('needs the share right to stop sharing a function, editing isn’t enough', async () => {
-    await renderMenu({ ...WORKFLOW, kind: 'script', sharedBy: 'u-ama' }, overview(false), {
-      ...EDITOR,
-      canShare: false,
-    })
-    expect(screen.getByRole('menuitem', { name: 'Stop sharing' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
-  })
-
   it('locks the deployed version, and reads Unlock while it is locked', async () => {
     await renderMenu(WORKFLOW, overview(true, true))
     await userEvent.click(screen.getByRole('menuitem', { name: 'Unlock' }))
@@ -144,11 +131,9 @@ describe('ItemActionsMenu (WorkflowActions)', () => {
     expect(screen.queryByRole('menuitem', { name: 'Take down' })).not.toBeInTheDocument()
   })
 
-  it('offers Stop sharing in place of Move on a shared function (FunctionDetail)', async () => {
+  it('gives a function the same menu as a workflow (FunctionDetail)', async () => {
     await renderMenu({ ...WORKFLOW, kind: 'script', sharedBy: 'u-ama' }, overview(false))
-    expect(screen.queryByRole('menuitem', { name: 'Move to workspace' })).toBeNull()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Stop sharing' }))
-    expect(calls.share).toHaveBeenCalledWith({ itemId: 'wf_1', shared: false }, expect.anything())
+    expect(items()).toEqual(['Duplicate', 'Move to workspace', 'Lock', 'Export IR', 'Delete'])
   })
 
   it('takes it down from the one account it is live on, as before', async () => {

@@ -222,6 +222,28 @@ export function containerArms(ir: WorkflowIR): Map<string, ArmBlock> {
         blocks.set(member.id, block)
       }
     }
+
+    // A merge of a branch's arms (or a wait's paths) is emitted inside each
+    // arm, so its value is scoped to the arms too: a node after the container
+    // must not be handed it, since no such `const` exists out there.
+    if (node.type !== 'branch' && node.type !== 'wait_for_event') continue
+    const armTargets = armEdges.map((edge) => edge.target)
+    if (armTargets.length < 2) continue
+    const ends = armTargets.map((target) => {
+      const chain = collectChain(target, adj, inDegree, nodeMap, edgeLabels)
+      return chain[chain.length - 1]?.id ?? target
+    })
+    const shared = (adj.get(ends[0]!) ?? []).filter(
+      (id) =>
+        ends.every((end) => end !== id && (adj.get(end) ?? []).includes(id)) &&
+        (inDegree.get(id) ?? 0) >= 2,
+    )
+    if (shared.length !== 1) continue
+    const mergeBlock: ArmBlock = { owner: node.id, arm: armTargets[0]! }
+    for (const member of collectChain(shared[0]!, adj, inDegree, nodeMap, edgeLabels)) {
+      if (blocks.has(member.id)) continue
+      blocks.set(member.id, mergeBlock)
+    }
   }
   ARMS_BY_GRAPH.set(ir, blocks)
   return blocks

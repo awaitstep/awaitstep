@@ -88,6 +88,14 @@ function settled(extra: Record<string, unknown>) {
     refetch: vi.fn(),
     hasActiveDeployment: false,
     deployBlocked: false,
+    summary: {
+      deployCount: overview.deploys,
+      runs: {
+        total: overview.runsEver,
+        counts: { all: overview.runsEver, failed: 3 },
+        byHour: [],
+      },
+    },
     ...extra,
   }
 }
@@ -157,7 +165,7 @@ describe('ItemPage', () => {
     settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
     renderPage()
     expect(screen.queryByText('Draft')).not.toBeInTheDocument()
-    const tabs = screen.getByRole('navigation', { name: 'Workflow pages' })
+    const tabs = screen.getByRole('navigation', { name: 'Item pages' })
     expect(within(tabs).getByRole('link', { name: 'Runs 128' })).toBeVisible()
   })
 
@@ -168,7 +176,7 @@ describe('ItemPage', () => {
     settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
     renderPage()
     expect(screen.getByText('Draft')).toBeVisible()
-    const tabs = screen.getByRole('navigation', { name: 'Workflow pages' })
+    const tabs = screen.getByRole('navigation', { name: 'Item pages' })
     expect(
       within(tabs)
         .getAllByRole('link')
@@ -205,35 +213,52 @@ describe('ItemPage', () => {
     enterScope()
     settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
     renderPage('run')
-    const tabs = screen.getByRole('navigation', { name: 'Workflow pages' })
+    const tabs = screen.getByRole('navigation', { name: 'Item pages' })
     expect(within(tabs).getByRole('link', { name: /^Runs/ })).toHaveAttribute(
       'aria-current',
       'page',
     )
   })
 
-  it('gives a function no tabs and nothing to trigger (FunctionDetail)', () => {
+  it('gives a function the same tabs and Deploy action as a workflow (FunctionDetail)', () => {
     enterScope()
     settled({
-      workflow: { id: 'wf_1', name: 'CRM sync', kind: 'script', sharedBy: 'u-ama' },
+      workflow: { id: 'wf_1', name: 'CRM sync', kind: 'script' },
       currentVersion: 4,
     })
     renderPage()
-    expect(screen.queryByRole('navigation', { name: 'Workflow pages' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Trigger a run' })).not.toBeInTheDocument()
+    const tabs = screen.getByRole('navigation', { name: 'Item pages' })
+    expect(
+      within(tabs)
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['Overview', 'Runs 128', 'Deployments 2'])
+    // The action is the same; those calls aren't recorded, so it says so.
+    expect(screen.getByRole('button', { name: 'Trigger a run' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Trigger a run' })).toHaveAttribute(
+      'title',
+      'Functions run when called at their URL',
+    )
     expect(screen.getByText('Function')).toBeVisible()
-    expect(screen.getByText('Shared with the project')).toBeVisible()
-    // A function's deploy publishes its latest version (24d).
-    expect(screen.getByRole('button', { name: 'Publish v4' })).toBeVisible()
+    expect(screen.queryByText('Shared with the project')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: /^Publish/ })).not.toBeInTheDocument()
   })
 
-  it('draws no Draft pill on a function, published or not (FunctionDraft)', () => {
+  it('draws the Draft pill on a function before its first deploy (FunctionDraft)', () => {
     enterScope()
     overview.deploys = 0
+    overview.runsEver = 0
     settled({ workflow: { id: 'wf_1', name: 'CRM sync', kind: 'script' }, currentVersion: 1 })
     renderPage()
-    expect(screen.queryByText('Draft')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Publish v1' })).toBeVisible()
+    expect(screen.getByText('Draft')).toBeVisible()
+    const tabs = screen.getByRole('navigation', { name: 'Item pages' })
+    expect(
+      within(tabs)
+        .getAllByRole('link')
+        .map((a) => a.textContent),
+    ).toEqual(['Overview', 'Runs', 'Deployments'])
+    expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()
   })
 
   it.each(['deploy', 'run'] as const)('leaves the workflow’s actions off the %s page', (page) => {

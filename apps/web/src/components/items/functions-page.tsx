@@ -1,16 +1,10 @@
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { Lock } from 'lucide-react'
-import { useWorkspaceItems } from '../../data/dashboard/items'
-import { cn } from '../../lib/utils'
+import { useSetShared, useSharedWithWorkspace, useWorkspaceItems } from '../../data/dashboard/items'
 import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
-import type { WorkspaceItem } from '../../types/dashboard/items'
-import { Badge } from '../ui/badge'
 import { Banner } from '../ui/banner'
-import { STRETCHED_LINK } from '../ui/linked-row'
-import { DataTable, type DataColumn } from '../ui/data-table'
-import { ShellLink } from '../ui/shell-link'
-import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
-import { Tile } from '../ui/tile'
+import { ListCard } from '../ui/list-card'
+import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
@@ -18,122 +12,66 @@ import { useEmptyView } from '../workspaces/workspace-empty-view'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { WorkspaceWelcome } from '../workspaces/workspace-welcome'
 import { ItemActions, NewItemButton } from './item-actions'
-import { functionSummary, statusLabel, statusVariant, trafficLabel } from './item-format'
-import { TrafficBars } from './parts/traffic-bars'
-
-function functionColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceItem>[] {
-  return [
-    {
-      id: 'function',
-      header: 'Function',
-      cell: (item) => (
-        <span className="flex min-w-0 items-center gap-3">
-          <Tile tone="info" size="sm">
-            ƒ
-          </Tile>
-          <span className="flex min-w-0 flex-col gap-0.5">
-            <ShellLink
-              href={itemPagePath(slugs, item, 'overview')}
-              className={cn('w-fit truncate text-sm font-semibold text-foreground', STRETCHED_LINK)}
-            >
-              {item.name}
-            </ShellLink>
-            <span className="truncate text-2xs text-muted-foreground">{functionSummary(item)}</span>
-          </span>
-        </span>
-      ),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      width: '130px',
-      cell: (item) => <Badge variant={statusVariant(item)}>{statusLabel(item)}</Badge>,
-    },
-    {
-      id: 'last24h',
-      header: 'Last 24 h',
-      width: '160px',
-      cell: (item) =>
-        item.traffic ? (
-          <TrafficBars buckets={item.traffic.buckets} />
-        ) : (
-          <span className="text-muted-foreground">Not recorded</span>
-        ),
-    },
-    {
-      id: 'traffic',
-      header: 'Traffic',
-      width: '190px',
-      cell: (item) => (
-        <span className="text-muted-foreground">
-          {item.traffic ? trafficLabel(item.traffic) : '—'}
-        </span>
-      ),
-    },
-    {
-      id: 'sharing',
-      header: 'Sharing',
-      width: '110px',
-      // The board draws a pill, not a switch (D-P2-9).
-      cell: (item) =>
-        item.sharing ? (
-          <Badge variant="success">Shared</Badge>
-        ) : (
-          <Badge variant="neutral">Private</Badge>
-        ),
-    },
-  ]
-}
+import { filterCounts, matchesFilter, type WorkflowFilter } from './item-format'
+import { FunctionRow } from './parts/function-row'
+import { ItemLinkRow } from './parts/item-link-row'
+import { ItemsPageSkeleton } from './parts/items-page-skeleton'
+import { SharedWithSection } from './shared-with-section'
 
 interface FunctionsPageProps {
   slugs: WorkspaceSlugs
 }
 
-/** `/{org}/{project}/{workspace}/functions`: the `WsFunctions` board. */
+/** `/{org}/{project}/{workspace}/functions`: the same list as Workflows, for functions. */
 export function FunctionsPage({ slugs }: FunctionsPageProps) {
   const scope = useWorkspaceScope(slugs)
   const items = useWorkspaceItems(slugs, 'script')
-  const { org: orgSlug, project: projectSlug, workspace: workspaceSlug } = slugs
-  // Built once per workspace, so the table keeps the same columns between renders.
-  const columns = useMemo(
-    () => functionColumns({ org: orgSlug, project: projectSlug, workspace: workspaceSlug }),
-    [orgSlug, projectSlug, workspaceSlug],
-  )
+  const shared = useSharedWithWorkspace(slugs)
+  const setShared = useSetShared(slugs)
+  const [filter, setFilter] = useState<WorkflowFilter>('all')
   const emptyView = useEmptyView(slugs)
 
   if (!scope) return null
   const workspace = scope.workspace.workspace
+  const projectName = scope.project.project.name
   const readOnly = !scope.workspace.viewerCan.edit.allowed
-  const loading = !items.data
-
-  if (emptyView && !items.isError) {
-    return (
-      <PageBody>
-        <WorkspaceWelcome slugs={slugs} project={scope.project} workspace={scope.workspace} />
-      </PageBody>
-    )
-  }
+  const loading = !items.data || !shared.data
+  const failed = items.isError || shared.isError
 
   function handleRetry() {
-    void items.refetch()
+    for (const query of [items, shared]) {
+      if (query.isError) void query.refetch()
+    }
   }
 
+  function shareHandler(itemId: string) {
+    return (next: boolean) => setShared.mutate({ itemId, shared: next })
+  }
+
+  const counts = filterCounts(items.data ?? [])
+  const options: FilterOption<WorkflowFilter>[] = [
+    { id: 'all', label: 'All', count: counts.all },
+    { id: 'deployed', label: 'Deployed', count: counts.deployed },
+    { id: 'draft', label: 'Drafts', count: counts.draft },
+    { id: 'failing', label: 'Failing', count: counts.failing, tone: 'danger' },
+  ]
+  const visible = (items.data ?? []).filter((item) => matchesFilter(item, filter))
+  const empty =
+    counts.all === 0 ? `No functions in ${workspace.name} yet.` : 'No functions match this filter.'
+  const retrying = items.isFetching || shared.isFetching
+
   let body
-  if (items.isError) {
+  if (failed) {
     body = (
       <WorkspaceLoadError
         what="functions"
-        error={items.error}
+        error={items.error ?? shared.error}
         onRetry={handleRetry}
-        retrying={items.isFetching}
+        retrying={retrying}
       />
     )
-  } else if (!items.data) {
-    body = (
-      <LoadingRegion label="Loading functions">
-        <ListCardSkeleton rows={2} />
-      </LoadingRegion>
-    )
+  } else if (loading) {
+    body = <ItemsPageSkeleton label="Loading functions" />
   } else {
     body = (
       <>
@@ -143,16 +81,49 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
             broken.
           </Banner>
         )}
-        <DataTable
-          caption={`Functions in ${workspace.name}`}
-          columns={columns}
-          rows={items.data}
-          getRowKey={(item) => item.id}
-          empty={`No functions in ${workspace.name} yet.`}
-          minWidth="860px"
-          linkedRows
-        />
+        <div className="hidden md:block">
+          <ListCard label={`Functions in ${workspace.name}`} empty={empty}>
+            {visible.map((item) => (
+              <FunctionRow
+                key={item.id}
+                item={item}
+                href={itemPagePath(slugs, item, 'overview')}
+                projectName={projectName}
+                onShareChange={shareHandler(item.id)}
+              />
+            ))}
+          </ListCard>
+        </div>
+        <div className="md:hidden">
+          <ListCard label={`Functions in ${workspace.name}`} empty={empty}>
+            {visible.map((item) => (
+              <ItemLinkRow key={item.id} item={item} href={itemPagePath(slugs, item, 'overview')} />
+            ))}
+          </ListCard>
+        </div>
+        {setShared.error && (
+          <p role="alert" className="text-xs text-status-error">
+            {setShared.error.message}
+          </p>
+        )}
+        <p className="text-2xs leading-relaxed text-muted-foreground md:hidden">
+          Editing a function needs a bigger screen. On a phone you can open it and read its
+          overview.
+        </p>
+        <SharedWithSection slugs={slugs} workspaceName={workspace.name} items={shared.data ?? []} />
       </>
+    )
+  }
+
+  const description = readOnly
+    ? 'You can open functions and read their overview. Building, deploying and sharing need an Editor.'
+    : 'Only people with access to this workspace see these. Share one to let other workspaces call it.'
+
+  if (emptyView && !failed) {
+    return (
+      <PageBody>
+        <WorkspaceWelcome slugs={slugs} project={scope.project} workspace={scope.workspace} />
+      </PageBody>
     )
   }
 
@@ -161,6 +132,15 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
       <NewItemButton slugs={slugs} kind="script" disabled={loading} compact />
     </span>
   )
+  const filterPills =
+    loading || failed ? null : (
+      <SegmentedFilter
+        label="Filter functions"
+        options={options}
+        value={filter}
+        onChange={setFilter}
+      />
+    )
 
   return (
     <>
@@ -170,8 +150,9 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
       <PageBody>
         <PageIntro
           title="Functions"
-          description="Request handlers in this workspace."
+          description={description}
           action={phoneNew}
+          aside={filterPills}
         />
         {body}
       </PageBody>

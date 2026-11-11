@@ -16,7 +16,7 @@ interface DeployButtonProps {
   currentVersionId?: string | null
   kind?: 'workflow' | 'script'
   deployBlocked?: boolean
-  /** The button's words; "Deploy" unless said, e.g. a function's "Publish v4". */
+  /** The button's words; "Deploy" unless a caller says otherwise. */
   label?: string
 }
 

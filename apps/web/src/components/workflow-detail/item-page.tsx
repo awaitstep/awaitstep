@@ -20,19 +20,16 @@ function isMissing(error: Error): boolean {
 }
 
 /**
- * Never deployed, as far as can be told: no deployment rows, and for a
- * workflow no runs either — takedowns before rows were kept deleted them,
- * but their runs stay.
+ * Never deployed, as far as can be told: no deployment rows and no runs either
+ * — takedowns before rows were kept deleted them, but their runs stay.
  * Undefined until both have loaded.
  */
 function draftState(
   deployments: number | undefined,
-  isFunction: boolean,
   ranEver: boolean | undefined,
 ): boolean | undefined {
   if (deployments === undefined) return undefined
   if (deployments > 0) return false
-  if (isFunction) return true
   return ranEver === undefined ? undefined : !ranEver
 }
 
@@ -107,7 +104,7 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
           ranEver,
         }
       : undefined
-    const draft = draftState(summary?.deployCount, workflow.kind === 'script', ranEver)
+    const draft = draftState(summary?.deployCount, ranEver)
     const neverDeployed = draft === true
     body = (
       <>

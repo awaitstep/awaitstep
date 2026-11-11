@@ -1,14 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import {
-  EditorScopeProvider,
-  useEditorAccess,
-  useEditorScope,
-} from '../../../contexts/editor-scope-context'
+import { useEditorAccess, useEditorScope } from '../../../contexts/editor-scope-context'
 import { VIEW_ONLY_MESSAGE } from '../../../lib/ide/editability'
 import { ItemScopeLayout } from '../item-scope-layout'
 
-const navigated = vi.hoisted(() => [] as unknown[])
 const ADMIN_CAN = {
   edit: { allowed: true },
   deploy: { allowed: true },
@@ -31,17 +26,12 @@ vi.mock('@tanstack/react-router', () => ({
       </>
     )
   },
-  Navigate: (props: unknown) => {
-    navigated.push(props)
-    return null
-  },
+  Navigate: () => null,
   useNavigate: () => vi.fn(),
 }))
 vi.mock('../../workspaces/use-workspace-scope', () => ({
   useWorkspaceScope: () => ({ workspace: { viewerCan: viewer.can } }),
 }))
-
-const SLUGS = { org: 'acme', project: 'core', workspace: 'sales' }
 
 beforeEach(() => {
   viewer.can = ADMIN_CAN
@@ -83,17 +73,5 @@ describe('ItemScopeLayout', () => {
     }
     render(<ItemScopeLayout org="acme" project="core" workspace="sales" scope={null} />)
     expect(screen.getByText(`view only: ${VIEW_ONLY_MESSAGE}`)).toBeVisible()
-  })
-})
-
-describe('FunctionHasNoRuns', () => {
-  it('lands a function’s Runs URL on its Overview, replacing it in history', async () => {
-    const { FunctionHasNoRuns } = await import('../function-has-no-runs')
-    render(
-      <EditorScopeProvider value={SLUGS}>
-        <FunctionHasNoRuns workflowId="fn_1" />
-      </EditorScopeProvider>,
-    )
-    expect(navigated).toEqual([{ to: '/acme/core/sales/workflows/fn_1/overview', replace: true }])
   })
 })

@@ -5,7 +5,6 @@ import { itemPagePath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { Banner } from '../ui/banner'
 import { ListCard } from '../ui/list-card'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
-import { Bone, FilterSkeleton, ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
@@ -16,6 +15,7 @@ import { ImportItemDialog } from './import-item-dialog'
 import { ItemActions, NewItemButton } from './item-actions'
 import { filterCounts, matchesFilter, type WorkflowFilter } from './item-format'
 import { ItemLinkRow } from './parts/item-link-row'
+import { ItemsPageSkeleton } from './parts/items-page-skeleton'
 import { WorkflowRow } from './parts/workflow-row'
 import { SharedWithSection } from './shared-with-section'
 
@@ -24,24 +24,6 @@ interface WorkflowsPageProps {
   /** `?new=import` opens the import dialog (the top bar's Import, or P1's New project → Import). */
   dialog: string | undefined
   onCloseDialog: () => void
-}
-
-function WorkflowsSkeleton() {
-  return (
-    <LoadingRegion label="Loading workflows">
-      <div className="flex justify-end">
-        <FilterSkeleton />
-      </div>
-      <ListCardSkeleton />
-      <div className="flex flex-col gap-3.5">
-        <Bone className="h-5 w-48" />
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-          <Bone className="h-[78px] rounded-2xl" />
-          <Bone className="h-[78px] rounded-2xl" />
-        </div>
-      </div>
-    </LoadingRegion>
-  )
 }
 
 /** `/{org}/{project}/{workspace}/workflows`: the `Workflows` and `ViewerWorkflows` boards. */
@@ -98,7 +80,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
       />
     )
   } else if (loading) {
-    body = <WorkflowsSkeleton />
+    body = <ItemsPageSkeleton label="Loading workflows" />
   } else {
     body = (
       <>

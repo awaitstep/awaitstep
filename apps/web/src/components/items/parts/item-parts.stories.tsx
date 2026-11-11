@@ -1,8 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { ListCard } from '../../ui/list-card'
+import { FunctionRow } from './function-row'
 import { ItemLinkRow } from './item-link-row'
 import { SharedItemCard } from './shared-item-card'
-import { TrafficBars } from './traffic-bars'
 import { WorkflowRow } from './workflow-row'
 import {
   CRM_SYNC,
@@ -32,6 +32,33 @@ export const WorkflowRows: Story = {
       <ListCard label="Workflows in Sales">
         {[LEAD_ENRICHMENT, QUOTE_FOLLOW_UP, WEEKLY_REPORT].map((item) => (
           <WorkflowRow
+            key={item.id}
+            item={item}
+            href="#"
+            projectName="Project 101"
+            onShareChange={noop}
+          />
+        ))}
+      </ListCard>
+    </div>
+  ),
+}
+
+export const FunctionRows: Story = {
+  render: () => (
+    <div className="max-w-screen-xl">
+      <ListCard label="Functions in Sales">
+        {[
+          CRM_SYNC,
+          {
+            ...CRM_SYNC,
+            id: 'itm_pricing',
+            name: 'Pricing webhook',
+            recentRuns: [],
+            lastRun: null,
+          },
+        ].map((item) => (
+          <FunctionRow
             key={item.id}
             item={item}
             href="#"
@@ -85,8 +112,4 @@ export const SharedCards: Story = {
       ))}
     </ul>
   ),
-}
-
-export const Traffic: Story = {
-  render: () => <TrafficBars buckets={CRM_SYNC.traffic!.buckets} />,
 }

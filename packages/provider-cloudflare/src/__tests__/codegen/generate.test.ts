@@ -264,6 +264,56 @@ describe('generateWorkflow', () => {
     expect(code.match(/from "#app\/steps\/join.js"/g)).toHaveLength(1)
   })
 
+  it('does not hand a merge’s value to a node after the container', () => {
+    const node = (id: string, name: string, data: Record<string, unknown>, type = 'step') => ({
+      id,
+      name,
+      type,
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data,
+    })
+    // Side runs before the branch and also feeds a second merge after it. The
+    // first merge is emitted inside each arm, so its value is scoped to them
+    // and must not be passed to the node outside the branch.
+    const ir: WorkflowIR = {
+      metadata: { name: 'second-merge', version: 1, createdAt: '', updatedAt: '' },
+      entryNodeId: 'side',
+      nodes: [
+        node('side', 'Side', { code: 'return 4;' }),
+        node(
+          'gate',
+          'Gate',
+          {
+            branches: [
+              { label: 'yes', condition: 'true' },
+              { label: 'no', condition: '' },
+            ],
+          },
+          'branch',
+        ),
+        node('a', 'a', { code: 'return 1;' }),
+        node('b', 'b', { code: 'return 2;' }),
+        node('join', 'Join', { code: 'return 3;' }),
+        node('join2', 'Join2', { code: 'console.log(inputs);' }),
+      ],
+      edges: [
+        { id: 'e0', source: 'side', target: 'gate' },
+        { id: 'e1', source: 'gate', target: 'a', label: 'yes' },
+        { id: 'e2', source: 'gate', target: 'b', label: 'no' },
+        { id: 'e3', source: 'a', target: 'join' },
+        { id: 'e4', source: 'b', target: 'join' },
+        { id: 'e5', source: 'join', target: 'join2' },
+        { id: 'e6', source: 'side', target: 'join2' },
+      ],
+    }
+    const code = programOf(ir)
+    expect(code.match(/const Join = await flow\.step\("join"/g)).toHaveLength(2)
+    const inputs = /\$Join2\(\{ env, event, inputs: \{ ([^}]*) \}/.exec(code)
+    expect(inputs?.[1]).toBe('Side')
+  })
+
   it('generates a wait-for-event workflow', () => {
     const code = programOf(eventWorkflow as unknown as WorkflowIR)
     expect(code).toContain('step.waitForEvent')

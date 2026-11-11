@@ -85,13 +85,11 @@ export function toWorkspaceItem(row: ApiWorkflowRow, share: Allowed): WorkspaceI
     description: row.description ?? null,
     status: row.deployStatus === 'success' ? 'deployed' : 'draft',
     version: row.deployedVersion,
-    route: null,
     // Oldest first, as the bars are drawn.
     recentRuns: [...finished].reverse(),
     // The latest finished run's result; the time is the latest run's, which is
     // the same run unless one is still going.
     lastRun: finished[0] && row.lastRunAt ? { result: finished[0], at: row.lastRunAt } : null,
-    traffic: null,
     sharing: toSharing(row.sharing),
     // Callers arrive with the Call Workflow node; until then nothing blocks unsharing.
     usedBy: [],

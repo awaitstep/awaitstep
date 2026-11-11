@@ -23,8 +23,6 @@ interface StatusBandProps {
   latest: { version: number; at: string } | undefined
   /** Runs in the last 24 hours, by result and hour by hour, and whether it ever ran; when known. */
   runs24h?: { all: number; failed: number; byHour: RunHour[]; ranEver?: boolean }
-  /** A function is published and called, and its requests aren't recorded. */
-  isFunction?: boolean
 }
 
 const LABEL = 'text-[11.5px] font-medium uppercase tracking-wider text-muted-foreground'
@@ -33,33 +31,29 @@ const COLUMN = 'flex min-w-0 flex-col gap-2 px-5 py-4'
 /**
  * The band across a workflow's or function's Overview (`WorkflowDetail`,
  * 24a/24f): what is live, where a POST runs it, and the day's runs hour by
- * hour (a function's requests aren't recorded, so it says so there).
+ * hour. Both kinds read the same.
  */
-export function StatusBand({ live, latest, runs24h, isFunction = false }: StatusBandProps) {
+export function StatusBand({ live, latest, runs24h }: StatusBandProps) {
   return (
     <section
       aria-label="Status"
       className="flex flex-wrap divide-border rounded-2xl border border-border bg-card md:flex-nowrap md:divide-x"
     >
       <div className={cn(COLUMN, 'basis-[260px] grow-[1.3]')}>
-        <LiveColumn live={live} latest={latest} isFunction={isFunction} />
+        <LiveColumn live={live} latest={latest} />
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
         <span className={LABEL}>Trigger</span>
-        <TriggerColumn url={live[0]?.url ?? null} live={live.length > 0} isFunction={isFunction} />
+        <TriggerColumn url={live[0]?.url ?? null} live={live.length > 0} />
       </div>
       <div className={cn(COLUMN, 'basis-[240px] grow')}>
-        {isFunction ? <RequestsColumn /> : <RunsColumn runs24h={runs24h} />}
+        <RunsColumn runs24h={runs24h} />
       </div>
     </section>
   )
 }
 
-function LiveColumn({
-  live,
-  latest,
-  isFunction,
-}: Pick<StatusBandProps, 'live' | 'latest'> & { isFunction: boolean }) {
+function LiveColumn({ live, latest }: Pick<StatusBandProps, 'live' | 'latest'>) {
   if (live.length > 1) return <LiveAccounts live={live} />
   const only = live[0]
   if (!only) {
@@ -67,9 +61,7 @@ function LiveColumn({
       <>
         <span className="flex items-center gap-2">
           <span aria-hidden="true" className="size-2 rounded-full bg-muted-foreground/60" />
-          <span className="text-[15px] font-semibold text-foreground">
-            {isFunction ? 'Not published' : 'Not deployed'}
-          </span>
+          <span className="text-[15px] font-semibold text-foreground">Not deployed</span>
         </span>
         <span className="text-xs text-muted-foreground">
           {latest ? `v${latest.version} saved ${timeAgo(latest.at)}` : 'Nothing saved yet'}
@@ -127,15 +119,7 @@ function LiveAccounts({ live }: { live: BandLive[] }) {
   )
 }
 
-function TriggerColumn({
-  url,
-  live,
-  isFunction,
-}: {
-  url: string | null
-  live: boolean
-  isFunction: boolean
-}) {
+function TriggerColumn({ url, live }: { url: string | null; live: boolean }) {
   // Live, but the deployment gave no https URL to offer.
   if (!url && live) {
     return (
@@ -145,9 +129,7 @@ function TriggerColumn({
   if (!url) {
     return (
       <span className="text-xs text-muted-foreground">
-        {isFunction
-          ? 'The URL appears once the function is published.'
-          : 'The URL appears once the workflow is deployed.'}
+        The URL appears once the workflow is deployed.
       </span>
     )
   }
@@ -156,20 +138,8 @@ function TriggerColumn({
       <CopyUrl url={url} />
       {/* Runs are recorded when started from AwaitStep (▶ or the API), not by a POST to the worker. */}
       <span className="text-xs text-muted-foreground">
-        {isFunction
-          ? 'POST to call it.'
-          : 'POST to run it. Only runs started from AwaitStep show in Runs.'}
+        POST to run it. Only runs started from AwaitStep show in Runs.
       </span>
-    </>
-  )
-}
-
-/** A function's place for the day's traffic: nothing records its requests. */
-function RequestsColumn() {
-  return (
-    <>
-      <span className={LABEL}>Requests, 24h</span>
-      <span className="text-xs text-muted-foreground">Not recorded.</span>
     </>
   )
 }
