@@ -309,6 +309,37 @@ describe('DeployPage summary', () => {
   })
 })
 
+describe('DeployPage roll back', () => {
+  it('asks first when an older version replaces the live one, saying variables stay as they are now', async () => {
+    getDeployConnections.mockResolvedValue({ ...TWO, deployedWith: [liveOn('c-ownb84d', 14)] })
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Deploy v13' }))
+    const dialog = await screen.findByRole('alertdialog', { name: 'Roll back to v13?' })
+    expect(dialog).toHaveTextContent('with the variables as they are now')
+    expect(stream.startDeploy).not.toHaveBeenCalled()
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(stream.startDeploy).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Deploy v13' }))
+    await userEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Roll back to v13',
+      }),
+    )
+    expect(stream.startDeploy).toHaveBeenCalledWith('c-ownb84d', DEFAULTS)
+  })
+
+  it('deploys a newer version or a redeploy of the live one without asking', async () => {
+    getDeployConnections.mockResolvedValue({ ...TWO, deployedWith: [liveOn('c-ownb84d', 13)] })
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Deploy v13' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(stream.startDeploy).toHaveBeenCalledWith('c-ownb84d', DEFAULTS)
+  })
+})
+
 describe('DeployPage progress', () => {
   it('shows three phases while deploying, and keeps the account from changing', async () => {
     getDeployConnections.mockResolvedValue(TWO)
