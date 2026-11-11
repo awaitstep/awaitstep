@@ -20,12 +20,12 @@ import { FunctionCallDialog } from '../function-call-dialog'
 
 // Calling a live function from its page (24i).
 
-function live(id: string, name: string, version: number, url: string): LiveDeployment {
+function live(id: string, name: string, version: number, callable = true): LiveDeployment {
   return {
     id,
     name,
     deploymentId: `d-${id}`,
-    serviceUrl: url,
+    callable,
     versionId: `v-${version}`,
     version,
     versionLocked: false,
@@ -51,7 +51,7 @@ beforeEach(() => {
   const answer: DeployConnections = {
     connections: [],
     defaultId: null,
-    deployedWith: [live('c-prod', 'Acme production', 3, 'https://normalise.acme.workers.dev')],
+    deployedWith: [live('c-prod', 'Acme production', 3)],
   }
   getDeployConnections.mockResolvedValue(answer)
 })
@@ -70,7 +70,9 @@ describe('FunctionCallDialog', () => {
     })
     renderDialog()
     expect(await screen.findByText('v3, live on Acme production')).toBeVisible()
-    expect(screen.getByText('normalise.acme.workers.dev')).toBeVisible()
+    // The API's endpoint, never the worker's own URL (D-8).
+    expect(screen.getByText(/\/api\/run\/fn-1$/)).toBeVisible()
+    expect(document.body).not.toHaveTextContent('workers.dev')
     const body = screen.getByRole('textbox', { name: 'Body' })
     await userEvent.clear(body)
     await userEvent.type(body, '{{"address":"x"}')
@@ -83,7 +85,11 @@ describe('FunctionCallDialog', () => {
     expect(response).toHaveTextContent('200 OK')
     expect(response).toHaveTextContent('142 ms')
     expect(response).toHaveTextContent('"city": "Paris"')
-    expect(screen.getByText(/curl -X POST 'https:\/\/normalise\.acme\.workers\.dev'/)).toBeVisible()
+    const curl = screen.getByText(/^curl -X POST/)
+    expect(curl).toHaveTextContent(/\/api\/run\/fn-1' -H 'Authorization: Bearer <your key>'/)
+    // Alone, the account isn't named: the API uses the one it is live on.
+    expect(curl).not.toHaveTextContent('account=')
+    expect(curl).toHaveTextContent(`-d '{"address":"x"}'`)
     expect(screen.getByText('Calls the live version. Each call is kept in Runs.')).toBeVisible()
     // The call is one of the function's runs: it links there.
     expect(screen.getByRole('link', { name: 'Open this run →' })).toHaveAttribute(
@@ -124,14 +130,14 @@ describe('FunctionCallDialog', () => {
     )
   })
 
-  it('won’t send to a deployment without a URL, and says so', async () => {
+  it('won’t send to a deployment the server can’t call, and says so', async () => {
     getDeployConnections.mockResolvedValue({
       connections: [],
       defaultId: null,
-      deployedWith: [{ ...live('c-prod', 'Acme production', 3, ''), serviceUrl: null }],
+      deployedWith: [live('c-prod', 'Acme production', 3, false)],
     })
     renderDialog()
-    expect(await screen.findByText('This deployment has no URL to call.')).toBeVisible()
+    expect(await screen.findByText('This deployment has no URL AwaitStep can call.')).toBeVisible()
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled()
   })
 
@@ -139,10 +145,7 @@ describe('FunctionCallDialog', () => {
     getDeployConnections.mockResolvedValue({
       connections: [],
       defaultId: null,
-      deployedWith: [
-        live('c-prod', 'Acme production', 3, 'https://normalise.acme.workers.dev'),
-        live('c-stage', 'Checkout staging', 2, 'https://normalise.stage.workers.dev'),
-      ],
+      deployedWith: [live('c-prod', 'Acme production', 3), live('c-stage', 'Checkout staging', 2)],
     })
     callFunction.mockResolvedValue({
       ok: true,
@@ -161,5 +164,7 @@ describe('FunctionCallDialog', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Checkout staging' }))
     expect(screen.getByText('v2, live on Checkout staging')).toBeVisible()
     expect(screen.queryByText('prod answer')).not.toBeInTheDocument()
+    // With a choice, the curl names the account picked.
+    expect(screen.getByText(/^curl -X POST/)).toHaveTextContent('/api/run/fn-1?account=c-stage')
   })
 })

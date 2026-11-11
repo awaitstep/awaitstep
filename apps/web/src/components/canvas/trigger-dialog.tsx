@@ -3,17 +3,17 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { workflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
-import { Play, Copy, Check } from 'lucide-react'
+import { Play } from 'lucide-react'
 import { Button } from '../ui/button'
+import { CopyCommand } from '../ui/copy-command'
 import { FormField } from '../ui/form-field'
 import { ModalDialog } from '../ui/modal-dialog'
 import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { Tile } from '../ui/tile'
 import { runAction, failureLine } from '../../lib/action-toast'
-import { copyToClipboard } from '../../lib/utils'
+import { runCurl } from '../../lib/workflows/run-endpoint'
 import { useApi, useQueries } from '../../contexts/api-client-context'
-import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 
 interface WorkflowOption {
   id: string
@@ -23,7 +23,6 @@ interface WorkflowOption {
 interface TriggerDialogProps {
   onClose: () => void
   workflowId: string
-  deploymentId?: string
   /** When provided, shows a workflow selector (e.g. from the /runs page). */
   workflows?: WorkflowOption[]
 }
@@ -31,13 +30,10 @@ interface TriggerDialogProps {
 export function TriggerDialog({
   onClose,
   workflowId: initialWorkflowId,
-  deploymentId,
   workflows,
 }: TriggerDialogProps) {
   const api = useApi()
   const queries = useQueries()
-  const capabilities = useProviderCapabilities()
-  const runUrlTemplate = capabilities[0]?.runUrlTemplate
   const queryClient = useQueryClient()
   const goTo = useGoTo()
   const scope = useItemSlugs()
@@ -47,7 +43,6 @@ export function TriggerDialog({
   const [jsonError, setJsonError] = useState<string | null>(null)
   const [triggering, setTriggering] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [curlCopied, setCurlCopied] = useState(false)
 
   // A trigger may only name an account the workflow went out with (the API holds
   // it to that), whether or not the project still has it: its latest first.
@@ -107,19 +102,6 @@ export function TriggerDialog({
     }
   }, [api, connectionId, paramsJson, selectedWorkflowId, queryClient, onClose, goTo, scope])
 
-  const handleCopyCurl = useCallback(() => {
-    if (!deploymentId || !runUrlTemplate) return
-    const trimmed = paramsJson.trim()
-    const hasParams = trimmed && trimmed !== '{}'
-    const runUrl = runUrlTemplate.replace('{deploymentId}', deploymentId)
-    const curl = hasParams
-      ? `curl -X POST ${runUrl} \\\n  -H "Content-Type: application/json" \\\n  -d '${trimmed}'`
-      : `curl -X POST ${runUrl}`
-    copyToClipboard(curl)
-    setCurlCopied(true)
-    setTimeout(() => setCurlCopied(false), 2000)
-  }, [deploymentId, paramsJson, runUrlTemplate])
-
   function handleOpenChange(v: boolean) {
     if (!v && !triggering) onClose()
   }
@@ -130,6 +112,12 @@ export function TriggerDialog({
     deployedVersion != null
       ? `Runs v${deployedVersion}, the version deployed there.`
       : 'Runs the version deployed there.'
+
+  const curl = runCurl(selectedWorkflowId, {
+    // Named only when there is a choice: alone, it is the one used.
+    account: connections && connections.length > 1 ? connectionId : undefined,
+    body: paramsJson,
+  })
 
   return (
     <ModalDialog
@@ -204,29 +192,10 @@ export function TriggerDialog({
           />
         </FormField>
 
-        {deploymentId && (
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-foreground">Curl command</span>
-              <button
-                type="button"
-                onClick={handleCopyCurl}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                {curlCopied ? (
-                  <Check className="size-3 text-status-success" />
-                ) : (
-                  <Copy className="size-3" />
-                )}
-                {curlCopied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            <pre className="overflow-x-auto rounded-lg border border-border bg-muted/30 p-2.5 text-xs text-muted-foreground">
-              {runUrlTemplate
-                ? `curl -X POST ${runUrlTemplate.replace('{deploymentId}', deploymentId ?? '')}`
-                : 'Deployment URL unavailable'}
-            </pre>
-          </div>
+        {connections && connections.length > 0 && (
+          <FormField label="From another system" hint="POST with an API key that can run it.">
+            <CopyCommand command={curl} label="Copy the curl command" />
+          </FormField>
         )}
 
         {error && (

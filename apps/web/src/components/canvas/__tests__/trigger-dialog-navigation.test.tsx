@@ -21,7 +21,7 @@ const live = (id: string, name: string, version: number) => ({
   id,
   name,
   deploymentId: `d_${id}`,
-  serviceUrl: null,
+  callable: false,
   versionId: `v${version}`,
   version,
   versionLocked: false,

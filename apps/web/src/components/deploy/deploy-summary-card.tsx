@@ -4,6 +4,7 @@ import type { LiveDeployment } from '@awaitstep/ir'
 import { plural } from '../../lib/plural'
 import { timeAgo } from '../../lib/time'
 import { cn } from '../../lib/utils'
+import { runEndpoint } from '../../lib/workflows/run-endpoint'
 import { Button, buttonVariants } from '../ui/button'
 import { Bone } from '../ui/skeletons'
 import { OverviewCard } from '../workspaces/parts/overview-card'
@@ -11,6 +12,8 @@ import { RouterShellLink } from '../navigation/router-shell-link'
 import type { SettingChange } from './deploy-settings-model'
 
 interface DeploySummaryCardProps {
+  /** What the API runs at `/api/run/<id>`. */
+  workflowId: string
   /** The version this deploy sends. */
   version: number | undefined
   /** What is live on the chosen account; none on a first deploy there. */
@@ -47,8 +50,9 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-/** "What this deploy does" (25a): version, where it's served, the account, and what changes. */
+/** "What this deploy does" (25a): version, where it runs from, the account, and what changes. */
 export function DeploySummaryCard({
+  workflowId,
   version,
   live,
   accountName,
@@ -60,9 +64,7 @@ export function DeploySummaryCard({
   onDeploy,
 }: DeploySummaryCardProps) {
   const label = version !== undefined ? `${verb} v${version}` : verb
-  const servedAt = live?.serviceUrl
-    ? live.serviceUrl.replace(/^https?:\/\//, '')
-    : 'Shown after the first deploy'
+  const runsAt = runEndpoint(workflowId).replace(/^https?:\/\//, '')
   const disabled = pending || blockedReason !== undefined
   let foot: string | null = null
   if (blockedReason) foot = blockedReason
@@ -72,7 +74,7 @@ export function DeploySummaryCard({
     <OverviewCard title="What this deploy does">
       <div className="flex flex-col gap-3 px-5 py-4">
         <Row label="Version">{versionLine(version, live)}</Row>
-        <Row label="Served at">{servedAt}</Row>
+        <Row label="Runs at">{runsAt}</Row>
         <Row label="Account">{accountName ?? '—'}</Row>
       </div>
       <ChangesBlock live={live} changes={changes} />

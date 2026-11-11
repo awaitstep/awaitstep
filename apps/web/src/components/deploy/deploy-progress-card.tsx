@@ -23,8 +23,8 @@ interface DeployProgressCardProps {
   providerName: string
   startedAt: number | null
   finishedAt: number | null
-  /** The worker's URL once live, and the provider's page for it. */
-  url: string | undefined
+  /** What the API runs once it's live, and the provider's page for the worker. */
+  workflowId: string
   dashboardUrl: string | undefined
   kind: 'workflow' | 'script' | undefined
   error: string | null
@@ -117,9 +117,9 @@ export function DeployProgressCard(props: DeployProgressCardProps) {
           </li>
         ))}
       </ol>
-      {outcome === 'success' && props.url && (
+      {outcome === 'success' && (
         <LiveLinks
-          url={props.url}
+          workflowId={props.workflowId}
           dashboardUrl={props.dashboardUrl}
           kind={props.kind}
           providerName={props.providerName}

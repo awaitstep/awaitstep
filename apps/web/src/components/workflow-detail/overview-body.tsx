@@ -2,7 +2,6 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import type { WorkflowSummary } from '../../lib/api-client'
 import { flatPages } from '../../lib/queries'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
-import { workerUrl } from '../../lib/workflows/worker-url'
 import type { RunHour } from '../../types/dashboard/workspaces'
 import { RecentRunsCard } from './parts/recent-runs-card'
 import { StatusBand } from './parts/status-band'
@@ -52,13 +51,20 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
     version: l.version ?? undefined,
     account: l.name,
     at: l.deployedAt,
-    url: workerUrl(l.serviceUrl),
   }))
+  // The API calls the newest live deploy when no account is named.
+  const notCallable = workflow.kind === 'script' && overview.live[0]?.callable === false
   const liveVersionIds = new Set(overview.live.flatMap((l) => (l.versionId ? [l.versionId] : [])))
 
   return (
     <>
-      <StatusBand live={live} latest={latest} runs24h={runs24h} />
+      <StatusBand
+        workflowId={workflow.id}
+        notCallable={notCallable}
+        live={live}
+        latest={latest}
+        runs24h={runs24h}
+      />
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">
           <VersionsCard

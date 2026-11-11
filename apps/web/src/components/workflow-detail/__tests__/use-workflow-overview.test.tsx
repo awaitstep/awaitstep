@@ -12,7 +12,7 @@ const live = vi.hoisted(
     id,
     name: id,
     deploymentId: `d-${id}`,
-    serviceUrl: null,
+    callable: false,
     versionId,
     version,
     versionLocked,

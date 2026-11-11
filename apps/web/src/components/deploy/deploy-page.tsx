@@ -223,7 +223,7 @@ export function DeployPage({
             providerName={provider}
             startedAt={stream.startedAt}
             finishedAt={stream.finishedAt}
-            url={stream.result?.url}
+            workflowId={workflowId}
             dashboardUrl={stream.result?.dashboardUrl}
             kind={kind}
             error={stream.error}
@@ -235,6 +235,7 @@ export function DeployPage({
           />
         ) : (
           <DeploySummaryCard
+            workflowId={workflowId}
             version={version}
             live={live}
             accountName={selected?.name}

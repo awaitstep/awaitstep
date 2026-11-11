@@ -4,8 +4,9 @@ import { Play } from 'lucide-react'
 import { useApi, useQueries } from '../../contexts/api-client-context'
 import type { FunctionCallResponse } from '@awaitstep/codegen'
 import { failureLine } from '../../lib/action-toast'
-import { workerUrl } from '../../lib/workflows/worker-url'
+import { runCurl, runEndpoint } from '../../lib/workflows/run-endpoint'
 import { Badge } from '../ui/badge'
+import { CopyCommand } from '../ui/copy-command'
 import { ShellLink } from '../ui/shell-link'
 import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
@@ -13,9 +14,7 @@ import { ModalDialog } from '../ui/modal-dialog'
 import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { Tile } from '../ui/tile'
-import { useCopyStatus } from '../ui/use-copy-status'
-import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
-import { curlFor, jsonProblem, notCallableReason, prettyBody } from './function-call'
+import { jsonProblem, NOT_CALLABLE, prettyBody } from './function-call'
 
 interface FunctionCallDialogProps {
   workflowId: string
@@ -23,8 +22,6 @@ interface FunctionCallDialogProps {
   runHref: (runId: string) => string
   onClose: () => void
 }
-
-const COPY_LABEL = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' } as const
 
 function statusVariant(status: number): 'success' | 'error' | 'neutral' {
   if (status >= 200 && status < 300) return 'success'
@@ -34,8 +31,8 @@ function statusVariant(status: number): 'success' | 'error' | 'neutral' {
 
 /**
  * Call a live function (24i): POST a JSON body to it from the server and see
- * what it answers, with the curl to do the same. Each call is recorded as one
- * of the function's runs.
+ * what it answers, with the curl that makes the same call through the API
+ * (D-8). Each call is recorded as one of the function's runs.
  */
 export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCallDialogProps) {
   const api = useApi()
@@ -54,17 +51,14 @@ export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCal
     response: FunctionCallResponse
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const capabilities = useProviderCapabilities()
-  const url = workerUrl(target?.serviceUrl)
   const problem = jsonProblem(body)
-  // The account's provider says which URLs it calls; an account the project dropped has
-  // none to read, and the server still decides.
-  const provider = targets.data?.connections.find((c) => c.id === target?.id)?.provider
-  const callablePattern = capabilities.find((c) => c.id === provider)?.callableUrlPattern
-  const blocked = target ? notCallableReason(url, callablePattern) : null
+  // Which URLs the provider calls is the server's to decide: it sends `callable`.
+  const blocked = target && !target.callable ? NOT_CALLABLE : null
   const shown = answer && answer.connectionId === target?.id ? answer.response : null
-  const curl = url ? curlFor(url, body) : undefined
-  const copy = useCopyStatus(curl)
+  // The account is named only when there is a choice: alone, it is the one used.
+  const account = live.length > 1 ? target?.id : undefined
+  const endpoint = runEndpoint(workflowId)
+  const curl = target ? runCurl(workflowId, { account, body }) : undefined
 
   function handlePick(id: string) {
     setPicked(id)
@@ -74,10 +68,6 @@ export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCal
 
   function handleBodyChange(e: ChangeEvent<HTMLTextAreaElement>) {
     setBody(e.target.value)
-  }
-
-  function handleCopy() {
-    void copy.copy()
   }
 
   function handleOpenChange(open: boolean) {
@@ -157,13 +147,13 @@ export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCal
             />
           </FormField>
         )}
-        {url && (
+        {target && (
           <span className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
             <Badge variant="info" className="font-semibold tracking-wider">
               POST
             </Badge>
             <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
-              {url.replace(/^https:\/\//, '')}
+              {endpoint.replace(/^https?:\/\//, '')}
             </span>
           </span>
         )}
@@ -197,23 +187,7 @@ export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCal
             {error}
           </p>
         )}
-        {curl && (
-          <span className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
-            <code className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-muted-foreground">
-              {curl}
-            </code>
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="h-auto shrink-0 p-0 text-xs"
-              aria-label="Copy the curl command"
-              onClick={handleCopy}
-            >
-              {COPY_LABEL[copy.status]}
-            </Button>
-          </span>
-        )}
+        {curl && <CopyCommand command={curl} label="Copy the curl command" />}
       </div>
     </ModalDialog>
   )

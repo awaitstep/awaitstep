@@ -1,71 +1,29 @@
 import { ExternalLink } from 'lucide-react'
-import { Button } from '../ui/button'
-import { useCopyStatus } from '../ui/use-copy-status'
-
-const COPY_LABEL = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' } as const
-
-const BOX =
-  'flex min-w-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2'
+import { runCurl } from '../../lib/workflows/run-endpoint'
+import { CopyCommand } from '../ui/copy-command'
 
 interface LiveLinksProps {
-  url: string
+  workflowId: string
   /** The provider's page for the worker, when the deploy gave one. */
   dashboardUrl?: string
-  /** A function answers a POST with its return value; a workflow's handlers decide. */
+  /** A function answers with its own response; a workflow with the run it started. */
   kind?: 'workflow' | 'script'
   providerName: string
 }
 
 /**
- * Where it now runs (25e): the URL, and for a function the curl that calls
- * it. A workflow's fetch handler is its own code, so no command is promised.
+ * How it runs now (25e): the curl that runs it through the API with a key
+ * (D-8), recorded in Runs, and the provider's page for the worker.
  */
-export function LiveLinks({ url, dashboardUrl, kind, providerName }: LiveLinksProps) {
-  const curl = `curl -X POST ${url}`
-  const copy = useCopyStatus(curl)
-
-  function handleCopy() {
-    void copy.copy()
-  }
-
+export function LiveLinks({ workflowId, dashboardUrl, kind, providerName }: LiveLinksProps) {
   return (
     <div className="flex flex-col gap-2.5 border-t border-border px-5 py-3.5">
-      <span className={BOX}>
-        <span className="min-w-0 flex-1 truncate text-[12.5px] text-foreground">
-          {url.replace(/^https?:\/\//, '')}
-        </span>
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex shrink-0 items-center gap-1 text-[12.5px] font-medium text-status-success"
-        >
-          Open
-          <ExternalLink aria-hidden="true" className="size-3" />
-        </a>
+      <CopyCommand command={runCurl(workflowId)} label="Copy the curl command" />
+      <span className="text-xs text-muted-foreground">
+        {kind === 'script'
+          ? 'Answers with the function’s own response. Each call shows in Runs.'
+          : 'Answers with the run it started. Each run shows in Runs.'}
       </span>
-      {kind === 'script' && (
-        <>
-          <span className={BOX}>
-            <code className="min-w-0 flex-1 truncate font-mono text-[11.5px] text-foreground">
-              {curl}
-            </code>
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="h-auto shrink-0 p-0 text-xs"
-              aria-label="Copy the curl command"
-              onClick={handleCopy}
-            >
-              {COPY_LABEL[copy.status]}
-            </Button>
-          </span>
-          <span className="text-xs text-muted-foreground">
-            The response body is the function’s return value.
-          </span>
-        </>
-      )}
       {dashboardUrl && (
         <a
           href={dashboardUrl}
@@ -96,7 +54,7 @@ export function FailureDetails({ error, heading, untouchedVersion }: FailureDeta
       <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {heading}
       </span>
-      <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-status-error/30 bg-background px-3 py-2.5 font-mono text-[11.5px] leading-relaxed text-status-error">
+      <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-status-error/30 bg-background px-3 py-2.5 font-mono text-sm leading-relaxed text-status-error">
         {error ?? 'The deploy failed without a reason.'}
       </pre>
       {untouchedVersion !== null && (
