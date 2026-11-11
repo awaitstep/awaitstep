@@ -17,7 +17,9 @@ function RunRoute() {
   const { id, runId, ...slugs } = Route.useParams()
   return (
     <ItemPage slugs={slugs} workflowId={id} page="run">
-      {() => <RunDetail runId={runId} workflowId={id} />}
+      {({ workflow }) => (
+        <RunDetail slugs={slugs} runId={runId} workflowId={id} kind={workflow.kind} />
+      )}
     </ItemPage>
   )
 }

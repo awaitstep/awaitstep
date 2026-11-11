@@ -1,5 +1,5 @@
 import { eq, and, asc, sql } from 'drizzle-orm'
-import type { RunStepsResult, UpsertRunStepData } from '../types.js'
+import type { RunStepExtras, RunStepsResult, UpsertRunStepData } from '../types.js'
 import { latestDeploymentSnapshot } from './deployment-snapshot.js'
 import { atomically } from './atomic.js'
 import { chunked, rowsPerInsert } from './statement-params.js'
@@ -35,6 +35,9 @@ export class RunStepsAdapter {
       error: s.error ?? null,
       startedAt: s.startedAt ?? null,
       endedAt: s.endedAt ?? null,
+      output: s.output ?? null,
+      outputTruncated: s.outputTruncated ? 1 : 0,
+      attempts: s.attempts ?? null,
       createdAt: now,
       updatedAt: now,
     }))
@@ -53,6 +56,9 @@ export class RunStepsAdapter {
               error: sql`excluded.error`,
               startedAt: sql`excluded.started_at`,
               endedAt: sql`excluded.ended_at`,
+              output: sql`excluded.output`,
+              outputTruncated: sql`excluded.output_truncated`,
+              attempts: sql`excluded.attempts`,
               updatedAt: sql`excluded.updated_at`,
             },
           }),
@@ -72,8 +78,27 @@ export class RunStepsAdapter {
     const runs = this.runsTable
     const deployments = this.deploymentsTable
     const snapshotExpr = latestDeploymentSnapshot(deployments, runs)
+    const t = this.table
     const rows = await this.db
-      .select({ step: this.table, configSnapshot: snapshotExpr })
+      .select({
+        // The list's columns: a step's output and tries are read when it is selected.
+        step: {
+          id: t.id,
+          runId: t.runId,
+          nodeId: t.nodeId,
+          stepName: t.stepName,
+          kind: t.kind,
+          stepIndex: t.stepIndex,
+          status: t.status,
+          attemptCount: t.attemptCount,
+          error: t.error,
+          startedAt: t.startedAt,
+          endedAt: t.endedAt,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
+        },
+        configSnapshot: snapshotExpr,
+      })
       .from(this.table)
       .innerJoin(runs, eq(this.table.runId, runs.id))
       .where(and(eq(this.table.runId, runId), eq(runs.workflowId, workflowId)))
@@ -82,6 +107,30 @@ export class RunStepsAdapter {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       steps: rows.map((r: any) => r.step),
       configSnapshot: rows[0]?.configSnapshot ?? null,
+    }
+  }
+
+  /** One step's output and tries — only when the step is that run's and the run that workflow's. */
+  async getExtras(
+    stepId: string,
+    runId: string,
+    workflowId: string,
+  ): Promise<RunStepExtras | null> {
+    const t = this.table
+    const runs = this.runsTable
+    const rows = await this.db
+      .select({ output: t.output, outputTruncated: t.outputTruncated, attempts: t.attempts })
+      .from(t)
+      .innerJoin(runs, eq(t.runId, runs.id))
+      .where(and(eq(t.id, stepId), eq(t.runId, runId), eq(runs.workflowId, workflowId)))
+      .limit(1)
+    const row = rows[0] as
+      { output: string | null; outputTruncated: unknown; attempts: string | null } | undefined
+    if (!row) return null
+    return {
+      output: row.output,
+      outputTruncated: row.outputTruncated === 1 || row.outputTruncated === true,
+      attempts: row.attempts,
     }
   }
 }

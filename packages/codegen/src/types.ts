@@ -96,6 +96,12 @@ export interface ProviderConfig {
 export interface DeployResult {
   success: boolean
   deploymentId: string
+  /**
+   * The workflow's name as this deploy gave it to the provider, which its runs
+   * are found under (the provider applies its own naming rule to it, as at
+   * deploy). Absent for a function.
+   */
+  deployedName?: string
   url?: string
   dashboardUrl?: string
   error?: string
@@ -162,6 +168,17 @@ export interface RunStepDetail {
   start?: string
   end?: string
   attemptCount: number
+  error?: { name: string; message: string }
+  /** What the step returned, when it finished and the provider reports it. */
+  output?: unknown
+  /** Each try of the step, oldest first: when it ran and why it failed. */
+  attempts?: RunStepAttempt[]
+}
+
+/** One try of a durable step. */
+export interface RunStepAttempt {
+  start?: string
+  end?: string
   error?: { name: string; message: string }
 }
 
@@ -247,6 +264,41 @@ export interface DeploymentConfigPreview {
   filename: string
   content: Record<string, unknown>
 }
+
+/** One call of a deployed function (24i): a POST of `body` to its URL. */
+export interface FunctionCallRequest {
+  /** The deployment's URL, as the deploy recorded it. */
+  url: string
+  /** Sent as is, with `content-type: application/json`. */
+  body: string
+}
+
+/**
+ * The function's answer, or why there is none: `refused` when its URL isn't
+ * one the provider will call from the server, `failed` when the call didn't
+ * get an answer (timeout, network).
+ */
+export type FunctionCallResult =
+  | {
+      ok: true
+      status: number
+      statusText: string
+      durationMs: number
+      contentType: string | null
+      body: string
+      /** The body was longer than the provider reads; `body` is its start. */
+      truncated: boolean
+    }
+  | { ok: false; kind: 'refused' | 'failed'; reason: string }
+
+/**
+ * `POST /workflows/:id/call`'s answer: the function's response, or why none
+ * came (no answer in time, unreachable), with the run the call was recorded
+ * as. A URL it won't call is a 400 instead, and records nothing.
+ */
+export type FunctionCallResponse = (
+  Extract<FunctionCallResult, { ok: true }> | { ok: false; reason: string }
+) & { runId: string }
 
 /** `GET /workflows/:id/deploy-config/:connectionId`: the settings Deploy starts from. */
 export interface DeployConfigResponse {

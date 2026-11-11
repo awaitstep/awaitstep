@@ -4,6 +4,7 @@ import type {
   WorkflowVersion,
   Connection,
   ConnectionListRow,
+  ActiveRunForSync,
   WorkflowRun,
   WorkflowRunStep,
   WorkflowFile,
@@ -26,6 +27,7 @@ import type {
   AuditEventInsert,
   PersonAuditInsert,
   NotificationInsert,
+  RunTrigger,
 } from '@awaitstep/db'
 import type {
   GeneratedBundle,
@@ -349,6 +351,59 @@ function liveByAccount(workflowId: string): Deployment[] {
     (a, b) =>
       b.createdAt.localeCompare(a.createdAt) || a.connectionId!.localeCompare(b.connectionId!),
   )
+}
+
+/** The active runs' sync rows, picked as the SQL picks them. */
+function syncEntries(): ActiveRunForSync[] {
+  const terminal = new Set(['complete', 'errored', 'terminated'])
+  return [...store.runs.values()]
+    .filter((r) => !terminal.has(r.status))
+    .map((run) => {
+      // As the SQL picks it: this version's deploys that went out, the run's own account
+      // first, newest first.
+      const deployment = [...store.deployments.values()]
+        .filter(
+          (d) =>
+            d.workflowId === run.workflowId &&
+            d.versionId === run.versionId &&
+            (d.status === 'success' || d.status === 'taken_down'),
+        )
+        .sort((a, b) => {
+          const own =
+            Number(b.connectionId === run.connectionId) -
+            Number(a.connectionId === run.connectionId)
+          return own !== 0 ? own : a.createdAt < b.createdAt ? 1 : -1
+        })[0]
+      return {
+        run,
+        workflowName: store.workflows.get(run.workflowId)?.name ?? '',
+        deployedName: run.deployedName ?? deployment?.deployedName ?? null,
+        configSnapshot: deployment?.configSnapshot ?? null,
+        place: syncPlace(run.workflowId),
+      }
+    })
+}
+
+/** One run's sync row, whether or not it has ended. */
+function syncEntry(runId: string, workflowId: string): ActiveRunForSync | null {
+  const run = store.runs.get(runId)
+  if (!run || run.workflowId !== workflowId) return null
+  const [entry] = syncEntries().filter((e) => e.run.id === runId)
+  return (
+    entry ?? {
+      run,
+      workflowName: store.workflows.get(run.workflowId)?.name ?? '',
+      // A run that ended keeps its own name, as the SQL reads it for any run.
+      deployedName: run.deployedName ?? null,
+      configSnapshot: null,
+      place: syncPlace(run.workflowId),
+    }
+  )
+}
+
+/** A run as the store holds it, for tests to look at after a call. */
+export function storedRun(id: string): WorkflowRun | null {
+  return store.runs.get(id) ?? null
 }
 
 const mockDb: DatabaseAdapter = {
@@ -1081,6 +1136,7 @@ const mockDb: DatabaseAdapter = {
           ...connection,
           deployedVersionId: newest.versionId,
           deployedVersionNumber: newest.versionNumber,
+          deployedName: newest.deployedName ?? null,
         }
       : null
   },
@@ -1088,6 +1144,22 @@ const mockDb: DatabaseAdapter = {
     const connection = store.connections.get(id)
     if (!connection || connection.organizationId !== organizationId) return null
     return { connection, covered: true }
+  },
+  async getLiveService(id, organizationId, workflowId) {
+    const connection = store.connections.get(id)
+    if (!connection || connection.organizationId !== organizationId) return null
+    const newest = [...store.deployments.values()]
+      .filter((d) => d.workflowId === workflowId && d.connectionId === id && d.status === 'success')
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      .at(-1)
+    return newest
+      ? {
+          provider: connection.provider,
+          serviceUrl: newest.serviceUrl ?? null,
+          versionId: newest.versionId,
+          versionNumber: newest.versionNumber,
+        }
+      : null
   },
   async getDeployConfigFor(id, organizationId, _projectId, workflowId) {
     const connection = store.connections.get(id)
@@ -1203,16 +1275,69 @@ const mockDb: DatabaseAdapter = {
   async createRun(data) {
     const r: WorkflowRun = {
       ...data,
-      output: null,
-      error: null,
-      createdAt: now(),
-      updatedAt: now(),
+      deployedName: data.deployedName ?? null,
+      trigger: data.trigger ?? null,
+      params: data.params ?? null,
+      responseStatus: data.responseStatus ?? null,
+      durationMs: data.durationMs ?? null,
+      output: data.output ?? null,
+      error: data.error ?? null,
+      createdAt: data.createdAt ?? now(),
+      updatedAt: data.updatedAt ?? data.createdAt ?? now(),
     }
     store.runs.set(r.id, r)
     return r
   },
-  async getWorkflowRunById(id) {
-    return store.runs.get(id) ?? null
+  async listActiveRunsForSyncWithAccounts() {
+    return syncEntries().map((entry) => {
+      const connection = entry.run.connectionId
+        ? store.connections.get(entry.run.connectionId)
+        : undefined
+      const owner = store.workflows.get(entry.run.workflowId)
+      const sameOrg =
+        connection &&
+        (!owner?.projectId ||
+          connection.organizationId ===
+            (store.projects.get(owner.projectId)?.organizationId ?? connection.organizationId))
+      return { entry, connection: sameOrg ? connection! : null }
+    })
+  },
+  async getRunForSyncWithAccount(runId, workflowId, organizationId) {
+    const entry = syncEntry(runId, workflowId)
+    if (!entry) return null
+    const connection = entry.run.connectionId
+      ? store.connections.get(entry.run.connectionId)
+      : undefined
+    return {
+      entry,
+      connection: connection && connection.organizationId === organizationId ? connection : null,
+    }
+  },
+  async getRunDetail(runId, workflowId) {
+    const run = store.runs.get(runId)
+    if (!run || run.workflowId !== workflowId) return null
+    const { deployedName: _internal, params, ...detail } = run
+    return { ...detail, trigger: detail.trigger as RunTrigger | null, hasParams: params !== null }
+  },
+  async getRunParams(runId, workflowId, connectionId) {
+    const run = store.runs.get(runId)
+    if (!run || run.workflowId !== workflowId) return null
+    if (connectionId !== undefined && run.connectionId !== connectionId) return null
+    return { params: run.params }
+  },
+  async getRunControl(runId, workflowId, organizationId) {
+    const entry = syncEntry(runId, workflowId)
+    if (!entry) return null
+    const { run } = entry
+    const connection = run.connectionId ? store.connections.get(run.connectionId) : undefined
+    return {
+      runId: run.id,
+      status: run.status,
+      instanceId: run.instanceId,
+      connectionId: run.connectionId,
+      deployedName: entry.deployedName ?? null,
+      connection: connection && connection.organizationId === organizationId ? connection : null,
+    }
   },
   async listRunsByWorkflow(workflowId) {
     return {
@@ -1242,42 +1367,6 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
-  async listActiveRunsForSync() {
-    const terminal = new Set(['complete', 'errored', 'terminated'])
-    return [...store.runs.values()]
-      .filter((r) => !terminal.has(r.status))
-      .map((run) => {
-        const deployment = [...store.deployments.values()]
-          .filter(
-            (d) =>
-              d.workflowId === run.workflowId &&
-              d.versionId === run.versionId &&
-              d.status === 'success',
-          )
-          .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
-        return {
-          run,
-          workflowName: store.workflows.get(run.workflowId)?.name ?? '',
-          configSnapshot: deployment?.configSnapshot ?? null,
-          place: syncPlace(run.workflowId),
-        }
-      })
-  },
-
-  async getRunForSync(runId, workflowId) {
-    const run = store.runs.get(runId)
-    if (!run || run.workflowId !== workflowId) return null
-    const [entry] = (await this.listActiveRunsForSync()).filter((e) => e.run.id === runId)
-    return (
-      entry ?? {
-        run,
-        workflowName: store.workflows.get(run.workflowId)?.name ?? '',
-        configSnapshot: null,
-        place: syncPlace(run.workflowId),
-      }
-    )
-  },
-
   // Run steps
   async upsertRunSteps(runId, steps) {
     for (const s of steps) {
@@ -1295,9 +1384,23 @@ const mockDb: DatabaseAdapter = {
         error: s.error ?? null,
         startedAt: s.startedAt ?? null,
         endedAt: s.endedAt ?? null,
+        output: s.output ?? null,
+        outputTruncated: s.outputTruncated ? 1 : 0,
+        attempts: s.attempts ?? null,
         createdAt: existing?.createdAt ?? now(),
         updatedAt: now(),
       })
+    }
+  },
+  async getRunStepExtras(stepId, runId, workflowId) {
+    const run = store.runs.get(runId)
+    if (!run || run.workflowId !== workflowId) return null
+    const step = [...store.runSteps.values()].find((s) => s.id === stepId && s.runId === runId)
+    if (!step) return null
+    return {
+      output: step.output,
+      outputTruncated: step.outputTruncated === 1,
+      attempts: step.attempts,
     }
   },
   async listRunSteps(runId, workflowId) {
@@ -1311,7 +1414,9 @@ const mockDb: DatabaseAdapter = {
           d.status === 'success',
       )
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
-    const steps = [...store.runSteps.values()].filter((s) => s.runId === runId)
+    const steps = [...store.runSteps.values()]
+      .filter((s) => s.runId === runId)
+      .map(({ output: _o, outputTruncated: _t, attempts: _a, ...row }) => row)
     return {
       steps,
       // The adapter's scalar subquery rides on step rows: no rows, no snapshot.
@@ -1552,6 +1657,7 @@ const mockDb: DatabaseAdapter = {
       versionNumber: data.versionNumber ?? null,
       connectionId: data.connectionId ?? null,
       serviceUrl: data.serviceUrl ?? null,
+      deployedName: data.deployedName ?? null,
       error: data.error ?? null,
       configSnapshot: data.configSnapshot ?? null,
       createdBy: data.createdBy ?? null,

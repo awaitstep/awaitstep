@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Lock, Pencil, Play } from 'lucide-react'
 import type { WorkflowSummary } from '../../lib/api-client'
-import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
+import { runPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { TriggerDialog } from '../canvas/trigger-dialog'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
@@ -13,6 +13,7 @@ import { Button, buttonVariants } from '../ui/button'
 import { LinkTabs, type LinkTab } from '../ui/link-tabs'
 import { StatusPill } from '../ui/status-pill'
 import { FUNCTION_BADGE_TITLE } from '../workflows/function-copy'
+import { FunctionCallDialog } from './function-call-dialog'
 import { ItemActionsMenu } from './item-actions-menu'
 import { useLockDeployed } from './use-lock-deployed'
 import type { WorkflowOverview } from './use-workflow-overview'
@@ -32,7 +33,8 @@ interface ItemHeaderProps {
 
 /**
  * A workflow or function's head (boards `WorkflowDetail`, `FunctionDetail`):
- * its name and state, Open editor · Deploy · Trigger · ⋯, the lock banner,
+ * its name and state, Open editor · Deploy · Trigger (a function: Open editor · Call ·
+ * Publish) · ⋯, the lock banner,
  * and its Overview/Runs/Deployments tabs. Both kinds read the same.
  */
 export function ItemHeader({
@@ -52,6 +54,8 @@ export function ItemHeader({
   // A run has its own actions.
   const showActions = page !== 'run'
   const editorHref = links.editor(workflow.currentVersionId ? 'ide' : 'canvas')
+  const callTitle = overview.hasActiveDeployment ? 'Call this function' : 'Publish it first'
+  const triggerTitle = overview.hasActiveDeployment ? 'Trigger a run' : 'Deploy it first'
 
   function handleOpenTrigger() {
     setTriggerOpen(true)
@@ -59,6 +63,10 @@ export function ItemHeader({
 
   function handleCloseTrigger() {
     setTriggerOpen(false)
+  }
+
+  function runHrefFor(runId: string) {
+    return runPath(slugs, workflow, runId)
   }
 
   const tabs: LinkTab[] = [
@@ -114,30 +122,41 @@ export function ItemHeader({
               <Pencil aria-hidden="true" className="size-3.5" />
               Open editor
             </RouterShellLink>
+            {/* A function is called, between the editor and Publish (24i); a workflow is triggered. */}
+            {isFunction && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                title={callTitle}
+                disabled={!overview.hasActiveDeployment}
+                onClick={handleOpenTrigger}
+              >
+                <Play aria-hidden="true" className="size-3.5" />
+                Call
+              </Button>
+            )}
             <DeployButton
               workflowId={workflow.id}
               currentVersionId={workflow.currentVersionId}
               kind={workflow.kind}
               deployBlocked={overview.deployBlocked}
             />
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="size-8"
-              aria-label="Trigger a run"
-              title={
-                isFunction
-                  ? 'Functions run when called at their URL'
-                  : overview.hasActiveDeployment
-                    ? 'Trigger a run'
-                    : 'Deploy it first'
-              }
-              disabled={isFunction || !overview.hasActiveDeployment}
-              onClick={handleOpenTrigger}
-            >
-              <Play aria-hidden="true" className="size-3.5" />
-            </Button>
+            {!isFunction && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-8"
+                aria-label="Trigger a run"
+                title={triggerTitle}
+                disabled={!overview.hasActiveDeployment}
+                onClick={handleOpenTrigger}
+              >
+                <Play aria-hidden="true" className="size-3.5" />
+              </Button>
+            )}
             <ItemActionsMenu
               slugs={slugs}
               workflow={workflow}
@@ -155,7 +174,16 @@ export function ItemHeader({
         />
       )}
       <LinkTabs label="Item pages" tabs={tabs} activeKey={tabKey(page)} />
-      {triggerOpen && <TriggerDialog workflowId={workflow.id} onClose={handleCloseTrigger} />}
+      {triggerOpen &&
+        (isFunction ? (
+          <FunctionCallDialog
+            workflowId={workflow.id}
+            runHref={runHrefFor}
+            onClose={handleCloseTrigger}
+          />
+        ) : (
+          <TriggerDialog workflowId={workflow.id} onClose={handleCloseTrigger} />
+        ))}
     </div>
   )
 }

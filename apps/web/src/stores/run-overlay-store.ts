@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
-export type StepStatus = 'complete' | 'running' | 'errored' | 'pending' | 'skipped'
+/** `timed_out`: a wait whose event never came; the run went on down its timeout path. */
+export type StepStatus = 'complete' | 'running' | 'errored' | 'timed_out' | 'pending' | 'skipped'
 
 interface RunOverlayState {
   active: boolean

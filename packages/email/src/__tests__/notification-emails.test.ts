@@ -49,6 +49,24 @@ describe('renderRunFailedEmail', () => {
   })
 })
 
+describe('a failed function call', () => {
+  it('says a call to the function failed, with what it answered', async () => {
+    const mail = await renderRunFailedEmail({
+      url: 'https://app.test/x',
+      workflowName: 'CRM Sync',
+      stepName: null,
+      placeName: 'Project 101 · Sales',
+      call: true,
+      errorMessage: 'Answered 500',
+    })
+    expect(mail.subject).toBe('A call to CRM Sync failed')
+    expect(mail.text).toContain('A call to CRM Sync in Project 101 · Sales failed.')
+    expect(mail.text).toContain('Function')
+    expect(mail.text).toContain('Answered 500')
+    expect(mail.text).not.toContain('A run of')
+  })
+})
+
 describe('names that look like patterns', () => {
   it('keeps $ sequences and tokens in a name as typed', async () => {
     const { html, text } = await renderRunFailedEmail({

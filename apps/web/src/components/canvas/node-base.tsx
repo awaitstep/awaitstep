@@ -47,6 +47,7 @@ const STATUS_STYLES: Record<string, string> = {
   complete: 'border-status-success/60 shadow-[0_0_6px_oklch(0.72_0.14_155/0.2)]',
   running: 'border-status-info/60 shadow-[0_0_6px_oklch(0.7_0.1_230/0.2)] animate-pulse',
   errored: 'border-status-error/60 shadow-[0_0_6px_oklch(0.68_0.17_22/0.2)]',
+  timed_out: 'border-status-warning/60 shadow-[0_0_6px_oklch(0.8_0.15_80/0.2)]',
   pending: 'border-border opacity-60',
   skipped: 'border-border/50 opacity-30',
 }
@@ -101,7 +102,9 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
             stepStatus === 'complete' && 'bg-status-success',
             stepStatus === 'running' && 'bg-status-info animate-pulse',
             stepStatus === 'errored' && 'bg-status-error',
+            stepStatus === 'timed_out' && 'bg-status-warning',
           )}
+          title={stepStatus === 'timed_out' ? 'Timed out waiting for the event' : undefined}
         />
       )}
 

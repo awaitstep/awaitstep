@@ -13,6 +13,8 @@ import type {
 import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import { deploymentPageRecord } from '../lib/list-records.js'
+import { runDetailRecord } from '../lib/run-records.js'
+import { callFunction } from './function-call.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError, CONNECTION_NOT_SERVING } from '../lib/deploy-prepare.js'
 import { deployConnections } from '../lib/connection-fields.js'
@@ -47,6 +49,12 @@ const triggerSchema = z.object({
       message: `Trigger params must be under ${MAX_TRIGGER_PARAMS_BYTES / 1024} KB`,
     }),
 })
+
+/** A deploy's result as the page reads it: the name runs are found under stays with the row. */
+function deployAnswer(result: DeployResult): Omit<DeployResult, 'deployedName'> {
+  const { deployedName: _stored, ...answer } = result
+  return answer
+}
 
 export const deploy = new Hono<AppEnv>()
 
@@ -119,6 +127,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     connectionId,
     serviceName: result.deploymentId || '',
     serviceUrl: result.url,
+    deployedName: result.deployedName,
     status: result.success ? 'success' : 'failed',
     error: result.error,
     configSnapshot: deploymentSnapshot,
@@ -148,7 +157,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     await tellSharedDeploy(c, workflow, prepared.versionNumber)
   }
 
-  return c.json(result, result.success ? 200 : 500)
+  return c.json(deployAnswer(result), result.success ? 200 : 500)
 })
 
 deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), async (c) => {
@@ -232,6 +241,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       connectionId,
       serviceName: result.deploymentId || '',
       serviceUrl: result.url,
+      deployedName: result.deployedName,
       status: result.success ? 'success' : 'failed',
       error: result.error,
       configSnapshot: deploymentSnapshot,
@@ -264,7 +274,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     await stream.writeSSE({
       id: String(eventId++),
       event: 'result',
-      data: JSON.stringify(result),
+      data: JSON.stringify(deployAnswer(result)),
     })
   })
 })
@@ -432,11 +442,62 @@ deploy.get('/:workflowId/deployments', zValidator('query', paginationQuerySchema
 })
 
 deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c) => {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  const body = c.req.valid('json')
+  const { connectionId, params } = c.req.valid('json')
+  return startRun(c, workflow, connectionId, async () => ({ params }))
+})
+
+/**
+ * Starts a run again with the payload the given run was started with, on the
+ * account it ran on (the client sends it; the run must have been started there).
+ * A function's run is a call, and is called again with the same body.
+ */
+deploy.post(
+  '/:workflowId/runs/:runId/run-again',
+  zValidator('json', z.object({ connectionId: z.string().min(1) })),
+  async (c) => {
+    const db = c.get('db')
+    const workflow = c.get('workflow')
+    if (!workflow) return c.json({ error: 'Not found' }, 404)
+    const { connectionId } = c.req.valid('json')
+    const runId = c.req.param('runId')
+    // A function's run is a call: call it again with the body it was sent.
+    if (workflow.kind === 'script') {
+      return callFunction(c, workflow, connectionId, async () => {
+        const row = await db.getRunParams(runId, workflow.id, connectionId)
+        if (!row) return null
+        return callBody(row.params)
+      })
+    }
+    return startRun(c, workflow, connectionId, async () => {
+      const row = await db.getRunParams(runId, workflow.id, connectionId)
+      if (!row) return null
+      return { params: row.params === null ? undefined : (JSON.parse(row.params) as unknown) }
+    })
+  },
+)
+
+/** A call's kept payload as the body to send again: JSON text as kept, a kept string as itself. */
+function callBody(params: string | null): string {
+  if (params === null) return ''
+  const value = JSON.parse(params) as unknown
+  return typeof value === 'string' ? value : params
+}
+
+/**
+ * Starts one run of `workflow` on `connectionId` and records it, with how it
+ * was started and its payload. `readPayload` runs alongside the account reads;
+ * null from it means the run to repeat isn't there.
+ */
+async function startRun(
+  c: Context<AppEnv>,
+  workflow: Workflow,
+  connectionId: string,
+  readPayload: () => Promise<{ params: unknown } | null>,
+) {
+  const db = c.get('db')
+  const organizationId = c.get('organizationId')
 
   if (workflow.kind === 'script') {
     return c.json(
@@ -450,10 +511,12 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
 
   // Only a connection this workflow was deployed with: the Cloudflare workflow is
   // found by name, so any other account could hold another project's of that name.
-  const [connection, storedDeployConfig] = await Promise.all([
-    db.getConnectionDeployedWith(body.connectionId, organizationId, workflow.id),
-    db.getDeploymentConfig(workflow.id, body.connectionId),
+  const [connection, storedDeployConfig, payload] = await Promise.all([
+    db.getConnectionDeployedWith(connectionId, organizationId, workflow.id),
+    db.getDeploymentConfig(workflow.id, connectionId),
+    readPayload(),
   ])
+  if (!payload) return c.json({ error: 'Run not found' }, 404)
   if (!connection) {
     return c.json({ error: 'This workflow isn’t deployed with that connection' }, 404)
   }
@@ -473,17 +536,19 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
       /* corrupt JSON — use defaults */
     }
   }
+  // The name it was deployed under there, so a rename since doesn't lose it.
+  const deployedName = connection.deployedName ?? workflow.name
   const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
   const config = {
     provider: connection.provider,
     credentials: triggerCreds,
     options: {
-      workflowName: workflow.name,
+      workflowName: deployedName,
       ...(deploymentConfig !== undefined && { deploymentConfig }),
     },
   }
 
-  const { instanceId } = await adapter.trigger(workflow.id, body.params, config)
+  const { instanceId } = await adapter.trigger(workflow.id, payload.params, config)
 
   const run = await db.createRun({
     id: nanoid(),
@@ -491,13 +556,18 @@ deploy.post('/:workflowId/trigger', zValidator('json', triggerSchema), async (c)
     // What that account runs, not the latest save.
     versionId: connection.deployedVersionId,
     versionNumber: connection.deployedVersionNumber,
-    connectionId: body.connectionId,
+    connectionId,
     instanceId,
+    // Found again under this name, whatever is deployed or renamed later.
+    deployedName,
+    trigger: c.get('apiKey') ? 'api' : 'dashboard',
+    // Kept so the run page can show it and start the run again (already capped at 100 KB).
+    params: payload.params === undefined ? null : JSON.stringify(payload.params),
     status: 'queued',
   })
 
-  return c.json(run, 201)
-})
+  return c.json(runDetailRecord(run), 201)
+}
 
 deploy.post(
   '/:workflowId/takedown',

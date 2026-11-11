@@ -4,7 +4,8 @@ export const httpRequestDefinition: NodeDefinition = {
   id: 'http_request',
   name: 'HTTP Request',
   version: '1.0.0',
-  description: 'Make an HTTP API call.',
+  description:
+    'Make an HTTP API call. A reply that isn’t 2xx, or no reply, fails it; put it in a Try/Catch to handle that (the catch reads inputs.error.status).',
   category: 'HTTP',
   author: 'awaitstep',
   license: 'Apache-2.0',

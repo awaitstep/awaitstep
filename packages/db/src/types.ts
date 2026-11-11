@@ -167,6 +167,95 @@ export type Connection = InferSelectModel<typeof connections>
 export type DeployedConnection = Connection & {
   deployedVersionId: string | null
   deployedVersionNumber: number | null
+  /** The provider's name for what is live there; null on rows from before it was recorded. */
+  deployedName: string | null
+}
+
+/** One run's sync row with its account, read together; `connection` only when it is the organization's. */
+export interface RunSyncTarget {
+  entry: ActiveRunForSync
+  /** Credentials decrypted; null when the run has no account, or it isn't the organization's. */
+  connection: Connection | null
+}
+
+/** A run as its own page and the trigger's answer show it: explicit columns, no provider internals. */
+export interface RunDetail {
+  id: string
+  workflowId: string
+  versionId: string | null
+  versionNumber: number | null
+  connectionId: string | null
+  instanceId: string
+  status: string
+  output: string | null
+  error: string | null
+  /** How it was started; null on runs from before it was kept. */
+  trigger: RunTrigger | null
+  /** Whether its start payload was kept (read it with getRunParams). */
+  hasParams: boolean
+  /** A function call's HTTP status; null for workflow runs and calls with no answer. */
+  responseStatus: number | null
+  /** A function call's measured time; null for workflow runs. */
+  durationMs: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** How a run was started: from the dashboard, or by an API key. */
+export type RunTrigger = 'dashboard' | 'api'
+
+/** A run to record: a workflow run as it starts, or a function call once it has answered. */
+export interface CreateRunData {
+  id: string
+  workflowId: string
+  versionId: string | null
+  /** The version's number, kept on the run once the version is deleted. */
+  versionNumber: number | null
+  connectionId: string
+  instanceId: string
+  /** The name the provider started it under. */
+  deployedName?: string | null
+  /** How it was started. */
+  trigger?: RunTrigger | null
+  /** The payload it was started with, as JSON text (a call's body as sent). */
+  params?: string | null
+  status: string
+  /** A finished call's reply / why it failed; runs get theirs from sync. */
+  output?: string | null
+  error?: string | null
+  /** A call's HTTP status (null when no answer came) and its measured time. */
+  responseStatus?: number | null
+  durationMs?: number | null
+  /** When it started and last changed; now when left out. */
+  createdAt?: string
+  updatedAt?: string
+}
+
+/**
+ * What pausing, resuming or terminating a run needs, read together: the run,
+ * the name the provider knows its workflow by, and its account — only when
+ * that account is the organization's (null `connection` otherwise).
+ */
+export interface RunControlTarget {
+  runId: string
+  status: string
+  instanceId: string
+  /** The run's account, as the run recorded it; null when it has none. */
+  connectionId: string | null
+  /** The run's own record, else its deploy's; null on rows from before either was kept. */
+  deployedName: string | null
+  /** Credentials decrypted; null when the run has no account, or it isn't the organization's. */
+  connection: Connection | null
+}
+
+/** Where a workflow is live on one account: its provider and the URL it answers at. */
+export interface LiveService {
+  provider: string
+  /** Null when the deploy gave no URL. */
+  serviceUrl: string | null
+  /** The version live there: its id (null once deleted) and number. */
+  versionId: string | null
+  versionNumber: number | null
 }
 
 /** How many of an organization's workflows use an installed node in their current version. */
@@ -400,11 +489,28 @@ export interface UpsertRunStepData {
   error?: string | null
   startedAt?: string | null
   endedAt?: string | null
+  /** What it returned, as JSON text, cut at the stored size. */
+  output?: string | null
+  outputTruncated?: boolean
+  /** Its tries, oldest first, as JSON text. */
+  attempts?: string | null
+}
+
+/** A step as the run's list shows it: no output or attempts (those are read one step at a time). */
+export type RunStepListRow = Omit<WorkflowRunStep, 'output' | 'outputTruncated' | 'attempts'>
+
+/** One step's output and tries, read when it is selected. */
+export interface RunStepExtras {
+  /** JSON text, or null when nothing was returned (or not yet). */
+  output: string | null
+  outputTruncated: boolean
+  /** JSON text of `[{ start, end, error }]`, oldest first; null when none was reported. */
+  attempts: string | null
 }
 
 /** A run's step rows plus the deployed version's config snapshot (manifest carrier). */
 export interface RunStepsResult {
-  steps: WorkflowRunStep[]
+  steps: RunStepListRow[]
   configSnapshot: string | null
 }
 
@@ -417,7 +523,11 @@ export interface RunStepsResult {
 export interface ActiveRunForSync {
   run: WorkflowRun
   workflowName: string
-  /** The deployed service name; null before a deployment row exists. */
+  /**
+   * The name the provider knows the run's workflow by — the run's own record,
+   * else its deploy's (not the worker's name). Null for runs and deploys from
+   * before it was kept: the workflow's current name stands in.
+   */
   deployedName?: string | null
   configSnapshot: string | null
   /** Where the workflow lives, for the Inbox when a run fails. Null parts where none is set. */

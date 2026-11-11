@@ -209,15 +209,11 @@ describe('ItemPage', () => {
     )
   })
 
-  it('marks the Runs tab on a single run', () => {
+  it.each(['deploy', 'run'] as const)('lets the %s page head itself: no item tabs', (page) => {
     enterScope()
     settled({ workflow: { id: 'wf_1', name: 'Lead enrichment', kind: 'workflow' } })
-    renderPage('run')
-    const tabs = screen.getByRole('navigation', { name: 'Item pages' })
-    expect(within(tabs).getByRole('link', { name: /^Runs/ })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
+    renderPage(page)
+    expect(screen.queryByRole('navigation', { name: 'Item pages' })).not.toBeInTheDocument()
   })
 
   it('gives a function the same tabs and Deploy action as a workflow (FunctionDetail)', () => {
@@ -233,12 +229,9 @@ describe('ItemPage', () => {
         .getAllByRole('link')
         .map((a) => a.textContent),
     ).toEqual(['Overview', 'Runs 128', 'Deployments 2'])
-    // The action is the same; those calls aren't recorded, so it says so.
-    expect(screen.getByRole('button', { name: 'Trigger a run' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Trigger a run' })).toHaveAttribute(
-      'title',
-      'Functions run when called at their URL',
-    )
+    // A function is called, not triggered (24i).
+    expect(screen.queryByRole('button', { name: 'Trigger a run' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Call' })).toBeVisible()
     expect(screen.getByText('Function')).toBeVisible()
     expect(screen.queryByText('Shared with the project')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Deploy' })).toBeVisible()

@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import type { AppEnv } from '../types.js'
@@ -7,8 +7,9 @@ import { zValidator } from '../lib/validation.js'
 import { coalescedMembers, parseStepManifest } from '../lib/step-manifest.js'
 import { syncRunById } from '../lib/run-sync.js'
 import { diffRunDetail } from '../lib/run-events.js'
-import type { WorkflowRunDetail } from '@awaitstep/codegen'
-import { runPageRecord } from '../lib/run-records.js'
+import type { WorkflowProvider, WorkflowRunDetail } from '@awaitstep/codegen'
+import { RunGoneError } from '@awaitstep/codegen'
+import { runPageRecord, runStepExtrasRecord } from '../lib/run-records.js'
 
 export const runs = new Hono<AppEnv>()
 
@@ -30,8 +31,9 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const run = await db.getWorkflowRunById(c.req.param('runId'))
-  if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
+  // The workflow is checked in the read itself, and only the page's columns come back.
+  const run = await db.getRunDetail(c.req.param('runId'), workflow.id)
+  if (!run) return c.json({ error: 'Run not found' }, 404)
   return c.json(run)
 })
 
@@ -55,6 +57,33 @@ runs.get('/:workflowId/runs/:runId/steps', async (c) => {
   })
 })
 
+/** The payload a run was started with; `params` is null when it had none or wasn't kept. */
+runs.get('/:workflowId/runs/:runId/params', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+  const row = await db.getRunParams(c.req.param('runId'), workflow.id)
+  if (!row) return c.json({ error: 'Run not found' }, 404)
+  return c.json({ params: row.params === null ? null : (JSON.parse(row.params) as unknown) })
+})
+
+/**
+ * One step's output and tries, read when the step is selected so the list
+ * stays small. The step must be that run's and the run that workflow's — one
+ * statement checks both. A cut output can't be parsed, so it comes back as
+ * `outputPreview` text with `outputTruncated: true` and `output: null`.
+ */
+runs.get('/:workflowId/runs/:runId/steps/:stepId', async (c) => {
+  const db = c.get('db')
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+  const extras = await db.getRunStepExtras(c.req.param('stepId'), c.req.param('runId'), workflow.id)
+  if (!extras) return c.json({ error: 'Step not found' }, 404)
+  return c.json(runStepExtrasRecord(extras))
+})
+
 const STREAM_TICK_MS = 2_000
 const STREAM_MAX_MS = 10 * 60_000
 const TERMINAL_RUN_STATUSES = new Set(['complete', 'errored', 'terminated'])
@@ -76,8 +105,8 @@ runs.get('/:workflowId/runs/:runId/stream', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const runId = c.req.param('runId')
 
-  const run = await db.getWorkflowRunById(runId)
-  if (!run || run.workflowId !== workflow.id) return c.json({ error: 'Run not found' }, 404)
+  // Only that it is this workflow's run: the workflow is checked in the read.
+  if (!(await db.getRunDetail(runId, workflow.id))) return c.json({ error: 'Run not found' }, 404)
 
   return streamSSE(c, async (stream) => {
     let open = true
@@ -93,14 +122,16 @@ runs.get('/:workflowId/runs/:runId/stream', async (c) => {
     while (open && Date.now() - startedAt < STREAM_MAX_MS) {
       let detail: WorkflowRunDetail | null
       try {
-        detail = await syncRunById(db, runId, workflow.id, { emails: c.get('emails') })
+        detail = await syncRunById(db, runId, workflow.id, c.get('organizationId'), {
+          emails: c.get('emails'),
+        })
       } catch (err) {
         await send('error', { message: err instanceof Error ? err.message : String(err) })
         return
       }
       if (!detail) {
-        // No connection to reach the provider through — nothing will ever
-        // change on this stream.
+        // No connection to reach the provider through, or the provider no
+        // longer has the run — nothing will ever change on this stream.
         await send('done', {})
         return
       }
@@ -118,95 +149,67 @@ runs.get('/:workflowId/runs/:runId/stream', async (c) => {
   })
 })
 
-runs.post('/:workflowId/runs/:runId/pause', async (c) => {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const workflow = c.get('workflow')
-  if (!workflow) return c.json({ error: 'Not found' }, 404)
-
-  const entry = await db.getRunForSync(c.req.param('runId'), workflow.id)
-  const run = entry?.run
-  if (!run) return c.json({ error: 'Run not found' }, 404)
-  if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
-
-  const connection = await db.getProviderConnectionById(run.connectionId)
-  if (!connection || connection.organizationId !== organizationId)
-    return c.json({ error: 'Connection not found' }, 404)
-
-  const adapter = resolveProvider(connection.provider)
-  if (!adapter.controlRun) {
-    return c.json({ error: `${adapter.name} does not support run control` }, 501)
+/**
+ * Pauses, resumes or terminates a run on its provider. Answers the gone error
+ * when the provider no longer has it (so the route can say so instead of a
+ * 500); anything else it throws, as before.
+ */
+async function controlOrGone(
+  adapter: WorkflowProvider,
+  action: 'pause' | 'resume' | 'terminate',
+  input: Parameters<NonNullable<WorkflowProvider['controlRun']>>[1],
+): Promise<RunGoneError | null> {
+  try {
+    await adapter.controlRun!(action, input)
+    return null
+  } catch (err) {
+    if (err instanceof RunGoneError) return err
+    throw err
   }
-  await adapter.controlRun('pause', {
-    workflowName: entry?.deployedName ?? workflow.name,
-    instanceId: run.instanceId,
-    config: {
-      provider: connection.provider,
-      credentials: JSON.parse(connection.credentials) as Record<string, string>,
-    },
-  })
-  await db.updateRun(run.id, { status: 'paused' })
-  return c.json({ ok: true })
-})
+}
 
-runs.post('/:workflowId/runs/:runId/resume', async (c) => {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const workflow = c.get('workflow')
-  if (!workflow) return c.json({ error: 'Not found' }, 404)
+const CONTROLLED_STATUS = { pause: 'paused', resume: 'running', terminate: 'terminated' } as const
 
-  const entry = await db.getRunForSync(c.req.param('runId'), workflow.id)
-  const run = entry?.run
-  if (!run) return c.json({ error: 'Run not found' }, 404)
-  if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
+/**
+ * Pause, resume or terminate a run on its provider, then record the status
+ * that follows. The run, the name its workflow is known by there, and its
+ * account (only when it is the organization's) come from one read.
+ */
+function controlRoute(action: keyof typeof CONTROLLED_STATUS) {
+  return async (c: Context<AppEnv>) => {
+    const db = c.get('db')
+    const workflow = c.get('workflow')
+    if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const connection = await db.getProviderConnectionById(run.connectionId)
-  if (!connection || connection.organizationId !== organizationId)
-    return c.json({ error: 'Connection not found' }, 404)
+    const target = await db.getRunControl(
+      c.req.param('runId')!,
+      workflow.id,
+      c.get('organizationId'),
+    )
+    if (!target) return c.json({ error: 'Run not found' }, 404)
+    if (!target.connectionId || !target.instanceId) return c.json({ error: 'No connection' }, 400)
+    const { connection } = target
+    if (!connection) return c.json({ error: 'Connection not found' }, 404)
 
-  const adapter = resolveProvider(connection.provider)
-  if (!adapter.controlRun) {
-    return c.json({ error: `${adapter.name} does not support run control` }, 501)
+    const adapter = resolveProvider(connection.provider)
+    if (!adapter.controlRun) {
+      return c.json({ error: `${adapter.name} does not support run control` }, 501)
+    }
+    const gone = await controlOrGone(adapter, action, {
+      workflowName: target.deployedName ?? workflow.name,
+      instanceId: target.instanceId,
+      config: {
+        provider: connection.provider,
+        credentials: JSON.parse(connection.credentials) as Record<string, string>,
+      },
+    })
+    // Gone from the provider: it can't be paused or resumed; a terminate stands, it has stopped.
+    if (gone && action !== 'terminate') return c.json({ error: gone.message }, 409)
+    await db.updateRun(target.runId, { status: CONTROLLED_STATUS[action] })
+    return c.json({ ok: true })
   }
-  await adapter.controlRun('resume', {
-    workflowName: entry?.deployedName ?? workflow.name,
-    instanceId: run.instanceId,
-    config: {
-      provider: connection.provider,
-      credentials: JSON.parse(connection.credentials) as Record<string, string>,
-    },
-  })
-  await db.updateRun(run.id, { status: 'running' })
-  return c.json({ ok: true })
-})
+}
 
-runs.post('/:workflowId/runs/:runId/terminate', async (c) => {
-  const db = c.get('db')
-  const organizationId = c.get('organizationId')
-  const workflow = c.get('workflow')
-  if (!workflow) return c.json({ error: 'Not found' }, 404)
-
-  const entry = await db.getRunForSync(c.req.param('runId'), workflow.id)
-  const run = entry?.run
-  if (!run) return c.json({ error: 'Run not found' }, 404)
-  if (!run.connectionId || !run.instanceId) return c.json({ error: 'No connection' }, 400)
-
-  const connection = await db.getProviderConnectionById(run.connectionId)
-  if (!connection || connection.organizationId !== organizationId)
-    return c.json({ error: 'Connection not found' }, 404)
-
-  const adapter = resolveProvider(connection.provider)
-  if (!adapter.controlRun) {
-    return c.json({ error: `${adapter.name} does not support run control` }, 501)
-  }
-  await adapter.controlRun('terminate', {
-    workflowName: entry?.deployedName ?? workflow.name,
-    instanceId: run.instanceId,
-    config: {
-      provider: connection.provider,
-      credentials: JSON.parse(connection.credentials) as Record<string, string>,
-    },
-  })
-  await db.updateRun(run.id, { status: 'terminated' })
-  return c.json({ ok: true })
-})
+runs.post('/:workflowId/runs/:runId/pause', controlRoute('pause'))
+runs.post('/:workflowId/runs/:runId/resume', controlRoute('resume'))
+runs.post('/:workflowId/runs/:runId/terminate', controlRoute('terminate'))

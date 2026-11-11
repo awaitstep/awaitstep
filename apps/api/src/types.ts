@@ -78,6 +78,10 @@ export interface RunFailedEmail {
   placeName: string
   projectName?: string
   workspaceName?: string
+  /** A call to a function failed, not a workflow run. */
+  call?: boolean
+  /** What went wrong, e.g. "Answered 500" or why no answer came. */
+  errorMessage?: string
 }
 
 /** How the app sends mail; the entry points decide with what, and may log instead. */

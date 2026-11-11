@@ -74,7 +74,7 @@ export interface UnifiedTopBarProps {
   /** Why the viewer can't edit, when it is a permission rather than an old version. */
   accessBadge?: { label: string; title: string }
   save: TopBarSave
-  /** Canvas only. The Code surface has no Deploy; its slot stays empty so ⋯ does not move. */
+  /** The surface's Deploy action. Without one its slot stays empty so ⋯ does not move. */
   deploy?: TopBarDeploy
   menu: TopBarMenuItem[][]
 }
@@ -84,7 +84,7 @@ export interface UnifiedTopBarProps {
  * the Canvas | Code switch in the middle, view toggles and workflow actions on
  * the right. Both routes remount when you switch, so the zones sit on the same
  * pixels and the move reads as changing view rather than loading a page.
- * Only the toggles, the history controls and Deploy differ between surfaces.
+ * Only the toggles and the history controls differ between surfaces.
  *
  * Room is a grid of three columns: the name's column takes what is left and
  * truncates first, the switch sits in the middle, and the actions column is

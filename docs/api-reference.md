@@ -1804,7 +1804,68 @@ with; any other answers `404`
 
 Created instances use the **instance retention** settings from the workflow's stored deployment config for that connection (`retention.successRetention` / `retention.errorRetention`, a duration like `"7 days"` or milliseconds). When unset, AwaitStep applies a 7-day default for both instead of the Cloudflare account maximum — retained instance state bills at $0.20/GB-month past the included 1 GB. Cloudflare caps retention at the plan maximum (3 days Free, 30 days Paid).
 
-> **Scripts (kind: "script")** have no instance lifecycle — they are stateless fetch-only Workers. Calling this endpoint on a script returns 400. Invoke the deployed Worker URL directly via HTTP POST instead. See [Scripts → Invocation](#invocation) for the request/response shape.
+> **Scripts (kind: "script")** have no instance lifecycle — they are stateless fetch-only Workers. Calling this endpoint on a script returns 400. Invoke the deployed Worker URL directly via HTTP POST, or use [`POST /workflows/:workflowId/call`](#post-workflowsworkflowidcall). See [Scripts → Invocation](#invocation) for the request/response shape.
+
+### `POST /workflows/:workflowId/call`
+
+Call a deployed function (`kind: "script"`) from the dashboard: the server POSTs
+`body` to the URL the function is live at on that connection, with
+`content-type: application/json`, and answers what came back. Every call made
+here is recorded as one of the function's runs (`runId` in the answer):
+`status` `complete` for a 2xx answer, else `errored` (`error` `{"name":"HttpStatus",…}`,
+or `{"name":"CallFailed",…}` when no answer came), with `responseStatus`,
+`durationMs`, the body sent as its payload (`GET …/runs/:runId/params`) and the
+answer (first 64 KB) as its `output`. A failed call tells the function's watchers,
+as a failed run does. Requests sent straight to the function's URL don't pass
+through AwaitStep and aren't recorded.
+
+Only the function's own `https://<name>.workers.dev` address is called — a
+route or custom-domain URL answers `400`
+`{ "error": "Only a workers.dev URL can be called from here." }` (the provider's
+`capabilities.callableUrlPattern` from `GET /providers` says which URLs it
+takes). Redirects are answered as they come, never followed. The call gives up
+after 30 s and reads at most 100 KB of the answer (`truncated: true` past that).
+The body is capped at 100 KB (`422`). Calls share the per-user write limit
+(30 a minute, `429` past it), as triggers do.
+
+**Permission:** `workflows:run`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Function ID |
+
+```json
+{
+  "connectionId": "connection-id",
+  "body": "{\"address\": \"12 Rue de Rivoli, Paris\"}"
+}
+```
+
+The function answered (`200`), whatever its own status:
+
+```json
+{
+  "ok": true,
+  "status": 200,
+  "statusText": "OK",
+  "durationMs": 142,
+  "contentType": "application/json",
+  "body": "{\"city\":\"Paris\"}",
+  "truncated": false,
+  "runId": "run_7"
+}
+```
+
+No answer — it timed out or couldn't be reached — is also `200`, with the reason:
+
+```json
+{ "ok": false, "reason": "The function didn’t answer within 30 s.", "runId": "run_8" }
+```
+
+Refused before calling, and not recorded: a workflow `400` (trigger it instead); a connection the
+function isn't live on `404` `{ "error": "This function isn’t live on that account" }`;
+a deployment without a URL `400` `{ "error": "This deployment has no URL to call" }`;
+a provider that can't call functions `400`.
 
 ### `POST /workflows/:workflowId/takedown`
 
@@ -1878,6 +1939,53 @@ Get a specific run. Run status is reconciled from the provider by a background s
 | `workflowId` | path | yes      | Workflow ID |
 | `runId`      | path | yes      | Run ID      |
 
+A run of another workflow answers `404`. The run object (also the `201` answer of
+`POST …/trigger`):
+
+```json
+{
+  "id": "run_1",
+  "workflowId": "wf_1",
+  "versionId": "ver_5",
+  "versionNumber": 5,
+  "connectionId": "con_1",
+  "instanceId": "inst_1",
+  "status": "running",
+  "output": null,
+  "error": null,
+  "trigger": "dashboard",
+  "hasParams": true,
+  "responseStatus": null,
+  "durationMs": null,
+  "createdAt": "2026-11-11T10:00:00.000Z",
+  "updatedAt": "2026-11-11T10:00:02.000Z"
+}
+```
+
+`trigger` is how the run was started — `dashboard` (a signed-in person) or `api` (an
+API key) — and `null` on runs from before it was kept. `hasParams` says whether the
+payload it was started with was kept; read it with `GET …/runs/:runId/params`.
+
+A run its provider no longer has (its workflow taken down or deleted there, its
+records cleared) is closed by the sync loop as `errored`, once it is more than a
+minute old and hadn't ended, with `error` `{"name":"RunGoneError","message":…}`;
+one whose account was deleted, or no longer belongs to its workflow's
+organization, with `{"name":"AccountGone","message":"The account this run used is no longer available."}`.
+
+### `GET /workflows/:workflowId/runs/:runId/params`
+
+The payload the run was started with, as sent to `POST …/trigger`:
+`{ "params": { … } }`, or `{ "params": null }` when it had none or was started
+before payloads were kept. A run of another workflow answers `404`
+`{ "error": "Run not found" }`.
+
+**Permission:** `runs:read`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
+
 ### `GET /workflows/:workflowId/runs/:runId/steps`
 
 Per-step telemetry for a run, collected by the background sync loop: each durable step's label, kind (`do` / `sleep` / `waitForEvent` / `rollback`), status, timing, attempt count, and last error. Steps are attributed to canvas nodes (`nodeId`) through the step manifest recorded at deploy time; generated step labels are derived from node ids, so attribution survives node renames. Loop iterations appear as separate entries (`stepIndex` is the 1-based occurrence per label). Coalesced steps (adjacent plain nodes merged into one billable step) report one record attributed to the group's leader node; the response's `coalescedInto` map (`memberNodeId → leaderNodeId`, read from the deploy manifest) links each member node to that leader, so UIs can show members as having run inside the leader's step. Response shape: `{ data: RunStep[], coalescedInto: Record<string, string> }`. Returns an empty list for runs synced before a manifest-bearing deploy existed or when no steps have been reported yet.
@@ -1888,6 +1996,38 @@ Per-step telemetry for a run, collected by the background sync loop: each durabl
 | ------------ | ---- | -------- | ----------- |
 | `workflowId` | path | yes      | Workflow ID |
 | `runId`      | path | yes      | Run ID      |
+
+### `GET /workflows/:workflowId/runs/:runId/steps/:stepId`
+
+One step's output and tries, as the sync loop last read them from the provider. The step list leaves these out so it stays small; read them when a step is selected. `stepId` is the `id` of an entry from `GET …/steps`.
+
+**Permission:** `runs:read`
+
+| Param        | In   | Required | Description                 |
+| ------------ | ---- | -------- | --------------------------- |
+| `workflowId` | path | yes      | Workflow ID                 |
+| `runId`      | path | yes      | Run ID                      |
+| `stepId`     | path | yes      | Step ID from the steps list |
+
+**Response:**
+
+```json
+{
+  "output": { "sent": 3 },
+  "outputTruncated": false,
+  "outputPreview": null,
+  "attempts": [
+    {
+      "start": "2026-11-11T13:04:12.000Z",
+      "end": "2026-11-11T13:04:13.000Z",
+      "error": { "name": "Error", "message": "CRM answered 503" }
+    },
+    { "start": "2026-11-11T13:04:18.000Z", "end": "2026-11-11T13:04:19.000Z" }
+  ]
+}
+```
+
+`output` is `null` when the step returned nothing (or hasn't finished). Outputs over 64 KB of JSON are cut: then `output` is `null`, `outputTruncated` is `true`, and `outputPreview` holds the first 64 KB as text. `attempts` is empty when the provider reported none. A step that isn't in that run, or a run that isn't in that workflow, answers `404 { "error": "Step not found" }`.
 
 ### `GET /workflows/:workflowId/runs/:runId/stream`
 
@@ -1901,7 +2041,7 @@ Live run events as a Server-Sent Events stream. Each tick (every 2s while the ru
 | `timeout` | `{}`                                          | 10 minutes elapsed; reconnect to keep streaming        |
 | `error`   | `{ message }`                                 | The provider could not be reached; the stream closes   |
 
-Clients should keep polling `GET …/steps` as the floor and treat the stream as acceleration — on any close, resume polling or reconnect. The stream ends immediately with `done` for runs with no provider connection.
+Clients should keep polling `GET …/steps` as the floor and treat the stream as acceleration — on any close, resume polling or reconnect. The stream ends immediately with `done` for runs with no provider connection, or that the provider no longer has.
 
 **Permission:** `runs:read`
 
@@ -1912,7 +2052,11 @@ Clients should keep polling `GET …/steps` as the floor and treat the stream as
 
 ### `POST /workflows/:workflowId/runs/:runId/pause`
 
-Pause a running workflow instance.
+Pause a running workflow instance. Pause, resume and terminate answer `404`
+`{ "error": "Run not found" }` for another workflow's run, `400` `{ "error": "No connection" }`
+for a run with no account, `404` `{ "error": "Connection not found" }` when its account
+isn't the caller's organization's, and — when the provider no longer has the run —
+`409` with the reason for pause and resume, while terminate records it as terminated.
 
 **Permission:** `workflows:run`
 
@@ -1942,6 +2086,28 @@ Terminate a running or paused workflow instance.
 | ------------ | ---- | -------- | ----------- |
 | `workflowId` | path | yes      | Workflow ID |
 | `runId`      | path | yes      | Run ID      |
+
+### `POST /workflows/:workflowId/runs/:runId/run-again`
+
+Start a new run with the payload the given run was started with, on the same
+account. `connectionId` must be the account that run was started on — any other,
+or a run of another workflow, answers `404` `{ "error": "Run not found" }` — and
+the workflow must still be deployed there (`404`
+`{ "error": "This workflow isn’t deployed with that connection" }` otherwise). It
+runs what that account has deployed now. Answers `201` with the new run object.
+For a function the run is a call: it is called again with the same body, and the
+answer is the call's (`200`, as `POST …/call` answers, with the new `runId`).
+
+**Permission:** `workflows:run`
+
+| Param        | In   | Required | Description |
+| ------------ | ---- | -------- | ----------- |
+| `workflowId` | path | yes      | Workflow ID |
+| `runId`      | path | yes      | Run ID      |
+
+```json
+{ "connectionId": "con_1" }
+```
 
 ---
 

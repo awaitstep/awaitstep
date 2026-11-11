@@ -60,8 +60,9 @@ interface ItemPageProps {
 export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
   const source = useDataSource()
   const ready = useItemScopeReady() && source === 'api'
-  // Deploy shows none of the summary (runs, counts): it isn't asked for there.
-  const overview = useWorkflowOverview(workflowId, ready, page !== 'deploy')
+  // Deploy and a run head themselves (25a, 26a): none of the summary (runs, counts) is asked for.
+  const ownHead = page === 'deploy' || page === 'run'
+  const overview = useWorkflowOverview(workflowId, ready, !ownHead)
   const { workflow, summary } = overview
   const inOtherWorkspace = useInOtherWorkspace(workflow)
   const accounts = useDeploymentAccounts(workflowId, ready)
@@ -109,8 +110,8 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
     const neverDeployed = draft === true
     body = (
       <>
-        {/* Deploy heads itself (25a): a title and the version, no tabs or actions. */}
-        {page !== 'deploy' && (
+        {/* Deploy and a run head themselves (25a, 26a): no tabs or item actions. */}
+        {!ownHead && (
           <ItemHeader
             slugs={slugs}
             workflow={workflow}

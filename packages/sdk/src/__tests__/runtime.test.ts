@@ -5,6 +5,8 @@ import {
   createWorkflowContext,
   defineFunction,
   httpRequest,
+  HttpError,
+  HTTP_ERROR_BODY_LIMIT,
   defineWorkflow,
   durableStep,
   isWorkflowTimeoutError,
@@ -593,25 +595,66 @@ describe('httpRequest', () => {
     expect(calls[0]!.init?.headers).toEqual({ 'content-type': 'application/vnd.test+json' })
   })
 
-  it('rejects when the response is not JSON', async () => {
-    globalThis.fetch = vi.fn(
-      async () => new Response('<html>nope</html>', { status: 200 }),
-    ) as unknown as typeof fetch
-    await expect(httpRequest({ url: 'https://api.test' })).rejects.toThrow()
+  function reply(body: string | null, init: ResponseInit) {
+    globalThis.fetch = vi.fn(async () => new Response(body, init)) as unknown as typeof fetch
+  }
+
+  it('returns a 2xx page that isn’t JSON as its text', async () => {
+    reply('<!doctype html><title>Google</title>', {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' },
+    })
+    await expect(httpRequest({ url: 'https://google.test' })).resolves.toBe(
+      '<!doctype html><title>Google</title>',
+    )
   })
 
-  it('returns a non-2xx body as the value: the status is not checked', async () => {
-    // The node's value has always been the parsed body; a 404 with a JSON
-    // payload is a value, not a failure. Callers that want the status to fail
-    // the step must check it themselves.
-    globalThis.fetch = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ error: 'missing' }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-    ) as unknown as typeof fetch
-    await expect(httpRequest({ url: 'https://api.test' })).resolves.toEqual({ error: 'missing' })
+  it('reads +json types as JSON, and an empty reply as null', async () => {
+    reply('{"a":1}', { status: 200, headers: { 'Content-Type': 'application/problem+json' } })
+    await expect(httpRequest({ url: 'https://api.test' })).resolves.toEqual({ a: 1 })
+    reply(null, { status: 204 })
+    await expect(httpRequest({ url: 'https://api.test' })).resolves.toBeNull()
+  })
+
+  it('keeps the text when a reply says JSON and isn’t', async () => {
+    reply('not json', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    await expect(httpRequest({ url: 'https://api.test' })).resolves.toBe('not json')
+  })
+
+  it('throws a readable HttpError on a reply that isn’t 2xx, with its status and body', async () => {
+    reply('error code: 1016\n', { status: 530 })
+    const error = await httpRequest({ url: 'https://api.example.com' }).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(HttpError)
+    expect(error).toMatchObject({
+      name: 'HttpError',
+      method: 'GET',
+      url: 'https://api.example.com/',
+      status: 530,
+      body: 'error code: 1016\n',
+      message: 'GET https://api.example.com/ answered 530: error code: 1016',
+    })
+  })
+
+  it('names the status text and keeps a long body cut', async () => {
+    reply('x'.repeat(HTTP_ERROR_BODY_LIMIT + 50), { status: 404, statusText: 'Not Found' })
+    const error = (await httpRequest({ url: 'https://api.test', method: 'DELETE' }).catch(
+      (e: unknown) => e,
+    )) as HttpError
+    expect(error.message.startsWith('DELETE https://api.test/ answered 404 Not Found: xxx')).toBe(
+      true,
+    )
+    expect(error.body).toHaveLength(HTTP_ERROR_BODY_LIMIT)
+  })
+
+  it('throws an HttpError with status 0 when no reply comes', async () => {
+    globalThis.fetch = vi.fn(async () => {
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof fetch
+    await expect(httpRequest({ url: 'https://nowhere.test' })).rejects.toMatchObject({
+      name: 'HttpError',
+      status: 0,
+      message: 'GET https://nowhere.test/ failed: fetch failed',
+    })
   })
 
   it('is reachable as flow.http', async () => {

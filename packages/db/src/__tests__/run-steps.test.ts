@@ -17,14 +17,16 @@ function createTestDb() {
     INSERT INTO organization VALUES ('org-1', 'Acme', 'acme');
     INSERT INTO projects VALUES ('p-1', 'org-1', 'Project 101', 'project-101');
     INSERT INTO workspaces VALUES ('ws-1', 'p-1', 'Sales', 'sales');
+    CREATE TABLE connections (id text PRIMARY KEY, organization_id text NOT NULL, created_by text, provider text NOT NULL, name text NOT NULL, credentials text NOT NULL, all_projects integer, token_status text NOT NULL DEFAULT 'unchecked', token_expires_at text, token_checked_at text, project_id text, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, current_version_id text, created_by text, created_at text NOT NULL, updated_at text NOT NULL, position integer, archived_at text, deleted_at text);
-    CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, version_number integer, connection_id text, instance_id text NOT NULL, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
-    CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text, version_number integer, connection_id text, service_name text NOT NULL, service_url text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
+    CREATE TABLE workflow_runs (id text PRIMARY KEY, workflow_id text NOT NULL REFERENCES workflows(id) ON DELETE CASCADE, version_id text, version_number integer, connection_id text, instance_id text NOT NULL, deployed_name text, trigger text, params text, response_status integer, duration_ms integer, status text NOT NULL DEFAULT 'queued', output text, error text, created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE deployments (id text PRIMARY KEY, workflow_id text NOT NULL, version_id text, version_number integer, connection_id text, service_name text NOT NULL, service_url text, deployed_name text, status text NOT NULL, error text, created_at text NOT NULL, config_snapshot text);
     CREATE TABLE workflow_run_steps (
       id text PRIMARY KEY, run_id text NOT NULL REFERENCES workflow_runs(id) ON DELETE CASCADE,
       node_id text, step_name text NOT NULL, kind text NOT NULL, step_index integer NOT NULL DEFAULT 1,
       status text NOT NULL, attempt_count integer NOT NULL DEFAULT 1, error text,
-      started_at text, ended_at text, created_at text NOT NULL, updated_at text NOT NULL
+      started_at text, ended_at text, output text, output_truncated integer NOT NULL DEFAULT 0, attempts text,
+      created_at text NOT NULL, updated_at text NOT NULL
     );
     CREATE UNIQUE INDEX idx_workflow_run_steps_identity ON workflow_run_steps (run_id, step_name, kind, step_index);
   `)
@@ -35,6 +37,11 @@ function createTestDb() {
     sqliteSchema,
   )
   return { adapter, sqlite, params }
+}
+
+/** The sync loop's rows without their accounts. */
+async function activeEntries(adapter: DrizzleDatabaseAdapter) {
+  return (await adapter.listActiveRunsForSyncWithAccounts()).map((r) => r.entry)
 }
 
 function seedRun(sqlite: Database.Database, runId: string, status = 'running') {
@@ -127,7 +134,7 @@ describe('RunStepsAdapter', () => {
     )
     await adapter.upsertRunSteps('run-1', [step()])
     expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"own":true}')
-    expect((await adapter.listActiveRunsForSync())[0]!.configSnapshot).toBe('{"own":true}')
+    expect((await activeEntries(adapter))[0]!.configSnapshot).toBe('{"own":true}')
     // Taken down on conn-1: the row stays, and still says what the run ran.
     sqlite.exec(`UPDATE deployments SET status = 'taken_down' WHERE id = 'd-own'`)
     expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"own":true}')
@@ -155,7 +162,7 @@ describe('RunStepsAdapter', () => {
     sqlite.exec(`UPDATE workflow_runs SET version_id = NULL, version_number = 3 WHERE id = 'run-1'`)
     await adapter.upsertRunSteps('run-1', [step()])
     expect((await adapter.listRunSteps('run-1', 'wf-1')).configSnapshot).toBe('{"v3":true}')
-    expect((await adapter.listActiveRunsForSync())[0]!.configSnapshot).toBe('{"v3":true}')
+    expect((await activeEntries(adapter))[0]!.configSnapshot).toBe('{"v3":true}')
   })
 
   it('yields a null snapshot and no rows for a run with no steps yet', async () => {
@@ -180,7 +187,7 @@ describe('listActiveRunsForSync', () => {
               ('d-new', 'wf-1', 'v-1', 'svc', 'success', '2026-02-01T00:00:00Z', '{"stepManifest":{"steps":[]}}'),
               ('d-fail', 'wf-1', 'v-1', 'svc', 'failed', '2026-03-01T00:00:00Z', '{"failed":true}')`,
     )
-    const active = await adapter.listActiveRunsForSync()
+    const active = await activeEntries(adapter)
     expect(active).toHaveLength(1)
     expect(active[0]!.run.id).toBe('run-1')
     expect(active[0]!.workflowName).toBe('My Flow')
@@ -189,17 +196,39 @@ describe('listActiveRunsForSync', () => {
     expect(active[0]!.configSnapshot).toBe('{"stepManifest":{"steps":[]}}')
   })
 
+  it('names the run’s workflow as its deploy named it, never by the worker', async () => {
+    seedRun(sqlite, 'run-1', 'running')
+    sqlite.exec(
+      `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, deployed_name, status, created_at)
+       VALUES ('d-1', 'wf-1', 'v-1', 'conn-1', 'awaitstep-wf-1', 'My-Flow', 'success', '2026-02-01T00:00:00Z')`,
+    )
+    expect((await activeEntries(adapter))[0]!.deployedName).toBe('My-Flow')
+    // A row from before the name was kept: none, so the workflow's own name stands in.
+    sqlite.exec(`UPDATE deployments SET deployed_name = NULL`)
+    expect((await activeEntries(adapter))[0]!.deployedName).toBeNull()
+  })
+
+  it('prefers the name the run itself was started under', async () => {
+    seedRun(sqlite, 'run-1', 'running')
+    sqlite.exec(
+      `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, deployed_name, status, created_at)
+       VALUES ('d-1', 'wf-1', 'v-1', 'conn-1', 'awaitstep-wf-1', 'Renamed-and-redeployed', 'success', '2026-02-01T00:00:00Z')`,
+    )
+    sqlite.exec(`UPDATE workflow_runs SET deployed_name = 'Started-under' WHERE id = 'run-1'`)
+    expect((await activeEntries(adapter))[0]!.deployedName).toBe('Started-under')
+  })
+
   it('excludes terminal runs', async () => {
     seedRun(sqlite, 'run-1', 'complete')
     seedRun(sqlite, 'run-2', 'errored')
     seedRun(sqlite, 'run-3', 'waiting')
-    const active = await adapter.listActiveRunsForSync()
+    const active = await activeEntries(adapter)
     expect(active.map((a) => a.run.id)).toEqual(['run-3'])
   })
 
   it('yields a null snapshot when the run version was never successfully deployed', async () => {
     seedRun(sqlite, 'run-1', 'running')
-    const active = await adapter.listActiveRunsForSync()
+    const active = await activeEntries(adapter)
     expect(active[0]!.configSnapshot).toBeNull()
   })
 })
@@ -210,11 +239,13 @@ describe('getRunForSync', () => {
     seedRun(sqlite, 'run-1', 'complete')
     sqlite
       .prepare(
-        `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, status, created_at)
-         VALUES ('d-1', 'wf-1', 'v-1', 'conn-1', 'my-deployed-flow', 'success', ?)`,
+        `INSERT INTO deployments (id, workflow_id, version_id, connection_id, service_name, deployed_name, status, created_at)
+         VALUES ('d-1', 'wf-1', 'v-1', 'conn-1', 'awaitstep-wf-1', 'my-deployed-flow', 'success', ?)`,
       )
       .run(now)
-    const entry = await adapter.getRunForSync('run-1', 'wf-1')
+    const entry = await adapter
+      .getRunForSyncWithAccount('run-1', 'wf-1', 'org-1')
+      .then((r) => r?.entry ?? null)
     expect(entry?.run.id).toBe('run-1')
     expect(entry?.workflowName).toBe('My Flow')
     expect(entry?.deployedName).toBe('my-deployed-flow')
@@ -228,7 +259,11 @@ describe('getRunForSync', () => {
       workspaceSlug: 'sales',
       workspaceName: 'Sales',
     })
-    expect(await adapter.getRunForSync('run-1', 'other-wf')).toBeNull()
+    expect(
+      await adapter
+        .getRunForSyncWithAccount('run-1', 'other-wf', 'org-1')
+        .then((r) => r?.entry ?? null),
+    ).toBeNull()
   })
 })
 
@@ -276,5 +311,65 @@ describe('many steps (D1 binds at most 100 parameters per statement)', () => {
         }
       ).n,
     ).toBe(40)
+  })
+})
+
+describe('a step’s output and tries', () => {
+  it('stays out of the list and is read one step at a time, only through its workflow', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'run-1')
+    await adapter.upsertRunSteps('run-1', [
+      step({
+        id: 'rs-1',
+        status: 'complete',
+        output: '{"sent":3}',
+        attempts: '[{"start":"a","end":"b"}]',
+      }),
+    ])
+    const { steps } = await adapter.listRunSteps('run-1', 'wf-1')
+    expect(steps[0]).not.toHaveProperty('output')
+    expect(await adapter.getRunStepExtras('rs-1', 'run-1', 'wf-1')).toEqual({
+      output: '{"sent":3}',
+      outputTruncated: false,
+      attempts: '[{"start":"a","end":"b"}]',
+    })
+    expect(await adapter.getRunStepExtras('rs-1', 'run-1', 'wf-other')).toBeNull()
+
+    // A later sync that cut the output says so.
+    await adapter.upsertRunSteps('run-1', [
+      step({ id: 'rs-x', status: 'complete', output: '{"se', outputTruncated: true }),
+    ])
+    expect((await adapter.getRunStepExtras('rs-1', 'run-1', 'wf-1'))!.outputTruncated).toBe(true)
+  })
+})
+
+describe('a run’s trigger and payload', () => {
+  it('keeps them, flags the payload on the run, and reads it only for its workflow and account', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'seed')
+    const run = await adapter.createRun({
+      id: 'run-2',
+      workflowId: 'wf-1',
+      versionId: null,
+      versionNumber: 1,
+      connectionId: 'conn-1',
+      instanceId: 'inst-2',
+      trigger: 'api',
+      params: '{"n":1}',
+      status: 'queued',
+    })
+    expect(run.params).toBe('{"n":1}')
+    expect(await adapter.getRunDetail('run-2', 'wf-1')).toMatchObject({
+      trigger: 'api',
+      hasParams: true,
+    })
+    expect(await adapter.getRunDetail('seed', 'wf-1')).toMatchObject({
+      trigger: null,
+      hasParams: false,
+    })
+    expect(await adapter.getRunParams('run-2', 'wf-1')).toEqual({ params: '{"n":1}' })
+    expect(await adapter.getRunParams('run-2', 'wf-1', 'conn-1')).toEqual({ params: '{"n":1}' })
+    expect(await adapter.getRunParams('run-2', 'wf-1', 'conn-other')).toBeNull()
+    expect(await adapter.getRunParams('run-2', 'wf-other')).toBeNull()
   })
 })

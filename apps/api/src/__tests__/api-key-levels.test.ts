@@ -715,6 +715,27 @@ describe('local-dev routes', () => {
   })
 })
 
+describe('calling a function', () => {
+  it('needs the run cell, as a trigger does', async () => {
+    resetStore()
+    const app = createTestApp()
+    await mockDb.createWorkflow({
+      id: 'fn-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Normalise',
+      kind: 'script',
+    })
+    await seedProjectKey({ workflows: ['read', 'write'] })
+    const res = await app.request(
+      '/api/workflows/fn-1/call',
+      asKey({ method: 'POST', body: JSON.stringify({ connectionId: 'c', body: '{}' }) }),
+    )
+    expect(res.status).toBe(403)
+    expect(await errorOf(res)).toBe('API key lacks permission: workflows:run')
+  })
+})
+
 describe('router middleware', () => {
   // In afterEach, not the test body: a failed assertion must not leave the
   // database spies in place for every test that runs after it.

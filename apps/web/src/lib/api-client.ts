@@ -5,7 +5,9 @@ import type {
 } from '@awaitstep/ir'
 import type {
   DeployConfigResponse,
+  FunctionCallResponse,
   ProviderCapabilities,
+  RunStepAttempt,
   RuntimeRequirement,
   SourceDiagnostic,
 } from '@awaitstep/codegen'
@@ -463,6 +465,14 @@ export interface RunSummary {
   status: string
   output: string | null
   error: string | null
+  /** How it was started; null on runs from before it was kept. Only the run's own read sends it. */
+  trigger?: 'dashboard' | 'api' | null
+  /** Whether its start payload was kept. Only the run's own read sends it. */
+  hasParams?: boolean
+  /** A function call's HTTP status; null when no answer came. Only the run's own read sends it. */
+  responseStatus?: number | null
+  /** A function call's measured time. Only the run's own read sends it. */
+  durationMs?: number | null
   createdAt: string
   updatedAt: string
 }
@@ -487,6 +497,17 @@ export interface RunStep {
   endedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+/** A selected step's output and tries (`GET …/steps/:stepId`). */
+export interface RunStepExtras {
+  /** Null when it returned nothing, or when the output was cut (see `outputPreview`). */
+  output: unknown
+  outputTruncated: boolean
+  /** The first 64 KB of a cut output, as text. */
+  outputPreview: string | null
+  /** Oldest first. */
+  attempts: RunStepAttempt[]
 }
 
 export interface RunStepsResponse {
@@ -870,6 +891,35 @@ export function createApiClient(scope: () => ApiScope) {
       )
     },
 
+    getWorkflowRunStep(workflowId: string, runId: string, stepId: string): Promise<RunStepExtras> {
+      return request(
+        withProject(
+          `/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/steps/${pathSegment(stepId)}`,
+        ),
+      )
+    },
+
+    getWorkflowRunParams(workflowId: string, runId: string): Promise<{ params: unknown }> {
+      return request(
+        withProject(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/params`),
+      )
+    },
+
+    /**
+     * Starts the run again with its payload, on the account it ran on. A
+     * function's run is a call: the answer is the new call's, with its `runId`.
+     */
+    runWorkflowAgain(
+      workflowId: string,
+      runId: string,
+      connectionId: string,
+    ): Promise<RunSummary | FunctionCallResponse> {
+      return request(
+        withProject(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/run-again`),
+        { method: 'POST', body: JSON.stringify({ connectionId }) },
+      )
+    },
+
     controlWorkflowRun(
       workflowId: string,
       runId: string,
@@ -910,6 +960,17 @@ export function createApiClient(scope: () => ApiScope) {
       data: { connectionId: string; params?: unknown },
     ): Promise<{ id: string; instanceId: string; status: string }> {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/trigger`), {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+    },
+
+    /** Calls a live function (24i); not recorded as a run. */
+    callFunction(
+      workflowId: string,
+      data: { connectionId: string; body: string },
+    ): Promise<FunctionCallResponse> {
+      return request(withProject(`/workflows/${pathSegment(workflowId)}/call`), {
         method: 'POST',
         body: JSON.stringify(data),
       })

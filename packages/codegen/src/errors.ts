@@ -29,3 +29,20 @@ export class GenerateInputError extends Error {
     if (options?.path !== undefined) this.path = options.path
   }
 }
+
+/**
+ * The provider no longer has the run: its workflow is gone from the account
+ * (taken down, deleted there), or the instance is (its records aged out).
+ * Thrown from `getRunDetail` and `controlRun` so the caller can stop asking —
+ * any other failure there is worth retrying.
+ */
+export class RunGoneError extends Error {
+  constructor(readonly what: 'workflow' | 'instance') {
+    super(
+      what === 'workflow'
+        ? 'The workflow is no longer on the account.'
+        : 'The provider no longer has this run. It may have ended after its records were cleared.',
+    )
+    this.name = 'RunGoneError'
+  }
+}

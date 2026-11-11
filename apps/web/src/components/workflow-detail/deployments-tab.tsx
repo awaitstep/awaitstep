@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
-import { ExternalLink, Rocket } from 'lucide-react'
+import { ChevronRight, ExternalLink, Rocket } from 'lucide-react'
 import type { LiveDeployment } from '@awaitstep/ir'
 import type { DeploymentSummary, WorkflowSummary } from '../../lib/api-client'
 import { CardEmpty } from './parts/card-empty'
@@ -11,9 +11,12 @@ import { timeAgo } from '../../lib/time'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { workerUrl } from '../../lib/workflows/worker-url'
 import { Badge } from '../ui/badge'
-import { buttonVariants } from '../ui/button'
+import { Button, buttonVariants } from '../ui/button'
 import { plural } from '../../lib/plural'
-import { DeployLink, deployBlockedReason } from './parts/deploy-link'
+import { DeployLink } from './parts/deploy-link'
+import { DeploymentDrawer } from './deployment-drawer'
+import { deploymentState, rollBackFor, type RollBackRules } from './deployment-rollback'
+import { ABOVE_LINK, STRETCHED_LINK } from '../ui/linked-row'
 import { DataTable, type DataColumn } from '../ui/data-table'
 import { LoadMoreButton } from '../ui/load-more-button'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
@@ -48,17 +51,39 @@ export function DeploymentsTab({
   const query = useInfiniteQuery(queries.deployments.byWorkflow(workflowId))
   const deployments = flatPages(query.data)
   const { live, offeredIds, lockedOn } = overview
+  const [openId, setOpenId] = useState<string | null>(null)
+  // The last row opened stays in the drawer while it slides shut.
+  const [shownId, setShownId] = useState<string | null>(null)
+  const rules = useMemo<RollBackRules>(
+    () => ({
+      liveIds: new Set(live.map((l) => l.deploymentId)),
+      rollBackHref: canDeploy ? links.deployVersion : undefined,
+      lockedOn,
+      offeredIds,
+    }),
+    [live, links, lockedOn, offeredIds, canDeploy],
+  )
   const columns = useMemo(
     () =>
       historyColumns({
-        liveIds: new Set(live.map((l) => l.deploymentId)),
+        rules,
         accounts,
-        rollBackHref: canDeploy ? links.deployVersion : undefined,
-        lockedOn,
-        offeredIds,
+        // State setters are stable: the columns needn't change with them.
+        onOpen: (deploymentId) => {
+          setOpenId(deploymentId)
+          setShownId(deploymentId)
+        },
       }),
-    [live, accounts, links, lockedOn, offeredIds, canDeploy],
+    [rules, accounts],
   )
+  const shown = deployments.find((d) => d.id === shownId) ?? null
+  const shownState = shown ? deploymentState(shown, rules.liveIds) : null
+  const shownAccount = shown?.connectionId ? (accounts.get(shown.connectionId) ?? null) : null
+  const shownRollBack = shown ? rollBackFor(shown, rules) : null
+
+  function handleCloseDrawer() {
+    setOpenId(null)
+  }
 
   if (query.isPending) {
     return (
@@ -107,6 +132,7 @@ export function DeploymentsTab({
           columns={columns}
           rows={deployments}
           getRowKey={(d) => d.id}
+          linkedRows
           minWidth="640px"
           footer={
             query.hasNextPage ? (
@@ -122,6 +148,14 @@ export function DeploymentsTab({
           Rolling back redeploys that version to the same account.
         </p>
       </section>
+      <DeploymentDrawer
+        open={openId !== null}
+        deployment={shown}
+        state={shownState}
+        accountName={shownAccount}
+        rollBack={shownRollBack}
+        onClose={handleCloseDrawer}
+      />
     </div>
   )
 }
@@ -172,43 +206,30 @@ function LiveCard({ live, dropped }: LiveCardProps) {
 }
 
 interface HistoryColumnsOptions {
-  /** Each account's live row. */
-  liveIds: ReadonlySet<string>
+  rules: RollBackRules
   accounts: Map<string, string>
-  /** Left out for someone who can't deploy: no Roll back. */
-  rollBackHref?: (versionId: string, connectionId?: string) => string
-  /** The version live on that account is locked: nothing replaces it there. */
-  lockedOn: (connectionId: string | null) => boolean
-  /** The accounts Deploy offers: a row on another can't go back to its account. */
-  offeredIds: ReadonlySet<string>
+  /** Opens a row's details (24h). */
+  onOpen: (deploymentId: string) => void
 }
 
 function historyColumns({
-  liveIds,
+  rules,
   accounts,
-  rollBackHref,
-  lockedOn,
-  offeredIds,
+  onOpen,
 }: HistoryColumnsOptions): DataColumn<DeploymentSummary>[] {
   return [
     {
       id: 'version',
       header: 'Version',
       width: '150px',
-      cell: (d) => {
-        // The row carries its version's number, however far back it is.
-        const version = d.version ?? undefined
-        return (
-          <span className="flex items-center gap-2">
-            <span className="font-mono text-sm text-foreground">
-              {version !== undefined ? `v${version}` : '—'}
-            </span>
-            {liveIds.has(d.id) && <Badge variant="success">live</Badge>}
-            {d.status === 'taken_down' && <Badge variant="neutral">taken down</Badge>}
-            {d.status === 'failed' && <Badge variant="error">failed</Badge>}
-          </span>
-        )
-      },
+      cell: (d) => (
+        <VersionCell
+          deployment={d}
+          live={rules.liveIds.has(d.id)}
+          account={d.connectionName ?? (d.connectionId && accounts.get(d.connectionId)) ?? null}
+          onOpen={onOpen}
+        />
+      ),
     },
     {
       id: 'account',
@@ -234,29 +255,68 @@ function historyColumns({
     {
       id: 'action',
       header: '',
-      width: '110px',
+      width: '130px',
       cell: (d) => {
-        // Only a version that went out and still exists can go out again, to the same account.
-        if (
-          !rollBackHref ||
-          liveIds.has(d.id) ||
-          d.status === 'failed' ||
-          !d.versionId ||
-          !d.connectionId ||
-          // The project dropped that account: Deploy would go elsewhere.
-          !offeredIds.has(d.connectionId) ||
-          d.version == null
-        ) {
-          return null
-        }
+        const rollBack = rollBackFor(d, rules)
         return (
-          <DeployLink
-            href={rollBackHref(d.versionId, d.connectionId)}
-            label={d.status === 'taken_down' ? 'Redeploy' : 'Roll back'}
-            blockedReason={deployBlockedReason(d.versionLocked === 1, lockedOn(d.connectionId))}
-          />
+          <span className="flex items-center justify-end gap-2">
+            {rollBack && (
+              <span className={ABOVE_LINK}>
+                <DeployLink
+                  href={rollBack.href}
+                  label={rollBack.label}
+                  blockedReason={rollBack.blockedReason}
+                />
+              </span>
+            )}
+            <ChevronRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+          </span>
         )
       },
     },
   ]
+}
+
+function VersionCell({
+  deployment: d,
+  live,
+  account,
+  onOpen,
+}: {
+  deployment: DeploymentSummary
+  live: boolean
+  account: string | null
+  onOpen: (deploymentId: string) => void
+}) {
+  // The row carries its version's number, however far back it is.
+  const version = d.version != null ? `v${d.version}` : '—'
+  // One name a row, even for the same version twice: what, where and when.
+  const label = [
+    `Details for ${d.version != null ? version : 'a deleted version'}`,
+    account ? `on ${account}` : null,
+    timeAgo(d.createdAt),
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  function handleOpen() {
+    onOpen(d.id)
+  }
+
+  return (
+    <span className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant="link"
+        onClick={handleOpen}
+        aria-label={label}
+        className={`h-auto p-0 font-mono text-sm text-foreground ${STRETCHED_LINK}`}
+      >
+        {version}
+      </Button>
+      {live && <Badge variant="success">live</Badge>}
+      {d.status === 'taken_down' && <Badge variant="neutral">taken down</Badge>}
+      {d.status === 'failed' && <Badge variant="error">failed</Badge>}
+    </span>
+  )
 }

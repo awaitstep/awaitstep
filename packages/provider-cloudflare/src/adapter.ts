@@ -18,7 +18,12 @@ import {
   withConversionSettings,
   type HandlerConversion,
 } from './codegen/handler-modules.js'
-import type { HandlerConversionResult } from '@awaitstep/codegen'
+import type {
+  FunctionCallRequest,
+  FunctionCallResult,
+  HandlerConversionResult,
+} from '@awaitstep/codegen'
+import { CALLABLE_URL_PATTERN, callFunction } from './call-function.js'
 import { compileBundle } from './compile-bundle.js'
 import { generateScriptBundle, generateWorkflowBundle } from './codegen/generate.js'
 import {
@@ -26,6 +31,7 @@ import {
   describeProvider,
   importSpecifiers,
   providerFromSpecifier,
+  RunGoneError,
   withoutComments,
 } from '@awaitstep/codegen'
 import type {
@@ -58,6 +64,7 @@ import { workerName, sanitizedWorkflowName } from './naming.js'
 import { mapCFStatus } from './status-map.js'
 import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
+import { goneFrom } from './api-error.js'
 import { checkCloudflareToken } from './token-check.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import {
@@ -259,6 +266,12 @@ function cloudflareBindingConflicts(ir: ArtifactIR): ValidationError[] {
   return errors
 }
 
+/** A refusal that says the Workflow or instance is gone, as `RunGoneError`; anything else as is. */
+function goneOr(err: unknown): unknown {
+  const what = goneFrom(err)
+  return what ? new RunGoneError(what) : err
+}
+
 export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevProvider {
   readonly name = 'cloudflare'
   readonly capabilities = {
@@ -271,6 +284,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     bindingKindLabels: BINDING_KIND_LABELS,
     scheduleConfigKey: 'cronTriggers',
     runUrlTemplate: 'https://{deploymentId}.workers.dev',
+    callableUrlPattern: CALLABLE_URL_PATTERN,
   }
   readonly supportedBindingKinds = CLOUDFLARE_BINDING_KINDS
   readonly importSchemes = ['cloudflare', 'workerd'] as const
@@ -779,9 +793,17 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     return {
       success: true,
       deploymentId: result.workerName,
+      // The workflow's name as this deploy gave it: the deployers name the Workflow
+      // `sanitizedWorkflowName(name)`, and every lookup applies that same rule once, so
+      // the raw name is stored (sanitizing twice isn't stable). A function has no Workflow.
+      ...(kind === 'workflow' && { deployedName: opts.workflowName }),
       url: result.workerUrl,
       dashboardUrl: `https://dash.cloudflare.com/${accountId}/workers/services/view/${result.workerName}/production`,
     }
+  }
+
+  callFunction(request: FunctionCallRequest): Promise<FunctionCallResult> {
+    return callFunction(request)
   }
 
   async trigger(
@@ -830,7 +852,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const { accountId, apiToken } = extractCredentials(config)
     const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
     const api = new CloudflareAPI({ accountId, apiToken })
-    return toRunDetail(await api.getInstanceStatus(workflowName, instanceId))
+    try {
+      return toRunDetail(await api.getInstanceStatus(workflowName, instanceId))
+    } catch (err) {
+      throw goneOr(err)
+    }
   }
 
   async controlRun(
@@ -841,9 +867,13 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       input.config.credentials as { accountId: string; apiToken: string },
     )
     const name = sanitizedWorkflowName(input.workflowName)
-    if (action === 'pause') return api.pauseInstance(name, input.instanceId)
-    if (action === 'resume') return api.resumeInstance(name, input.instanceId)
-    return api.terminateInstance(name, input.instanceId)
+    try {
+      if (action === 'pause') return await api.pauseInstance(name, input.instanceId)
+      if (action === 'resume') return await api.resumeInstance(name, input.instanceId)
+      return await api.terminateInstance(name, input.instanceId)
+    } catch (err) {
+      throw goneOr(err)
+    }
   }
 
   async destroy(

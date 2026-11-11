@@ -260,6 +260,41 @@
       "when": 1793974710273,
       "tag": "0036_keep_taken_down_deployments",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1794396284401,
+      "tag": "0037_deployment_deployed_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1794397390086,
+      "tag": "0038_run_deployed_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794405183342,
+      "tag": "0039_run_step_output",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794405424751,
+      "tag": "0040_run_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794411967334,
+      "tag": "0041_run_call_answer",
+      "breakpoints": true
     }
   ]
 }

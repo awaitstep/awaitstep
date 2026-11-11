@@ -22,6 +22,8 @@ export interface NotificationMeta {
   workflow?: string
   /** The step a run failed at. */
   step?: string
+  /** The failure was a call to a function, not a workflow run. */
+  call?: boolean
   version?: number
   /** An API key's name. */
   name?: string
@@ -212,6 +214,7 @@ function expiresIn(expiresAt: string | undefined, now: Date): string {
 
 function failedTitle(meta: NotificationMeta, record: NotificationRecord): string {
   const times = record.count > 1 ? ` ${record.count} times in the last hour` : ''
+  if (meta.call) return `A call to ${meta.workflow ?? 'a function'} failed${times}`
   const step = meta.step ? `${times ? ',' : ''} at step “${meta.step}”` : ''
   return `${meta.workflow ?? 'A workflow'} failed${times}${step}`
 }

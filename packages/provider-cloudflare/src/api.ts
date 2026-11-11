@@ -1,3 +1,4 @@
+import { CloudflareApiError } from './api-error.js'
 import type { CloudflareRetention } from './codegen/retention.js'
 
 const CF_API_BASE = 'https://api.cloudflare.com/client/v4'
@@ -249,12 +250,12 @@ export class CloudflareAPI {
       const data = (await response.json()) as {
         result: unknown
         success: boolean
-        errors?: Array<{ message: string }>
+        errors?: Array<{ message: string; code?: number }>
       }
 
       if (!data.success) {
         const errorMsg = data.errors?.[0]?.message ?? `CF API error: ${response.status}`
-        throw new Error(errorMsg)
+        throw new CloudflareApiError(errorMsg, response.status, data.errors?.[0]?.code)
       }
 
       return data

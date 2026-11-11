@@ -23,6 +23,7 @@ import { LabeledEdge } from './labeled-edge'
 import { buildContainerEdgeColors } from '../../lib/container-edge-colors'
 import { CanvasContextMenu, type ContextMenuAction } from './canvas-context-menu'
 import { CanvasLanguageService } from './canvas-language-service'
+import { LastRunOverlay } from './last-run-overlay'
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
 
 const edgeTypes = { smoothstep: LabeledEdge }
@@ -349,6 +350,7 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         className="!bg-background"
       >
         {focusNodeId !== undefined && focusedNodeExists && <CenterOnNode nodeId={focusNodeId} />}
+        {workflowId !== null && <LastRunOverlay workflowId={workflowId} />}
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}

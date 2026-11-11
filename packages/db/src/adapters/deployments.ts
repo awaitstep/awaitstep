@@ -26,6 +26,8 @@ export class DeploymentsAdapter {
     connectionId: string
     serviceName: string
     serviceUrl?: string
+    /** The provider's name for what was deployed, which its runs are found under. */
+    deployedName?: string
     status: string
     error?: string
     configSnapshot?: string
@@ -41,6 +43,7 @@ export class DeploymentsAdapter {
       connectionId: data.connectionId,
       serviceName: data.serviceName,
       serviceUrl: data.serviceUrl ?? null,
+      deployedName: data.deployedName ?? null,
       status: data.status,
       error: data.error ?? null,
       configSnapshot: data.configSnapshot ?? null,

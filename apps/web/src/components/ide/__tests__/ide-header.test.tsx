@@ -40,6 +40,7 @@ function renderHeader(overrides: Partial<React.ComponentProps<typeof IdeHeader>>
     canEdit: true,
     saving: false,
     onSave: vi.fn(),
+    onDeploy: vi.fn(),
     ...overrides,
   }
   return { props, ...render(<IdeHeader {...props} />) }
@@ -53,10 +54,33 @@ beforeEach(() => {
 })
 
 describe('IdeHeader', () => {
-  it('has no Deploy button and no Test button', () => {
-    renderHeader()
-    expect(screen.queryByRole('button', { name: /Deploy/ })).toBeNull()
+  it('shows Deploy on the bar and opens it from the header', async () => {
+    const { props } = renderHeader()
+    const deploy = screen.getByRole('button', { name: 'Deploy' })
+    expect(deploy).toBeEnabled()
+    await userEvent.click(deploy)
+    expect(props.onDeploy).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: /^Test/ })).toBeNull()
+  })
+
+  it('disables Deploy with a reason when there is no version or no edit right', () => {
+    const { rerender, props } = renderHeader({ version: undefined })
+    expect(screen.getByRole('button', { name: 'Deploy' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Deploy' })).toHaveAccessibleDescription(
+      'Nothing to deploy yet',
+    )
+    rerender(
+      <IdeHeader {...props} version={3} canEdit={false} viewOnlyReason="Only Editors can deploy" />,
+    )
+    expect(screen.getByRole('button', { name: 'Deploy' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Deploy' })).toHaveAccessibleDescription(
+      'Only Editors can deploy',
+    )
+    rerender(<IdeHeader {...props} version={3} historicalVersion={2} />)
+    expect(screen.getByRole('button', { name: 'Deploy' })).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Deploy' })).toHaveAccessibleDescription(
+      'Open the latest version to make changes',
+    )
   })
 
   it('saves all files and shows how many are unsaved', async () => {
