@@ -13,7 +13,7 @@ Run arbitrary TypeScript inside a durable step.
 | Field        | Type     | Required | Default       | Description                                                                                                          |
 | ------------ | -------- | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `code`       | `code`   | yes      | —             | TypeScript to execute. `ctx.attempt` is the current retry count (1-indexed). Return value must be JSON-serializable. |
-| `retryLimit` | `number` | no       | `2`           | Max retry attempts. Min: 0.                                                                                          |
+| `retryLimit` | `number` | no       | `2`           | Max retry attempts. Every step carries this default; Cloudflare's own is 5.                                          |
 | `retryDelay` | `string` | no       | `5 seconds`   | Delay between retries (duration format).                                                                             |
 | `backoff`    | `select` | no       | `exponential` | Backoff strategy: `exponential`, `linear`, `constant`.                                                               |
 | `timeout`    | `string` | no       | —             | Per-attempt timeout (duration format).                                                                               |

@@ -2,7 +2,7 @@ import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerationContext } from '../internal.js'
 import { generateStepConfig } from './config.js'
 import { isJsonLiteralBody } from './http-body.js'
-import { resolveStepConfig } from './step.js'
+import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
 
 /**
  * One HTTP node: a single `flow.http({...})` call carrying the node's config.
@@ -49,7 +49,7 @@ export function generateHttp(node: WorkflowNode, ctx: GenerationContext): string
   // close on the next line when the body carries one.
   const tail = /\/\//.test(bodyExpression) ? '\n' : ''
   const call = `flow.http({ ${options.join(', ')}${tail} })`
-  const config = generateStepConfig(resolveStepConfig(node))
+  const config = generateStepConfig(resolveStepConfig(node) ?? DEFAULT_STEP_CONFIG)
   const configArg = config ? `, ${config}` : ''
   const varName = ctx.varName(node.id)
 

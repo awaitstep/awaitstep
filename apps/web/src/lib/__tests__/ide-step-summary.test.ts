@@ -68,14 +68,18 @@ describe('nodeMeta', () => {
   })
 
   it('lets a step keep the step summary', () => {
-    expect(nodeMeta(node())).toBeNull()
+    // The generated step carries the default policy now, so the list says so.
+    expect(nodeMeta(node())).toBe('retries 2')
     expect(nodeMeta(node({ data: { retryLimit: 2 } }))).toBe('retries 2')
   })
 })
 
 describe('stepSettings', () => {
-  it('says Default for an unset retry policy and timeout on a step', () => {
-    expect(stepSettings(node())).toEqual({ retries: 'Default', timeout: 'Default' })
+  it('shows the default retry policy for a step, and Default for its timeout', () => {
+    expect(stepSettings(node())).toEqual({
+      retries: '2 retries · exponential from 5s',
+      timeout: 'Default',
+    })
   })
 
   it('words the retry policy the way the canvas sets it', () => {
@@ -137,13 +141,13 @@ describe('stepSettings', () => {
     ).toBe('2 retries · 3s apart')
   })
 
-  it('shows a sub_script and a registry node only their config', () => {
-    for (const type of ['sub_script', 'github-issue']) {
-      expect(stepSettings(node({ type, data: { retryLimit: 9, timeout: '1 hour' } }))).toEqual({
-        retries: 'Default',
-        timeout: 'Default',
-      })
-    }
+  it('shows a sub_script the default policy and a registry node only its config', () => {
+    expect(
+      stepSettings(node({ type: 'sub_script', data: { retryLimit: 9, timeout: '1 hour' } })),
+    ).toEqual({ retries: '9 retries · 5s apart', timeout: '1h' })
+    expect(
+      stepSettings(node({ type: 'github-issue', data: { retryLimit: 9, timeout: '1 hour' } })),
+    ).toEqual({ retries: 'Default', timeout: 'Default' })
   })
 
   it('says nothing about a sub_workflow, whose timeout the generated code ignores', () => {
@@ -178,9 +182,9 @@ describe('stepSettings', () => {
 })
 
 describe('stepSettings in a function', () => {
-  it('reads an unset policy as none: the in-request host retries and times out only when asked', () => {
+  it('shows the default policy in a function too, and no timeout', () => {
     expect(stepSettings(node(), { kind: 'script' })).toEqual({
-      retries: 'None — runs once',
+      retries: '2 retries · exponential from 5s',
       timeout: 'None',
     })
   })
@@ -195,12 +199,12 @@ describe('stepSettings in a function', () => {
     expect(settings).toEqual({ retries: '3 retries · linear from 10s', timeout: '30s' })
   })
 
-  it('gives the Steps list no line for an unset policy, rather than "timeout None"', () => {
-    expect(stepMeta(node(), { kind: 'script' })).toBeNull()
-    // A duration field left empty writes '' — still unset.
-    expect(stepMeta(node({ data: { retryDelay: '' } }), { kind: 'script' })).toBeNull()
+  it('gives the Steps list the default policy, and still no "timeout None"', () => {
+    expect(stepMeta(node(), { kind: 'script' })).toBe('retries 2')
+    // A duration field left empty writes '' — the default policy applies.
+    expect(stepMeta(node({ data: { retryDelay: '' } }), { kind: 'script' })).toBe('retries 2')
     expect(stepSettings(node({ data: { retryDelay: '' } }), { kind: 'script' }).retries).toBe(
-      'None — runs once',
+      '2 retries · exponential from 5s',
     )
     expect(stepMeta(node({ data: { retryLimit: 2 } }), { kind: 'script' })).toBe('retries 2')
     expect(stepMeta(node({ data: { timeout: '30 seconds' } }), { kind: 'script' })).toBe(
@@ -237,8 +241,8 @@ describe('stepSettings in a function', () => {
 })
 
 describe('stepMeta', () => {
-  it('shows what was set and nothing for defaults', () => {
-    expect(stepMeta(node())).toBeNull()
+  it('shows what was set, and the default policy for a step', () => {
+    expect(stepMeta(node())).toBe('retries 2')
     expect(stepMeta(node({ data: { retryLimit: 3 } }))).toBe('retries 3')
     expect(stepMeta(node({ data: { retryLimit: 3, timeout: '30 seconds' } }))).toBe(
       'retries 3 · timeout 30s',

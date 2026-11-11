@@ -1,5 +1,5 @@
 import { isBuiltinNodeType, type StepConfig, type WorkflowNode } from '@awaitstep/ir'
-import { resolveStepConfig } from './step.js'
+import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
 
 type SettingsNode = Pick<WorkflowNode, 'type' | 'data' | 'config'>
 
@@ -39,7 +39,11 @@ export function appliedStepSettings(node: SettingsNode): AppliedStepSettings {
   const none = { retries: false, timeout: false, config: undefined }
   if (node.type === 'step') {
     if (node.data.inline === true) return none
-    return { retries: true, timeout: true, config: resolveStepConfig(node as WorkflowNode) }
+    return {
+      retries: true,
+      timeout: true,
+      config: resolveStepConfig(node as WorkflowNode) ?? DEFAULT_STEP_CONFIG,
+    }
   }
   if (node.type === 'wait_for_event') {
     const timeout = node.data.timeout
@@ -54,11 +58,22 @@ export function appliedStepSettings(node: SettingsNode): AppliedStepSettings {
   // resolves them. Not durable, it runs with no step at all, so it takes neither.
   if (node.type === 'http_request') {
     if (node.data.durable !== true) return none
-    return { retries: true, timeout: true, config: resolveStepConfig(node as WorkflowNode) }
+    return {
+      retries: true,
+      timeout: true,
+      config: resolveStepConfig(node as WorkflowNode) ?? DEFAULT_STEP_CONFIG,
+    }
   }
   // sub_script and registry nodes read only node.config — their loose data
   // fields are their own params, not a step config.
-  if (node.type === 'sub_script' || !isBuiltinNodeType(node.type)) {
+  if (node.type === 'sub_script') {
+    return {
+      retries: true,
+      timeout: true,
+      config: resolveStepConfig(node as WorkflowNode) ?? DEFAULT_STEP_CONFIG,
+    }
+  }
+  if (!isBuiltinNodeType(node.type)) {
     return { retries: true, timeout: true, config: node.config }
   }
   return none

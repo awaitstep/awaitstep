@@ -19,10 +19,10 @@ function makeNode(overrides: Partial<WorkflowNode> = {}): WorkflowNode {
 }
 
 describe('generateStep', () => {
-  it('calls the step’s module and keeps its value', () => {
+  it('calls the step’s module and keeps its value, with the default policy', () => {
     const code = generateStep(makeNode())
     expect(code).toBe(
-      'const step_1 = await flow.step("step-1", (ctx) => $step_1({ env, event, inputs: {}, step, ctx }));',
+      'const step_1 = await flow.step("step-1", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, (ctx) => $step_1({ env, event, inputs: {}, step, ctx }));',
     )
   })
 
@@ -92,17 +92,21 @@ describe('generateStep', () => {
     expect(code).toContain('timeout: 30000')
   })
 
-  it('omits config when not provided', () => {
+  it('carries the default retry policy when the node sets none', () => {
     const code = generateStep(makeNode())
-    expect(code).toMatch(/flow\.step\("step-1", \(ctx\) =>/)
+    expect(code).toContain(
+      'flow.step("step-1", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, (ctx) =>',
+    )
   })
 
-  it('treats a cleared retry delay as no retry policy, like a cleared timeout', () => {
+  it('treats a cleared retry delay and timeout as unset, so the default policy applies', () => {
     const code = generateStep(
       makeNode({ data: { code: 'return 1;', retryDelay: '', timeout: '' } }),
     )
-    expect(code).toMatch(/flow\.step\("step-1", \(ctx\) =>/)
-    expect(code).not.toContain('retries')
+    expect(code).toContain(
+      'retries: { limit: 2, delay: "5 seconds", backoff: "exponential" }',
+    )
+    expect(code).not.toContain('timeout')
   })
 
   it('a whitespace delay or timeout is unset too, so no blank string reaches the step', () => {
@@ -157,7 +161,9 @@ describe('generateStep', () => {
       // A function's steps run through the in-request host, so the emitter
       // has one shape for both kinds; raw emission is the `inline` flag's.
       const code = generateStep(makeNode())
-      expect(code).toContain('flow.step("step-1", (ctx) => $step_1(')
+      expect(code).toContain(
+        'flow.step("step-1", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, (ctx) => $step_1(',
+      )
       expect(generateStep(makeNode({ data: { code: 'return 1;', inline: true } }))).toBe(
         'return 1;',
       )

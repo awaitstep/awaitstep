@@ -88,11 +88,11 @@ describe('generateScript', () => {
     // bare statement (no const): the value is dropped.
     expect(code).not.toContain('const transform =')
     expect(code).not.toMatch(/let transform[,;]/)
-    expect(code).toMatch(/^\s*await flow\.step\("transform", \(ctx\) => \$transform\(/m)
+    expect(code).toMatch(/^\s*await flow\.step\("transform", \{ retries: [\s\S]*?\(ctx\) =>\s+\$transform\(/m)
     expect(code).not.toMatch(/return \{[^}]*transform[^}]*\}/)
     // side-effect returns nothing → no var either.
     expect(code).not.toContain('const side_effect')
-    expect(code).toMatch(/^\s*await flow\.step\("side-effect", \(ctx\) => \$side_effect\(/m)
+    expect(code).toMatch(/^\s*await flow\.step\("side-effect", \{ retries: [\s\S]*?\(ctx\) =>\s+\$side_effect\(/m)
     // Empty graph object since nothing is exported.
     expect(code).toContain('return {};')
   })
@@ -103,7 +103,7 @@ describe('generateScript', () => {
     // The prefix is stripped — var/key is `Result`. The step's return is its
     // value, captured at the call and included in the return.
     // The step label is the node id, as in a workflow; the var is the name.
-    expect(code).toMatch(/const Result = await flow\.step\("node-id", \(ctx\) =>\s+\$Result\(/)
+    expect(code).toMatch(/const Result = await flow\.step\("node-id", \{ retries: [^\n]*\}, \(ctx\) =>\s+\$Result\(/)
     expect(code).not.toContain('const EXPORT_Result')
     expect(code).toMatch(/return \{\s*Result\s*\}/)
   })
@@ -456,7 +456,7 @@ describe('generateScript', () => {
     // Not exported and not referenced, so the value is dropped at the call;
     // the step still runs, and runGraph carries on into the try/catch.
     expect(worker).toMatch(
-      /await flow\.step\("new-step", \(ctx\) => \$New_step\(\{ env, event, inputs: \{\}, step, ctx \}\)\);\n\s+try \{\n\s+return;\n\s+\} catch \(err\) \{\n\s+return;\n\s+\}\n\s+return \{\};/,
+      /await flow\.step\("new-step", \{ retries: [\s\S]*?\(ctx\) =>\n\s+\$New_step\(\{ env, event, inputs: \{\}, step, ctx \}\),\n\s+\);\n\s+try \{\n\s+return;\n\s+\} catch \(err\) \{\n\s+return;\n\s+\}\n\s+return \{\};/,
     )
     // The body lives in its module, where its return is the step's value.
     const module = bundle.files.find((f) => f.path === 'steps/new-step.ts')!
@@ -551,7 +551,7 @@ describe('generateScript', () => {
     const bundle = generateScriptBundle(ir)
     const worker = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
     expect(worker).toContain('createInlineHost()')
-    expect(worker).toMatch(/try \{\n\s+Risky = await flow\.step\("risky", \(ctx\) =>/)
+    expect(worker).toMatch(/try \{\n\s+Risky = await flow\.step\("risky", \{ retries: [\s\S]*?\(ctx\) =>/)
     expect(worker).toContain('$fallback({ env, event, inputs: { error: err }, step, ctx })')
     expect(worker).toMatch(/let Risky;/)
     expect(worker).toMatch(/return \{\s*Risky\s*\}/)
@@ -657,12 +657,12 @@ describe('generateScript', () => {
     ])
     ir.edges = [{ id: 'e1', source: 'a-long-producer-id', target: 'consumer' }]
     const code = generateScript(ir)
-    expect(code).toContain(
-      'const Result = await flow.step("consumer", (ctx) =>\n    $Result({ env, event, inputs: { SomeFairlyLongProducerName }, step, ctx }),\n  );',
+    expect(code).toMatch(
+      /const Result = await flow\.step\("consumer", \{ retries: [\s\S]*?\(ctx\) =>\s+\$Result\(/,
     )
-    // A short call stays on one line.
-    expect(generateScript(makeScript([stepNode('t', 'return 1;')]))).toContain(
-      'await flow.step("t", (ctx) => $t({ env, event, inputs: {}, step, ctx }));',
+    // A short call stays on one line apart from the policy object.
+    expect(generateScript(makeScript([stepNode('t', 'return 1;')]))).toMatch(
+      /await flow\.step\("t", \{ retries: [\s\S]*?\(ctx\) =>\s+\$t\(/,
     )
   })
 
@@ -738,8 +738,8 @@ describe('generateScript', () => {
     const worker = generateScriptBundle(ir).files.find(
       (f) => f.path === 'awaitstep/function.ts',
     )!.source
-    expect(worker).toContain(
-      'flow.step("ping", async () => flow.http({ url: "https://example.com/ping" }))',
+    expect(worker).toMatch(
+      /flow\.step\("ping", \{ retries: [\s\S]*?async \(\) => flow\.http\(\{ url: "https:\/\/example\.com\/ping" \}\)/,
     )
     expect(worker).toContain('createInlineHost')
     expect(worker).toContain('durableStep')
@@ -1005,7 +1005,7 @@ describe('generateScript', () => {
     ])
     const code = generateScript(ir)
     expect(code).toContain(
-      'const FetchUser = await flow.step("fetch_user", async () => flow.http({ url: "https://api.example.com/users/1" }));',
+      'const FetchUser = await flow.step("fetch_user", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async () => flow.http({ url: "https://api.example.com/users/1" }));',
     )
   })
 

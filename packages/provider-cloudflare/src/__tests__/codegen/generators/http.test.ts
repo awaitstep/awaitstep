@@ -44,11 +44,13 @@ describe('generateHttp', () => {
     expect(code).not.toContain('method:')
   })
 
-  it('wraps the call in a step when the node is durable', () => {
+  it('wraps the call in a step when the node is durable, with the default policy', () => {
     const code = generate(
       makeNode({ data: { url: 'https://a.example', method: 'POST', durable: true } }),
     )
-    expect(code).toContain('await flow.step("http-1", async () => flow.http({')
+    expect(code).toContain(
+      'await flow.step("http-1", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async () => flow.http({',
+    )
     expect(code).toContain('method: "POST"')
   })
 
@@ -193,9 +195,9 @@ describe('generateHttp', () => {
     )
   })
 
-  it('omits config when the node sets none', () => {
+  it('carries the default policy when the node sets none', () => {
     const code = generate(makeNode({ data: { url: 'https://a.example', durable: true } }))
-    expect(code).not.toContain('retries')
+    expect(code).toContain('retries: { limit: 2, delay: "5 seconds", backoff: "exponential" }')
     expect(code).not.toContain('timeout')
   })
 
@@ -287,7 +289,7 @@ describe('generateHttp in a bundle', () => {
       trigger: { type: 'http' },
     } as ScriptIR)
     for (const code of [workflow, script]) {
-      expect(code).toContain('flow.step("http-1", async () => flow.http({')
+      expect(code).toContain('flow.step("http-1", { retries:')
     }
   })
 })

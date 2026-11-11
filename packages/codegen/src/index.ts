@@ -162,7 +162,12 @@ export { maskNonCode } from './code-text.js'
 // ── Provider-neutral graph emission ──
 // The per-node emitters and their shared helpers. Provider packages compose
 // these with their own primitives; the universal generator uses them alone.
-export { generateStep, generateStepGroup, resolveStepConfig } from './graph/generators/step.js'
+export {
+  DEFAULT_STEP_CONFIG,
+  generateStep,
+  generateStepGroup,
+  resolveStepConfig,
+} from './graph/generators/step.js'
 export { generateStepConfig } from './graph/generators/config.js'
 export { collectBranchInlineTargets } from './graph/generators/branch.js'
 export { hasTemplateExpressions } from './graph/generators/state-tracking.js'

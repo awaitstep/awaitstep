@@ -57,7 +57,7 @@ describe('generateWorkflow', () => {
 
           await flow.sleep("sleep-1", "10 seconds");
 
-          await flow.step("step-2", async (ctx) => {
+          await flow.step("step-2", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async (ctx) => {
             await $Process_data({ env, event, inputs: {}, step, ctx });
           });
         },
