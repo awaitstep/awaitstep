@@ -15,6 +15,7 @@ function itemActivity(
   item: ItemRow,
 ): ActivityItem[] {
   const where = {
+    workflow: { name: item.name, kind: item.kind },
     project: { slug: project.slug, name: project.name },
     workspace: { slug: workspace.slug, name: workspace.name, colour: workspace.colour },
   }
@@ -23,11 +24,10 @@ function itemActivity(
     .filter((r) => r.itemId === item.id && r.result === 'failed')
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0]
   if (lastFailure) {
-    const step = lastFailure.failure ? ` at step "${lastFailure.failure.step}"` : ''
     found.push({
       id: `failed:${lastFailure.id}`,
       kind: 'failed',
-      title: `${item.name} failed${step}`,
+      version: null,
       ...where,
       at: lastFailure.startedAt,
     })
@@ -36,7 +36,7 @@ function itemActivity(
     found.push({
       id: `deployed:${item.id}:${item.version}`,
       kind: 'deployed',
-      title: `${item.name} deployed as v${item.version}`,
+      version: item.version,
       ...where,
       at: item.updatedAt,
     })
@@ -45,7 +45,7 @@ function itemActivity(
     found.push({
       id: `shared:${item.id}`,
       kind: 'shared',
-      title: `${item.name} shared to ${project.name}`,
+      version: null,
       ...where,
       at: item.sharing.sharedAt,
     })

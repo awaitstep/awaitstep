@@ -1,6 +1,5 @@
-import { useOrgActivity } from '../../data/dashboard/activity'
+import { useOrgActivity, useOrgHomeSummary } from '../../data/dashboard/org-home'
 import { useProjects } from '../../data/dashboard/projects'
-import { useOrgHomeSummary } from '../../data/dashboard/runs'
 import { useScope } from '../../data/dashboard/workspaces'
 import { ListCardSkeleton, LoadingRegion, Bone } from '../ui/skeletons'
 import { LoadError } from '../ui/load-error'
