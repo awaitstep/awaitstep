@@ -14,6 +14,7 @@ import { BindingsPanel } from './bindings-panel'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { EditorToolbar } from './editor-toolbar'
 import { EditorDialogs, type CanvasConfirmAction } from './editor-dialogs'
+import { DeployDialogHost } from '../deploy/deploy-dialog'
 import { CanvasSidePanels } from './canvas-side-panels'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
@@ -374,6 +375,7 @@ export function CanvasView({
               onSaveAndSwitch={handleSaveAndSwitch}
               isSaving={isSaving}
             />
+            <DeployDialogHost />
             {marketplaceOpen && (
               <MarketplaceDialog org={slugs.org} onClose={handleCloseMarketplace} />
             )}

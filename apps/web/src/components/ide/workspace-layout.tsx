@@ -18,6 +18,8 @@ import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
 import { useIdeLayoutStore, type IdeLayoutKey } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
+import { useDeployDialogStore } from '../../stores/deploy-dialog-store'
+import { DeployDialogHost } from '../deploy/deploy-dialog'
 import { BottomDock } from './bottom-dock'
 import { CommandPalette } from './command-palette'
 import { EditorGroup } from './editor-group'
@@ -176,6 +178,19 @@ export function WorkspaceLayout({
     ...(scheduleConfigKey && { scheduleConfigKey }),
   })
 
+  // Deploy what is on screen: unsaved files become their version first, as the
+  // canvas does, and a refused save stops short of the Deploy page.
+  const openDeploy = useDeployDialogStore((s) => s.openDeploy)
+
+  async function handleDeploy() {
+    if (!canEdit || !version) return
+    if (dirty.size > 0) {
+      const saved = await projectFiles.saveAll()
+      if (saved < dirty.size) return
+    }
+    openDeploy(workflowId)
+  }
+
   const view = (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <SearchRunner files={files} projectPaths={projectPaths} />
@@ -192,6 +207,7 @@ export function WorkspaceLayout({
         {...(access.reason && { viewOnlyReason: access.reason })}
         saving={projectFiles.busy}
         onSave={actions.saveAll}
+        onDeploy={handleDeploy}
       />
       <div className="relative min-h-0 flex-1">
         <Group
@@ -341,6 +357,7 @@ export function WorkspaceLayout({
         canTriggerSession={commands.canTrigger}
       />
       <RunConfirmDialog confirm={runAction.confirm} />
+      <DeployDialogHost />
       <QuickOpenDialog files={baseline} />
       {dialogs}
     </div>

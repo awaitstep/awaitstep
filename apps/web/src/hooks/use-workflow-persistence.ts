@@ -8,7 +8,7 @@ import { VersionConflictError, type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { useItemSlugs } from '../contexts/editor-scope-context'
 import { workflowLinks } from '../lib/workflows/detail-links'
-import { useGoTo } from '../components/navigation/router-shell-link'
+import { useDeployDialogStore } from '../stores/deploy-dialog-store'
 import { useApi } from '../contexts/api-client-context'
 
 export type AutoSaveOutcome = 'saved' | 'skipped' | 'failed' | 'conflict'
@@ -56,7 +56,7 @@ export function useWorkflowPersistence(opts: {
   const api = useApi()
   const { workflowId, isNew, isDirty, hasVersion = true, nodeRegistry, kind } = opts
   const queryClient = useQueryClient()
-  const goTo = useGoTo()
+  const openDeploy = useDeployDialogStore((s) => s.openDeploy)
   const scope = useItemSlugs()
   const { markClean, setWorkflowId, runValidation } = useWorkflowStore()
   const storeGraphHash = useWorkflowStore((s) => s.graphHash)
@@ -367,7 +367,7 @@ export function useWorkflowPersistence(opts: {
       }
     }
     const targetId = isNew ? (useWorkflowStore.getState().workflowId ?? workflowId) : workflowId
-    goTo(workflowLinks(scope, targetId).deploy)
+    openDeploy(targetId)
   }, [
     runValidation,
     isDirty,
@@ -375,7 +375,7 @@ export function useWorkflowPersistence(opts: {
     saveMutation,
     isConflicted,
     nodeRegistry,
-    goTo,
+    openDeploy,
     scope,
     workflowId,
   ])

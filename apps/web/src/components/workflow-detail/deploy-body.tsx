@@ -17,6 +17,8 @@ interface DeployBodyProps {
   versionId: string | undefined
   /** The account to start on, when the link names one. */
   connectionId?: string
+  /** Hide the page heading when the body is inside a dialog that already names it. */
+  showHeader?: boolean
 }
 
 /** Deploy's head (25a): the title, the version going out ("v13 · draft"), the workflow's name. */
@@ -35,7 +37,13 @@ function DeployHeader({ name, pill }: { name: string; pill: string | null }) {
  * is looked up first, so the page always says which one it is — a link can't
  * ship an old version while the page reads as the latest.
  */
-export function DeployBody({ workflow, live, versionId, connectionId }: DeployBodyProps) {
+export function DeployBody({
+  workflow,
+  live,
+  versionId,
+  connectionId,
+  showHeader = true,
+}: DeployBodyProps) {
   const api = useApi()
   const links = useWorkflowLinks(workflow.id)
   const { canDeploy, reason } = useEditorAccess()
@@ -91,7 +99,7 @@ export function DeployBody({ workflow, live, versionId, connectionId }: DeployBo
 
   return (
     <div className="flex flex-col gap-5">
-      <DeployHeader name={workflow.name} pill={pill} />
+      {showHeader && <DeployHeader name={workflow.name} pill={pill} />}
       <DeployPage
         workflowId={workflow.id}
         versionId={versionId}
