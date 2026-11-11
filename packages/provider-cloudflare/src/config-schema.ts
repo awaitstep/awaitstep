@@ -57,6 +57,17 @@ export const cloudflareBindingMappingSchema = z
 
 export type CloudflareBindingMapping = z.infer<typeof cloudflareBindingMappingSchema>
 
+/** Logs and traces on — `true`'s form, and what an unset config deploys (WRANGLER_BASE_CONFIG). */
+const OBSERVABILITY_ON = {
+  enabled: false,
+  head_sampling_rate: 1,
+  logs: { enabled: true, head_sampling_rate: 1, persist: true, invocation_logs: true },
+  traces: { enabled: true, persist: true, head_sampling_rate: 1 },
+}
+
+/** `false`'s form: everything off. */
+const OBSERVABILITY_OFF = { enabled: false, logs: { enabled: false }, traces: { enabled: false } }
+
 export const cloudflareDeploymentConfigSchema = z
   .object({
     // Routing
@@ -95,21 +106,13 @@ export const cloudflareDeploymentConfigSchema = z
     //   true  → full logs + traces config (persist, invocation_logs, head_sampling_rate)
     //   false → everything disabled
     //   object → passed through as-is for advanced overrides
-    // When undefined (not set) the adapter falls back to WRANGLER_BASE_CONFIG.observability.
+    // Unset is what the adapter deploys anyway (WRANGLER_BASE_CONFIG): logs
+    // and traces on. The default says so, so a read config shows it as on.
     observability: z
       .preprocess(
         (v) => {
-          if (v === true) {
-            return {
-              enabled: false,
-              head_sampling_rate: 1,
-              logs: { enabled: true, head_sampling_rate: 1, persist: true, invocation_logs: true },
-              traces: { enabled: true, persist: true, head_sampling_rate: 1 },
-            }
-          }
-          if (v === false) {
-            return { enabled: false, logs: { enabled: false }, traces: { enabled: false } }
-          }
+          if (v === true) return structuredClone(OBSERVABILITY_ON)
+          if (v === false) return structuredClone(OBSERVABILITY_OFF)
           return v
         },
         z
@@ -135,7 +138,7 @@ export const cloudflareDeploymentConfigSchema = z
           })
           .optional(),
       )
-      .optional(),
+      .default(() => structuredClone(OBSERVABILITY_ON)),
     logpush: z.boolean().optional(),
 
     // Per-queue consumer settings — populated automatically from `@queue function NAME(...)`
@@ -164,75 +167,82 @@ export const cloudflareDefaultDeploymentConfig: CloudflareDeploymentConfig = {
   workersDev: true,
   previewUrls: true,
   retention: { ...DEFAULT_RETENTION },
-  // observability is intentionally omitted here — the full nested
-  // logs/traces config comes from WRANGLER_BASE_CONFIG in wrangler-config.ts
+  // The same logs/traces config WRANGLER_BASE_CONFIG deploys when it is unset.
+  observability: structuredClone(OBSERVABILITY_ON),
 }
 
 export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
   groups: [
     {
       title: 'Routing',
-      description: 'Control how traffic reaches this worker.',
       fields: [
         {
           path: 'routes',
           label: 'Route patterns',
           widget: 'array-of-objects',
-          help: 'Map zone-based route patterns to this worker. Requires a Cloudflare zone.',
+          help: 'Needs a Cloudflare zone',
+          summaryLabel: 'Routes',
         },
         {
           path: 'customDomains',
           label: 'Custom domains',
           widget: 'array',
-          help: 'Hostnames where this worker is the origin. DNS and SSL are managed automatically.',
+          placeholder: 'api.example.com',
+          help: 'DNS and SSL handled for you',
+          summaryLabel: 'Domains',
         },
       ],
     },
     {
-      title: 'Preview & Access',
+      title: 'Preview & access',
       fields: [
         {
           path: 'workersDev',
-          label: 'Enable workers.dev subdomain',
+          label: 'workers.dev subdomain',
           widget: 'boolean',
-          help: 'Expose this worker at <name>.workers.dev.',
+          help: 'Serve at <name>.workers.dev',
+          summaryLabel: 'workers.dev',
         },
         {
           path: 'previewUrls',
-          label: 'Enable preview URLs',
+          label: 'Preview URLs',
           widget: 'boolean',
-          help: 'Generate unique preview URLs for each deployment.',
+          help: 'A unique URL per deployment',
+          summaryLabel: 'Preview URLs',
         },
       ],
     },
     {
       title: 'Scheduling',
-      description: 'Run this workflow on a schedule.',
       fields: [
         {
           path: 'cronTriggers',
           label: 'Cron triggers',
           widget: 'array',
-          help: 'Cron expressions (e.g. "0 */6 * * *" for every 6 hours).',
+          placeholder: '0 */6 * * *',
+          help: 'e.g. 0 */6 * * * for every 6 hours',
+          summaryLabel: 'Cron',
         },
       ],
     },
     {
       title: 'Compatibility',
-      description: 'Workers runtime compatibility settings.',
       fields: [
         {
           path: 'compatibilityDate',
           label: 'Compatibility date',
           widget: 'text',
           placeholder: '2025-04-01',
-          help: 'Date that determines which Workers runtime features are available.',
+          help: 'The runtime behaviour to pin to',
+          summaryLabel: 'Date',
         },
         {
           path: 'compatibilityFlags',
-          label: 'Compatibility flags',
+          label: 'Flags',
           widget: 'array',
-          help: 'Runtime flags (e.g. nodejs_compat). One per line.',
+          placeholder: 'nodejs_compat',
+          help: 'Opt into runtime features',
+          summaryLabel: 'Flags',
         },
       ],
     },
@@ -243,34 +253,39 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
           path: 'placement',
           label: 'Smart Placement',
           widget: 'boolean',
-          help: 'Automatically run the worker closer to backend services for lower latency.',
+          help: 'Run closer to your backend services',
+          summaryLabel: 'Smart Placement',
         },
         {
-          path: 'limits',
-          label: 'CPU time limit (ms)',
+          // The saved form is `{ cpuMs }`; the bare number the schema also takes reads back as that.
+          path: 'limits.cpuMs',
+          label: 'CPU limit (ms)',
           widget: 'number',
-          help: 'Maximum CPU time per invocation in milliseconds.',
+          help: 'Per invocation',
+          summaryLabel: 'CPU ms',
         },
       ],
     },
     {
-      title: 'Instance Retention',
+      title: 'Instance retention',
       description:
-        'How long Cloudflare retains instance state (step outputs, status, errors) after a run ends. Retained state bills at $0.20/GB-month past the included 1 GB. Applies to instances started via the default trigger code, the Trigger button/API, and sub-workflow steps.',
+        'Stored state is billed past 1 GB, so AwaitStep caps this rather than using the account maximum.',
       fields: [
         {
           path: 'retention.successRetention',
-          label: 'Retention after success',
+          label: 'Successful runs',
           widget: 'text',
           placeholder: '7 days',
-          help: 'Duration like "7 days" or milliseconds. Defaults to 7 days; your plan caps it (3 days Free, 30 days Paid).',
+          help: 'How long step state is kept',
+          summaryLabel: 'Success',
         },
         {
           path: 'retention.errorRetention',
-          label: 'Retention after error',
+          label: 'Failed runs',
           widget: 'text',
           placeholder: '7 days',
-          help: 'Applies to errored and terminated runs. Duration like "7 days" or milliseconds. Defaults to 7 days; your plan caps it.',
+          help: 'Errored and terminated runs',
+          summaryLabel: 'Failure',
         },
       ],
     },
@@ -279,69 +294,69 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
       fields: [
         {
           path: 'observability',
-          label: 'Enable observability',
+          label: 'Logs and traces',
           widget: 'boolean',
-          help: 'Enable Workers Logs and Traces with persistence and full sampling (logs, traces, invocation events).',
+          help: 'Record what each invocation does',
+          summaryLabel: 'Observability',
           // Mirrors the schema preprocess for `true` so sub-fields below display
           // the canonical defaults until the user overrides them, and so a
           // sub-field edit can materialize the parent without losing context.
-          defaultObject: {
-            enabled: false,
-            head_sampling_rate: 1,
-            logs: { enabled: true, head_sampling_rate: 1, persist: true, invocation_logs: true },
-            traces: { enabled: true, persist: true, head_sampling_rate: 1 },
-          },
+          defaultObject: OBSERVABILITY_ON,
+          // `false` is stored in this form; it reads back as off.
+          offObject: OBSERVABILITY_OFF,
         },
         {
           path: 'observability.logs.enabled',
-          label: 'Workers Logs',
+          label: 'Logs',
           widget: 'boolean',
-          help: 'Collect console output and uncaught errors from invocations.',
+          help: 'Console output and uncaught errors',
+          summaryLabel: 'Logs',
           visibleWhen: { path: 'observability', truthy: true },
         },
         {
           path: 'observability.logs.persist',
-          label: 'Persist logs',
+          label: 'Keep logs',
           widget: 'boolean',
-          help: 'Retain logs for 7 days for querying in the dashboard.',
+          help: 'Searchable in the Cloudflare dashboard for 7 days',
           visibleWhen: { path: 'observability', truthy: true },
         },
         {
           path: 'observability.logs.invocation_logs',
-          label: 'Capture invocation events',
+          label: 'Invocation events',
           widget: 'boolean',
-          help: 'Record one event per invocation (request/response metadata).',
+          help: 'One event per request',
           visibleWhen: { path: 'observability', truthy: true },
         },
         {
           path: 'observability.head_sampling_rate',
-          label: 'Sampling rate',
+          label: 'Sampling',
           widget: 'number',
           placeholder: '1',
-          help: 'Fraction (0–1) of invocations sampled for both logs and traces unless overridden below.',
+          help: 'Share of invocations recorded, 0–1',
+          summaryLabel: 'Sampling',
           visibleWhen: { path: 'observability', truthy: true },
         },
         {
           path: 'observability.logs.head_sampling_rate',
-          label: 'Logs sampling rate',
+          label: 'Logs sampling',
           widget: 'number',
           placeholder: '1',
-          help: 'Fraction (0–1) of invocations whose logs are kept. Overrides the top-level rate.',
+          help: 'Overrides Sampling for logs',
           visibleWhen: { path: 'observability', truthy: true },
         },
         {
           path: 'observability.traces.head_sampling_rate',
-          label: 'Traces sampling rate',
+          label: 'Traces sampling',
           widget: 'number',
           placeholder: '1',
-          help: 'Fraction (0–1) of invocations sampled for traces. Overrides the top-level rate.',
+          help: 'Overrides Sampling for traces',
           visibleWhen: { path: 'observability', truthy: true },
         },
         {
           path: 'logpush',
-          label: 'Enable Logpush',
+          label: 'Logpush',
           widget: 'boolean',
-          help: 'Forward logs to an external Logpush destination (R2, Datadog, Splunk, …).',
+          help: 'Forward logs to a Logpush destination',
           advanced: true,
         },
       ],
