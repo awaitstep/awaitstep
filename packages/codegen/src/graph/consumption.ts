@@ -38,10 +38,7 @@ export function buildOutputConsumption(
     upstream ??
     upstreamVarNames(
       ir,
-      boundVarNames(
-        ir,
-        new Map(ir.nodes.map((node) => [node.id, varNameFor(node.id)])),
-      ),
+      boundVarNames(ir, new Map(ir.nodes.map((node) => [node.id, varNameFor(node.id)]))),
       () => false,
     )
   const wholeReaders: { id: string; names: string[] }[] = []

@@ -88,11 +88,15 @@ describe('generateScript', () => {
     // bare statement (no const): the value is dropped.
     expect(code).not.toContain('const transform =')
     expect(code).not.toMatch(/let transform[,;]/)
-    expect(code).toMatch(/^\s*await flow\.step\("transform", \{ retries: [\s\S]*?\(ctx\) =>\s+\$transform\(/m)
+    expect(code).toMatch(
+      /^\s*await flow\.step\("transform", \{ retries: [\s\S]*?\(ctx\) =>\s+\$transform\(/m,
+    )
     expect(code).not.toMatch(/return \{[^}]*transform[^}]*\}/)
     // side-effect returns nothing → no var either.
     expect(code).not.toContain('const side_effect')
-    expect(code).toMatch(/^\s*await flow\.step\("side-effect", \{ retries: [\s\S]*?\(ctx\) =>\s+\$side_effect\(/m)
+    expect(code).toMatch(
+      /^\s*await flow\.step\("side-effect", \{ retries: [\s\S]*?\(ctx\) =>\s+\$side_effect\(/m,
+    )
     // Empty graph object since nothing is exported.
     expect(code).toContain('return {};')
   })
@@ -103,7 +107,9 @@ describe('generateScript', () => {
     // The prefix is stripped — var/key is `Result`. The step's return is its
     // value, captured at the call and included in the return.
     // The step label is the node id, as in a workflow; the var is the name.
-    expect(code).toMatch(/const Result = await flow\.step\("node-id", \{ retries: [^\n]*\}, \(ctx\) =>\s+\$Result\(/)
+    expect(code).toMatch(
+      /const Result = await flow\.step\("node-id", \{ retries: [^\n]*\}, \(ctx\) =>\s+\$Result\(/,
+    )
     expect(code).not.toContain('const EXPORT_Result')
     expect(code).toMatch(/return \{\s*Result\s*\}/)
   })
@@ -551,7 +557,9 @@ describe('generateScript', () => {
     const bundle = generateScriptBundle(ir)
     const worker = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
     expect(worker).toContain('createInlineHost()')
-    expect(worker).toMatch(/try \{\n\s+Risky = await flow\.step\("risky", \{ retries: [\s\S]*?\(ctx\) =>/)
+    expect(worker).toMatch(
+      /try \{\n\s+Risky = await flow\.step\("risky", \{ retries: [\s\S]*?\(ctx\) =>/,
+    )
     expect(worker).toContain('$fallback({ env, event, inputs: { error: err }, step, ctx })')
     expect(worker).toMatch(/let Risky;/)
     expect(worker).toMatch(/return \{\s*Risky\s*\}/)
