@@ -93,21 +93,41 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Type scale shifted one notch up: 16px body (sm), 13px secondary (xs),
-     12px meta (2xs), 18px titles (base). 3xs is for the org rail's labels only,
-     which must fit "What's new" under an icon in a 60px tile. */
+  /* The app's only type sizes, named for the role they play rather than the
+     size. Every dashboard `text-*` comes from this list (the marketing page
+     uses Tailwind's display sizes); the type-scale test
+     (lib/__tests__/type-scale.test.ts) fails on an ad-hoc size.
+
+       3xs  10  micro tags in the canvas/IDE, canvas node labels, org rail
+       2xs  11  meta, badges, timestamps, dense code
+       xs   12  labels, nav, table cells, secondary text
+       sm   14  body, descriptions, inputs, buttons, list and section titles
+       base 16  card and dialog titles
+       lg   18  panel and feature titles
+       xl   20  stat values, avatar initials
+       2xl  24  page h1
+       3xl  30  empty-state and marketing hero
+
+     Line heights are part of the token so a size change never inherits a
+     line box from its parent. */
   --text-3xs: 0.625rem;
   --text-3xs--line-height: 0.875rem;
-  --text-2xs: 0.75rem;
+  --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
-  --text-xs: 0.8125rem;
+  --text-xs: 0.75rem;
   --text-xs--line-height: 1.125rem;
-  --text-sm: 1rem;
-  --text-sm--line-height: 1.5rem;
-  --text-base: 1.125rem;
-  --text-base--line-height: 1.75rem;
-  --text-lg: 1.25rem;
-  --text-lg--line-height: 1.75rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
 }
 
 :root {
@@ -392,14 +412,14 @@ html.light {
   padding-right: 30px;
 }
 [data-sonner-toaster][data-sonner-theme] .action-toast [data-title] {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   line-height: 1.4;
   color: var(--toast-tone);
 }
 [data-sonner-toaster][data-sonner-theme] .action-toast [data-description] {
   margin-top: 4px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--toast-muted);
 }
@@ -408,7 +428,7 @@ html.light {
   margin-top: 11px;
   border-radius: 7px;
   background: transparent;
-  font: 600 12.5px var(--app-font-sans);
+  font: 600 var(--text-xs) var(--app-font-sans);
   cursor: pointer;
 }
 /* The action: bordered in the state colour, under the text. */
