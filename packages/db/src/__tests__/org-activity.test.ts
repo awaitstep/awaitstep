@@ -149,6 +149,35 @@ describe.each([
     expect(rows[0]!.workspace).toEqual({ slug: 'ops', name: 'Ops', colour: 'amber' })
   })
 
+  it('judges a row by its workspace’s project, even when the workflow row names another', async () => {
+    await addDee(h)
+    // A grant on Project 202 only; Sales is Project 101's.
+    await h.db
+      .insert(h.schema.projectMembers)
+      .values({ projectId: 'p-202', userId: 'u-dee', role: 'member', createdAt: T0 })
+    // A workflow in Sales whose own project id points at Project 202 (a half-finished move).
+    await h.db.insert(h.schema.workflows).values({
+      id: 'wf-stray',
+      projectId: 'p-202',
+      workspaceId: 'ws-sales',
+      createdBy: 'u-ama',
+      name: 'Stray',
+      kind: 'workflow',
+      createdAt: T0,
+      updatedAt: T0,
+    })
+    await h.db
+      .insert(h.schema.workflowRuns)
+      .values(run('r-stray', 'wf-stray', 'errored', '2026-10-28T11:00:00.000Z'))
+    const ids = (await activity(h, 'org-acme', 'u-dee')).map((r) => r.id)
+    expect(ids).not.toContain('failed:r-stray')
+    const summary = await h.adapter.orgHomeSummary('org-acme', 'u-dee')
+    expect(summary!.failing.first?.workflow.name).not.toBe('Stray')
+    // Ama sees it under the workspace's own project.
+    const ama = await activity(h, 'org-acme', 'u-ama')
+    expect(ama.find((r) => r.id === 'failed:r-stray')?.project.slug).toBe('project-101')
+  })
+
   it('never shows another organization’s activity', async () => {
     await h.db
       .insert(h.schema.workflowRuns)

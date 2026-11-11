@@ -87,7 +87,7 @@ export class SummaryAdapter {
     const health = this.fields.orgHealth(viewer)
     const latestId = sql`(select ${latest.id} from ${aliasedFrom(latest)} where ${latest.workflowId} = ${wf.id} order by ${latest.createdAt} desc limit 1)`
     const visible = sql`${roles.workspaceRoleOf(viewerId, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} is not null`
-    const inner = sql`select ${wf.id} as id, ${wf.name} as name, ${wf.kind} as kind, ${p.slug} as project_slug, ${p.name} as project_name, ${w.slug} as workspace_slug, ${w.name} as workspace_name, ${w.colour} as workspace_colour, ${r.id} as run_id, ${r.workflowId} as run_workflow_id, ${r.versionId} as run_version_id, ${r.versionNumber} as run_version_number, ${r.status} as run_status, ${r.createdAt} as run_created_at, ${r.updatedAt} as run_updated_at from ${aliasedFrom(wf)} inner join ${aliasedFrom(w)} on ${w.id} = ${wf.workspaceId} inner join ${aliasedFrom(p)} on ${p.id} = ${wf.projectId} inner join ${aliasedFrom(r)} on ${r.id} = ${latestId} where ${p.organizationId} = ${o.id} and ${visible} and ${r.status} in ('errored', 'terminated') order by ${r.createdAt} desc, ${r.id} desc limit 1`
+    const inner = sql`select ${wf.id} as id, ${wf.name} as name, ${wf.kind} as kind, ${p.slug} as project_slug, ${p.name} as project_name, ${w.slug} as workspace_slug, ${w.name} as workspace_name, ${w.colour} as workspace_colour, ${r.id} as run_id, ${r.workflowId} as run_workflow_id, ${r.versionId} as run_version_id, ${r.versionNumber} as run_version_number, ${r.status} as run_status, ${r.createdAt} as run_created_at, ${r.updatedAt} as run_updated_at from ${aliasedFrom(wf)} inner join ${aliasedFrom(w)} on ${w.id} = ${wf.workspaceId} inner join ${aliasedFrom(p)} on ${p.id} = ${w.projectId} inner join ${aliasedFrom(r)} on ${r.id} = ${latestId} where ${p.organizationId} = ${o.id} and ${visible} and ${r.status} in ('errored', 'terminated') order by ${r.createdAt} desc, ${r.id} desc limit 1`
     const first = this.jsonList(
       [
         [
@@ -144,7 +144,7 @@ export class SummaryAdapter {
     const roles = this.fields.roles
     const visible = sql`${roles.workspaceRoleOf(viewerId, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} is not null`
     const place = sql`${wf.name} as wf_name, ${wf.kind} as wf_kind, ${p.slug} as project_slug, ${p.name} as project_name, ${w.slug} as workspace_slug, ${w.name} as workspace_name, ${w.colour} as workspace_colour`
-    const from = sql`from ${aliasedFrom(wf)} inner join ${aliasedFrom(w)} on ${w.id} = ${wf.workspaceId} inner join ${aliasedFrom(p)} on ${p.id} = ${wf.projectId}`
+    const from = sql`from ${aliasedFrom(wf)} inner join ${aliasedFrom(w)} on ${w.id} = ${wf.workspaceId} inner join ${aliasedFrom(p)} on ${p.id} = ${w.projectId}`
     const scoped = sql`${p.organizationId} = ${o.id} and ${visible}`
     const noVersion = sql`cast(null as integer)`
     const latestFailed = sql`(select ${lr.id} from ${aliasedFrom(lr)} where ${lr.workflowId} = ${wf.id} and ${lr.status} in (${FAILED_LIST}) order by ${lr.createdAt} desc, ${lr.id} desc limit 1)`
