@@ -6,6 +6,7 @@ import {
   cloudflareRouteSchema,
 } from '../config-schema.js'
 import { WRANGLER_BASE_CONFIG } from '../wrangler-config.js'
+import { CloudflareWorkflowsAdapter } from '../adapter.js'
 
 describe('cloudflareDeploymentConfigSchema', () => {
   it('accepts an empty config', () => {
@@ -167,6 +168,25 @@ describe('cloudflareDefaultDeploymentConfig', () => {
   it('enables workers.dev and preview URLs by default', () => {
     expect(cloudflareDefaultDeploymentConfig.workersDev).toBe(true)
     expect(cloudflareDefaultDeploymentConfig.previewUrls).toBe(true)
+  })
+})
+
+describe('getDefaultDeploymentConfig', () => {
+  const adapter = new CloudflareWorkflowsAdapter()
+
+  it('starts a workflow with no public URL: the API runs it (D-9)', () => {
+    const defaults = adapter.getDefaultDeploymentConfig('workflow')
+    expect(defaults.workersDev).toBe(false)
+    expect(defaults.previewUrls).toBe(false)
+    expect(cloudflareDeploymentConfigSchema.safeParse(defaults).success).toBe(true)
+    // A workflow is the kind when none is named.
+    expect(adapter.getDefaultDeploymentConfig()).toEqual(defaults)
+  })
+
+  it('keeps a function at its workers.dev URL, where it is called', () => {
+    const defaults = adapter.getDefaultDeploymentConfig('script')
+    expect(defaults.workersDev).toBe(true)
+    expect(defaults.previewUrls).toBe(true)
   })
 
   it('defaults observability to exactly what an unset config deploys', () => {

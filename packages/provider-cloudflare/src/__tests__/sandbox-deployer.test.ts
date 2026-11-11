@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { SandboxWranglerDeployer } from '../deploy/sandbox-deployer.js'
+import { SandboxWranglerDeployer, withoutWorkerUrl } from '../deploy/sandbox-deployer.js'
 import { toBundle } from '@awaitstep/codegen'
 
 interface ExecCall {
@@ -45,6 +45,7 @@ function makeFakeSandbox(
         stdin: options?.stdin,
       })
       const r = execHandler(command)
+      if (options?.stream && r.stdout) options.onOutput?.('stdout', r.stdout)
       return { success: r.success, stdout: r.stdout ?? '', stderr: r.stderr ?? '', exitCode: 0 }
     },
     async destroy() {
@@ -104,6 +105,45 @@ describe('SandboxWranglerDeployer', () => {
 
     // A second `secret bulk` would create a second version/deployment.
     expect(lastSandbox!.execCalls.some((c) => c.command.includes('secret bulk'))).toBe(false)
+  })
+
+  it('records the workers.dev address over a route, and the route when there is no other', async () => {
+    const deployWith = (stdout: string) =>
+      new SandboxWranglerDeployer(() =>
+        makeFakeSandbox((cmd) =>
+          cmd.includes('wrangler deploy') ? { success: true, stdout } : { success: true },
+        ),
+      ).deploy(bundle, {
+        ...baseOptions,
+        routes: [{ pattern: 'api.acme.com/*', zone_name: 'acme.com' }],
+      })
+    // A function is called from the server at its workers.dev address, never a typed route.
+    expect((await deployWith('https://my-worker.example.workers.dev')).workerUrl).toBe(
+      'https://my-worker.example.workers.dev',
+    )
+    expect((await deployWith('deployed')).workerUrl).toBe('https://api.acme.com')
+  })
+
+  it('keeps the worker’s workers.dev URL out of the progress it streams', async () => {
+    const lines: string[] = []
+    const deployer = new SandboxWranglerDeployer(() =>
+      makeFakeSandbox((cmd) =>
+        cmd.includes('wrangler deploy')
+          ? {
+              success: true,
+              stdout: 'Deployed my-worker triggers\n  https://my-worker.acme.workers.dev',
+            }
+          : { success: true },
+      ),
+    )
+    const result = await deployer.deploy(bundle, baseOptions, (_stage, message) => {
+      lines.push(message)
+    })
+    // The server still records it: it is the address a function is called at.
+    expect(result.workerUrl).toBe('https://my-worker.acme.workers.dev')
+    expect(lines.join('\n')).toContain('<workers.dev URL>')
+    expect(lines.join('\n')).not.toContain('acme.workers.dev')
+    expect(withoutWorkerUrl('see https://a.b.workers.dev/x now')).toBe('see <workers.dev URL> now')
   })
 
   it('does not call `wrangler secret put` (legacy stdin-based path)', async () => {

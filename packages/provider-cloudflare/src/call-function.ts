@@ -9,12 +9,6 @@ export const CALL_MAX_BYTES = 100 * 1024
 export const NOT_CALLABLE = 'Only a workers.dev URL can be called from here.'
 
 /**
- * The URLs {@link isCallableUrl} takes, as a regex source for the UI's hint
- * (`capabilities.callableUrlPattern`); keep the two in step.
- */
-export const CALLABLE_URL_PATTERN = '^https://[a-z0-9-]+(\\.[a-z0-9-]+)*\\.workers\\.dev(?:[/?#]|$)'
-
-/**
  * Whether the server may POST to a deployed function's URL. Only its own
  * `https://<name>.workers.dev` address: a route or custom-domain URL comes
  * from a pattern a user typed, and could point the server at any host.
@@ -38,9 +32,9 @@ export function isCallableUrl(raw: string): boolean {
 async function readCapped(
   response: Response,
   maxBytes: number,
-): Promise<{ text: string; truncated: boolean }> {
+): Promise<{ bytes: Uint8Array; text: string; truncated: boolean }> {
   const reader = response.body?.getReader()
-  if (!reader) return { text: '', truncated: false }
+  if (!reader) return { bytes: new Uint8Array(), text: '', truncated: false }
   const chunks: Uint8Array[] = []
   let size = 0
   let truncated = false
@@ -63,7 +57,7 @@ async function readCapped(
     joined.set(chunk, at)
     at += chunk.byteLength
   }
-  return { text: new TextDecoder().decode(joined), truncated }
+  return { bytes: joined, text: new TextDecoder().decode(joined), truncated }
 }
 
 /**
@@ -82,12 +76,13 @@ export async function callFunction(
   try {
     const response = await fetcher(request.url, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: request.body,
+      headers: { 'content-type': request.contentType ?? 'application/json' },
+      // A caller's bytes go on as they came.
+      body: request.body as BodyInit,
       redirect: 'manual',
       signal: AbortSignal.timeout(timeoutMs),
     })
-    const { text, truncated } = await readCapped(response, CALL_MAX_BYTES)
+    const { bytes, text, truncated } = await readCapped(response, CALL_MAX_BYTES)
     return {
       ok: true,
       status: response.status,
@@ -95,6 +90,8 @@ export async function callFunction(
       durationMs: Date.now() - started,
       contentType: response.headers.get('content-type'),
       body: text,
+      bytes,
+      location: response.headers.get('location'),
       truncated,
     }
   } catch (err) {

@@ -269,8 +269,10 @@ export interface DeploymentConfigPreview {
 export interface FunctionCallRequest {
   /** The deployment's URL, as the deploy recorded it. */
   url: string
-  /** Sent as is, with `content-type: application/json`. */
-  body: string
+  /** Sent as is: text, or the bytes a caller sent. */
+  body: string | Uint8Array
+  /** The body's `content-type`; `application/json` when left out. */
+  contentType?: string
 }
 
 /**
@@ -285,7 +287,12 @@ export type FunctionCallResult =
       statusText: string
       durationMs: number
       contentType: string | null
+      /** The answer as text, for the run and the dashboard. */
       body: string
+      /** The answer as it came, for a caller it is passed on to unchanged. */
+      bytes: Uint8Array
+      /** Where a redirect points (redirects are answered, never followed). */
+      location: string | null
       /** The body was longer than the provider reads; `body` is its start. */
       truncated: boolean
     }
@@ -297,7 +304,8 @@ export type FunctionCallResult =
  * as. A URL it won't call is a 400 instead, and records nothing.
  */
 export type FunctionCallResponse = (
-  Extract<FunctionCallResult, { ok: true }> | { ok: false; reason: string }
+  | Omit<Extract<FunctionCallResult, { ok: true }>, 'bytes' | 'location'>
+  | { ok: false; reason: string }
 ) & { runId: string }
 
 /** `GET /workflows/:id/deploy-config/:connectionId`: the settings Deploy starts from. */

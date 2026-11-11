@@ -87,6 +87,7 @@ export {
   cloudflareDeploymentConfigSchema,
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigUiSchema,
+  WORKFLOW_DEFAULT_ACCESS,
 } from './config-schema.js'
 export { cloudflareRetentionDurationSchema } from './config-schema.js'
 export type { CloudflareRoute, CloudflareDeploymentConfig } from './config-schema.js'
@@ -135,7 +136,6 @@ export {
 export type { WranglerCommand, WranglerEnvOptions } from './wrangler-exec.js'
 
 export {
-  CALLABLE_URL_PATTERN,
   CALL_MAX_BYTES,
   CALL_TIMEOUT_MS,
   NOT_CALLABLE,

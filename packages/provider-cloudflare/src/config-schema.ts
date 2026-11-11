@@ -163,6 +163,14 @@ export const cloudflareDeploymentConfigSchema = z
 export type CloudflareRoute = z.infer<typeof cloudflareRouteSchema>
 export type CloudflareDeploymentConfig = z.infer<typeof cloudflareDeploymentConfigSchema>
 
+/**
+ * A workflow's worker serves no URL by default (D-9): its generated `fetch`
+ * starts instances and reads their status for anyone who can reach it, and
+ * AwaitStep triggers it through the Cloudflare API. Preview URLs are served on
+ * workers.dev too. A function keeps both: it is called at its workers.dev URL.
+ */
+export const WORKFLOW_DEFAULT_ACCESS = { workersDev: false, previewUrls: false } as const
+
 export const cloudflareDefaultDeploymentConfig: CloudflareDeploymentConfig = {
   workersDev: true,
   previewUrls: true,
@@ -180,7 +188,7 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
           path: 'routes',
           label: 'Route patterns',
           widget: 'array-of-objects',
-          help: 'Needs a Cloudflare zone',
+          help: 'Needs a Cloudflare zone. Public; calls here aren’t recorded',
           summaryLabel: 'Routes',
         },
         {
@@ -188,7 +196,7 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
           label: 'Custom domains',
           widget: 'array',
           placeholder: 'api.example.com',
-          help: 'DNS and SSL handled for you',
+          help: 'DNS and SSL handled for you. Public; calls here aren’t recorded',
           summaryLabel: 'Domains',
         },
       ],
@@ -200,7 +208,7 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
           path: 'workersDev',
           label: 'workers.dev subdomain',
           widget: 'boolean',
-          help: 'Serve at <name>.workers.dev',
+          help: 'Public at <name>.workers.dev; calls there aren’t recorded',
           summaryLabel: 'workers.dev',
         },
         {

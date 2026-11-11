@@ -149,8 +149,8 @@ export interface LiveDeployment {
   id: string
   name: string
   deploymentId: string
-  /** The worker's URL on that account, when the deploy gave one. */
-  serviceUrl: string | null
+  /** Whether AwaitStep can call it there (a function's workers.dev URL); the URL is never sent. */
+  callable: boolean
   /** Null once the version is deleted; `version` still says which it was. */
   versionId: string | null
   version: number | null

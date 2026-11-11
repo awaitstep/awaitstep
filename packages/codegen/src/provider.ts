@@ -88,13 +88,6 @@ export interface ProviderCapabilities {
   bindingKindLabels: Readonly<Record<string, string>>
   /** Deployment-config field that holds cron expressions, if schedules exist. */
   scheduleConfigKey?: string
-  /** How a deployment is reached; `{deploymentId}` is substituted. */
-  runUrlTemplate?: string
-  /**
-   * Regex source (case-insensitive) for the deployment URLs `callFunction`
-   * will call; absent = none. A hint for the UI — the provider still checks.
-   */
-  callableUrlPattern?: string
 }
 
 export interface WorkflowProvider {
@@ -126,7 +119,12 @@ export interface WorkflowProvider {
 
   readonly deploymentConfigUiSchema?: DeploymentConfigUiSchema
 
-  getDefaultDeploymentConfig(): unknown
+  /**
+   * The settings a deploy starts from. `kind` lets a provider default a
+   * workflow and a function differently (a workflow's own URL is off: the
+   * API runs it); absent, a workflow's.
+   */
+  getDefaultDeploymentConfig(kind?: 'workflow' | 'script'): unknown
 
   buildDeploymentConfigPreview(config: unknown): DeploymentConfigPreview
 
@@ -186,6 +184,9 @@ export interface WorkflowProvider {
    * not point the server at an internal host). Absent = no calling from here.
    */
   callFunction?(request: FunctionCallRequest): Promise<FunctionCallResult>
+
+  /** Whether `callFunction` would call this URL: the server's answer, sent to a page as a flag. */
+  canCallUrl?(url: string): boolean
 
   getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus>
 

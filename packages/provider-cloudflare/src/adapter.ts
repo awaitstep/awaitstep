@@ -23,7 +23,7 @@ import type {
   FunctionCallResult,
   HandlerConversionResult,
 } from '@awaitstep/codegen'
-import { CALLABLE_URL_PATTERN, callFunction } from './call-function.js'
+import { callFunction, isCallableUrl } from './call-function.js'
 import { compileBundle } from './compile-bundle.js'
 import { generateScriptBundle, generateWorkflowBundle } from './codegen/generate.js'
 import {
@@ -83,6 +83,7 @@ import {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigSchema,
   cloudflareDeploymentConfigUiSchema,
+  WORKFLOW_DEFAULT_ACCESS,
   type CloudflareDeploymentConfig,
 } from './config-schema.js'
 
@@ -283,8 +284,6 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     bindingKinds: CLOUDFLARE_BINDING_KINDS,
     bindingKindLabels: BINDING_KIND_LABELS,
     scheduleConfigKey: 'cronTriggers',
-    runUrlTemplate: 'https://{deploymentId}.workers.dev',
-    callableUrlPattern: CALLABLE_URL_PATTERN,
   }
   readonly supportedBindingKinds = CLOUDFLARE_BINDING_KINDS
   readonly importSchemes = ['cloudflare', 'workerd'] as const
@@ -298,8 +297,10 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     this.deployer = options?.deployer
   }
 
-  getDefaultDeploymentConfig(): CloudflareDeploymentConfig {
-    return { ...cloudflareDefaultDeploymentConfig }
+  getDefaultDeploymentConfig(kind: 'workflow' | 'script' = 'workflow'): CloudflareDeploymentConfig {
+    return kind === 'script'
+      ? { ...cloudflareDefaultDeploymentConfig }
+      : { ...cloudflareDefaultDeploymentConfig, ...WORKFLOW_DEFAULT_ACCESS }
   }
 
   /**
@@ -806,6 +807,10 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     return callFunction(request)
   }
 
+  canCallUrl(url: string): boolean {
+    return isCallableUrl(url)
+  }
+
   async trigger(
     _: string,
     params: unknown,
@@ -813,7 +818,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   ): Promise<{ instanceId: string }> {
     if (config.options?.['kind'] === 'script') {
       throw new Error(
-        'Scripts have no instance lifecycle — invoke the deployed worker URL directly via HTTP',
+        'Scripts have no instance lifecycle — call the function instead of triggering it',
       )
     }
     const { accountId, apiToken } = extractCredentials(config)

@@ -23,6 +23,14 @@ export interface SandboxDeployerOptions {
 
 const DEFAULT_MAX_DEPLOY_MS = 5 * 60 * 1000
 
+/**
+ * A progress line as the page may see it: the worker's workers.dev address
+ * stays on the server (D-8) — the API runs it, and the page has no use for it.
+ */
+export function withoutWorkerUrl(line: string): string {
+  return line.replace(/https:\/\/[^\s)]+\.workers\.dev\S*/g, '<workers.dev URL>')
+}
+
 export class SandboxWranglerDeployer implements WranglerDeployer {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private getSandbox: (id: string) => any
@@ -153,7 +161,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
           },
           stream: true,
           onOutput: (_stream: string, data: string) => {
-            const trimmed = data.trim()
+            const trimmed = withoutWorkerUrl(data.trim())
             if (trimmed) onProgress?.('DEPLOYING', trimmed)
           },
         },
@@ -169,7 +177,9 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         ? `https://${options.routes[0].pattern.replace(/\/\*$/, '')}`
         : undefined
 
-      return { success: true, workerName: name, workerUrl: routeUrl ?? urlMatch?.[0] }
+      // The workers.dev address first: it is the one a function is called at
+      // from the server (a route's host is whatever pattern was typed).
+      return { success: true, workerName: name, workerUrl: urlMatch?.[0] ?? routeUrl }
     } catch (err) {
       return { success: false, workerName: name, error: redactSensitive((err as Error).message) }
     } finally {
