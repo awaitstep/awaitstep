@@ -19,7 +19,7 @@ interface RunBandProps {
   connection: RunConnection | null
   /** Where it is or where it stopped, from its steps (a call: what it answered). */
   whereabouts: string
-  /** A function's run is a call: its body, not a payload. */
+  /** A function's run is a call: its body shows on the page, not behind a link. */
   call?: boolean
 }
 
@@ -27,6 +27,7 @@ interface RunBandProps {
 export function RunBand({ workflowId, run, connection, whereabouts, call = false }: RunBandProps) {
   const [payloadOpen, setPayloadOpen] = useState(false)
   const failed = run.status === 'errored'
+  const payloadLink = run.hasParams && !call
 
   function handleShowPayload() {
     setPayloadOpen(true)
@@ -65,17 +66,17 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
         <span className="text-[13.5px] text-foreground">
           {(run.trigger && TRIGGER_NAME[run.trigger]) ?? 'Not recorded'}
         </span>
-        {run.hasParams && (
+        {payloadLink && (
           <button
             type="button"
             onClick={handleShowPayload}
             className="self-start text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {call ? 'See the body →' : 'See the payload →'}
+            See the payload →
           </button>
         )}
       </div>
-      {run.hasParams && (
+      {payloadLink && (
         <RunPayloadDialog
           workflowId={workflowId}
           runId={run.id}
