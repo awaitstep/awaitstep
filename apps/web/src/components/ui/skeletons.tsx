@@ -13,12 +13,12 @@ export function ListRowSkeleton() {
     <div className="px-4 py-3">
       <div className="flex items-center justify-between">
         <div>
-          {/* Line boxes match the real rows: text-sm (24px) title, text-xs (18px) meta. */}
-          <div className="flex h-6 items-center gap-2.5">
+          {/* Line boxes match the real rows: text-sm (20px) title, text-xs (18px) meta. */}
+          <div className="flex h-5 items-center gap-2.5">
             <Bone className="h-3.5 w-32" />
             <Bone className="h-3.5 w-16 bg-muted/25" />
           </div>
-          <div className="mt-0.5 flex h-[1.125rem] items-center">
+          <div className="mt-0.5 flex h-4.5 items-center">
             <Bone className="h-3 w-48 bg-muted/20" />
           </div>
         </div>
@@ -96,12 +96,12 @@ export function ListCardSkeleton({ rows = 4, trailing = 3, tile = true }: ListCa
       {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4">
           {tile && <Bone className="size-10 rounded-xl" />}
-          {/* Line boxes match ListRow: text-sm (24px) title, text-2xs (16px) description. */}
+          {/* Line boxes match ListRow: text-sm (20px) title, text-xs (18px) description. */}
           <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
-            <div className="flex h-6 items-center">
+            <div className="flex h-5 items-center">
               <Bone className="h-3.5 w-40" />
             </div>
-            <div className="flex h-4 items-center">
+            <div className="flex h-4.5 items-center">
               <Bone className="h-3 w-64 bg-muted/25" />
             </div>
           </div>
