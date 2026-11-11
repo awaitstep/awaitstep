@@ -4,6 +4,7 @@ import { Bone, ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { EditAccessRequest, NewItemButton } from '../items/item-actions'
+import { overviewLead } from './overview-lead'
 import { useWorkspaceScope } from './use-workspace-scope'
 import { WorkspaceLoadError } from './workspace-load-error'
 import { WorkspaceOverview } from './workspace-overview'
@@ -40,10 +41,20 @@ export function WorkspaceOverviewPage({ slugs }: WorkspaceOverviewPageProps) {
 
   if (!scope) return null
   const workspace = scope.workspace.workspace
-  const counts = workspace.counts
+  // The overview's own counts once they're in; the scope's until then.
+  const counts = overview.data?.counts ?? workspace.counts
   const readOnly = !scope.workspace.viewerCan.edit.allowed
   const view = emptyViewFor({ workflows: counts.workflows, functions: counts.functions })
   const quiet = view === null && counts.runs24h === 0
+  const lead = overviewLead({
+    state: view ? 'empty' : quiet ? 'quiet' : 'active',
+    description: workspace.description,
+    people: scope.workspace.people.length,
+    workflows: counts.workflows,
+    functions: counts.functions,
+    projectName: scope.project.project.name,
+    firstInProject: scope.project.project.workspaces[0]?.id === workspace.id,
+  })
 
   function handleRetry() {
     void overview.refetch()
@@ -99,7 +110,7 @@ export function WorkspaceOverviewPage({ slugs }: WorkspaceOverviewPageProps) {
     <>
       {topBar}
       <PageBody>
-        <PageIntro title={workspace.name} />
+        <PageIntro title={workspace.name} description={lead} />
         {body}
       </PageBody>
     </>

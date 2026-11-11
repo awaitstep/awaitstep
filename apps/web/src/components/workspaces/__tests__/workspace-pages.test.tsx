@@ -58,7 +58,7 @@ describe('workspace Overview', () => {
   it('shows the load error under ?mock=error', async () => {
     renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />, { scenario: 'error' })
     expect(
-      await screen.findByRole('heading', { name: 'We couldn’t load this workspace' }),
+      await screen.findByRole('heading', { name: 'We couldn’t load the overview' }),
     ).toBeVisible()
   })
 })
