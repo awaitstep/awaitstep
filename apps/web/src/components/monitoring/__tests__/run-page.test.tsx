@@ -230,10 +230,36 @@ describe('a function’s run is a call (D-5)', () => {
     const band = screen.getByRole('region', { name: 'Run facts' })
     expect(within(band).getByText('Answered 500')).toBeVisible()
     expect(within(band).getByText('288ms')).toBeVisible()
-    expect(within(band).getByRole('button', { name: 'See the body →' })).toBeVisible()
-    expect(screen.getByText(/"message": "boom"/)).toBeVisible()
+    // The body sent is on the page, before the answer — no dialog for it.
+    expect(within(band).queryByRole('button', { name: /See the/ })).not.toBeInTheDocument()
+    const request = await screen.findByText(/"email": "a@b.c"/)
+    const response = screen.getByText(/"message": "boom"/)
+    expect(request).toBeVisible()
+    expect(response).toBeVisible()
+    expect(
+      request.compareDocumentPosition(response) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
     expect(screen.queryByText('canvas')).not.toBeInTheDocument()
     expect(fetchSpy.mock.calls.some(([u]) => String(u).includes('/steps'))).toBe(false)
+  })
+
+  it('shows a body sent as text as it was sent, and says when none was sent', async () => {
+    serve((url) => {
+      if (url.includes('/runs/run_1?')) return Response.json(CALL)
+      if (url.includes('/runs/run_1/params')) return Response.json({ params: 'address=x' })
+      return undefined
+    })
+    renderCall()
+    expect(await screen.findByText('address=x')).toBeVisible()
+  })
+
+  it('says when a call was sent with no body, without asking for one', async () => {
+    const fetchSpy = serve((url) =>
+      url.includes('/runs/run_1?') ? Response.json({ ...CALL, hasParams: false }) : undefined,
+    )
+    renderCall()
+    expect(await screen.findByText('Sent with no body.')).toBeVisible()
+    expect(fetchSpy.mock.calls.some(([u]) => String(u).includes('/params'))).toBe(false)
   })
 
   it('calls again and opens the new call', async () => {
