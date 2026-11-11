@@ -25,7 +25,7 @@ export function RunResult({ run, explained }: RunResultProps) {
   if (run.status !== 'complete' || !run.output) return null
   return (
     <RunCard title="Run output">
-      <pre className="max-h-[240px] overflow-auto px-4 py-3.5 font-mono text-[11.5px] leading-relaxed text-foreground/80">
+      <pre className="max-h-[240px] overflow-auto px-4 py-3.5 font-mono text-sm leading-relaxed text-foreground/80">
         {prettyJson(run.output)}
       </pre>
     </RunCard>
