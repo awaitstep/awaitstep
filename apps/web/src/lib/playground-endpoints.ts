@@ -514,26 +514,20 @@ export const endpoints: EndpointDef[] = [
     bodyExample: JSON.stringify({ connectionId: '', versionId: '' }, null, 2),
   },
   {
-    id: 'trigger-workflow',
+    // The way an API key runs a workflow or calls a function (D-1); the dashboard's
+    // trigger, call and Run again are session-only and not offered here.
+    id: 'run',
     group: 'Deployments',
     method: 'POST',
-    path: '/api/workflows/:workflowId/trigger',
-    label: 'Trigger workflow',
+    path: '/api/run/:workflowId',
+    label: 'Run a workflow or call a function',
     permission: 'workflows:run',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'account', in: 'query', required: false },
+    ],
     hasBody: true,
-    bodyExample: JSON.stringify({ connectionId: '', params: {} }, null, 2),
-  },
-  {
-    id: 'call-function',
-    group: 'Deployments',
-    method: 'POST',
-    path: '/api/workflows/:workflowId/call',
-    label: 'Call a function',
-    permission: 'workflows:run',
-    params: [{ name: 'workflowId', in: 'path', required: true }],
-    hasBody: true,
-    bodyExample: JSON.stringify({ connectionId: '', body: '{}' }, null, 2),
+    bodyExample: JSON.stringify({}, null, 2),
   },
   {
     id: 'takedown-workflow',
@@ -678,20 +672,6 @@ export const endpoints: EndpointDef[] = [
       { name: 'runId', in: 'path', required: true },
     ],
     hasBody: false,
-  },
-  {
-    id: 'run-again',
-    group: 'Runs',
-    method: 'POST',
-    path: '/api/workflows/:workflowId/runs/:runId/run-again',
-    label: 'Run again with the same payload',
-    permission: 'workflows:run',
-    params: [
-      { name: 'workflowId', in: 'path', required: true },
-      { name: 'runId', in: 'path', required: true },
-    ],
-    hasBody: true,
-    bodyExample: JSON.stringify({ connectionId: '' }, null, 2),
   },
 
   // Connections

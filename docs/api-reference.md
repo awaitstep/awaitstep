@@ -257,7 +257,7 @@ Scripts run inside an `async fetch(request, env)` handler with no durable runtim
 | Trigger must be HTTP       | A script's `kind` is its HTTP entry; invocation is always an HTTP request to the deployed Worker URL.                                                                                                           |
 | No durable-runtime nodes   | `sleep`, `sleep_until`, and `wait_for_event` are rejected at validation time. They require a durable instance the script doesn't have. Use a workflow if you need any of these.                                 |
 | No `WORKFLOW` self-binding | The generated Worker has no Workflow binding to itself (it isn't a Workflow). Sub-workflow bindings (calls into other deployed workflows) and resource bindings (KV/D1/R2/etc.) are still detected and emitted. |
-| No instance lifecycle      | No Runs, no pause/resume/terminate. `POST /workflows/:id/trigger` returns 400 for scripts. Each HTTP request is a fresh invocation.                                                                             |
+| No instance lifecycle      | No pause/resume/terminate. `POST /workflows/:id/trigger` returns 400 for scripts. Each HTTP request is a fresh invocation; calls through `POST /run/:id` are recorded as runs.                                  |
 
 ### Steps in a function
 
@@ -376,7 +376,9 @@ The legacy form — a display name starting with `EXPORT_` — still returns the
 
 ### Invocation
 
-Once deployed, invoke the Worker directly via HTTP:
+Once deployed, call it through the API with a key —
+[`POST /run/:workflowId`](#post-runworkflowid), recorded as a run — or invoke
+the Worker directly via HTTP, which isn't recorded:
 
 ```
 POST https://<your-worker-url>
@@ -1649,7 +1651,7 @@ chosen: its workspace's own account, else the project default.
       "id": "con_1",
       "name": "Acme production",
       "deploymentId": "dep_9",
-      "serviceUrl": "https://awaitstep-wf-1.acme.workers.dev",
+      "callable": true,
       "versionId": "ver_5",
       "version": 5,
       "versionLocked": false,
@@ -1679,6 +1681,19 @@ successful deploy and by `PUT` below), else the provider's defaults; `defaults`
 is always the provider's defaults, so a client can tell which settings were
 changed and reset them. Cloudflare's `observability` is always present: a config
 that leaves it out deploys logs and traces on, and reads back that way.
+
+A workflow's defaults turn `workersDev` and `previewUrls` **off**: its worker's
+generated `fetch` would let anyone start instances, and AwaitStep runs it
+through the provider's API (see [`POST /run/:workflowId`](#post-runworkflowid)).
+Setting `workersDev: true` keeps it on. A function's defaults keep both on: it
+is called at its `workers.dev` URL. A deploy's config — sent with it, stored,
+or a legacy one — sits on these defaults, so a setting it leaves out deploys as
+the default says. A workflow deployed before this default changed has
+`workersDev: true` stored and keeps it until it is turned off.
+
+`deployedWith[].callable` says whether AwaitStep can call a function there (its
+`workers.dev` URL; a route's or custom domain's address isn't called from the
+server). The worker's URL itself is never in a response.
 
 **Permission:** `workflows:deploy`
 
@@ -1782,14 +1797,79 @@ BINDINGS_READY → CREATING_WORKER → DEPLOYING → WORKER_DEPLOYED →
 UPDATING_WORKFLOW → COMPLETED
 ```
 
+### `POST /run/:workflowId`
+
+How other systems run a workflow or call a function: **API keys only**. Every
+call is recorded as a run (Triggered by "API key", with its payload). The
+dashboard's own `…/trigger`, `…/call` and `…/run-again` share the same code
+but take a session only.
+
+**Permission:** `workflows:run` (a project or workspace key; an organization key
+answers `403`). A session answers `401` `{ "error": "Use an API key" }`. A
+workflow the key doesn't reach — another workspace's, for a workspace key — is
+`404`. The workflow is named by its id alone: no `?projectId=` is needed.
+
+| Param        | In    | Required | Description                                                                              |
+| ------------ | ----- | -------- | ---------------------------------------------------------------------------------------- |
+| `workflowId` | path  | yes      | Workflow or function ID                                                                  |
+| `account`    | query | no       | Connection ID to run on. Without it, the account of the newest live deploy of it is used |
+
+With `?account=`, the workflow must be live on that account, else `404`
+`{ "error": "This workflow isn’t deployed with that connection" }`. Live nowhere is
+`404` `{ "error": "This workflow isn’t live on any account" }` (a function:
+`"This function isn’t live on any account"`). A provider that won't start the
+run answers `502` `{ "error": "Cloudflare refused to start the run (HTTP 404). Nothing was recorded." }`
+(the same for `…/trigger` and Run again). Refused calls record nothing.
+The body is capped at 100 KB (`400`). Calls share the per-user write limit
+(30 a minute, `429` past it).
+
+**A workflow:** the JSON body is the run's params (an empty body runs with none;
+a body that isn't JSON is `400`). Answers `201`:
+
+```bash
+curl -X POST https://app.awaitstep.dev/api/run/wf_1 \
+  -H "Authorization: Bearer ask_..." \
+  -H "content-type: application/json" \
+  -d '{"email":"ama@example.com"}'
+```
+
+```json
+{ "runId": "run_7", "instanceId": "a1b2c3", "status": "queued" }
+```
+
+**A function:** the body is sent on as is — bytes, with its `Content-Type`
+(JSON when none is given) — and the answer **is the function's own**: its
+status, `Content-Type` and body bytes (the first 100 KB;
+`X-AwaitStep-Body-Truncated: true` past that), with the run in the
+`X-AwaitStep-Run-Id` header. A redirect keeps its status, but its target comes
+as `X-AwaitStep-Function-Location`, never `Location`: answered from the API's
+own origin, a followed redirect would carry your key to wherever it points.
+The answer carries `Content-Security-Policy: default-src 'none'; sandbox`.
+Other response headers are not passed on. The run keeps the body as text and its `Content-Type`, so
+Run again sends it the same way. A deploy with no `workers.dev` address (only a
+route) can't be called: `400`. A function that
+answers `500` answers `500` here, and the run is `errored` with its watchers
+told. No answer within 30 s, or none at all, is `504`:
+
+```json
+{ "error": "The function didn’t answer within 30 s.", "runId": "run_8" }
+```
+
+The worker's own URL is not part of any API answer. A route or custom domain
+set on a deployment is public, and calls there are not recorded.
+
 ### `POST /workflows/:workflowId/trigger`
+
+**Session only** — the dashboard's. An API key answers `403`
+`{ "error": "This endpoint is not available to API keys" }`; run with
+[`POST /run/:workflowId`](#post-runworkflowid) instead.
 
 Trigger an execution of a deployed workflow. Params payload is capped at 100KB.
 `connectionId` must be a connection this workflow has a successful deployment
 with; any other answers `404`
 `{ "error": "This workflow isn’t deployed with that connection" }`.
 
-**Permission:** `workflows:run`
+**Session only.**
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -1804,9 +1884,12 @@ with; any other answers `404`
 
 Created instances use the **instance retention** settings from the workflow's stored deployment config for that connection (`retention.successRetention` / `retention.errorRetention`, a duration like `"7 days"` or milliseconds). When unset, AwaitStep applies a 7-day default for both instead of the Cloudflare account maximum — retained instance state bills at $0.20/GB-month past the included 1 GB. Cloudflare caps retention at the plan maximum (3 days Free, 30 days Paid).
 
-> **Scripts (kind: "script")** have no instance lifecycle — they are stateless fetch-only Workers. Calling this endpoint on a script returns 400. Invoke the deployed Worker URL directly via HTTP POST, or use [`POST /workflows/:workflowId/call`](#post-workflowsworkflowidcall). See [Scripts → Invocation](#invocation) for the request/response shape.
+> **Scripts (kind: "script")** have no instance lifecycle — they are stateless fetch-only Workers. Calling this endpoint on a script returns 400. Call it with [`POST /run/:workflowId`](#post-runworkflowid) (or, from the dashboard, [`POST /workflows/:workflowId/call`](#post-workflowsworkflowidcall)). See [Scripts → Invocation](#invocation) for the request/response shape.
 
 ### `POST /workflows/:workflowId/call`
+
+**Session only** — the dashboard's; a key calls through
+[`POST /run/:workflowId`](#post-runworkflowid).
 
 Call a deployed function (`kind: "script"`) from the dashboard: the server POSTs
 `body` to the URL the function is live at on that connection, with
@@ -1821,14 +1904,12 @@ through AwaitStep and aren't recorded.
 
 Only the function's own `https://<name>.workers.dev` address is called — a
 route or custom-domain URL answers `400`
-`{ "error": "Only a workers.dev URL can be called from here." }` (the provider's
-`capabilities.callableUrlPattern` from `GET /providers` says which URLs it
-takes). Redirects are answered as they come, never followed. The call gives up
+`{ "error": "Only a workers.dev URL can be called from here." }`. Redirects are answered as they come, never followed. The call gives up
 after 30 s and reads at most 100 KB of the answer (`truncated: true` past that).
 The body is capped at 100 KB (`422`). Calls share the per-user write limit
 (30 a minute, `429` past it), as triggers do.
 
-**Permission:** `workflows:run`
+**Session only.**
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -2095,10 +2176,10 @@ or a run of another workflow, answers `404` `{ "error": "Run not found" }` — a
 the workflow must still be deployed there (`404`
 `{ "error": "This workflow isn’t deployed with that connection" }` otherwise). It
 runs what that account has deployed now. Answers `201` with the new run object.
-For a function the run is a call: it is called again with the same body, and the
-answer is the call's (`200`, as `POST …/call` answers, with the new `runId`).
+For a function the run is a call: it is called again with the same body and
+`Content-Type` it was sent with, and the answer is the call's (`200`, as `POST …/call` answers, with the new `runId`).
 
-**Permission:** `workflows:run`
+**Session only** — the dashboard's; an API key answers `403`.
 
 | Param        | In   | Required | Description |
 | ------------ | ---- | -------- | ----------- |
@@ -2633,8 +2714,7 @@ The response is session-only; API keys cannot list providers.
       "importSchemes": ["cloudflare", "workerd"],
       "bindingKinds": ["kv", "d1", "r2", "queue", "service", "ai"],
       "bindingKindLabels": { "kv": "KV namespace" },
-      "scheduleConfigKey": "cronTriggers",
-      "runUrlTemplate": "https://{deploymentId}.workers.dev"
+      "scheduleConfigKey": "cronTriggers"
     }
   ]
 }
