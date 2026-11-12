@@ -80,6 +80,9 @@ export default async function (ctx) {
     }
 
     case 'List Monitors': {
+      if (!ctx.env.DATADOG_APP_KEY) {
+        throw new Error('DATADOG_APP_KEY is required for List Monitors')
+      }
       const data = await ddApi(`https://api.${site}/api/v1/monitor`, 'GET')
       return { status: 'ok', data: { monitors: data } }
     }
@@ -107,6 +110,9 @@ export default async function (ctx) {
     }
 
     case 'Mute Monitor': {
+      if (!ctx.env.DATADOG_APP_KEY) {
+        throw new Error('DATADOG_APP_KEY is required for Mute Monitor')
+      }
       if (!ctx.config.monitorId) throw new Error('Monitor ID is required for Mute Monitor')
       const data = await ddApi(
         `https://api.${site}/api/v1/monitor/${ctx.config.monitorId}/mute`,
