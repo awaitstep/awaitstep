@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function (ctx: any) {
   const action = ctx.config.action
 
   function graphToken(): string {

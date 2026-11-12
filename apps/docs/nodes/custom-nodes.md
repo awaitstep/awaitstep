@@ -96,7 +96,7 @@ Required rules:
 | `json`        | Monaco JSON                 |
 | `expression`  | Expression picker           |
 
-Config expressions such as `{{fetch_user.id}}` are resolved before the
+Config expressions such as <code v-pre>{{fetch_user.id}}</code> are resolved before the
 template is generated. They become step params, so a template reads the resolved
 value from `ctx.config.<field>`.
 
