@@ -1,0 +1,37 @@
+{
+  "version": "1.1.0",
+  "description": "Manage Linear issues, comments, teams, and projects",
+  "tags": ["linear", "issues", "project-management", "graphql"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Issue",
+        "Get Issue",
+        "Update Issue",
+        "List Issues",
+        "Delete Issue",
+        "Add Comment",
+        "List Teams",
+        "List Projects"
+      ]
+    },
+    "commentBody": {
+      "type": "textarea",
+      "label": "Comment Body",
+      "description": "Comment text. Used by: Add Comment."
+    },
+    "projectId": {
+      "type": "string",
+      "label": "Project ID",
+      "description": "Project ID filter. Used by: List Issues, List Projects."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    },
+    "identifier": {
+      "nullable": true
+    }
+  }
+}

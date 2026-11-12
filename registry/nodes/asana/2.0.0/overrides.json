@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "description": "Manage Asana tasks, comments, and projects",
+  "tags": ["asana", "project-management", "tasks", "projects"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Task",
+        "Get Task",
+        "Update Task",
+        "List Tasks",
+        "Add Comment",
+        "Delete Task",
+        "Complete Task",
+        "List Projects"
+      ]
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    }
+  }
+}

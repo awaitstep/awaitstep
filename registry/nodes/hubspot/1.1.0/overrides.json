@@ -1,0 +1,48 @@
+{
+  "version": "1.1.0",
+  "description": "Manage HubSpot contacts and deals",
+  "tags": ["hubspot", "crm", "contacts", "deals", "marketing"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Contact",
+        "Get Contact",
+        "Update Contact",
+        "Search Contacts",
+        "Delete Contact",
+        "List Contacts",
+        "Create Deal"
+      ]
+    },
+    "dealName": {
+      "type": "string",
+      "label": "Deal Name",
+      "description": "Deal name. Used by: Create Deal."
+    },
+    "dealAmount": {
+      "type": "number",
+      "label": "Deal Amount",
+      "description": "Deal amount. Used by: Create Deal."
+    },
+    "dealStage": {
+      "type": "string",
+      "label": "Deal Stage",
+      "description": "Deal stage ID or name. Used by: Create Deal."
+    },
+    "limit": {
+      "type": "number",
+      "label": "Limit",
+      "default": 20,
+      "validation": { "min": 1, "max": 100 },
+      "description": "Maximum contacts to return. Used by: List Contacts."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    },
+    "properties": {
+      "nullable": true
+    }
+  }
+}

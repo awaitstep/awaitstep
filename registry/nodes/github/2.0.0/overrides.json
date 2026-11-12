@@ -1,0 +1,44 @@
+{
+  "version": "2.0.0",
+  "description": "Work with GitHub issues, pull requests, comments, and repositories",
+  "tags": ["github", "issues", "pull-requests", "repositories", "developer-tools"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Issue",
+        "Get Issue",
+        "Create Comment",
+        "List Repo Issues",
+        "Create Pull Request",
+        "List Pull Requests",
+        "Merge Pull Request",
+        "Get Repository"
+      ]
+    },
+    "pullNumber": {
+      "type": "number",
+      "label": "Pull Request Number",
+      "description": "Pull request number. Used by: Merge Pull Request."
+    },
+    "head": {
+      "type": "string",
+      "label": "Head Branch",
+      "placeholder": "feature/my-change",
+      "description": "Branch with the changes. Used by: Create Pull Request."
+    },
+    "base": {
+      "type": "string",
+      "label": "Base Branch",
+      "placeholder": "main",
+      "description": "Branch to merge into. Used by: Create Pull Request."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    },
+    "url": {
+      "nullable": true
+    }
+  }
+}
