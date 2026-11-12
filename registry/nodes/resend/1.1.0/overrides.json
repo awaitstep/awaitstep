@@ -1,0 +1,41 @@
+{
+  "version": "1.1.0",
+  "description": "Send transactional email and manage emails and audiences in Resend",
+  "tags": ["resend", "email", "transactional", "audiences"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Send Email",
+        "Get Email",
+        "Cancel Email",
+        "List Emails",
+        "Update Email",
+        "List Audiences",
+        "Create Audience"
+      ]
+    },
+    "text": {
+      "type": "textarea",
+      "label": "Plain Text Body",
+      "description": "Plain text body. Used by: Send Email."
+    },
+    "scheduledAt": {
+      "type": "string",
+      "label": "Scheduled At",
+      "placeholder": "2026-11-12T10:00:00Z",
+      "description": "ISO timestamp to schedule the email. Used by: Send Email, Update Email."
+    },
+    "limit": {
+      "type": "number",
+      "label": "Limit",
+      "default": 20,
+      "validation": { "min": 1, "max": 100 },
+      "description": "Maximum results. Used by: List Emails."
+    },
+    "audienceName": {
+      "type": "string",
+      "label": "Audience Name",
+      "description": "Audience name. Used by: Create Audience."
+    }
+  }
+}
