@@ -1,0 +1,18 @@
+{
+  "version": "1.1.0",
+  "description": "Run Replicate predictions and inspect models and deployments",
+  "tags": ["replicate", "ai", "ml", "models", "predictions"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Prediction",
+        "Get Prediction",
+        "Cancel Prediction",
+        "List Predictions",
+        "List Models",
+        "Get Model",
+        "List Deployments"
+      ]
+    }
+  }
+}

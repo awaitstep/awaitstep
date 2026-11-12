@@ -1,0 +1,45 @@
+{
+  "version": "1.1.0",
+  "description": "Generate text, embeddings, images, and moderation results with current OpenAI models",
+  "tags": ["openai", "ai", "gpt", "embeddings", "images", "moderation", "responses"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Chat Completion",
+        "Create Response",
+        "Create Embedding",
+        "Create Image",
+        "Moderate Content",
+        "List Models"
+      ]
+    },
+    "model": {
+      "type": "select",
+      "default": "gpt-6.1-sol",
+      "options": [
+        "gpt-6-astra",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6-luna",
+        "gpt-5.6-sol",
+        "gpt-5.5",
+        "gpt-5.4"
+      ]
+    },
+    "imageModel": {
+      "type": "select",
+      "label": "Image Model",
+      "default": "gpt-image-2.6-flare",
+      "options": ["gpt-image-2.6-flare", "gpt-image-2.6-sunburst", "gpt-image-2.5-flare"],
+      "description": "Image model. Used by: Create Image."
+    },
+    "size": {
+      "options": ["1024x1024", "1536x1024", "1024x1536"]
+    }
+  },
+  "outputSchema": {
+    "usage": {
+      "nullable": true
+    }
+  }
+}
