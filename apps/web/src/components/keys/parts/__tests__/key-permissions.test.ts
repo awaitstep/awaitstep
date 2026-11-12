@@ -59,6 +59,7 @@ describe('presets', () => {
       workflows: ['read'],
       runs: ['read'],
       variables: ['read'],
+      library: ['read'],
     })
   })
 
@@ -68,6 +69,7 @@ describe('presets', () => {
       workflows: ['read', 'deploy', 'run'],
       runs: ['read'],
       variables: ['read'],
+      library: ['read'],
       members: ['read'],
     })
   })
@@ -93,6 +95,7 @@ describe('presets', () => {
       matchPreset('workspace', {
         workflows: ['run', 'deploy', 'read'],
         variables: ['read'],
+        library: ['read'],
         runs: ['read'],
       }),
     ).toBe('deploy-run')
@@ -130,7 +133,7 @@ describe('describing grants', () => {
   it('says how many permissions are selected', () => {
     expect(describeGrantCount('workspace', { workflows: ['read'] })).toBe('1 permission selected')
     expect(describeGrantCount('project', presetPermissions('project', 'deploy-run'))).toBe(
-      '7 permissions selected',
+      '8 permissions selected',
     )
   })
 

@@ -55,6 +55,20 @@ describe('the key catalog', () => {
     expect(keyMay('organization', { audit: ['read', 'write'] }, 'audit', 'write')).toBe(false)
     expect(parseKeyPermissions('{"audit":["read"]}')).toEqual({ audit: ['read'] })
   })
+
+  it('offers the Library to project and workspace keys, and reads every catalog resource back', () => {
+    expect(resourceAtLevel('project', 'library')).toBe(true)
+    expect(resourceAtLevel('workspace', 'library')).toBe(true)
+    expect(resourceAtLevel('organization', 'library')).toBe(false)
+    expect(parseKeyPermissions('{"library":["read","write"]}')).toEqual({
+      library: ['read', 'write'],
+    })
+    for (const entries of Object.values(KEY_CATALOG)) {
+      for (const entry of entries) {
+        expect(parseKeyPermissions({ [entry.id]: ['read'] }), entry.id).not.toBeNull()
+      }
+    }
+  })
 })
 
 describe('presets', () => {
@@ -63,6 +77,7 @@ describe('presets', () => {
       workflows: ['read'],
       runs: ['read'],
       variables: ['read'],
+      library: ['read'],
     })
   })
 
@@ -71,6 +86,7 @@ describe('presets', () => {
       workflows: ['read', 'write', 'delete', 'deploy', 'run'],
       runs: ['read'],
       variables: ['read', 'write', 'delete'],
+      library: ['read', 'write', 'delete'],
     })
   })
 
@@ -80,6 +96,7 @@ describe('presets', () => {
       workflows: ['read', 'deploy', 'run'],
       runs: ['read'],
       variables: ['read'],
+      library: ['read'],
       members: ['read'],
     })
   })
@@ -105,6 +122,7 @@ describe('presets', () => {
       matchPreset('workspace', {
         workflows: ['run', 'deploy', 'read'],
         variables: ['read'],
+        library: ['read'],
         runs: ['read'],
       }),
     ).toBe('deploy-run')
@@ -174,7 +192,7 @@ describe('checking a key', () => {
     expect(parseKeyPermissions('{}')).toEqual({})
     expect(parseKeyPermissions('not json')).toBeNull()
     expect(parseKeyPermissions('[]')).toBeNull()
-    expect(parseKeyPermissions({ library: ['read'] })).toBeNull()
+    expect(parseKeyPermissions({ billing: ['read'] })).toBeNull()
     expect(parseKeyPermissions({ workflows: ['fly'] })).toBeNull()
     expect(parseKeyPermissions({ workflows: 'read' })).toBeNull()
   })

@@ -20,6 +20,7 @@ export type KeyResource =
   | 'workflows'
   | 'runs'
   | 'variables'
+  | 'library'
   | 'audit'
 
 /** The actions a key may take, per resource. A missing resource grants nothing. */
@@ -44,7 +45,8 @@ const READ_WRITE_DELETE = ['read', 'write', 'delete'] as const
  * The cells each level offers — only those the API backs today. Members
  * are read-only for keys (people are a person's decision); a workspace key
  * sets its own workspace's variables (B4); an organization key may read
- * the audit log (B7); the library (W2) returns with its routes.
+ * the audit log (B7); project and workspace keys may read and change the
+ * Library's items, publishing included (a publish is a write).
  */
 export const KEY_CATALOG: Record<KeyLevel, readonly KeyCatalogEntry[]> = {
   organization: [
@@ -59,12 +61,14 @@ export const KEY_CATALOG: Record<KeyLevel, readonly KeyCatalogEntry[]> = {
     { id: 'workflows', actions: KEY_ACTIONS },
     { id: 'runs', actions: READ_ONLY },
     { id: 'variables', actions: READ_WRITE_DELETE },
+    { id: 'library', actions: READ_WRITE_DELETE },
     { id: 'members', actions: READ_ONLY },
   ],
   workspace: [
     { id: 'workflows', actions: KEY_ACTIONS },
     { id: 'runs', actions: READ_ONLY },
     { id: 'variables', actions: READ_WRITE_DELETE },
+    { id: 'library', actions: READ_WRITE_DELETE },
   ],
 }
 
@@ -182,17 +186,11 @@ export function keyLevelOf(row: { level: KeyLevel }): KeyLevel {
   return row.level
 }
 
-const RESOURCES = new Set<string>([
-  'projects',
-  'members',
-  'connections',
-  'resources',
-  'workspaces',
-  'workflows',
-  'runs',
-  'variables',
-  'audit',
-])
+// Every resource some level offers: read off the catalog, so a new cell is
+// never refused here by a list kept by hand.
+const RESOURCES = new Set<string>(
+  Object.values(KEY_CATALOG).flatMap((entries) => entries.map((entry) => entry.id)),
+)
 const ACTIONS = new Set<string>(KEY_ACTIONS)
 
 /**

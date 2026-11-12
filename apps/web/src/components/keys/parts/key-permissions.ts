@@ -50,6 +50,7 @@ const RESOURCE_LABEL: Record<KeyResource, string> = {
   workflows: 'Workflows & functions',
   runs: 'Runs',
   variables: 'Variables',
+  library: 'Library',
   audit: 'Audit log',
 }
 
@@ -66,12 +67,14 @@ const RESOURCE_HINT: Record<KeyLevel, Partial<Record<KeyResource, string>>> = {
     workflows: 'In every workspace',
     runs: 'History and logs',
     variables: 'Project values',
+    library: 'Modules and custom nodes',
     members: 'Project and workspace access',
   },
   workspace: {
     workflows: 'In this workspace only',
     runs: 'History and logs',
     variables: 'This workspace’s own values',
+    library: 'This workspace’s modules and nodes',
   },
 }
 
