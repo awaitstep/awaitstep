@@ -4,6 +4,7 @@ export function deepMerge(
 ): Record<string, unknown> {
   const result = { ...base }
   for (const [key, value] of Object.entries(overrides)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
     if (
       value !== null &&
       typeof value === 'object' &&
