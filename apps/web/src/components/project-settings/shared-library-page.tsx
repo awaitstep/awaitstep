@@ -1,5 +1,3 @@
-import { useState } from 'react'
-import { Plus } from 'lucide-react'
 import { useProjectShared, useUnshareItem } from '../../data/dashboard/items'
 import { itemPagePath, type ProjectSlugs } from '../../lib/dashboard-paths'
 import { cn } from '../../lib/utils'
@@ -14,9 +12,7 @@ import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { WORKSPACE_TILE_CLASS } from '../ui/workspace-colour'
 import { ScopeChip } from '../ui/workspace-dot'
 import { PageBody, PageIntro } from '../shell/page-intro'
-import { TopBarContent } from '../navigation/top-bar-slot'
 import { ITEM_KIND_LABEL } from '../items/item-kind'
-import { LibraryExplainerDialog } from '../library/library-explainer-dialog'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { useProjectScope } from './use-project-scope'
@@ -76,22 +72,12 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
   const scope = useProjectScope(slugs)
   const shared = useProjectShared(slugs.org, slugs.project)
   const unshare = useUnshareItem(slugs.org, slugs.project)
-  const [explainerOpen, setExplainerOpen] = useState(false)
 
   if (!scope) return null
   const project = scope.project.project
-  const canManage = scope.project.viewerCan.manageSettings.allowed
 
   function handleUnshare(item: SharedItem) {
     unshare.mutate({ workspace: item.from.slug, itemId: item.id })
-  }
-
-  function handleNewModule() {
-    setExplainerOpen(true)
-  }
-
-  function handleCloseExplainer() {
-    setExplainerOpen(false)
   }
 
   function handleRetry() {
@@ -177,25 +163,12 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
             framed={false}
           />
         </OverviewCard>
-        <OverviewCard title={`Owned by ${project.name}`} caption="Available to every workspace.">
-          <p className="px-5 py-8 text-center text-xs text-muted-foreground">
-            Project modules are coming soon.
-          </p>
-        </OverviewCard>
       </>
     )
   }
 
   return (
     <>
-      {canManage && (
-        <TopBarContent>
-          <Button type="button" size="sm" onClick={handleNewModule}>
-            <Plus aria-hidden="true" />
-            New project module
-          </Button>
-        </TopBarContent>
-      )}
       <PageBody>
         <PageIntro
           title="Shared library"
@@ -203,13 +176,6 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
         />
         {body}
       </PageBody>
-      {explainerOpen && (
-        <LibraryExplainerDialog
-          kind="module"
-          title="New project module"
-          onClose={handleCloseExplainer}
-        />
-      )}
     </>
   )
 }

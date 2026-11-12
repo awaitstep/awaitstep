@@ -189,7 +189,11 @@ describe('moving workflows', () => {
 })
 
 describe('library', () => {
-  it('is empty until modules land (W2)', async () => {
-    expect(await items.listLibrary(ama, sales)).toEqual([])
+  it('is empty, with the right to add following the role', async () => {
+    const summary = await mockServer.library.getLibrarySummary(ama, sales)
+    expect(summary).toMatchObject({ own: [], fromProject: [], counts: { module: 0, node: 0 } })
+    expect(summary.viewerCan.create.allowed).toBe(true)
+    const viewer = await mockServer.library.getLibrarySummary(as(PRIYA), sales)
+    expect(viewer.viewerCan.create.allowed).toBe(false)
   })
 })

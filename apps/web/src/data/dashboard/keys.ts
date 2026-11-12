@@ -46,7 +46,11 @@ export const dashKeys = {
   runs: (org: string, project: string) => ['dash', 'runs', org, project] as const,
   runsOf: (s: WorkspaceSlugs, filter: RunFilter) =>
     ['dash', 'runs', s.org, s.project, s.workspace, filter] as const,
-  library: (s: WorkspaceSlugs) => ['dash', 'library', s.org, s.project, s.workspace] as const,
+  /** A place's Library: a workspace's, or the project's own (workspace slot null). */
+  library: (p: { org: string; project: string; workspace?: string }) =>
+    ['dash', 'library', p.org, p.project, p.workspace ?? null] as const,
+  libraryTree: (p: { org: string; project: string; workspace?: string }) =>
+    ['dash', 'library', p.org, p.project, p.workspace ?? null, 'tree'] as const,
   editRequest: (s: WorkspaceSlugs) => ['dash', 'requests', s.org, s.project, s.workspace] as const,
   setup: (org: string, project: string) => ['dash', 'setup', org, project, null] as const,
   /** Under `setup`, so the same writes refresh both. */

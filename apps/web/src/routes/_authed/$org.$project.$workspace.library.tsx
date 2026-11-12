@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
-import { LibraryPage } from '../../components/library/library-page'
+import { WorkspaceLibraryPage } from '../../components/library/library-page-scopes'
 
 const page: DashboardPage = { kind: 'workspace', page: 'library' }
 
@@ -12,5 +12,5 @@ export const Route = createFileRoute('/_authed/$org/$project/$workspace/library'
 
 function LibraryRoute() {
   const slugs = Route.useParams()
-  return <LibraryPage slugs={slugs} />
+  return <WorkspaceLibraryPage slugs={slugs} />
 }

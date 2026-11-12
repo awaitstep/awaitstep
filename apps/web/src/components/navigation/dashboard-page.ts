@@ -60,6 +60,7 @@ const ORG_SETTINGS_LABEL: Record<OrgSettingsPage, string> = {
 
 const PROJECT_PAGE_LABEL: Record<ProjectPage, string> = {
   workspaces: 'Workspaces',
+  library: 'Library',
   shared: 'Shared library',
   members: 'Members',
   connections: 'Connections',

@@ -6,7 +6,6 @@ import type {
   SharedItem,
   WorkspaceItem,
 } from '../../../types/dashboard/items'
-import type { LibraryEntry } from '../../../types/dashboard/library'
 import type { Allowed, ScopeSlugs } from '../../../types/dashboard/scope'
 import { getDb, type ItemRow, type MockDb, type ProjectRow, type WorkspaceRow } from '../db'
 import {
@@ -253,9 +252,3 @@ export const importItem = mutation(
     })
   },
 )
-
-/** Modules and resource nodes arrive with W2; until then every Library is empty. */
-export const listLibrary = endpoint((ctx, slugs: WorkspaceSlugs): LibraryEntry[] => {
-  requireWorkspace(getDb(), ctx, slugs)
-  return []
-})

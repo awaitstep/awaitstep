@@ -429,11 +429,11 @@ async function versionRequest<T>(path: string, options: RequestInit): Promise<T>
   return res.json()
 }
 
-function encodeProjectPath(path: string): string {
+export function encodeProjectPath(path: string): string {
   return path.split('/').map(pathSegment).join('/')
 }
 
-async function projectFileRequest<T>(path: string, options: RequestInit): Promise<T> {
+export async function projectFileRequest<T>(path: string, options: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     ...options,

@@ -28,6 +28,7 @@ export type OrgDestination = OrgSettingsPage | 'connections' | 'api-keys'
 /** A project's pages, each straight under it: `/{org}/{project}/{page}`, as its menu lists them. */
 export const PROJECT_PAGES = [
   'workspaces',
+  'library',
   'shared',
   'members',
   'connections',
@@ -105,6 +106,30 @@ export function workspacePath(
   page: WorkspacePage = DEFAULT_WORKSPACE_PAGE,
 ): string {
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/${page}`
+}
+
+/** A Library's place: a workspace's, or the project's own when no workspace is named. */
+export interface LibraryPlaceSlugs extends ProjectSlugs {
+  workspace?: string
+}
+
+/** The Library page: `/{org}/{project}/{workspace}/library`, or the project's `/{org}/{project}/library`. */
+export function libraryPath(place: LibraryPlaceSlugs): string {
+  return place.workspace
+    ? workspacePath({ ...place, workspace: place.workspace }, 'library')
+    : projectPagePath(place, 'library')
+}
+
+/** The Library IDE, opened on an item (and one of its files) when given. */
+export function libraryCodePath(
+  place: LibraryPlaceSlugs,
+  open: { item?: string; file?: string } = {},
+): string {
+  const search = new URLSearchParams()
+  if (open.item) search.set('item', open.item)
+  if (open.file) search.set('file', open.file)
+  const qs = search.toString()
+  return `${libraryPath(place)}/code${qs ? `?${qs}` : ''}`
 }
 
 export const WORKSPACE_SETTINGS_TABS = ['members', 'keys', 'variables'] as const

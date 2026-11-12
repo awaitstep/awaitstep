@@ -4,6 +4,7 @@ import * as audit from './audit'
 import * as inbox from './inbox'
 import * as invites from './invites'
 import * as items from './items'
+import * as library from './library'
 import * as keys from './keys'
 import * as locks from './locks'
 import * as members from './members'
@@ -29,6 +30,7 @@ export const mockServer = {
   workspaces,
   locks,
   items,
+  library,
   runs,
   activity,
   requests,

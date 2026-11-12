@@ -70,7 +70,7 @@ export type PanelModel =
       projectHref: string
     }
   | {
-      /** A project's own pages: Workspaces, Shared library, Members, API keys, Variables, Settings. */
+      /** A project's own pages: Workspaces, Library, Shared library, Members, API keys, Variables, Settings. */
       mode: 'project'
       items: NavItem[]
       activeKey: string
@@ -190,6 +190,7 @@ function projectItems(slugs: { org: string; project: string }): NavItem[] {
   })
   return [
     item('workspaces', Layers),
+    item('library', Library),
     item('shared', Share2),
     item('members', Users),
     item('connections', Plug),

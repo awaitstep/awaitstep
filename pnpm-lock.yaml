@@ -407,6 +407,9 @@ importers:
       date-fns:
         specifier: 4.4.0
         version: 4.4.0
+      diff:
+        specifier: ^9.0.0
+        version: 9.0.0
       idb-keyval:
         specifier: 6.3.0
         version: 6.3.0

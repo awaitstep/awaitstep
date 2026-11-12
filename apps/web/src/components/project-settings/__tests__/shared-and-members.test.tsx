@@ -26,7 +26,8 @@ describe('project Shared library', () => {
     expect(provision).toHaveTextContent('Called by Sales, Support')
     expect(provision).toHaveTextContent('Shared 28 Sep by Lena')
     expect(rowOf('Lead enrichment')).toHaveTextContent('Shared 3 Oct by Ama')
-    expect(screen.getByText('Project modules are coming soon.')).toBeVisible()
+    // Project modules and nodes live on the project's Library page now.
+    expect(screen.queryByText('Project modules are coming soon.')).not.toBeInTheDocument()
   })
 
   it('opens each item in the workspace that shared it', async () => {
@@ -73,10 +74,10 @@ describe('project Shared library', () => {
     expect(button).toHaveAccessibleDescription('Only people in IT can unshare it')
   })
 
-  it('explains New project module', async () => {
+  it('leaves New project module to the project’s Library page', async () => {
     renderWithDashboardData(<SharedLibraryPage slugs={p101} />)
-    await userEvent.click(await screen.findByRole('button', { name: 'New project module' }))
-    expect(screen.getByRole('dialog', { name: 'New project module' })).toBeVisible()
+    await screen.findByRole('link', { name: 'Provision account' })
+    expect(screen.queryByRole('button', { name: 'New project module' })).not.toBeInTheDocument()
   })
 })
 
