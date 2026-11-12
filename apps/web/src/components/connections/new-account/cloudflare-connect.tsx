@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Check } from 'lucide-react'
+import { CLOUDFLARE_PERMISSIONS } from '@awaitstep/provider-cloudflare/oauth-permissions'
 import { useOAuthStatus } from '../../../data/dashboard/org-settings'
 import { oauthStartUrl } from '../../org-settings/oauth-start'
 import { buttonVariants } from '../../ui/button'
@@ -11,13 +12,6 @@ import type { ConnectStepProps } from './providers'
 import { cn } from '../../../lib/utils'
 
 const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/profile/api-tokens'
-
-/** What the token needs to deploy: shown before the form, on the org's and a project's Add account. */
-export const TOKEN_PERMISSIONS = [
-  'Account · Workers Scripts · Admin, Edit, Read',
-  'Account · Workers KV Storage · Edit',
-  'Account · Account Settings · Read',
-]
 
 /**
  * Connecting a Cloudflare account: sign in with Cloudflare when this
@@ -117,13 +111,13 @@ function TokenPermissions() {
         Create an API token in Cloudflare
       </span>
       <span className="text-2xs text-muted-foreground">
-        Use the “Edit Cloudflare Workers” template, or give it these permissions:
+        Give it the permissions signing in with Cloudflare grants:
       </span>
       <ul className="flex flex-col gap-1.5">
-        {TOKEN_PERMISSIONS.map((permission) => (
-          <li key={permission} className="flex items-center gap-2 text-xs text-foreground/90">
+        {CLOUDFLARE_PERMISSIONS.map((permission) => (
+          <li key={permission.scope} className="flex items-center gap-2 text-xs text-foreground/90">
             <Check className="size-3.5 text-status-success" aria-hidden="true" />
-            {permission}
+            {permission.label}
           </li>
         ))}
       </ul>

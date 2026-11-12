@@ -143,3 +143,4 @@ export {
   isCallableUrl,
 } from './call-function.js'
 export { CloudflareApiError, goneFrom } from './api-error.js'
+export { CLOUDFLARE_PERMISSIONS, DEFAULT_CLOUDFLARE_OAUTH_SCOPES } from './oauth-permissions.js'
