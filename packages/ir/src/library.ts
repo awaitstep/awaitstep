@@ -30,12 +30,25 @@ export const LIBRARY_NODE_ICON_PATH = 'icon.svg'
 export const LIBRARY_NODE_MANIFEST = 'node.json'
 export const LIBRARY_NODE_TEMPLATE = 'template.ts'
 export const LIBRARY_MODULE_ENTRY = 'index.ts'
+/**
+ * A node template's types, `import type { Ctx, Output } from './ctx'`: the
+ * editor draws `ctx.d.ts` from the folder's node.json (`Ctx` from its
+ * configSchema, `Output` from its outputSchema). It is never stored,
+ * so no version folder may hold a file of that name.
+ */
+export const LIBRARY_NODE_CTX_MODULE = 'ctx'
+const RESERVED_NODE_FILES = new Set([
+  `${LIBRARY_NODE_CTX_MODULE}.d.ts`,
+  `${LIBRARY_NODE_CTX_MODULE}.ts`,
+])
 /** The icon only ever renders through `<img>`; the cap keeps a listing cheap. */
 export const MAX_LIBRARY_ICON_BYTES = 32_000
 /** Items one workspace (or the project itself) may own: keeps the Library page one bounded read. */
 export const MAX_LIBRARY_ITEMS_PER_OWNER = 200
 /** Publishing a fourth version removes the oldest. */
 export const MAX_LIBRARY_VERSIONS = 3
+/** At most this many modules one item imports: each is a usage row. */
+export const MAX_LIBRARY_IMPORTS = 100
 export const FIRST_LIBRARY_VERSION = '1.0.0'
 
 export function customNodeType(itemId: string): string {
@@ -97,6 +110,9 @@ export function libraryFilePathError(kind: LibraryItemKind, path: string): strin
     }
     if (isReservedToolchainPath(path)) {
       return 'is a toolchain file; a node declares its dependencies in node.json'
+    }
+    if (segments.length === 2 && RESERVED_NODE_FILES.has(segments[1]!)) {
+      return 'is drawn from node.json by the editor; name the file something else'
     }
   } else if (isReservedToolchainPath(path) && path !== PACKAGE_MANIFEST_PATH) {
     return path.toLowerCase().endsWith(PACKAGE_MANIFEST_PATH)
@@ -160,7 +176,8 @@ export function libraryIconError(source: string): string | null {
   return null
 }
 
-const SLUG = '[a-z0-9](?:[a-z0-9-]*[a-z0-9])?'
+// Bounded like a stored slug (64 characters): a longer one is no import.
+const SLUG = '[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?'
 const IMPORT_SPECIFIER = new RegExp(`(['"\`])#modules/(${SLUG})(?:/[^'"\`\\s]*)?\\1`, 'g')
 
 /**
@@ -219,7 +236,7 @@ export function libraryItemScaffold(
     },
     {
       path: `${FIRST_LIBRARY_VERSION}/${LIBRARY_NODE_TEMPLATE}`,
-      source: 'export default async function (ctx) {\n  return {}\n}\n',
+      source: `import type { Ctx, Output } from './${LIBRARY_NODE_CTX_MODULE}'\n\nexport default async function (ctx: Ctx): Promise<Output> {\n  return {}\n}\n`,
     },
   ]
 }

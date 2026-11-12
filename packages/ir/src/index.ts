@@ -379,11 +379,13 @@ export {
   LIBRARY_MODULE_ENTRY,
   LIBRARY_MODULE_IMPORT_PREFIX,
   LIBRARY_NODE_ICON_PATH,
+  LIBRARY_NODE_CTX_MODULE,
   LIBRARY_NODE_MANIFEST,
   LIBRARY_NODE_TEMPLATE,
   MAX_LIBRARY_ICON_BYTES,
   MAX_LIBRARY_ITEMS_PER_OWNER,
   MAX_LIBRARY_VERSIONS,
+  MAX_LIBRARY_IMPORTS,
   compareLibraryVersions,
   customNodeType,
   isLibraryVersion,
@@ -397,7 +399,13 @@ export {
   type LibraryScaffoldInput,
 } from './library.js'
 export {
+  libraryDuplicateFiles,
+  withManifestFields,
+  type LibrarySourceSnapshot,
+} from './library-duplicate.js'
+export {
   customNodeDefinitionSchema,
+  customNodeJsonSchema,
   moduleVersionChoice,
   nodeVersionChoice,
   validateCustomNodeManifest,

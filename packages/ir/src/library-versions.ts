@@ -1,7 +1,7 @@
 // Publishing a library item: which version it becomes, and whether a custom
 // node's manifest is one the palette and codegen can use.
 
-import type { z } from 'zod'
+import { z } from 'zod'
 import { nodeDefinitionSchema } from './node-bundle.js'
 import type { NodeDefinition } from './node-definition.js'
 import type { ValidationError } from './types.js'
@@ -121,4 +121,19 @@ export function validateCustomNodeManifest(
     }
   }
   return { definition: parsed.data as NodeDefinition, errors: [] }
+}
+
+let customNodeJsonSchemaCache: Record<string, unknown> | null = null
+
+/**
+ * The JSON Schema of a custom node's `node.json`, as written (the defaulted
+ * fields optional): the editor validates the file against the same rules a
+ * publish applies. Built once.
+ */
+export function customNodeJsonSchema(): Record<string, unknown> {
+  customNodeJsonSchemaCache ??= z.toJSONSchema(customNodeDefinitionSchema, {
+    io: 'input',
+    unrepresentable: 'any',
+  }) as Record<string, unknown>
+  return customNodeJsonSchemaCache
 }

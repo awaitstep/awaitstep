@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { libraryDuplicateFiles, withManifestFields } from '../library-duplicate.js'
+import { customNodeJsonSchema } from '../library-versions.js'
 import {
   compareLibraryVersions,
   libraryFilePathError,
@@ -39,6 +41,13 @@ describe('library file paths', () => {
     expect(libraryFilePathError('node', '1.0/template.ts')).toMatch(/version folder/)
     expect(libraryFilePathError('node', '1.0.0/package.json')).toMatch(/node\.json/)
     expect(libraryFilePathError('node', '1.0.0/icon.svg')).toMatch(/must end in/)
+  })
+
+  it('keeps ctx.d.ts and ctx.ts free in a version folder: the editor draws them', () => {
+    expect(libraryFilePathError('node', '1.0.0/ctx.d.ts')).toMatch(/drawn from node\.json/)
+    expect(libraryFilePathError('node', '1.0.0/ctx.ts')).toMatch(/drawn from node\.json/)
+    expect(libraryFilePathError('node', '1.0.0/lib/ctx.ts')).toBeNull()
+    expect(libraryFilePathError('module', 'ctx.ts')).toBeNull()
   })
 
   it('reads the version folder of a node path', () => {
@@ -186,5 +195,136 @@ describe('library imports and scaffolds', () => {
     expect(JSON.parse(files[0]!.source)).toMatchObject({ name: 'lead-scoring', version: '1.0.0' })
     // The scaffold names its import path without importing itself.
     expect(libraryImportSlugs(files.map((f) => f.source))).toEqual([])
+  })
+
+  it('starts a node template typed by the folder’s ctx', () => {
+    const files = libraryItemScaffold('node', { slug: 'post', name: 'Post' })
+    const template = files.find((f) => f.path === '1.0.0/template.ts')!
+    expect(template.source).toContain("import type { Ctx, Output } from './ctx'")
+    expect(template.source).toContain('async function (ctx: Ctx): Promise<Output>')
+  })
+})
+
+describe('library duplicates', () => {
+  const manifest = (fields: Record<string, unknown>) => `${JSON.stringify(fields, null, 2)}\n`
+
+  it('copies a module’s working copy, renaming the package and starting at 1.0.0', () => {
+    const files = libraryDuplicateFiles(
+      'module',
+      {
+        files: [
+          {
+            path: 'package.json',
+            source: manifest({ name: 'fmt', version: '1.4.2', dependencies: { zod: '^4.0.0' } }),
+          },
+          { path: 'index.ts', source: 'export const a = 1' },
+        ],
+        latest: null,
+      },
+      { slug: 'fmt-copy', name: 'Fmt copy' },
+    )
+    expect(files.map((f) => f.path)).toEqual(['package.json', 'index.ts'])
+    expect(JSON.parse(files[0]!.source)).toEqual({
+      name: 'fmt-copy',
+      version: '1.0.0',
+      dependencies: { zod: '^4.0.0' },
+    })
+    expect(files[1]!.source).toBe('export const a = 1')
+  })
+
+  it('copies a node’s open draft folder into 1.0.0, with the icon', () => {
+    const files = libraryDuplicateFiles(
+      'node',
+      {
+        files: [
+          { path: 'icon.svg', source: '<svg/>' },
+          {
+            path: '1.9.0/node.json',
+            source: manifest({ id: 'post', name: 'Post', version: '1.9.0' }),
+          },
+          {
+            path: '1.10.0/node.json',
+            source: manifest({ id: 'post', name: 'Post', version: '1.10.0' }),
+          },
+          { path: '1.10.0/template.ts', source: 'draft' },
+        ],
+        latest: { version: '1.9.9', files: [{ path: 'template.ts', source: 'published' }] },
+      },
+      { slug: 'post-copy', name: 'Post copy' },
+    )
+    expect(files.map((f) => f.path)).toEqual(['icon.svg', '1.0.0/node.json', '1.0.0/template.ts'])
+    expect(JSON.parse(files[1]!.source)).toEqual({
+      id: 'post-copy',
+      name: 'Post copy',
+      version: '1.0.0',
+    })
+    expect(files[2]!.source).toBe('draft')
+  })
+
+  it('copies a node’s latest published version when no draft is open', () => {
+    const files = libraryDuplicateFiles(
+      'node',
+      {
+        files: [],
+        latest: {
+          version: '2.0.0',
+          files: [
+            { path: 'node.json', source: manifest({ id: 'post', version: '2.0.0' }) },
+            { path: 'template.ts', source: 'published' },
+            { path: 'icon.svg', source: '<svg/>' },
+          ],
+        },
+      },
+      { slug: 'post-copy', name: 'Post copy' },
+    )
+    expect(files.map((f) => f.path)).toEqual(['1.0.0/node.json', '1.0.0/template.ts'])
+    expect(JSON.parse(files[0]!.source)).toMatchObject({ id: 'post-copy', version: '1.0.0' })
+  })
+
+  it('copies a manifest that does not parse as written', () => {
+    const files = libraryDuplicateFiles(
+      'module',
+      { files: [{ path: 'package.json', source: '{ nope' }], latest: null },
+      { slug: 'x', name: 'X' },
+    )
+    expect(files[0]!.source).toBe('{ nope')
+  })
+})
+
+describe('withManifestFields', () => {
+  it('keeps a compact file compact, so nesting never balloons it past the file cap', () => {
+    const nested = `{"x":${'['.repeat(4000)}${']'.repeat(4000)}}`
+    const out = withManifestFields(nested, { version: '1.0.0' })!
+    expect(out.length).toBeLessThan(nested.length + 40)
+    expect(JSON.parse(out).version).toBe('1.0.0')
+  })
+
+  it('keeps an indented file indented, and refuses a result over the cap', () => {
+    expect(withManifestFields('{\n  "a": 1\n}\n', { version: '2.0.0' })).toBe(
+      '{\n  "a": 1,\n  "version": "2.0.0"\n}\n',
+    )
+    const wide = `{\n"x": ${'['.repeat(800)}${']'.repeat(800)}\n}`
+    expect(withManifestFields(wide, { version: '1.0.0' })).toBeNull()
+    expect(withManifestFields('[1]', { version: '1.0.0' })).toBeNull()
+    expect(withManifestFields('{ nope', { version: '1.0.0' })).toBeNull()
+  })
+})
+
+describe('import slugs', () => {
+  it('ignores a slug longer than any stored one', () => {
+    expect(libraryImportSlugs([`import '#modules/${'a'.repeat(64)}'`])).toEqual(['a'.repeat(64)])
+    expect(libraryImportSlugs([`import '#modules/${'a'.repeat(65)}'`])).toEqual([])
+  })
+})
+
+describe('custom node JSON Schema', () => {
+  it('requires what a publish requires and leaves the defaulted fields optional', () => {
+    const schema = customNodeJsonSchema() as { required?: string[]; properties?: object }
+    expect(schema.required).toEqual(
+      expect.arrayContaining(['id', 'name', 'version', 'configSchema']),
+    )
+    expect(schema.required).not.toContain('author')
+    expect(schema.required).not.toContain('providers')
+    expect(Object.keys(schema.properties ?? {})).toContain('outputSchema')
   })
 })

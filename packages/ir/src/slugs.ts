@@ -44,6 +44,7 @@ export const RESERVED_SLUGS = {
   ],
   workspace: [
     'workspaces',
+    'library',
     'shared',
     'members',
     'connections',
