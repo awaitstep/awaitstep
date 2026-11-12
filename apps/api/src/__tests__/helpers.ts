@@ -2204,6 +2204,102 @@ const mockDb: DatabaseAdapter = {
     return updated
   },
 
+  // The Library runs on the real database (sqlite-app.ts). Here one item
+  // exists, so the route guards can be probed past its lookup.
+  async getLibraryItemForUser(_userId: string, itemId: string) {
+    if (itemId !== 'lib-1') return null
+    return {
+      item: {
+        id: 'lib-1',
+        projectId: TEST_PROJECT_ID,
+        workspaceId: TEST_WORKSPACE_ID,
+        kind: 'module' as const,
+        slug: 'fmt',
+        name: 'Fmt',
+        description: '',
+        createdBy: TEST_USER_ID,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      organizationId: TEST_ORG_ID,
+      owner: { kind: 'workspace' as const, id: TEST_WORKSPACE_ID, name: 'Default' },
+      latestVersion: null,
+      latestSeq: 0,
+      orgRole: 'owner',
+      projectGrant: null,
+      workspaceGrant: null,
+    }
+  },
+  async createLibraryItem() {
+    return notMocked('createLibraryItem')
+  },
+  async updateLibraryItem() {
+    return notMocked('updateLibraryItem')
+  },
+  async deleteLibraryItemIfUnused() {
+    return notMocked('deleteLibraryItemIfUnused')
+  },
+  async getLibrarySummary() {
+    return notMocked('getLibrarySummary')
+  },
+  async listLibraryFiles() {
+    return notMocked('listLibraryFiles')
+  },
+  async listLibraryFileSummaries() {
+    return notMocked('listLibraryFileSummaries')
+  },
+  async getLibraryFile() {
+    return notMocked('getLibraryFile')
+  },
+  async upsertLibraryFile() {
+    return notMocked('upsertLibraryFile')
+  },
+  async createLibraryFile() {
+    return notMocked('createLibraryFile')
+  },
+  async updateLibraryFileIfMatches() {
+    return notMocked('updateLibraryFileIfMatches')
+  },
+  async deleteLibraryFile() {
+    return notMocked('deleteLibraryFile')
+  },
+  async libraryVersionExists() {
+    return notMocked('libraryVersionExists')
+  },
+  async getLibraryVersionFile() {
+    return notMocked('getLibraryVersionFile')
+  },
+  async getLibraryTree() {
+    return notMocked('getLibraryTree')
+  },
+  async listLibraryVersions() {
+    return notMocked('listLibraryVersions')
+  },
+  async getLibraryVersion() {
+    return notMocked('getLibraryVersion')
+  },
+  async listLibraryVersionImports() {
+    return notMocked('listLibraryVersionImports')
+  },
+  async resolveLibraryModules() {
+    return notMocked('resolveLibraryModules')
+  },
+  async publishLibraryVersion() {
+    return notMocked('publishLibraryVersion')
+  },
+  async restoreLibraryVersion() {
+    return notMocked('restoreLibraryVersion')
+  },
+  async rewriteLibraryUsages() {
+    return notMocked('rewriteLibraryUsages')
+  },
+  async getLibraryUsages() {
+    return notMocked('getLibraryUsages')
+  },
+  async getLibraryConsumers() {
+    return notMocked('getLibraryConsumers')
+  },
+
   // Uploaded images: the routes that store them run on the real database
   // (sqlite-app.ts). The maintenance jobs find nothing here.
   async insertImage() {

@@ -1,4 +1,29 @@
 import type {
+  CreateLibraryItemData,
+  LibraryConsumerPlace,
+  LibraryConsumers,
+  LibraryFile,
+  LibraryFileSummary,
+  LibraryItem,
+  LibraryItemAccess,
+  LibraryItemUpdateOutcome,
+  LibraryKind,
+  LibraryVersionFile,
+  LibrarySummary,
+  LibrarySummaryScope,
+  LibraryUsages,
+  LibraryVersionDetail,
+  LibraryVersionFileSummary,
+  LibraryVersionImports,
+  LibraryResolvedModule,
+  LibraryVersionListItem,
+  PublishLibraryVersionData,
+  PublishLibraryVersionOutcome,
+  RestoreLibraryVersionData,
+  UpdateLibraryItemData,
+  UpsertLibraryFileData,
+} from './library-types.js'
+import type {
   Workflow,
   WorkflowVersion,
   WorkflowVersionListItem,
@@ -1169,4 +1194,69 @@ export interface DatabaseAdapter {
   ): Promise<void>
   /** Clears photos and logos that are neither stored, inline, nor a provider avatar. */
   clearRemoteImages(): Promise<void>
+
+  // Library: modules and custom nodes (working copy, versions, usages)
+  /** The item if the caller may open it, with their rows at its owner: one statement. */
+  getLibraryItemForUser(userId: string, itemId: string): Promise<LibraryItemAccess | null>
+  /**
+   * The item and its scaffold files as one unit, while its owner holds fewer
+   * than `maxPerOwner` items; null when it is full. A taken slug throws a
+   * unique violation.
+   */
+  createLibraryItem(data: CreateLibraryItemData, maxPerOwner: number): Promise<LibraryItem | null>
+  /** One conditional update; the outcome says why it was refused. */
+  updateLibraryItem(
+    userId: string,
+    itemId: string,
+    changes: UpdateLibraryItemData,
+  ): Promise<LibraryItemUpdateOutcome>
+  /** False when something uses the item (the check is in the statement) or it is gone. */
+  deleteLibraryItemIfUnused(itemId: string): Promise<boolean>
+  getLibrarySummary(scope: LibrarySummaryScope): Promise<LibrarySummary>
+  listLibraryFiles(itemId: string): Promise<LibraryFile[]>
+  listLibraryFileSummaries(itemId: string): Promise<LibraryFileSummary[]>
+  getLibraryFile(itemId: string, path: string): Promise<LibraryFile | null>
+  upsertLibraryFile(data: UpsertLibraryFileData): Promise<LibraryFile>
+  /** Insert only; null when the path already exists. */
+  createLibraryFile(data: UpsertLibraryFileData): Promise<LibraryFile | null>
+  /** Conditional replace; `'*'` only requires existence. Null when nothing matched. */
+  updateLibraryFileIfMatches(
+    data: UpsertLibraryFileData,
+    expectedHash: string,
+  ): Promise<LibraryFile | null>
+  deleteLibraryFile(itemId: string, path: string, expectedHash?: string): Promise<boolean>
+  /** The working copy's metadata and (for a node) every published file's, in one statement. */
+  getLibraryTree(
+    itemId: string,
+    kind: LibraryKind,
+  ): Promise<{ files: LibraryFileSummary[]; published: LibraryVersionFileSummary[] }>
+  listLibraryVersions(itemId: string): Promise<LibraryVersionListItem[]>
+  getLibraryVersion(itemId: string, version: string): Promise<LibraryVersionDetail | null>
+  /** Whether the item has published this version. */
+  libraryVersionExists(itemId: string, version: string): Promise<boolean>
+  /** One published file, read out of its version in SQL. */
+  getLibraryVersionFile(
+    itemId: string,
+    version: string,
+    path: string,
+  ): Promise<(LibraryVersionFile & { publishedAt: string }) | null>
+  /** Each kept version's imports, newest first. */
+  listLibraryVersionImports(itemId: string): Promise<LibraryVersionImports[]>
+  /** What `#modules/<slug>` imports resolve to for a consumer, as a deploy resolves them. */
+  resolveLibraryModules(
+    place: { projectId: string; workspaceId: string | null; consumerItemId?: string },
+    slugs: string[],
+  ): Promise<LibraryResolvedModule[]>
+  /** Version row, pruning to `keep`, working-copy changes and usage rows: one unit. */
+  publishLibraryVersion(
+    data: PublishLibraryVersionData,
+    keep: number,
+  ): Promise<PublishLibraryVersionOutcome>
+  restoreLibraryVersion(data: RestoreLibraryVersionData): Promise<void>
+  /** Makes `slugs` the item's whole set of uses, resolved as a deploy resolves them. */
+  rewriteLibraryUsages(place: LibraryConsumerPlace, slugs: string[]): Promise<void>
+  /** What the item uses and who uses it, as the caller may see them. */
+  getLibraryUsages(userId: string, itemId: string): Promise<LibraryUsages>
+  /** Who uses the item, as the caller may see them. */
+  getLibraryConsumers(userId: string, itemId: string): Promise<LibraryConsumers>
 }

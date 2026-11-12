@@ -1,3 +1,28 @@
+import type {
+  CreateLibraryItemData,
+  LibraryConsumerPlace,
+  LibraryConsumers,
+  LibraryFile,
+  LibraryFileSummary,
+  LibraryItem,
+  LibraryItemAccess,
+  LibraryItemUpdateOutcome,
+  LibraryKind,
+  LibraryVersionFile,
+  LibrarySummary,
+  LibrarySummaryScope,
+  LibraryUsages,
+  LibraryVersionDetail,
+  LibraryVersionFileSummary,
+  LibraryVersionImports,
+  LibraryResolvedModule,
+  LibraryVersionListItem,
+  PublishLibraryVersionData,
+  PublishLibraryVersionOutcome,
+  RestoreLibraryVersionData,
+  UpdateLibraryItemData,
+  UpsertLibraryFileData,
+} from '../library-types.js'
 import { eq, and, desc, or, lt, sql, aliasedTable } from 'drizzle-orm'
 import type {
   DatabaseAdapter,
@@ -182,6 +207,11 @@ import { InstalledNodesAdapter } from './installed-nodes.js'
 import { DeploymentConfigsAdapter } from './deployment-configs.js'
 import { AccountAdapter } from './account.js'
 import { ImagesAdapter } from './images.js'
+import { LibraryFields, type LibraryTables } from './library-fields.js'
+import { LibraryFilesAdapter } from './library-files.js'
+import { LibraryItemsAdapter } from './library-items.js'
+import { LibraryUsagesAdapter } from './library-usages.js'
+import { LibraryVersionsAdapter } from './library-versions.js'
 
 export interface SchemaRef {
   workflows: unknown
@@ -219,6 +249,11 @@ export interface SchemaRef {
   notifications?: unknown
   releaseVisits?: unknown
   images?: unknown
+  libraryItems?: unknown
+  libraryItemFiles?: unknown
+  libraryVersions?: unknown
+  libraryUsages?: unknown
+  deploymentLibraryVersions?: unknown
 }
 
 export interface DrizzleAdapterOptions {
@@ -263,6 +298,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _deploymentConfigs: DeploymentConfigsAdapter
   private _account?: AccountAdapter
   private _images: ImagesAdapter
+  private _libraryItems: LibraryItemsAdapter
+  private _libraryFiles: LibraryFilesAdapter
+  private _libraryVersions: LibraryVersionsAdapter
+  private _libraryUsages: LibraryUsagesAdapter
   private _scope: ScopeAdapter
   private _summaries: SummaryAdapter
   private _access: AccessAdapter
@@ -491,6 +530,45 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         user: schema.user,
         organization: schema.organization,
       },
+      this._dialect,
+    )
+    const libraryTables: LibraryTables = {
+      libraryItems: schema.libraryItems,
+      libraryItemFiles: schema.libraryItemFiles,
+      libraryVersions: schema.libraryVersions,
+      libraryUsages: schema.libraryUsages,
+      deploymentLibraryVersions: schema.deploymentLibraryVersions,
+      projects: schema.projects,
+      workspaces: schema.workspaces,
+      workflows: schema.workflows,
+      deployments: schema.deployments,
+      user: schema.user,
+      member: schema.member,
+      installedNodes: schema.installedNodes,
+    }
+    const libraryRoles = new RoleFields(tables)
+    const libraryFields = new LibraryFields(libraryTables, libraryRoles, this._dialect)
+    this._libraryFiles = new LibraryFilesAdapter(db, schema.libraryItemFiles, this._dialect)
+    this._libraryUsages = new LibraryUsagesAdapter(
+      db,
+      libraryTables,
+      libraryFields,
+      libraryRoles,
+      this._dialect,
+    )
+    this._libraryItems = new LibraryItemsAdapter(
+      db,
+      { ...libraryTables, ...tables },
+      libraryFields,
+      this._libraryFiles,
+      this._libraryUsages,
+      this._dialect,
+    )
+    this._libraryVersions = new LibraryVersionsAdapter(
+      db,
+      libraryTables,
+      this._libraryFiles,
+      this._libraryUsages,
       this._dialect,
     )
     if (roles) {
@@ -1910,5 +1988,99 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   clearRemoteImages(): Promise<void> {
     return this._images.clearRemoteImages()
+  }
+
+  // Library
+  getLibraryItemForUser(userId: string, itemId: string): Promise<LibraryItemAccess | null> {
+    return this._libraryItems.getForUser(userId, itemId)
+  }
+  createLibraryItem(data: CreateLibraryItemData, maxPerOwner: number): Promise<LibraryItem | null> {
+    return this._libraryItems.create(data, maxPerOwner)
+  }
+  updateLibraryItem(
+    userId: string,
+    itemId: string,
+    changes: UpdateLibraryItemData,
+  ): Promise<LibraryItemUpdateOutcome> {
+    return this._libraryItems.update(userId, itemId, changes)
+  }
+  deleteLibraryItemIfUnused(itemId: string): Promise<boolean> {
+    return this._libraryItems.deleteIfUnused(itemId)
+  }
+  getLibrarySummary(scope: LibrarySummaryScope): Promise<LibrarySummary> {
+    return this._libraryItems.summary(scope)
+  }
+  listLibraryFiles(itemId: string): Promise<LibraryFile[]> {
+    return this._libraryFiles.list(itemId)
+  }
+  listLibraryFileSummaries(itemId: string): Promise<LibraryFileSummary[]> {
+    return this._libraryFiles.listSummaries(itemId)
+  }
+  getLibraryFile(itemId: string, path: string): Promise<LibraryFile | null> {
+    return this._libraryFiles.get(itemId, path)
+  }
+  upsertLibraryFile(data: UpsertLibraryFileData): Promise<LibraryFile> {
+    return this._libraryFiles.upsert(data)
+  }
+  createLibraryFile(data: UpsertLibraryFileData): Promise<LibraryFile | null> {
+    return this._libraryFiles.createIfAbsent(data)
+  }
+  updateLibraryFileIfMatches(
+    data: UpsertLibraryFileData,
+    expectedHash: string,
+  ): Promise<LibraryFile | null> {
+    return this._libraryFiles.updateIfMatches(data, expectedHash)
+  }
+  deleteLibraryFile(itemId: string, path: string, expectedHash?: string): Promise<boolean> {
+    return this._libraryFiles.delete(itemId, path, expectedHash)
+  }
+  getLibraryTree(
+    itemId: string,
+    kind: LibraryKind,
+  ): Promise<{ files: LibraryFileSummary[]; published: LibraryVersionFileSummary[] }> {
+    return this._libraryVersions.tree(itemId, kind)
+  }
+  libraryVersionExists(itemId: string, version: string): Promise<boolean> {
+    return this._libraryVersions.exists(itemId, version)
+  }
+  getLibraryVersionFile(
+    itemId: string,
+    version: string,
+    path: string,
+  ): Promise<(LibraryVersionFile & { publishedAt: string }) | null> {
+    return this._libraryVersions.file(itemId, version, path)
+  }
+  listLibraryVersions(itemId: string): Promise<LibraryVersionListItem[]> {
+    return this._libraryVersions.list(itemId)
+  }
+  getLibraryVersion(itemId: string, version: string): Promise<LibraryVersionDetail | null> {
+    return this._libraryVersions.get(itemId, version)
+  }
+  listLibraryVersionImports(itemId: string): Promise<LibraryVersionImports[]> {
+    return this._libraryVersions.versionImports(itemId)
+  }
+  resolveLibraryModules(
+    place: { projectId: string; workspaceId: string | null; consumerItemId?: string },
+    slugs: string[],
+  ): Promise<LibraryResolvedModule[]> {
+    return this._libraryUsages.resolve(place, slugs)
+  }
+  publishLibraryVersion(
+    data: PublishLibraryVersionData,
+    keep: number,
+  ): Promise<PublishLibraryVersionOutcome> {
+    return this._libraryVersions.publish(data, keep)
+  }
+  restoreLibraryVersion(data: RestoreLibraryVersionData): Promise<void> {
+    return this._libraryVersions.restore(data)
+  }
+  rewriteLibraryUsages(place: LibraryConsumerPlace, slugs: string[]): Promise<void> {
+    return this._libraryUsages.rewrite(place, slugs)
+  }
+  getLibraryUsages(userId: string, itemId: string): Promise<LibraryUsages> {
+    return this._libraryUsages.usages(userId, itemId)
+  }
+  getLibraryConsumers(userId: string, itemId: string): Promise<LibraryConsumers> {
+    return this._libraryUsages.consumers(userId, itemId)
   }
 }

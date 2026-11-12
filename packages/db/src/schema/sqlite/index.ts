@@ -22,3 +22,10 @@ export { deploymentConfigs } from './deployment-configs.js'
 export { auditEvents } from './audit.js'
 export { notifications, releaseVisits } from './notifications.js'
 export { images } from './images.js'
+export {
+  libraryItems,
+  libraryItemFiles,
+  libraryVersions,
+  libraryUsages,
+  deploymentLibraryVersions,
+} from './library.js'
