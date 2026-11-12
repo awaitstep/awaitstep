@@ -1,0 +1,15 @@
+{
+  "version": "1.1.0",
+  "description": "Send Segment track, identify, group, page, screen, and alias events",
+  "tags": ["segment", "analytics", "tracking", "events", "alias"],
+  "configSchema": {
+    "action": {
+      "options": ["Track Event", "Identify User", "Group", "Page", "Screen", "Alias"]
+    },
+    "previousId": {
+      "type": "string",
+      "label": "Previous ID",
+      "description": "Previous user ID to alias from. Used by: Alias."
+    }
+  }
+}

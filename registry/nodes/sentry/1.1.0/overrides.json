@@ -1,0 +1,31 @@
+{
+  "version": "1.1.0",
+  "description": "Inspect Sentry issues, events, projects, and releases",
+  "tags": ["sentry", "monitoring", "errors", "debugging", "releases"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "List Issues",
+        "Get Issue",
+        "Resolve Issue",
+        "List Events",
+        "Create Release",
+        "List Projects",
+        "Get Event",
+        "Update Issue",
+        "List Releases"
+      ]
+    },
+    "eventId": {
+      "type": "string",
+      "label": "Event ID",
+      "description": "Event ID. Used by: Get Event."
+    },
+    "issueStatus": {
+      "type": "select",
+      "label": "Issue Status",
+      "options": ["resolved", "unresolved", "ignored"],
+      "description": "New issue status. Used by: Update Issue."
+    }
+  }
+}

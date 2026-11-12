@@ -1,0 +1,29 @@
+{
+  "version": "1.1.0",
+  "description": "Create and manage Google Calendar events and list calendars",
+  "tags": ["google", "calendar", "events", "scheduling"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Event",
+        "Get Event",
+        "Update Event",
+        "Delete Event",
+        "List Events",
+        "List Calendars",
+        "Quick Add Event"
+      ]
+    },
+    "quickAddText": {
+      "type": "string",
+      "label": "Quick Add Text",
+      "placeholder": "Lunch with Sam tomorrow at noon",
+      "description": "Natural-language event text. Used by: Quick Add Event."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "version": "1.1.0",
+  "description": "Manage Typeform forms and responses",
+  "tags": ["typeform", "forms", "surveys", "responses", "workspaces"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "List Forms",
+        "Get Form",
+        "List Responses",
+        "Create Form",
+        "Delete Form",
+        "List Workspaces",
+        "Get Response"
+      ]
+    },
+    "responseId": {
+      "type": "string",
+      "label": "Response ID",
+      "description": "Response ID. Used by: Get Response."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    }
+  }
+}
