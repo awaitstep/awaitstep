@@ -25,5 +25,9 @@
     "id": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developers.google.com/workspace/calendar/api/v3/reference",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

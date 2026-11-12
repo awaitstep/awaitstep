@@ -40,5 +40,9 @@
       "label": "Redirect URL",
       "description": "URL to redirect after checkout. Used by: Create Checkout."
     }
+  },
+  "docsUrl": "https://docs.lemonsqueezy.com/api",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

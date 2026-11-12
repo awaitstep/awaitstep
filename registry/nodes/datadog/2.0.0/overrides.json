@@ -35,5 +35,9 @@
       "label": "Monitor ID",
       "description": "Monitor ID. Used by: Mute Monitor."
     }
+  },
+  "docsUrl": "https://docs.datadoghq.com/api/latest/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

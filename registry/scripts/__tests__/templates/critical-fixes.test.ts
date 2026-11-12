@@ -6,6 +6,8 @@ import notion from '../../../nodes/notion/2.0.0/template.js'
 import teams from '../../../nodes/microsoft-teams/1.1.0/template.js'
 import upstash from '../../../nodes/upstash-redis/1.1.0/template.js'
 import firestore from '../../../nodes/firebase-firestore/1.1.0/template.js'
+import discord from '../../../nodes/discord/1.1.0/template.js'
+import linear from '../../../nodes/linear/1.1.0/template.js'
 
 type Context = { config: Record<string, unknown>; env: Record<string, string> }
 type Handler = (ctx: Context) => Promise<Record<string, unknown>>
@@ -74,6 +76,19 @@ describe('Kit v4 migration', () => {
       email_address: 'person@example.com',
       first_name: 'Ada',
     })
+  })
+
+  it('sends status=all rather than dropping the filter', async () => {
+    const fetchMock = mockFetch({ subscribers: [] })
+    const handler = convertkit as unknown as Handler
+    await handler(
+      ctx(
+        { action: 'List Subscribers', statusFilter: 'all', limit: 25 },
+        { KIT_API_KEY: 'kit-key' },
+      ),
+    )
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('status=all')
   })
 })
 
@@ -152,7 +167,7 @@ describe('Firestore query value typing', () => {
   it('keeps a numeric-looking string as a string when the type is string', async () => {
     const fetchMock = mockFetch([])
     const handler = firestore as unknown as Handler
-    await handler(
+    const result = await handler(
       ctx(
         {
           action: 'Query Collection',
@@ -167,6 +182,7 @@ describe('Firestore query value typing', () => {
       ),
     )
 
+    expect(result.data).toEqual({ items: [] })
     const [, init] = fetchMock.mock.calls[0]
     const body = JSON.parse(String((init as RequestInit).body)) as {
       structuredQuery: { where: { fieldFilter: { value: unknown } } }
@@ -197,5 +213,41 @@ describe('Firestore query value typing', () => {
       structuredQuery: { where: { fieldFilter: { value: unknown } } }
     }
     expect(body.structuredQuery.where.fieldFilter.value).toEqual({ integerValue: '123' })
+  })
+})
+
+describe('Linear personal API keys', () => {
+  it('sends the raw key, not a Bearer token', async () => {
+    const fetchMock = mockFetch({ data: { teams: { nodes: [] } } })
+    const handler = linear as unknown as Handler
+    await handler(ctx({ action: 'List Teams' }, { LINEAR_API_KEY: 'lin_api_personal' }))
+
+    const [, init] = fetchMock.mock.calls[0]
+    expect((init as RequestInit).headers).toMatchObject({
+      Authorization: 'lin_api_personal',
+    })
+  })
+})
+
+describe('Discord empty responses', () => {
+  it('does not parse a 204 reaction response as JSON', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: async () => {
+        throw new Error('no body')
+      },
+      text: async () => '',
+    } as unknown as Response)
+    global.fetch = fetchMock as unknown as typeof fetch
+    const handler = discord as unknown as Handler
+    const result = await handler(
+      ctx(
+        { action: 'Add Reaction', channelId: 'c1', messageId: 'm1', emoji: '👍' },
+        { DISCORD_BOT_TOKEN: 'bot-token' },
+      ),
+    )
+
+    expect(result.data).toEqual({})
   })
 })

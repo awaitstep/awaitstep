@@ -38,7 +38,7 @@ export default async function (ctx) {
       const data = parseJson(ctx.config.data) as Record<string, unknown>
       const { data: rows, error } = await supabase.from(table).insert(data).select()
       if (error) throw new Error(`Supabase error: ${error.message}`)
-      return { rows, count: rows?.length ?? 0, data: rows }
+      return { rows, count: rows?.length ?? 0, data: { rows } }
     }
 
     case 'Select Rows': {
@@ -50,7 +50,7 @@ export default async function (ctx) {
       if (ctx.config.filter) query = applyFilter(query, ctx.config.filter)
       const { data: rows, error } = await query
       if (error) throw new Error(`Supabase error: ${error.message}`)
-      return { rows, count: rows?.length ?? 0, data: rows }
+      return { rows, count: rows?.length ?? 0, data: { rows } }
     }
 
     case 'Update Rows': {
@@ -62,7 +62,7 @@ export default async function (ctx) {
       query = applyFilter(query, ctx.config.filter)
       const { data: rows, error } = await query.select()
       if (error) throw new Error(`Supabase error: ${error.message}`)
-      return { rows, count: rows?.length ?? 0, data: rows }
+      return { rows, count: rows?.length ?? 0, data: { rows } }
     }
 
     case 'Delete Rows': {
@@ -73,14 +73,14 @@ export default async function (ctx) {
       query = applyFilter(query, ctx.config.filter)
       const { data: rows, error } = await query.select()
       if (error) throw new Error(`Supabase error: ${error.message}`)
-      return { rows, count: rows?.length ?? 0, data: rows }
+      return { rows, count: rows?.length ?? 0, data: { rows } }
     }
 
     case 'Upsert Row': {
       const data = parseJson(ctx.config.data) as Record<string, unknown>
       const { data: rows, error } = await supabase.from(table).upsert(data).select()
       if (error) throw new Error(`Supabase error: ${error.message}`)
-      return { rows, count: rows?.length ?? 0, data: rows }
+      return { rows, count: rows?.length ?? 0, data: { rows } }
     }
 
     case 'Count Rows': {
@@ -99,7 +99,7 @@ export default async function (ctx) {
       return {
         rows: Array.isArray(data) ? data : [],
         count: Array.isArray(data) ? data.length : 0,
-        data,
+        data: { result: data },
       }
     }
 

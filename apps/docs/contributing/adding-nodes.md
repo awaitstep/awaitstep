@@ -40,7 +40,6 @@ version contributes only its `version`, `description`, and any changed fields.
   "tags": ["weather", "forecast"],
   "author": "your-github-username",
   "license": "Apache-2.0",
-  "docsUrl": "https://docs.example.com/weather",
   "configSchema": {
     "action": {
       "type": "select",
@@ -87,7 +86,8 @@ Rules:
 ```json
 {
   "version": "1.0.0",
-  "description": "Read current weather for a city"
+  "description": "Read current weather for a city",
+  "docsUrl": "https://docs.example.com/weather"
 }
 ```
 

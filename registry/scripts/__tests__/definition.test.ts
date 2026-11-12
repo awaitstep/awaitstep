@@ -16,6 +16,7 @@ describe('compareVersions', () => {
   it('sorts a release after its prerelease', () => {
     expect(compareVersions('1.0.0', '1.0.0-beta.1')).toBeGreaterThan(0)
     expect(compareVersions('1.0.0-beta.2', '1.0.0-beta.1')).toBeGreaterThan(0)
+    expect(compareVersions('1.0.0-beta.10', '1.0.0-beta.2')).toBeGreaterThan(0)
   })
 
   it('sorts versions and finds the latest', () => {
@@ -31,6 +32,7 @@ describe('semverProblem', () => {
   it('accepts simple and prerelease versions', () => {
     expect(semverProblem('1.0.0')).toBeUndefined()
     expect(semverProblem('1.0.0-beta.1')).toBeUndefined()
+    expect(semverProblem('1.0.0+build.7')).toBeUndefined()
   })
 
   it('rejects non-semver versions', () => {

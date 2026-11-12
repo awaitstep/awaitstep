@@ -106,17 +106,23 @@ There is no `@awaitstep/node-sdk` package and no `NodeContext` type. The generat
 
 ## Categories
 
-| Category        | Example nodes                                                       |
-| --------------- | ------------------------------------------------------------------- |
-| `Control Flow`  | branch, loop, parallel, try_catch                                   |
-| `HTTP`          | http_request                                                        |
-| `Scheduling`    | sleep, wait_for_event                                               |
-| `Payments`      | stripe, paddle, paypal, lemon-squeezy                               |
-| `Email`         | resend, sendgrid, mailchimp, convertkit                             |
-| `Messaging`     | slack, discord, telegram, twilio                                    |
-| `Database`      | airtable, supabase, firebase-firestore, upstash-redis               |
-| `Storage`       | s3                                                                  |
-| `AI`            | openai, anthropic, google-gemini, elevenlabs, perplexity, replicate |
-| `Notifications` | pagerduty, sentry                                                   |
-| `Data`          | notion, google-sheets, hubspot                                      |
-| `Utilities`     | github, jira, linear, monday, trello                                |
+| Category             | Example nodes                                                       |
+| -------------------- | ------------------------------------------------------------------- |
+| `Control Flow`       | branch, loop, parallel, try_catch                                   |
+| `HTTP`               | http_request                                                        |
+| `Scheduling`         | sleep, wait_for_event, google-calendar                              |
+| `Payments`           | stripe, paddle, paypal, lemon-squeezy                               |
+| `Email`              | resend, sendgrid, mailchimp, convertkit, direct-mail                |
+| `Messaging`          | slack, discord, telegram, twilio, microsoft-teams                   |
+| `Database`           | airtable, supabase, firebase-firestore, upstash-redis               |
+| `Storage`            | s3                                                                  |
+| `AI`                 | openai, anthropic, google-gemini, elevenlabs, perplexity, replicate |
+| `Notifications`      | pagerduty                                                           |
+| `Data`               | notion, google-sheets                                               |
+| `Utilities`          | github, jira, linear                                                |
+| `CRM`                | activecampaign, hubspot, salesforce                                 |
+| `Analytics`          | datadog, segment, sentry                                            |
+| `Project Management` | asana, monday, trello                                               |
+| `E-commerce`         | shopify                                                             |
+| `Customer Support`   | intercom, zendesk                                                   |
+| `Forms`              | typeform                                                            |

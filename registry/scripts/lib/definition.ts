@@ -23,24 +23,47 @@ export function mergeDefinition(
   return deepMerge(base, overrides)
 }
 
-/** Compare dotted numeric versions; a prerelease sorts before its release. */
+/** Compare dotted numeric versions with semver prerelease precedence. */
 export function compareVersions(a: string, b: string): number {
   const parse = (value: string) => {
-    const [core, prerelease = ''] = value.split('-', 2)
-    const parts = core.split('.').map((part) => Number(part))
-    return { parts, prerelease }
+    const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(value)
+    if (!match) return null
+    return {
+      parts: [Number(match[1]), Number(match[2]), Number(match[3])],
+      prerelease: match[4] ? match[4].split('.') : [],
+    }
   }
   const left = parse(a)
   const right = parse(b)
-  const length = Math.max(left.parts.length, right.parts.length)
-  for (let index = 0; index < length; index += 1) {
-    const difference = (left.parts[index] ?? 0) - (right.parts[index] ?? 0)
+  if (!left || !right) return a.localeCompare(b)
+
+  for (let index = 0; index < 3; index += 1) {
+    const difference = left.parts[index]! - right.parts[index]!
     if (difference !== 0) return difference
   }
-  if (left.prerelease === right.prerelease) return 0
-  if (!left.prerelease) return 1
-  if (!right.prerelease) return -1
-  return left.prerelease.localeCompare(right.prerelease)
+  if (left.prerelease.length === 0 && right.prerelease.length === 0) return 0
+  if (left.prerelease.length === 0) return 1
+  if (right.prerelease.length === 0) return -1
+
+  const length = Math.max(left.prerelease.length, right.prerelease.length)
+  for (let index = 0; index < length; index += 1) {
+    const leftPart = left.prerelease[index]
+    const rightPart = right.prerelease[index]
+    if (leftPart === undefined) return -1
+    if (rightPart === undefined) return 1
+    const leftNumeric = /^\d+$/.test(leftPart)
+    const rightNumeric = /^\d+$/.test(rightPart)
+    if (leftNumeric && rightNumeric) {
+      const difference = Number(leftPart) - Number(rightPart)
+      if (difference !== 0) return difference
+    } else if (leftNumeric !== rightNumeric) {
+      return leftNumeric ? -1 : 1
+    } else {
+      const difference = leftPart.localeCompare(rightPart)
+      if (difference !== 0) return difference
+    }
+  }
+  return 0
 }
 
 export function sortVersions<T extends { version: string }>(versions: T[]): T[] {
@@ -52,7 +75,7 @@ export function latestVersion(versions: { version: string }[]): string | undefin
 }
 
 export function semverProblem(version: string): string | undefined {
-  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
     return `not a semver version: ${version}`
   }
   return undefined

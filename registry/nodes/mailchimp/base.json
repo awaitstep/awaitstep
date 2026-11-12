@@ -89,8 +89,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
-  },
-  "docsUrl": "https://mailchimp.com/developer/marketing/api/"
+  }
 }

@@ -3,6 +3,12 @@ export default async function (ctx) {
   const action = ctx.config.action
   const org = ctx.config.organization
 
+  function project(): string {
+    const value = ctx.config.project
+    if (!value) throw new Error('Project is required for this action')
+    return String(value)
+  }
+
   async function sentryApi(method: string, path: string, body?: Record<string, unknown>) {
     const options: RequestInit = {
       method,
@@ -22,7 +28,7 @@ export default async function (ctx) {
 
   switch (action) {
     case 'List Issues': {
-      const data = await sentryApi('GET', `/projects/${org}/${ctx.config.project}/issues/`)
+      const data = await sentryApi('GET', `/projects/${org}/${project()}/issues/`)
       return { id: '', status: 'ok', data: { items: data } }
     }
 
@@ -47,14 +53,14 @@ export default async function (ctx) {
     }
 
     case 'List Events': {
-      const data = await sentryApi('GET', `/projects/${org}/${ctx.config.project}/events/`)
+      const data = await sentryApi('GET', `/projects/${org}/${project()}/events/`)
       return { id: '', status: 'ok', data: { items: data } }
     }
 
     case 'Create Release': {
       const data = await sentryApi('POST', `/organizations/${org}/releases/`, {
         version: ctx.config.releaseVersion,
-        projects: [ctx.config.project],
+        projects: [project()],
       })
       return {
         id: String(data.version ?? ''),
@@ -72,7 +78,7 @@ export default async function (ctx) {
       if (!ctx.config.eventId) throw new Error('Event ID is required for Get Event')
       const data = await sentryApi(
         'GET',
-        `/projects/${org}/${ctx.config.project}/events/${ctx.config.eventId}/`,
+        `/projects/${org}/${project()}/events/${ctx.config.eventId}/`,
       )
       return { id: String(data.id ?? ''), status: 'ok', data }
     }

@@ -14,12 +14,6 @@
       "options": ["Chat Completion"],
       "description": "The Perplexity API action to perform."
     },
-    "model": {
-      "type": "string",
-      "label": "Model",
-      "default": "sonar",
-      "description": "Model name. Used by: Chat Completion."
-    },
     "prompt": {
       "type": "textarea",
       "label": "Prompt",
@@ -65,8 +59,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "60 seconds"
-  },
-  "docsUrl": "https://docs.perplexity.ai/docs/agent-api/quickstart"
+  }
 }

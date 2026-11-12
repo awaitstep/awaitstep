@@ -20,6 +20,14 @@ export default async function (ctx) {
 
   switch (action) {
     case 'Send Email': {
+      for (const [value, label] of [
+        [ctx.config.from, 'From'],
+        [ctx.config.to, 'To'],
+        [ctx.config.subject, 'Subject'],
+        [ctx.config.html, 'HTML Body'],
+      ] as const) {
+        if (!value) throw new Error(`${label} is required for Send Email`)
+      }
       const body: Record<string, unknown> = {
         from: ctx.config.from,
         to: ctx.config.to,

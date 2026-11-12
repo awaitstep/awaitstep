@@ -23,7 +23,11 @@ export default async function (ctx) {
     return data
   }
 
-  const range = ctx.config.range
+  function requireRange(): string {
+    const value = ctx.config.range
+    if (!value) throw new Error('Range is required for this action')
+    return String(value)
+  }
 
   function parseJson(value: unknown): unknown {
     if (typeof value !== 'string') return value
@@ -36,7 +40,7 @@ export default async function (ctx) {
 
   switch (action) {
     case 'Read Rows': {
-      const data = await sheetsApi('GET', `/values/${encodeURIComponent(range)}`)
+      const data = await sheetsApi('GET', `/values/${encodeURIComponent(requireRange())}`)
       const values = (data.values ?? []) as unknown[][]
       return { values, updatedCells: 0, data }
     }
@@ -46,7 +50,7 @@ export default async function (ctx) {
         typeof ctx.config.values === 'string' ? JSON.parse(ctx.config.values) : ctx.config.values
       const data = await sheetsApi(
         'POST',
-        `/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`,
+        `/values/${encodeURIComponent(requireRange())}:append?valueInputOption=USER_ENTERED`,
         { values },
       )
       const updates = data.updates as { updatedCells?: number } | undefined
@@ -58,14 +62,14 @@ export default async function (ctx) {
         typeof ctx.config.values === 'string' ? JSON.parse(ctx.config.values) : ctx.config.values
       const data = await sheetsApi(
         'PUT',
-        `/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
+        `/values/${encodeURIComponent(requireRange())}?valueInputOption=USER_ENTERED`,
         { values },
       )
       return { values: [], updatedCells: (data.updatedCells as number) ?? 0, data }
     }
 
     case 'Clear Range': {
-      const data = await sheetsApi('POST', `/values/${encodeURIComponent(range)}:clear`)
+      const data = await sheetsApi('POST', `/values/${encodeURIComponent(requireRange())}:clear`)
       return { values: [], updatedCells: 0, data }
     }
 

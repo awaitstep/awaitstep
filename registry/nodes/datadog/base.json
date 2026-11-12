@@ -102,8 +102,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
-  },
-  "docsUrl": "https://docs.datadoghq.com/api/latest/"
+  }
 }

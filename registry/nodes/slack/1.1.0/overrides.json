@@ -39,5 +39,9 @@
       "type": "array",
       "description": "Channels returned by List Channels"
     }
+  },
+  "docsUrl": "https://api.slack.com/methods",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

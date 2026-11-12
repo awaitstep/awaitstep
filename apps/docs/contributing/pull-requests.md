@@ -66,12 +66,14 @@ git commit -m "add slack node and fix typo in README and update deps"
 
 All pull requests must pass the CI pipeline before merging:
 
-| Check      | Command           | What it verifies                |
-| ---------- | ----------------- | ------------------------------- |
-| Type check | `pnpm type-check` | No TypeScript errors            |
-| Lint       | `pnpm lint`       | ESLint passes with no errors    |
-| Tests      | `pnpm test`       | All test suites pass            |
-| Build      | `pnpm build`      | All packages build successfully |
+| Check          | Command                                      | Where                        |
+| -------------- | -------------------------------------------- | ---------------------------- |
+| Tests          | `pnpm test`                                  | CI (`ci.yml`)                |
+| Registry check | `pnpm --filter @awaitstep/registry validate` | CI (`registry-validate.yml`) |
+| Registry tests | `pnpm --filter @awaitstep/registry test`     | CI (`registry-validate.yml`) |
+
+Type-check, lint and build are expected locally before opening a PR, but are not
+run by every CI workflow.
 
 Run these locally before pushing:
 

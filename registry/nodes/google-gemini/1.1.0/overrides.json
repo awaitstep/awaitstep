@@ -8,6 +8,7 @@
         "Generate Content",
         "Generate JSON",
         "Embed Text",
+        "Create Embedding",
         "Search Web",
         "Count Tokens",
         "Batch Embed",
@@ -24,5 +25,9 @@
       "label": "JSON Schema",
       "description": "JSON Schema for structured output. Used by: Generate JSON."
     }
+  },
+  "docsUrl": "https://ai.google.dev/gemini-api/docs",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

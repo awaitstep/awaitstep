@@ -20,5 +20,9 @@
       "placeholder": "path/to/copy.txt",
       "description": "Destination key. Used by: Copy Object."
     }
+  },
+  "docsUrl": "https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

@@ -73,8 +73,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
-  },
-  "docsUrl": "https://upstash.com/docs/redis/features/restapi"
+  }
 }

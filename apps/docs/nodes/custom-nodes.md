@@ -201,9 +201,9 @@ Official and community nodes use the base/overrides layout:
 
 ```
 registry/nodes/weather/
-├── base.json                 # everything except version/description
+├── base.json                 # everything except version/description/docsUrl
 ├── 1.0.0/
-│   ├── overrides.json        # { version, description, changed fields }
+│   ├── overrides.json        # { version, description, docsUrl, changed fields }
 │   └── template.ts
 └── 1.1.0/
     ├── overrides.json

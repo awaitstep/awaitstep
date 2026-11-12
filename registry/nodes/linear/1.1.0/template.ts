@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function (ctx: any) {
   const apiKey = ctx.env.LINEAR_API_KEY
   const action = ctx.config.action
 
@@ -6,7 +6,7 @@ export default async function (ctx) {
     const response = await fetch('https://api.linear.app/graphql', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ query, variables }),

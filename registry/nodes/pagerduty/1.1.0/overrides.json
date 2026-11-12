@@ -15,5 +15,9 @@
         "Get Incident"
       ]
     }
+  },
+  "docsUrl": "https://developer.pagerduty.com/api-reference/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

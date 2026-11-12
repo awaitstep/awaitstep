@@ -68,8 +68,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
-  },
-  "docsUrl": "https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/"
+  }
 }

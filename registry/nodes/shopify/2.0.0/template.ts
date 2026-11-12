@@ -24,6 +24,7 @@ export default async function (ctx) {
 
   switch (action) {
     case 'Get Product': {
+      if (!ctx.config.productId) throw new Error('Product ID is required for Get Product')
       const data = await shopifyRequest('GET', `/products/${ctx.config.productId}.json`)
       const product = data.product as Record<string, unknown>
       return { id: String(product.id ?? ''), data: product }
@@ -67,6 +68,7 @@ export default async function (ctx) {
     }
 
     case 'Get Order': {
+      if (!ctx.config.orderId) throw new Error('Order ID is required for Get Order')
       const data = await shopifyRequest('GET', `/orders/${ctx.config.orderId}.json`)
       const order = data.order as Record<string, unknown>
       return { id: String(order.id ?? ''), data: order }

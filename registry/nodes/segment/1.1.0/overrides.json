@@ -11,5 +11,9 @@
       "label": "Previous ID",
       "description": "Previous user ID to alias from. Used by: Alias."
     }
+  },
+  "docsUrl": "https://www.twilio.com/docs/segment/connections/sources/catalog/libraries/server/http-api",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

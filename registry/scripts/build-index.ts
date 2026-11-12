@@ -11,7 +11,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { nodeDefinitionSchema } from '@awaitstep/ir'
+import { nodeBundleChecksumInput, nodeDefinitionSchema } from '@awaitstep/ir'
 import type { NodeDefinition, Provider } from '@awaitstep/ir'
 import {
   latestVersion,
@@ -117,14 +117,14 @@ async function buildNodeEntry(
       }
     }
 
-    const checksumInput = JSON.stringify({ definition, templates })
+    const checksumInput = nodeBundleChecksumInput(definition, templates)
     const hash = createHash('sha256').update(checksumInput).digest('hex')
     const checksum = `sha256:${hash}`
     const previousEntry = previous.get(`${source.id}@${version.version}`)
     versions.push({
       version: version.version,
       checksum,
-      publishedAt: previousEntry?.checksum === checksum ? previousEntry.publishedAt : now,
+      publishedAt: previousEntry?.publishedAt ?? now,
       deprecated: definition.deprecated,
     })
 

@@ -20,5 +20,9 @@
       "placeholder": "CA...",
       "description": "Twilio call SID. Used by: Get Call."
     }
+  },
+  "docsUrl": "https://www.twilio.com/docs/usage/api",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

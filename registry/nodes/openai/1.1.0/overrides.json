@@ -41,5 +41,9 @@
     "usage": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developers.openai.com/api/docs",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

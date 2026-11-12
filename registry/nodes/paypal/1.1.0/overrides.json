@@ -20,5 +20,9 @@
       "label": "Authorization ID",
       "description": "Authorization ID. Used by: Capture Authorization, Void Authorization."
     }
+  },
+  "docsUrl": "https://developer.paypal.com/api/rest/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

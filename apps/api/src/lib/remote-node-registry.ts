@@ -1,3 +1,4 @@
+import { nodeBundleChecksumInput } from '@awaitstep/ir'
 import type { NodeDefinition, Provider, NodeBundle } from '@awaitstep/ir'
 
 export interface RegistryVersionEntry {
@@ -89,7 +90,7 @@ export function createRemoteNodeRegistry(config: RemoteNodeRegistryConfig): Remo
         throw new Error(`No templates found for node ${nodeId}@${version}`)
       }
 
-      const checksumInput = JSON.stringify({ definition, templates })
+      const checksumInput = nodeBundleChecksumInput(definition, templates)
       const hashBuffer = await crypto.subtle.digest(
         'SHA-256',
         new TextEncoder().encode(checksumInput),

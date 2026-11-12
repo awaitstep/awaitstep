@@ -40,5 +40,9 @@
     "url": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://docs.github.com/en/rest",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

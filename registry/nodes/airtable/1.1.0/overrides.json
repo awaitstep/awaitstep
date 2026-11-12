@@ -22,5 +22,9 @@
     "fields": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://airtable.com/developers/web/api/introduction",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

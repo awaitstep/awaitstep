@@ -1,4 +1,12 @@
 {
   "version": "1.0.0",
-  "description": "Run AI-powered search queries with Perplexity"
+  "description": "Run AI-powered search queries with Perplexity",
+  "configSchema": {
+    "model": {
+      "type": "string",
+      "label": "Model",
+      "default": "sonar",
+      "description": "Model name. Used by: Chat Completion."
+    }
+  }
 }

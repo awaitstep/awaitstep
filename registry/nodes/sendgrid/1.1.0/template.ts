@@ -33,8 +33,13 @@ export default async function (ctx) {
     }
   }
 
+  function requireField(value: unknown, label: string): string {
+    if (!value) throw new Error(`${label} is required for this action`)
+    return String(value)
+  }
+
   function recipients(): Array<{ email: string }> {
-    const value = String(ctx.config.to ?? '')
+    const value = requireField(ctx.config.to, 'To')
     return value
       .split(',')
       .map((email) => email.trim())
@@ -46,18 +51,18 @@ export default async function (ctx) {
     case 'Send Email': {
       return await sendgridRequest('POST', '/v3/mail/send', {
         personalizations: [{ to: recipients() }],
-        from: { email: ctx.config.from },
-        subject: ctx.config.subject,
-        content: [{ type: 'text/html', value: ctx.config.html }],
+        from: { email: requireField(ctx.config.from, 'From') },
+        subject: requireField(ctx.config.subject, 'Subject'),
+        content: [{ type: 'text/html', value: requireField(ctx.config.html, 'HTML Body') }],
       })
     }
 
     case 'Send Multiple': {
       return await sendgridRequest('POST', '/v3/mail/send', {
         personalizations: recipients().map((recipient) => ({ to: [recipient] })),
-        from: { email: ctx.config.from },
-        subject: ctx.config.subject,
-        content: [{ type: 'text/html', value: ctx.config.html }],
+        from: { email: requireField(ctx.config.from, 'From') },
+        subject: requireField(ctx.config.subject, 'Subject'),
+        content: [{ type: 'text/html', value: requireField(ctx.config.html, 'HTML Body') }],
       })
     }
 
@@ -68,13 +73,14 @@ export default async function (ctx) {
       }
       return await sendgridRequest('POST', '/v3/mail/send', {
         personalizations: [personalization],
-        from: { email: ctx.config.from },
-        subject: ctx.config.subject,
-        template_id: ctx.config.templateId,
+        from: { email: requireField(ctx.config.from, 'From') },
+        subject: requireField(ctx.config.subject, 'Subject'),
+        template_id: requireField(ctx.config.templateId, 'Template ID'),
       })
     }
 
     case 'Get Stats': {
+      if (!ctx.config.startDate) throw new Error('Start Date is required for Get Stats')
       const params = new URLSearchParams()
       if (ctx.config.startDate) params.set('start_date', String(ctx.config.startDate))
       if (ctx.config.endDate) params.set('end_date', String(ctx.config.endDate))
