@@ -4,266 +4,198 @@ title: Adding Nodes
 
 # Adding Nodes
 
-This walkthrough shows how to add a custom node to AwaitStep. We'll build a `slack_post_message` node that posts a message to a Slack channel.
+This walkthrough adds an official integration node to the registry. Official
+nodes live in `registry/nodes/` and are published when the registry index is
+rebuilt on `main`.
 
-## 1. Create the directory
+If you want a private node for one project, use a local node instead — see
+[Custom Nodes](../nodes/custom-nodes.md).
 
-Node IDs follow the pattern `^[a-z][a-z0-9_]*$`. The directory name must match the node ID.
+## 1. Create the node directory
 
-```bash
-mkdir -p nodes/slack_post_message/templates
-mkdir -p nodes/slack_post_message/tests/fixtures
+Node IDs follow `^[a-z][a-z0-9_-]*$` and must match the directory name.
+
+```
+registry/nodes/weather/
+├── icon.svg
+├── base.json
+└── 1.0.0/
+    ├── overrides.json
+    └── template.ts
 ```
 
-## 2. Write node.json
+`base.json` holds everything that does not change between versions. Each
+version contributes only its `version`, `description`, and any changed fields.
 
-`node.json` is the complete `NodeDefinition`. Every field must be accurate — it drives the UI, the expression autocomplete, and code generation.
+## 2. Write base.json
+
+`base.json` is a `NodeDefinition` without `version` and `description`:
 
 ```json
 {
-  "id": "slack_post_message",
-  "name": "Slack: Post Message",
-  "version": "1.0.0",
-  "description": "Post a message to a Slack channel using the Slack Bot API.",
-  "category": "Messaging",
-  "tags": ["slack", "messaging", "notifications"],
+  "id": "weather",
+  "name": "Weather",
+  "category": "Data",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/weather/icon.svg",
+  "tags": ["weather", "forecast"],
   "author": "your-github-username",
   "license": "Apache-2.0",
-  "providers": ["cloudflare"],
-
+  "docsUrl": "https://docs.example.com/weather",
   "configSchema": {
-    "channel": {
-      "type": "string",
-      "label": "Channel",
-      "description": "Channel ID or name (e.g. #general or C01234ABCDE)",
+    "action": {
+      "type": "select",
+      "label": "Action",
       "required": true,
-      "placeholder": "#general"
+      "options": ["Current Weather"]
     },
-    "text": {
-      "type": "textarea",
-      "label": "Message",
-      "description": "Message text. Supports Slack mrkdwn formatting.",
-      "required": true,
-      "placeholder": "Hello from AwaitStep!"
-    },
-    "username": {
+    "city": {
       "type": "string",
-      "label": "Bot Username",
-      "description": "Override the bot's display name.",
-      "placeholder": "AwaitStep Bot"
+      "label": "City",
+      "required": true,
+      "description": "City name. Used by: Current Weather."
     },
-    "botToken": {
+    "apiKey": {
       "type": "secret",
-      "label": "Slack Bot Token",
-      "description": "Bot OAuth token from api.slack.com/apps. Starts with xoxb-.",
+      "label": "API Key",
       "required": true,
-      "envVarName": "SLACK_BOT_TOKEN"
+      "envVarName": "WEATHER_API_KEY",
+      "description": "Weather API key."
     }
   },
-
   "outputSchema": {
-    "ok": {
-      "type": "boolean",
-      "description": "Whether the message was sent successfully"
-    },
-    "ts": {
-      "type": "string",
-      "description": "Timestamp of the posted message (used as message ID)"
-    },
-    "channel": {
-      "type": "string",
-      "description": "Channel ID where the message was posted"
+    "temperature": { "type": "number", "description": "Current temperature" },
+    "data": { "type": "object", "description": "Full API response" }
+  },
+  "providers": ["cloudflare"],
+  "runtime": { "defaultRetries": 2, "defaultTimeout": "30 seconds" }
+}
+```
+
+Rules:
+
+- Every `secret` field must declare `envVarName`.
+- Every `select`/`multiselect` field must have non-empty `options`.
+- `description` is at most 120 characters.
+- Use `docsUrl` for the provider's API documentation.
+- `providers` lists the platforms the template actually supports. Today the
+  official registry only deploys to Cloudflare.
+
+## 3. Write the version files
+
+`1.0.0/overrides.json`:
+
+```json
+{
+  "version": "1.0.0",
+  "description": "Read current weather for a city"
+}
+```
+
+`1.0.0/template.ts` is a plain default async function. There is no SDK import:
+
+```typescript
+export default async function (ctx) {
+  const action = ctx.config.action
+  const apiKey = ctx.env.WEATHER_API_KEY
+
+  switch (action) {
+    case 'Current Weather': {
+      const response = await fetch(
+        `https://api.example.com/current?city=${encodeURIComponent(ctx.config.city)}`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      )
+      const data = (await response.json()) as Record<string, unknown>
+      if (!response.ok) {
+        throw new Error(`Weather API error: ${data.message ?? response.statusText}`)
+      }
+      return { temperature: data.temperature, data }
     }
+    default:
+      throw new Error(`Unknown action: ${action}`)
   }
 }
 ```
 
-### Key rules to remember
+Template rules:
 
-- The `id` must not be a builtin: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`
-- Every `secret` field must have `envVarName`
-- Every `select` or `multiselect` field must have non-empty `options`
-- `description` must be under 120 characters
-- `version` must be valid semver
+- Export one default async function.
+- Read config from `ctx.config.<field>` and secrets from `ctx.env.<ENV_VAR>`.
+- Use only Web APIs (`fetch`, `crypto`, `URL`, `TextEncoder`).
+- Throw on errors; do not return `{ success: false }`.
+- Do not call durable primitives (`step.do`, `step.sleep`, `step.waitForEvent`);
+  the workflow generator wraps the template in a step.
+- Import an npm package only when it is declared in `base.json.dependencies`.
 
-## 3. Write the Cloudflare template
+The generator turns the template into a generated module under `nodes/` and a
+`flow.step(...)` call in the workflow. `ctx.config` values become the step's
+params and `ctx.env` reads become `env` reads, so a template cannot read secrets
+from the workflow's config object.
 
-```typescript
-// nodes/slack_post_message/templates/cloudflare.ts
-import type { NodeContext } from '@awaitstep/node-sdk'
-
-interface Config {
-  channel: string
-  text: string
-  username?: string
-  botToken: never // secret — accessed via ctx.env, never ctx.config
-}
-
-interface Output {
-  ok: boolean
-  ts: string
-  channel: string
-}
-
-export default async function (ctx: NodeContext<Config>): Promise<Output> {
-  const body: Record<string, unknown> = {
-    channel: ctx.config.channel,
-    text: ctx.config.text,
-  }
-
-  if (ctx.config.username) {
-    body.username = ctx.config.username
-  }
-
-  const response = await fetch('https://slack.com/api/chat.postMessage', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${ctx.env.SLACK_BOT_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Slack HTTP error (${response.status}): ${errorText}`)
-  }
-
-  const data = (await response.json()) as {
-    ok: boolean
-    ts?: string
-    channel?: string
-    error?: string
-  }
-
-  if (!data.ok) {
-    throw new Error(`Slack API error: ${data.error ?? 'unknown error'}`)
-  }
-
-  return {
-    ok: data.ok,
-    ts: data.ts ?? '',
-    channel: data.channel ?? ctx.config.channel,
-  }
-}
-```
-
-### Template rules
-
-- Export a **default async function** accepting `ctx: NodeContext<Config>`
-- Return an object that **exactly matches** `outputSchema`
-- Mark secret config fields as `never` in the `Config` interface — access them via `ctx.env` only
-- Use only Web APIs (`fetch`, `crypto`, `URL`) — no `fs`, `path`, `process`, or `Buffer`
-- **Throw on errors** — never swallow them with `try/catch` returning `{ success: false }`
-- Never log secret values
-
-## 4. Write tests
-
-```typescript
-// nodes/slack_post_message/tests/cloudflare.test.ts
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createMockContext } from '@awaitstep/node-sdk/testing'
-import handler from '../templates/cloudflare'
-
-const mockConfig = {
-  channel: '#general',
-  text: 'Hello from tests!',
-}
-
-const mockEnv = {
-  SLACK_BOT_TOKEN: 'xoxb-test-token',
-}
-
-describe('slack_post_message / cloudflare', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('returns ok, ts, and channel on success', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        ok: true,
-        ts: '1234567890.123456',
-        channel: 'C01234ABCDE',
-      }),
-    })
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-    const result = await handler(ctx)
-
-    expect(result).toEqual({
-      ok: true,
-      ts: '1234567890.123456',
-      channel: 'C01234ABCDE',
-    })
-  })
-
-  it('throws on HTTP error', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      text: async () => 'Internal Server Error',
-    })
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-    await expect(handler(ctx)).rejects.toThrow('500')
-  })
-
-  it('throws on Slack API error (ok: false)', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: false, error: 'channel_not_found' }),
-    })
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-    await expect(handler(ctx)).rejects.toThrow('channel_not_found')
-  })
-
-  it('sends the correct Authorization header', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true, ts: '123', channel: 'C1' }),
-    })
-    global.fetch = fetchSpy
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-    await handler(ctx)
-
-    const [, options] = fetchSpy.mock.calls[0]
-    expect(options.headers.Authorization).toBe('Bearer xoxb-test-token')
-  })
-})
-```
-
-## 5. Write the README
-
-The README documents the node for users browsing the marketplace. At minimum it must include a config table and an output table.
-
-See `nodes/http_request/README.md` for a reference example.
-
-## 6. Validate
-
-Run the node CLI to validate your node before submitting:
+## 4. Validate
 
 ```bash
-pnpm node-cli validate nodes/slack_post_message
+pnpm --filter @awaitstep/registry validate
 ```
 
-Fix any validation errors reported. Common mistakes:
+It checks:
 
-| Mistake                           | Fix                                                 |
-| --------------------------------- | --------------------------------------------------- |
-| Secret field missing `envVarName` | Add `"envVarName": "SLACK_BOT_TOKEN"`               |
-| `select` field missing `options`  | Add `"options": ["a", "b", "c"]`                    |
-| Template returns extra fields     | Remove fields not in `outputSchema`                 |
-| Template swallows errors          | Change `return { error }` to `throw new Error(...)` |
+- base/overrides merge and semver order;
+- the `NodeDefinition` schema, id/version match, icons and docs URLs;
+- action options against template `case` labels;
+- `ctx.config` and `ctx.env` references against the schema;
+- template parsing, imports vs `dependencies`, forbidden Node APIs;
+- output schema shapes.
 
-## 7. Run tests
+Run the registry tests too when you are ready:
 
 ```bash
-cd nodes/slack_post_message
-pnpm test
+pnpm --filter @awaitstep/registry test
 ```
 
-All tests must pass before submitting a pull request.
+Do **not** run `build-index` locally. CI owns the generated
+`<version>/node.json` and `registry/index.json`.
+
+## 5. Add a version
+
+Do not edit an existing published version for a behavior change. Add a new
+directory and keep only the changed fields in its `overrides.json`:
+
+```
+weather/
+├── base.json
+├── 1.0.0/
+│   ├── overrides.json   # { "version": "1.0.0", "description": "..." }
+│   └── template.ts
+└── 1.1.0/
+    ├── overrides.json   # { "version": "1.1.0", "description": "...", "configSchema": { ... } }
+    └── template.ts
+```
+
+Use semver: patch for an internal fix, minor for a new optional action or field,
+major for a required-field or output-shape change. Arrays in overrides replace
+the base array entirely.
+
+## 6. Open a pull request
+
+- Branch from `dev`: `feat/<node_id>-<short-summary>`.
+- Stage `base.json`, the version's `overrides.json`, `template.ts`, and
+  `icon.svg` only.
+- Never stage `<version>/node.json` or `registry/index.json`.
+- Target `dev`.
+
+CI runs `pnpm --filter @awaitstep/registry validate` and the registry tests. On
+merge to `main`, the registry-index workflow regenerates the node files and the
+index in an auto-merge PR.
+
+## Authoring checklist
+
+- [ ] ID matches the directory and is not a builtin.
+- [ ] `base.json` has no `version` or `description`.
+- [ ] Each version has `overrides.json` and a template.
+- [ ] Every action option has a `switch` case and vice versa.
+- [ ] Every secret field has `envVarName`; the template reads it through `ctx.env`.
+- [ ] Every `ctx.config` key exists in the schema.
+- [ ] Errors throw; secrets are never logged.
+- [ ] `providers` names only platforms with a template.
+- [ ] `docsUrl` points at the provider's API docs.
+- [ ] `pnpm --filter @awaitstep/registry validate` passes.

@@ -89,7 +89,7 @@ Each subdirectory is a node definition:
 
 ```
 nodes/
-├── stripe_charge/
+├── stripe/
 │   ├── node.json
 │   ├── README.md
 │   ├── templates/

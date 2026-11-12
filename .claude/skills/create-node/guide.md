@@ -1,584 +1,268 @@
 # AwaitStep Node Authoring Guide
 
-The complete reference for creating custom nodes for the AwaitStep platform.
+The complete reference for creating custom nodes.
 
-## What is a Node?
+## What is a node?
 
-A node is a reusable, self-describing workflow building block. It defines:
+A node is a reusable workflow building block that defines:
 
-- **What it does** — a human-readable name, description, and category
-- **What it needs** — a config schema that drives the UI automatically
-- **What it produces** — a typed output schema that downstream nodes can reference
-- **How it runs** — code templates for one or more execution providers
+- **What it does** — name, description, category
+- **What it needs** — a config schema that drives the UI
+- **What it produces** — an output schema downstream steps can reference
+- **How it runs** — a TypeScript template
 
-A node does **not** handle retries, timeouts, or state persistence — those are platform concerns. Every node is automatically wrapped in `step.do()` by the compile pipeline. You write the business logic; the platform handles durability.
+The workflow generator wraps a top-level node in `flow.step(...)`; a node inside
+a loop or branch stays inline in that block. The platform owns retries, timeouts,
+and durability. You write the business logic.
 
----
+## Two kinds of custom nodes
 
-## Directory Structure
+- **Registry node** — shared, versioned, published from `registry/nodes/`.
+- **Local node** — private to this app, under `nodes/`, bundled at build time.
 
-Every node lives in its own directory under `nodes/`. The directory name is the node ID.
+## Registry node layout
 
 ```
-nodes/
-└── stripe_charge/
-    ├── node.json              ← REQUIRED. NodeDefinition schema.
-    ├── README.md              ← REQUIRED. Human-readable docs.
-    ├── templates/
-    │   ├── cloudflare.ts      ← REQUIRED (at least one template).
-    │   ├── inngest.ts         ← OPTIONAL.
-    │   ├── temporal.ts        ← OPTIONAL.
-    │   └── stepfunctions.json ← OPTIONAL.
-    └── tests/
-        ├── cloudflare.test.ts ← REQUIRED if cloudflare template exists.
-        └── fixtures/
-            └── config.json    ← Sample config for tests.
+registry/nodes/<node_id>/
+├── icon.svg
+├── base.json                 # NodeDefinition without version/description
+└── <version>/
+    ├── overrides.json        # version, description, changed fields
+    └── template.ts           # or templates/<provider>.ts
 ```
 
-### Node ID Rules
+The canonical example is `registry/nodes/google-gemini/`.
 
-- Pattern: `^[a-z][a-z0-9_]*$` — lowercase letters, numbers, underscores only
-- Must start with a letter
-- Must be descriptive and action-oriented: `stripe_charge`, `resend_send_email`, `slack_post_message`
-- Must not conflict with builtin node IDs: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`
+`base.json` holds every shared field. Each version adds only what changes.
+Do not create `<version>/node.json`; CI regenerates it on `main`.
 
----
+## Local node layout
 
-## node.json Reference
+```
+nodes/<node_id>/
+├── node.json                 # full NodeDefinition (includes version)
+├── template.ts               # or templates/<provider>.ts
+├── icon.svg
+└── README.md
+```
 
-The `node.json` file is the complete `NodeDefinition` for your node. All fields marked **required** must be present.
+`pnpm nodes:generate` validates local nodes and writes
+`nodes/nodes.local.json`; `pnpm nodes:build` merges them into
+`nodes/registry.json`.
+
+## NodeDefinition
 
 ```typescript
 interface NodeDefinition {
-  // ── Identity ──────────────────────────────────────────────
-  id: string // REQUIRED. Matches directory name. e.g. "stripe_charge"
-  name: string // REQUIRED. Human-readable. e.g. "Stripe Charge"
-  version: string // REQUIRED. Semver. e.g. "1.0.0"
-  description: string // REQUIRED. One sentence. Max 120 chars.
-  category: Category // REQUIRED. See Category list below.
-  tags?: string[] // OPTIONAL. For search. e.g. ["payments", "stripe"]
-  icon?: string // OPTIONAL. URL to SVG icon. Must be HTTPS.
-  docsUrl?: string // OPTIONAL. Link to external docs.
-  author: string // REQUIRED. GitHub username or org. e.g. "awaitstep"
-  license: string // REQUIRED. SPDX identifier. e.g. "Apache-2.0"
-
-  // ── Config ────────────────────────────────────────────────
-  configSchema: Record<string, ConfigField> // REQUIRED. Drives the config drawer UI.
-
-  // ── Output ────────────────────────────────────────────────
-  outputSchema: Record<string, OutputField> // REQUIRED. What this node returns.
-
-  // ── Providers ─────────────────────────────────────────────
-  providers: Provider[] // REQUIRED. Which providers have templates.
-
-  // ── Runtime hints ─────────────────────────────────────────
+  id: string
+  name: string
+  version: string
+  description: string // max 120 chars
+  category: Category
+  tags?: string[]
+  icon?: string
+  docsUrl?: string
+  author: string
+  license: string
+  configSchema: Record<string, ConfigField>
+  outputSchema: Record<string, OutputField>
+  providers: string[] // platforms with a template
+  dependencies?: Record<string, string>
   runtime?: {
-    defaultTimeout?: string // e.g. "30 seconds"
-    defaultRetries?: number // e.g. 3
-    idempotent?: boolean // true = safe to retry without side effects
-    streaming?: boolean // true = streams output (future feature)
+    defaultTimeout?: string
+    defaultRetries?: number
+    idempotent?: boolean
+    streaming?: boolean
   }
-
-  // ── Deprecation ───────────────────────────────────────────
   deprecated?: boolean
   deprecationMessage?: string
   replacedBy?: string
 }
 ```
 
-### Categories
+## Config fields
 
-`Payments` | `Email` | `Messaging` | `Database` | `Storage` | `AI` | `Authentication` | `HTTP` | `Scheduling` | `Notifications` | `Data` | `Utilities` | `Control Flow` | `Internal`
+| Type          | UI control        | Extra                         |
+| ------------- | ----------------- | ----------------------------- |
+| `string`      | Text input        | —                             |
+| `textarea`    | Multi-line text   | —                             |
+| `number`      | Numeric input     | optional `validation.min/max` |
+| `boolean`     | Toggle            | optional `default`            |
+| `select`      | Dropdown          | required non-empty `options`  |
+| `multiselect` | Multi-select      | required non-empty `options`  |
+| `secret`      | Masked input      | required `envVarName`         |
+| `code`        | Monaco TypeScript | —                             |
+| `json`        | Monaco JSON       | —                             |
+| `expression`  | Expression picker | —                             |
 
-### Providers
-
-`cloudflare` | `inngest` | `temporal` | `stepfunctions`
-
----
-
-## Config Schema Field Types
-
-The `configSchema` drives the config drawer in the AwaitStep UI. Each field type maps to a UI control that renders automatically.
-
-| Type          | UI Control                      | When to Use                          | Extra Fields                              |
-| ------------- | ------------------------------- | ------------------------------------ | ----------------------------------------- |
-| `string`      | Single-line text input          | Short text values (names, IDs, URLs) | `validation.format`, `validation.pattern` |
-| `number`      | Numeric input                   | Amounts, counts, limits              | `validation.min`, `validation.max`        |
-| `boolean`     | Toggle switch                   | On/off flags                         | —                                         |
-| `select`      | Dropdown                        | One choice from a fixed list         | **`options[]` required**                  |
-| `multiselect` | Multi-select dropdown           | Multiple choices from a fixed list   | **`options[]` required**                  |
-| `secret`      | Masked input / env var picker   | API keys, tokens, credentials        | **`envVarName` required**                 |
-| `code`        | Monaco editor (TypeScript)      | Custom logic, transform functions    | —                                         |
-| `json`        | Monaco editor (JSON)            | Structured data (headers, payloads)  | —                                         |
-| `expression`  | JS expression with autocomplete | References to upstream step outputs  | —                                         |
-| `textarea`    | Multi-line text                 | Long text (email bodies, templates)  | —                                         |
-
-### ConfigField Interface
-
-```typescript
-interface ConfigField {
-  type: FieldType
-  label: string // Shown as the field label in the drawer
-  description?: string // Helper text shown below the field
-  required?: boolean // Default: false
-  default?: unknown // Default value pre-filled in the UI
-  placeholder?: string // Shown when field is empty
-  options?: string[] // REQUIRED for select and multiselect
-  envVarName?: string // REQUIRED for secret fields. SCREAMING_SNAKE_CASE.
-  validation?: FieldValidation
-}
-
-interface FieldValidation {
-  min?: number // number fields
-  max?: number // number fields
-  minLength?: number // string fields
-  maxLength?: number // string fields
-  pattern?: string // regex pattern for string fields
-  format?: 'email' | 'url' | 'uuid' | 'date' | 'date-time' | 'duration'
-}
-```
-
-### Examples
-
-**String with URL validation:**
+Example multi-action schema:
 
 ```json
 {
-  "type": "string",
-  "label": "Webhook URL",
-  "required": true,
-  "placeholder": "https://example.com/webhook",
-  "validation": { "format": "url" }
-}
-```
-
-**Number with min/max:**
-
-```json
-{
-  "type": "number",
-  "label": "Amount (cents)",
-  "required": true,
-  "default": 1000,
-  "validation": { "min": 50, "max": 9999999 }
-}
-```
-
-**Select with options:**
-
-```json
-{
-  "type": "select",
-  "label": "Currency",
-  "required": true,
-  "default": "usd",
-  "options": ["usd", "eur", "gbp", "jpy"]
-}
-```
-
-**Secret:**
-
-```json
-{
-  "type": "secret",
-  "label": "Stripe Secret Key",
-  "required": true,
-  "envVarName": "STRIPE_SECRET_KEY",
-  "description": "Found in your Stripe Dashboard under Developers → API keys"
-}
-```
-
----
-
-## Secret Handling
-
-Secrets are never stored in the IR or in AwaitStep's database. They live in the user's deployment environment.
-
-### Rules
-
-1. Every `secret` field **must** declare `envVarName`
-2. `envVarName` must be `SCREAMING_SNAKE_CASE` and globally descriptive
-3. In templates, access via `ctx.env.SECRET_NAME` — never via `ctx.config`
-4. Never log secret values in templates
-5. Never include secrets in error messages
-
-### Pattern
-
-```json
-// In node.json configSchema:
-"apiKey": {
-  "type": "secret",
-  "label": "API Key",
-  "required": true,
-  "envVarName": "MY_SERVICE_API_KEY"
-}
-```
-
-```typescript
-// In template:
-const response = await fetch(url, {
-  headers: { Authorization: `Bearer ${ctx.env.MY_SERVICE_API_KEY}` },
-})
-```
-
----
-
-## Output Schema
-
-The `outputSchema` defines what your node returns. It is used by:
-
-- The IR — to type-check connections between nodes
-- Expression autocomplete — so users can reference `your_node_result.fieldName`
-- The run detail view — to display step outputs
-
-### OutputField Interface
-
-```typescript
-interface OutputField {
-  type: OutputFieldType // 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
-  description?: string // Shown in autocomplete tooltip
-  nullable?: boolean // Default: false
-  items?: OutputField // For array types — describes item shape
-  properties?: Record<string, OutputField> // For object types — describes shape
-}
-```
-
-### Flat Example
-
-```json
-{
-  "chargeId": { "type": "string", "description": "Stripe charge ID (ch_...)" },
-  "success": { "type": "boolean", "description": "Whether the charge was captured" },
-  "amount": { "type": "number", "description": "Amount charged in cents" }
-}
-```
-
-### Nested Object Example
-
-```json
-{
-  "user": {
-    "type": "object",
-    "description": "Created user record",
-    "properties": {
-      "id": { "type": "string" },
-      "email": { "type": "string" },
-      "createdAt": { "type": "string", "description": "ISO timestamp" }
-    }
+  "action": {
+    "type": "select",
+    "label": "Action",
+    "required": true,
+    "options": ["Send Message", "List Channels"]
+  },
+  "channel": {
+    "type": "string",
+    "label": "Channel",
+    "description": "Channel ID. Used by: Send Message."
+  },
+  "text": {
+    "type": "textarea",
+    "label": "Text",
+    "description": "Message text. Used by: Send Message."
+  },
+  "token": {
+    "type": "secret",
+    "label": "Bot Token",
+    "required": true,
+    "envVarName": "SLACK_BOT_TOKEN"
   }
 }
 ```
 
-### Array Example
+## Output fields
 
-```json
-{
-  "results": {
-    "type": "array",
-    "description": "List of matching records",
-    "items": {
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "score": { "type": "number" }
+```typescript
+type OutputField = {
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'null'
+  description?: string
+  nullable?: boolean
+  items?: OutputField
+  properties?: Record<string, OutputField>
+}
+```
+
+- `object`/`array` are free-form without `properties`/`items`.
+- Use `nullable: true` when an action can return `null` or omit the field.
+- List actions should return the provider's full response object under `data`,
+  not a bare array.
+
+## Template contract
+
+A template exports one default async function:
+
+```typescript
+export default async function (ctx) {
+  const action = ctx.config.action
+  const token = ctx.env.SLACK_BOT_TOKEN
+
+  switch (action) {
+    case 'Send Message': {
+      const response = await fetch('https://slack.com/api/chat.postMessage', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ channel: ctx.config.channel, text: ctx.config.text }),
+      })
+      const data = (await response.json()) as Record<string, unknown>
+      if (!response.ok || data.ok === false) {
+        throw new Error(`Slack API error: ${data.error ?? response.statusText}`)
       }
+      return { ok: true, ts: data.ts, channel: data.channel, data }
     }
+    default:
+      throw new Error(`Unknown action: ${action}`)
   }
 }
 ```
 
----
+Rules:
 
-## Templates
+1. Export a default async function; no named exports.
+2. Throw on errors; never return `{ success: false }`.
+3. Use Web APIs (`fetch`, `crypto`, `URL`). Cloudflare templates must not use
+   `fs`, `path`, `process`, or `Buffer`.
+4. Never call `step.do`, `step.sleep`, `step.waitForEvent`.
+5. Access secrets via `ctx.env`, never `ctx.config`.
+6. Never log secrets.
+7. Import only packages declared in `dependencies`.
 
-Templates live in `templates/` and are named by provider: `cloudflare.ts`, `inngest.ts`, `temporal.ts`, `stepfunctions.json`.
+## What codegen does
 
-### Template Rules
+For a top-level workflow node, the generator:
 
-1. Export a **default async function** that accepts a single `ctx` parameter
-2. Return an object that matches your `outputSchema`
-3. **Do NOT** call `step.do()`, `step.sleep()`, or any durable execution primitives
-4. **Do NOT** catch all errors silently — let errors propagate so the platform can retry
-5. Use only Web APIs (fetch, crypto, URL, etc.) for Cloudflare templates — no Node.js APIs
-6. Throw on non-2xx HTTP responses
+1. resolves the version's template (provider-specific first, then `template.ts`);
+2. extracts the default function body;
+3. rewrites `ctx.config` to the step's params and `ctx.env` to `env`;
+4. emits a generated module `nodes/<varName>.ts`;
+5. calls it from `flow.step(...)`.
 
-### NodeContext Type
+A node inside a loop/branch stays inline in that block. Scripts generate modules
+too. Edit the template, not the generated module.
 
-```typescript
-interface NodeContext<TConfig = Record<string, unknown>> {
-  config: TConfig // User-provided config values
-  env: Record<string, string> // Environment variables / secrets
-  inputs: Record<string, unknown> // Outputs from upstream steps
-  workflow: {
-    id: string // Workflow definition ID
-    instanceId: string // This run's instance ID
-    triggeredAt: string // ISO timestamp
-  }
-}
+## Dependencies
+
+Declare runtime packages in the definition:
+
+```json
+"dependencies": { "@supabase/supabase-js": "^2" }
 ```
 
-### Template Example (HTTP API call)
+They are installed during deploy and bundled with the generated project. A
+template may import only declared packages.
 
-```typescript
-import type { NodeContext } from '@awaitstep/node-sdk'
+## Config expressions
 
-interface Config {
-  amount: number
-  currency: string
-  customerId: string
-  apiKey: never // secret — accessed via ctx.env, not ctx.config
-}
+A config value such as `{{fetch_user.id}}` is resolved before generation into a
+step param. The template reads it as `ctx.config.<field>`; it does not need a
+separate inputs object.
 
-interface Output {
-  chargeId: string
-  success: boolean
-  amount: number
-}
+## Validation
 
-export default async function (ctx: NodeContext<Config>): Promise<Output> {
-  const response = await fetch('https://api.example.com/charges', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${ctx.env.EXAMPLE_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      amount: ctx.config.amount,
-      currency: ctx.config.currency,
-      customer: ctx.config.customerId,
-    }),
-  })
+Registry node:
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`API error (${response.status}): ${errorText}`)
-  }
-
-  const data = (await response.json()) as { id: string; captured: boolean; amount: number }
-
-  return {
-    chargeId: data.id,
-    success: data.captured,
-    amount: data.amount,
-  }
-}
+```bash
+pnpm --filter @awaitstep/registry validate
 ```
 
-### Template Example (Data Transform)
+It checks base/overrides merge, semver order, the definition schema, action
+options against `case` labels, config/env references, template parsing, imports,
+forbidden APIs, and output schema shapes. Run the tests when ready:
 
-```typescript
-import type { NodeContext } from '@awaitstep/node-sdk'
-
-interface Config {
-  fieldMapping: string // JSON mapping config
-}
-
-interface Output {
-  transformedData: Record<string, unknown>
-  fieldCount: number
-}
-
-export default async function (ctx: NodeContext<Config>): Promise<Output> {
-  const mapping = JSON.parse(ctx.config.fieldMapping) as Record<string, string>
-  const input = ctx.inputs as Record<string, unknown>
-
-  const transformed: Record<string, unknown> = {}
-  for (const [targetKey, sourceKey] of Object.entries(mapping)) {
-    transformed[targetKey] = input[sourceKey]
-  }
-
-  return {
-    transformedData: transformed,
-    fieldCount: Object.keys(transformed).length,
-  }
-}
+```bash
+pnpm --filter @awaitstep/registry test
 ```
 
-### Provider-Specific Notes
+Local node:
 
-| Provider        | Environment            | Notes                                                                           |
-| --------------- | ---------------------- | ------------------------------------------------------------------------------- |
-| `cloudflare`    | CF Worker (V8 isolate) | Web APIs only. No `fs`, `path`, `process`, `Buffer`. Use `ctx.env` for secrets. |
-| `inngest`       | Node.js or Edge        | Same function signature. Node.js APIs available.                                |
-| `temporal`      | Temporal Activity      | Same function signature. No native `fetch` — use `node-fetch`.                  |
-| `stepfunctions` | JSON ASL state         | Not TypeScript. JSON defining an ASL state for Lambda invocation.               |
-
----
-
-## Error Handling
-
-**Always throw on errors. Never swallow them.**
-
-The platform depends on thrown errors for retry logic. If your template catches an error and returns a "success" result, the platform cannot retry the failed operation.
-
-```typescript
-// ✅ CORRECT — throw on error
-if (!response.ok) {
-  throw new Error(`API error (${response.status}): ${await response.text()}`)
-}
-
-// ❌ WRONG — swallowing the error
-try {
-  const result = await callApi()
-  return { success: true, data: result }
-} catch (err) {
-  return { success: false, error: err.message } // Platform can't retry!
-}
+```bash
+pnpm nodes:generate
 ```
 
----
+Never run `registry/scripts/build-index.ts` locally and never commit
+`<version>/node.json` or `registry/index.json`.
 
-## Testing
+## Versioning
 
-Every template must have a corresponding test file in `tests/`.
+Add a new version directory instead of editing a published one:
 
-### Test Requirements
-
-- At minimum: one happy-path test and one error-path test per template
-- All tests must pass with `vitest run`
-- Mock `fetch` and all external dependencies — no real network calls
-- Test that errors are thrown (not swallowed)
-- Use `createMockContext` from `@awaitstep/node-sdk/testing`
-
-### Test Template
-
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { createMockContext } from '@awaitstep/node-sdk/testing'
-import handler from '../templates/cloudflare'
-
-const mockConfig = {
-  // Fill with valid test config
-}
-
-const mockEnv = {
-  // Fill with fake secrets
-}
-
-describe('<node_id> / cloudflare', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('returns expected output on success', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        // Mock API response
-      }),
-    })
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-    const result = await handler(ctx)
-
-    expect(result).toEqual({
-      // Expected output matching outputSchema
-    })
-  })
-
-  it('throws on API error so the platform can retry', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      text: async () => 'Internal Server Error',
-    })
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-
-    await expect(handler(ctx)).rejects.toThrow()
-  })
-
-  it('sends correct authorization header', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({/* mock response */}),
-    })
-    global.fetch = fetchSpy
-
-    const ctx = createMockContext({ config: mockConfig, env: mockEnv })
-    await handler(ctx)
-
-    const [, options] = fetchSpy.mock.calls[0]
-    expect(options.headers.Authorization).toContain(mockEnv.MY_API_KEY)
-  })
-})
+```
+registry/nodes/slack/
+├── base.json
+├── 1.0.0/...
+└── 1.1.0/
+    ├── overrides.json   # { version, description, changed fields }
+    └── template.ts
 ```
 
----
+Use semver: patch for an internal fix, minor for additive fields/actions, major
+for a required-field or output-shape change. Arrays replace the base array.
 
-## Validation Checklist
+## Authoring checklist
 
-Before submitting a node, verify:
-
-### node.json
-
-- [ ] `id` matches directory name
-- [ ] `id` matches `^[a-z][a-z0-9_]*$`
-- [ ] `id` does not conflict with builtins: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`
-- [ ] `version` is valid semver
-- [ ] `description` is present and under 120 characters
-- [ ] `category` is a valid Category value
-- [ ] `author` is present
-- [ ] `license` is a valid SPDX identifier
-
-### configSchema
-
-- [ ] All field `type` values are valid FieldType values
-- [ ] All `secret` fields declare `envVarName`
-- [ ] All `select`/`multiselect` fields declare non-empty `options[]`
-- [ ] Required fields are marked `required: true`
-
-### outputSchema
-
-- [ ] All field `type` values are valid OutputFieldType values
-- [ ] `object` fields declare `properties`
-- [ ] `array` fields declare `items`
-
-### Templates
-
-- [ ] At least one template file exists
-- [ ] Each provider in `providers` has a corresponding template file
-- [ ] Templates export a default async function accepting `ctx`
-- [ ] Templates do not call `step.do`, `step.sleep`, `step.sleepUntil`, `step.waitForEvent`
-- [ ] Templates throw on errors (no silent error swallowing)
-- [ ] Secrets accessed via `ctx.env`, not `ctx.config`
-- [ ] No `console.log` of secret values
-
-### Tests
-
-- [ ] At least one test file per template
-- [ ] Happy-path and error-path tests exist
-- [ ] All tests pass with `vitest run`
-- [ ] No real network calls (fetch is mocked)
-
-### README
-
-- [ ] File exists and is non-empty
-- [ ] Contains configuration table
-- [ ] Contains output table
-
----
-
-## Common Mistakes
-
-1. **Catching errors instead of throwing** — The platform needs thrown errors for retry. Never return `{ success: false }` on failure.
-
-2. **Storing secrets in config** — Use `type: "secret"` with `envVarName` and access via `ctx.env.SECRET_NAME`.
-
-3. **Using Node.js APIs in Cloudflare templates** — No `fs`, `path`, `process`, `Buffer`. Use Web APIs only.
-
-4. **Calling durable primitives** — Never call `step.do()`, `step.sleep()`, etc. in templates. The platform wraps your code automatically.
-
-5. **Missing `options` on select/multiselect fields** — These fields require a non-empty `options` array.
-
-6. **Missing `envVarName` on secret fields** — Every secret field must specify which env var to bind.
-
-7. **Logging secrets** — Never `console.log(ctx.env.API_KEY)`. This will be caught in review.
-
-8. **Output schema mismatch** — The template return value must match `outputSchema` exactly. Missing or extra fields will fail type-checking.
-
----
-
-## Reference Example
-
-See `packages/ir/src/bundled-nodes/http-request.ts` for a complete, production example of a node definition with config schema, output schema, and all required fields.
+- [ ] ID matches the directory and is not a builtin.
+- [ ] `base.json` has no `version` or `description`.
+- [ ] Each version has `overrides.json` and a template.
+- [ ] Every action option has a `case` and vice versa.
+- [ ] Every secret field has `envVarName`; the template reads it via `ctx.env`.
+- [ ] Every `ctx.config` key exists in the schema.
+- [ ] Errors throw; secrets are never logged.
+- [ ] `providers` names only platforms with a template.
+- [ ] `docsUrl` points at the provider's docs.
+- [ ] The registry validator passes.

@@ -14,7 +14,7 @@ Nodes are searchable by name, category, tag, and author. Each node listing shows
 - Current version and publish date
 - Author and license
 - Config and output schema
-- README documentation
+- Provider and version details
 
 ## Installing a Node
 
@@ -44,22 +44,22 @@ You cannot uninstall a node that is currently used in one or more workflows. Rem
 
 ## Using a Custom Registry
 
-By default, AwaitStep fetches nodes from the official registry at `https://registry.awaitstep.dev`. You can override this to use a private registry by setting the `REGISTRY_URL` environment variable in your project settings.
+By default, AwaitStep fetches nodes from the official registry at `https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry`. You can override this to use a private registry by setting the `REGISTRY_URL` environment variable in your project settings.
 
 ```
 REGISTRY_URL=https://registry.your-company.com
 ```
 
-A custom registry must implement the same REST API as the official registry:
+A custom registry serves the same static layout:
 
-| Endpoint                  | Description                                           |
-| ------------------------- | ----------------------------------------------------- |
-| `GET /nodes`              | List all available nodes (with pagination and search) |
-| `GET /nodes/:id`          | Get a specific node by ID (returns latest version)    |
-| `GET /nodes/:id/:version` | Get a specific node at a specific version             |
-| `GET /nodes/:id/versions` | List all published versions of a node                 |
+| Path                                      | Description                                        |
+| ----------------------------------------- | -------------------------------------------------- |
+| `GET /index.json`                         | Node summaries, latest version, versions/checksums |
+| `GET /nodes/:id/:version/node.json`       | The merged `NodeDefinition` for one version        |
+| `GET /nodes/:id/:version/template.ts`     | The default template                               |
+| `GET /nodes/:id/:version/templates/:p.ts` | An optional provider-specific template             |
 
-Each endpoint returns a `NodeDefinition` object (for individual nodes) or an array of them (for listings). The shape matches the `NodeDefinition` type from `@awaitstep/ir`.
+The client verifies the version checksum from `index.json` against the definition and templates it fetched. The definition types come from `@awaitstep/ir`.
 
 :::info
 The `REGISTRY_URL` override applies to all node installs and update checks for the project. It does not affect built-in nodes, which are always bundled with AwaitStep.
@@ -67,57 +67,37 @@ The `REGISTRY_URL` override applies to all node installs and update checks for t
 
 ## Contributing Nodes
 
-Anyone can publish a node to the AwaitStep marketplace. To contribute:
+Anyone can publish a node to the official registry. To contribute:
 
-### 1. Author the Node
+### 1. Author the node
 
-Follow the [Custom Nodes](./custom-nodes.md) guide to create your node in `nodes/<node_id>/`. Complete the authoring checklist before submitting.
+Follow the [Adding Nodes](../contributing/adding-nodes.md) guide. A registry node lives in `registry/nodes/<node_id>/` with a shared `base.json` and one directory per version containing `overrides.json` and `template.ts`.
 
-### 2. Pass Validation
+### 2. Validate
 
-All nodes submitted to the marketplace are validated automatically:
+```bash
+pnpm --filter @awaitstep/registry validate
+pnpm --filter @awaitstep/registry test
+```
 
-- `node.json` must be valid and complete
-- At least one template file must exist
-- All tests must pass (`vitest run`)
-- The node must not conflict with any existing node ID in the registry
+The validator checks the base/overrides merge, semver order, the `NodeDefinition` schema, action/config/env agreement, template parsing, imports, forbidden APIs, and output shapes. CI runs it on every pull request that touches `registry/`.
 
-### 3. Submit a Pull Request
+### 3. Submit a pull request
 
-Fork the [awaitstep/nodes](https://github.com/awaitstep/nodes) repository, add your node, and open a pull request. The automated CI pipeline will:
+Open a pull request against `dev` in [awaitstep/awaitstep](https://github.com/awaitstep/awaitstep). CI runs the registry validator and tests. On merge to `main`, the registry-index workflow regenerates `<version>/node.json` and `registry/index.json` in an auto-merge PR.
 
-- Run `node.json` schema validation
-- Run all template tests
-- Check for naming conflicts with existing nodes
-- Lint the TypeScript template files
+### 4. Review and publish
 
-### 4. Review and Publish
+A maintainer reviews the node for correct secret handling, current provider endpoints, thrown errors, and accurate output schemas. Once merged and the index is rebuilt, the version is available in the marketplace.
 
-A maintainer will review your node for:
+### Updating a published node
 
-- Correct secret handling (secrets must use `envVarName` and be accessed via `ctx.env`)
-- No Node.js APIs in Cloudflare templates
-- Errors thrown, not swallowed
-- README with config and output tables
-
-Once approved, the node is published to the registry under your author name and the version declared in `node.json`.
-
-### Updating a Published Node
-
-To publish a new version, bump `version` in `node.json` following semver, update the README if needed, and open a new pull request. Both old and new versions remain available in the registry — installed projects are not automatically updated.
+Add a new version directory instead of editing a published one. Put only the changed fields in its `overrides.json` and copy the previous template before applying the change. Old versions remain available; installed projects are not updated automatically.
 
 ## Official Nodes
 
-Nodes authored by `awaitstep` are official integrations maintained by the AwaitStep team. They are marked with a verified badge in the marketplace. Official node IDs currently include:
+Nodes authored by `awaitstep` are official integrations maintained by the AwaitStep team. They are marked with a verified badge in the marketplace. The official registry currently includes:
 
-- `resend_send_email` — Send transactional email via Resend
-- `stripe_charge` — Charge a customer via Stripe
-- `stripe_refund` — Refund a Stripe charge
-- `slack_post_message` — Post a message to Slack
-- `openai_chat` — Call the OpenAI Chat Completions API
-- `anthropic_message` — Call the Anthropic Messages API
-- `d1_query` — Query a Cloudflare D1 database
-- `r2_put` — Upload an object to Cloudflare R2
-- `kv_get` / `kv_put` — Read and write Cloudflare KV
+`activecampaign`, `airtable`, `anthropic`, `asana`, `convertkit`, `datadog`, `direct-mail`, `discord`, `elevenlabs`, `firebase-firestore`, `github`, `google-calendar`, `google-gemini`, `google-sheets`, `hubspot`, `intercom`, `jira`, `lemon-squeezy`, `linear`, `mailchimp`, `microsoft-teams`, `monday`, `notion`, `openai`, `paddle`, `pagerduty`, `paypal`, `perplexity`, `replicate`, `resend`, `s3`, `salesforce`, `segment`, `sendgrid`, `sentry`, `shopify`, `slack`, `stripe`, `supabase`, `telegram`, `trello`, `twilio`, `typeform`, `upstash-redis`, `zendesk`.
 
 Community-contributed nodes are listed separately and are not officially maintained by AwaitStep.

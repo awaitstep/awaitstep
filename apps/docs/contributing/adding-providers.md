@@ -214,21 +214,18 @@ export { MyRuntimeCodeGenerator } from './codegen/generate.js'
 
 ### 5. Add node templates
 
-For each node in `nodes/`, add a `templates/myruntime.ts` file using the runtime-specific SDK:
+For each supported registry node, add a `<version>/templates/myruntime.ts` file (or a `nodes/<id>/templates/myruntime.ts` for a local node) using the runtime-specific implementation:
 
 ```typescript
-// nodes/http_request/templates/myruntime.ts
-import type { NodeContext } from '@awaitstep/node-sdk'
-
-export default async function (ctx: NodeContext<Config>): Promise<Output> {
-  // Same business logic — just runs in a different runtime context
+// registry/nodes/weather/1.1.0/templates/myruntime.ts
+export default async function (ctx) {
   const res = await fetch(ctx.config.url, { method: ctx.config.method })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return { status: res.status, body: await res.text(), headers: {} }
 }
 ```
 
-Add `"myruntime"` to the `providers` array in each node's `node.json`.
+Add `"myruntime"` to the `providers` array in the node's `base.json` (or in the version's `overrides.json` when only the new version supports it).
 
 ### 6. Register the provider
 

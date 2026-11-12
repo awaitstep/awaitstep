@@ -31,7 +31,7 @@ interface WorkflowMetadata {
 
 interface WorkflowNode {
   id: NodeId // Unique within this workflow, e.g. "charge_card"
-  type: NodeType // Built-in: "step", "branch", etc. Custom: "stripe_charge"
+  type: NodeType // Built-in: "step", "branch", etc. Custom: "stripe"
   name: string // Human label shown on the canvas
   position: { x: number; y: number }
   version: string // Node definition semver, e.g. "1.0.0"
