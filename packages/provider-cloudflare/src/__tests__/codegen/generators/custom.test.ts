@@ -30,6 +30,31 @@ describe('extractTemplateBody', () => {
     expect(body).toContain('return { done: true };')
   })
 
+  it('reads past a typed parameter and a return type, as a custom node’s scaffold writes them', () => {
+    const source = `import type { Ctx, Output } from './ctx'
+
+export default async function (ctx: Ctx): Promise<Output> {
+  return { ok: ctx.config.flag }
+}`
+    expect(extractTemplateBody(source)).toBe('return { ok: ctx.config.flag }')
+  })
+
+  it('reads past a return type with braces inside its generics', () => {
+    const source = `export default async function (ctx: Ctx): Promise<{ ok: boolean }> {
+  return { ok: true }
+}`
+    expect(extractTemplateBody(source)).toBe('return { ok: true }')
+  })
+
+  it('stays linear on a template of repeated near-heads', () => {
+    for (const unit of ['export default async function ():\n', 'export default async function x']) {
+      const source = unit.repeat(Math.floor(512_000 / unit.length))
+      const started = performance.now()
+      expect(() => extractTemplateBody(source)).toThrow()
+      expect(performance.now() - started).toBeLessThan(500)
+    }
+  })
+
   it('throws if no export default async function found', () => {
     expect(() => extractTemplateBody('function foo() {}')).toThrow(
       'Template must contain an `export default async function`',

@@ -9,16 +9,46 @@ import {
 } from '../internal.js'
 import { generateStepConfig } from './config.js'
 
+const TEMPLATE_HEAD = /export\s+default\s+async\s+function\b/
+
+/**
+ * Where the template function's body starts: just past its `{`. The head
+ * is found once and walked by hand (no backtracking over user text), so a
+ * template of repeated near-heads costs linear time. A return type may sit
+ * between the parameters and the body (`: Promise<Output>`, as a custom
+ * node's typed template has it); braces inside its `<…>` are part of it.
+ */
+function templateBodyStart(source: string): number | null {
+  const head = TEMPLATE_HEAD.exec(source)
+  if (!head) return null
+  const open = source.indexOf('(', head.index + head[0].length)
+  if (open === -1 || !/^[\s\w$]*$/.test(source.slice(head.index + head[0].length, open)))
+    return null
+  const close = source.indexOf(')', open)
+  if (close === -1) return null
+  let i = close + 1
+  while (i < source.length && /\s/.test(source[i]!)) i++
+  if (source[i] === ':') {
+    let angle = 0
+    for (i++; i < source.length; i++) {
+      const ch = source[i]
+      if (ch === '<') angle++
+      else if (ch === '>' && angle > 0) angle--
+      else if (ch === '{' && angle === 0) break
+    }
+  }
+  return source[i] === '{' ? i + 1 : null
+}
+
 export function extractTemplateBody(source: string): string {
-  const match = source.match(/export\s+default\s+async\s+function\s*[^(]*\([^)]*\)\s*\{/)
-  if (!match) {
+  const startIndex = templateBodyStart(source)
+  if (startIndex === null) {
     throw new GenerateInputError(
       'Template must contain an `export default async function`',
       'provider',
     )
   }
 
-  const startIndex = match.index! + match[0].length
   let depth = 1
   let i = startIndex
 
