@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "description": "Create pages and query Notion data sources with the current Notion API",
+  "tags": ["notion", "database", "pages", "productivity", "data-sources"],
+  "configSchema": {
+    "action": {
+      "options": ["Create Page", "Get Page", "Update Page", "Query Data Source", "Get Database"]
+    },
+    "databaseId": {
+      "description": "Notion database ID. Used by: Get Database."
+    },
+    "dataSourceId": {
+      "type": "string",
+      "label": "Data Source ID",
+      "placeholder": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+      "description": "Notion data source ID. Used by: Create Page, Query Data Source."
+    },
+    "pageSize": {
+      "type": "number",
+      "label": "Page Size",
+      "default": 100,
+      "validation": { "min": 1, "max": 100 },
+      "description": "Results per page. Used by: Query Data Source."
+    }
+  },
+  "outputSchema": {
+    "url": {
+      "nullable": true
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "version": "1.1.0",
+  "description": "Send Teams messages through Workflows webhooks or Microsoft Graph",
+  "tags": ["microsoft", "teams", "messaging", "chat", "workflows"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Send Webhook Message",
+        "Send Channel Message",
+        "Reply to Message",
+        "List Channels",
+        "List Teams",
+        "Send Chat Message"
+      ]
+    },
+    "webhookUrl": {
+      "description": "Workflows webhook URL. Used by: Send Webhook Message."
+    },
+    "chatId": {
+      "type": "string",
+      "label": "Chat ID",
+      "description": "Chat ID for Graph API actions. Used by: Send Chat Message."
+    }
+  }
+}
