@@ -1,0 +1,26 @@
+{
+  "version": "1.1.0",
+  "description": "Create, read, update, delete, and inspect Airtable records and bases",
+  "tags": ["airtable", "database", "records", "spreadsheet", "bases"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Record",
+        "Get Record",
+        "Update Record",
+        "List Records",
+        "Delete Record",
+        "List Bases",
+        "Get Base Schema"
+      ]
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    },
+    "fields": {
+      "nullable": true
+    }
+  }
+}
