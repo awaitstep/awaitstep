@@ -248,6 +248,16 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
     if (typeof description === 'string' && description.length > 120) {
       issues.push(error(path, `description is ${description.length} characters (max 120)`))
     }
+    const docsUrl = definition.docsUrl
+    if (typeof docsUrl !== 'string') {
+      issues.push(error(path, 'docsUrl is required'))
+    } else {
+      try {
+        new URL(docsUrl)
+      } catch {
+        issues.push(error(path, `docsUrl is not a valid URL: ${docsUrl}`))
+      }
+    }
     const parsed = schema.safeParse(definition)
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -261,17 +271,6 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
     }
     if (definition.version !== version.version) {
       issues.push(error(path, `version "${String(definition.version)}" does not match directory`))
-    }
-
-    const docsUrl = definition.docsUrl
-    if (typeof docsUrl !== 'string') {
-      issues.push(error(path, 'docsUrl is required'))
-    } else {
-      try {
-        new URL(docsUrl)
-      } catch {
-        issues.push(error(path, `docsUrl is not a valid URL: ${docsUrl}`))
-      }
     }
 
     const providers = Array.isArray(definition.providers)
