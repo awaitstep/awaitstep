@@ -2,6 +2,12 @@ export default async function (ctx) {
   const apiKey = ctx.env.PAGERDUTY_API_KEY
   const action = ctx.config.action
 
+  function fromEmail(): string {
+    const email = ctx.config.userEmail
+    if (!email) throw new Error('User Email is required for this action')
+    return String(email)
+  }
+
   async function pdApi(
     method: string,
     path: string,
@@ -69,7 +75,7 @@ export default async function (ctx) {
             },
           ],
         },
-        { From: String(ctx.config.userEmail ?? '') },
+        { From: fromEmail() },
       )
       return {
         id: String(ctx.config.incidentId ?? ''),
@@ -91,7 +97,7 @@ export default async function (ctx) {
             },
           ],
         },
-        { From: String(ctx.config.userEmail ?? '') },
+        { From: fromEmail() },
       )
       return {
         id: String(ctx.config.incidentId ?? ''),
@@ -119,7 +125,7 @@ export default async function (ctx) {
             body: { type: 'incident_body', details: ctx.config.description },
           },
         },
-        { From: String(ctx.config.userEmail ?? '') },
+        { From: fromEmail() },
       )
       const incident = data.incident as { id?: string; status?: string } | undefined
       return {
