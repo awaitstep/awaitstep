@@ -1,0 +1,43 @@
+{
+  "version": "1.1.0",
+  "description": "Send, schedule, and react to Slack messages and inspect channels",
+  "tags": ["slack", "messaging", "chat", "notifications", "reactions"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Send Message",
+        "Update Message",
+        "Delete Message",
+        "Set Channel Topic",
+        "Invite to Channel",
+        "Schedule Message",
+        "List Channels",
+        "Add Reaction"
+      ]
+    },
+    "postAt": {
+      "type": "string",
+      "label": "Post At",
+      "placeholder": "2026-11-12T10:00:00Z",
+      "description": "When to post the scheduled message. Used by: Schedule Message."
+    },
+    "emoji": {
+      "type": "string",
+      "label": "Emoji",
+      "placeholder": "thumbsup",
+      "description": "Emoji name without colons. Used by: Add Reaction."
+    }
+  },
+  "outputSchema": {
+    "ts": {
+      "nullable": true
+    },
+    "channel": {
+      "nullable": true
+    },
+    "channels": {
+      "type": "array",
+      "description": "Channels returned by List Channels"
+    }
+  }
+}
