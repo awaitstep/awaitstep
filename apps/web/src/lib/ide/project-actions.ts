@@ -81,6 +81,11 @@ export interface ProjectActionDeps {
   refresh: () => Promise<void>
   /** Opens Search on the old import path after a rename that left importers behind. */
   onShowImporters?: (specifier: string) => void
+  /**
+   * How other files import a path, or null. Defaults to the workflow's
+   * `#app/<path>`; the Library names `#modules/<slug>` instead.
+   */
+  importSpecifierOf?: (path: string) => string | null
 }
 
 export interface ProjectFileActions {
@@ -163,6 +168,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     canEdit,
   } = deps
   const isCurrent = deps.isCurrent ?? (() => true)
+  const specifierOf = deps.importSpecifierOf ?? importSpecifier
   const isStep = (path: string) => ownerOf(path) === 'step'
 
   // After a batch of file writes has landed: the version records the files
@@ -290,7 +296,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     path: string,
     drafts: IdeSessionState['drafts'],
   ): { specifier: string; count: number } | null {
-    const specifier = importSpecifier(path)
+    const specifier = specifierOf(path)
     if (!specifier) return null
     // The same ownership rule as the Search view, so the count is its list.
     const files = toSearchFiles(overlayDrafts(getBaseline(), drafts).values(), getProjectPaths())
@@ -422,7 +428,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       if (typeof created === 'string') return false
       await settle()
       liveStore()?.openFile(path)
-      const specifier = importSpecifier(path)
+      const specifier = specifierOf(path)
       notify.success(
         specifier ? `Created. Import it as \`${specifier}\`` : `Created ${basename(path)}`,
         specifier ? { action: copyImportAction(specifier, notify) } : undefined,

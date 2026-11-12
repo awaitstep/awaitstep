@@ -29,6 +29,16 @@ export interface ProjectLanguageServiceOptions {
    * (the canvas: its step editor shows no project-wide problems).
    */
   reportUnresolvedImports: boolean
+  /**
+   * The program's root and import paths. Defaults to a workflow's
+   * (`#app/*`, `#awaitstep/*`); the Library maps `#modules/*` instead.
+   */
+  rootOptions?: { baseUrl: string; paths: Record<string, string[]> }
+  /**
+   * What type acquisition reads, when it is not the files themselves: the
+   * Library merges every module's package.json into one manifest.
+   */
+  acquisitionFiles?: ReadonlyMap<string, { source: string }>
 }
 
 /**
@@ -47,7 +57,7 @@ export interface ProjectLanguageServiceOptions {
 export function useProjectLanguageService(
   workflowId: string,
   files: ReadonlyMap<string, { source: string }>,
-  { reportUnresolvedImports }: ProjectLanguageServiceOptions,
+  { reportUnresolvedImports, rootOptions, acquisitionFiles }: ProjectLanguageServiceOptions,
 ): void {
   const monaco = useMonaco()
 
@@ -88,20 +98,24 @@ export function useProjectLanguageService(
   // tsconfig.json (or jsconfig.json) may turn on strictness switches.
   const configSource =
     settledFiles.get('tsconfig.json')?.source ?? settledFiles.get('jsconfig.json')?.source
+  const rootKey = rootOptions ? JSON.stringify(rootOptions) : null
   useEffect(() => {
     if (!monaco) return
     setProjectCompilerOptions(monaco, {
-      ...projectRootOptions(workflowId),
+      ...(rootKey ? (JSON.parse(rootKey) as object) : projectRootOptions(workflowId)),
       ...tsconfigEditorOptions(configSource),
     })
-  }, [monaco, workflowId, configSource])
+  }, [monaco, workflowId, configSource, rootKey])
 
   // npm packages get real declarations; "Cannot find module" only counts
   // once every package in view has been typed or stubbed. Keyed on the
   // workflow as well, so a workspace that opens after another's cleanup
   // muted the errors always re-applies its own state. Acquisition serves
   // that check alone, so a caller that keeps the errors muted fetches nothing.
-  const typesSettled = useTypeAcquisition(reportUnresolvedImports ? settledFiles : NO_FILES)
+  const settledAcquisition = useDebouncedValue(acquisitionFiles, WORKER_SYNC_DELAY_MS)
+  const typesSettled = useTypeAcquisition(
+    reportUnresolvedImports ? (settledAcquisition ?? settledFiles) : NO_FILES,
+  )
   useEffect(() => {
     if (!monaco) return
     setProjectDiagnostics(monaco, {
