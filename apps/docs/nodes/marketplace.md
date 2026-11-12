@@ -35,7 +35,7 @@ Installed nodes are pinned to the version you selected. The node will not automa
 
 To uninstall a node:
 
-1. Go to **Project Settings → Nodes**.
+1. Go to **Resources → Nodes**.
 2. Find the installed node and click **Uninstall**.
 
 :::warning
