@@ -1,0 +1,31 @@
+{
+  "version": "1.1.0",
+  "description": "Send email, inspect stats, and list templates in SendGrid",
+  "tags": ["sendgrid", "email", "transactional", "templates", "stats"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Send Email",
+        "Send Multiple",
+        "Send Template Email",
+        "Get Stats",
+        "List Templates"
+      ]
+    },
+    "to": {
+      "description": "Recipient email address(es), comma-separated. Used by: Send Email, Send Multiple, Send Template Email."
+    },
+    "startDate": {
+      "type": "string",
+      "label": "Start Date",
+      "placeholder": "2026-11-01",
+      "description": "Stats start date (YYYY-MM-DD). Used by: Get Stats."
+    },
+    "endDate": {
+      "type": "string",
+      "label": "End Date",
+      "placeholder": "2026-11-12",
+      "description": "Stats end date (YYYY-MM-DD). Used by: Get Stats."
+    }
+  }
+}
