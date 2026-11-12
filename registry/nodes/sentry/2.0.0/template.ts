@@ -23,7 +23,7 @@ export default async function (ctx) {
   switch (action) {
     case 'List Issues': {
       const data = await sentryApi('GET', `/projects/${org}/${ctx.config.project}/issues/`)
-      return { id: '', status: 'ok', data }
+      return { id: '', status: 'ok', data: { items: data } }
     }
 
     case 'Get Issue': {
@@ -48,7 +48,7 @@ export default async function (ctx) {
 
     case 'List Events': {
       const data = await sentryApi('GET', `/projects/${org}/${ctx.config.project}/events/`)
-      return { id: '', status: 'ok', data }
+      return { id: '', status: 'ok', data: { items: data } }
     }
 
     case 'Create Release': {
@@ -65,7 +65,7 @@ export default async function (ctx) {
 
     case 'List Projects': {
       const data = await sentryApi('GET', `/organizations/${org}/projects/`)
-      return { id: '', status: 'ok', data }
+      return { id: '', status: 'ok', data: { items: data } }
     }
 
     case 'Get Event': {
@@ -94,7 +94,7 @@ export default async function (ctx) {
 
     case 'List Releases': {
       const data = await sentryApi('GET', `/organizations/${org}/releases/`)
-      return { id: '', status: 'ok', data }
+      return { id: '', status: 'ok', data: { items: data } }
     }
 
     default:

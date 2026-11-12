@@ -94,7 +94,7 @@ export default async function (ctx) {
     case 'List Channels': {
       if (!ctx.config.guildId) throw new Error('Guild ID is required for List Channels')
       const data = await discordBotRequest('GET', `/guilds/${ctx.config.guildId}/channels`)
-      return { id: '', channelId: '', data }
+      return { id: '', channelId: '', data: { channels: data } }
     }
 
     default:

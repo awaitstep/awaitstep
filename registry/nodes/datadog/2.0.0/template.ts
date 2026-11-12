@@ -81,7 +81,7 @@ export default async function (ctx) {
 
     case 'List Monitors': {
       const data = await ddApi(`https://api.${site}/api/v1/monitor`, 'GET')
-      return { status: 'ok', data }
+      return { status: 'ok', data: { monitors: data } }
     }
 
     case 'Query Metrics': {

@@ -96,7 +96,7 @@ export default async function (ctx) {
 
     case 'List Projects': {
       const data = await jiraRequest('GET', '/project')
-      return { id: null, key: '', data }
+      return { id: null, key: '', data: { items: data } }
     }
 
     default:
