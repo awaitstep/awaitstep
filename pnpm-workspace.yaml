@@ -2,6 +2,7 @@ packages:
   - 'packages/*'
   - 'apps/*'
   - 'tooling/*'
+  - 'registry'
 
 # Skip optional peer-dep resolution. Dependencies like better-auth declare
 # Next.js / SvelteKit / Solid / Vue as optional peers for their adapter

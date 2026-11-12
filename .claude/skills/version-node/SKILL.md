@@ -75,10 +75,10 @@ If you generate these locally, checksums will diverge from CI's output and cache
 
 ## Step 5: Validate locally without building
 
-- Confirm the JSON files parse: `node -e "require('./registry/nodes/<id>/base.json'); require('./registry/nodes/<id>/<new_version>/overrides.json')"`.
+- Run the registry validator: `pnpm --filter @awaitstep/registry validate`. It merges base/overrides, checks semver/order, the definition schema, action↔case, config/env, imports, forbidden APIs and output shapes.
 - Diff your file tree against `registry/nodes/google-gemini/` — same shape, minus the CI-generated `<new_version>/node.json`.
 
-Do NOT run `npx tsx registry/scripts/build-index.ts`.
+Do NOT run `pnpm --filter @awaitstep/registry build-index` (or `npx tsx registry/scripts/build-index.ts`).
 
 ## Step 6: Branch, commit, PR
 

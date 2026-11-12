@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Send SMS, WhatsApp messages, and make calls via the Twilio API"
+}

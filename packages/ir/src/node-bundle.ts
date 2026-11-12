@@ -84,7 +84,7 @@ const categorySchema = z.enum([
   'Forms',
 ])
 
-const providerSchema = z.enum(['cloudflare', 'inngest', 'temporal', 'stepfunctions'])
+const providerSchema = z.string().min(1)
 
 const runtimeHintsSchema = z
   .object({

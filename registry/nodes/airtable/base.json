@@ -1,0 +1,82 @@
+{
+  "id": "airtable",
+  "name": "Airtable",
+  "category": "Database",
+  "icon": "https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry/nodes/airtable/icon.svg",
+  "tags": ["airtable", "database", "records", "spreadsheet"],
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Create Record", "Get Record", "Update Record", "List Records"],
+      "description": "The Airtable API action to perform."
+    },
+    "baseId": {
+      "type": "string",
+      "label": "Base ID",
+      "required": true,
+      "placeholder": "appXXXXXXXXXXXXXX",
+      "description": "Airtable base ID. Used by: all actions."
+    },
+    "tableId": {
+      "type": "string",
+      "label": "Table ID",
+      "required": true,
+      "placeholder": "tblXXXXXXXXXXXXXX",
+      "description": "Airtable table ID or name. Used by: all actions."
+    },
+    "recordId": {
+      "type": "string",
+      "label": "Record ID",
+      "placeholder": "recXXXXXXXXXXXXXX",
+      "description": "Airtable record ID. Used by: Get Record, Update Record."
+    },
+    "fields": {
+      "type": "json",
+      "label": "Fields",
+      "description": "Record fields as key-value pairs. Used by: Create Record, Update Record."
+    },
+    "filterFormula": {
+      "type": "string",
+      "label": "Filter Formula",
+      "placeholder": "{Status} = 'Active'",
+      "description": "Airtable formula to filter records. Used by: List Records."
+    },
+    "maxRecords": {
+      "type": "number",
+      "label": "Max Records",
+      "default": 100,
+      "description": "Maximum number of records to return. Used by: List Records."
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API Key",
+      "required": true,
+      "envVarName": "AIRTABLE_API_KEY",
+      "description": "Airtable personal access token."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "type": "string",
+      "description": "Record ID"
+    },
+    "fields": {
+      "type": "object",
+      "description": "Record fields"
+    },
+    "data": {
+      "type": "object",
+      "description": "Full API response object"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 2,
+    "defaultTimeout": "30 seconds"
+  },
+  "docsUrl": "https://airtable.com/developers/web/api/introduction"
+}

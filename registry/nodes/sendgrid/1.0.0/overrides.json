@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Send transactional and template emails via the SendGrid API"
+}

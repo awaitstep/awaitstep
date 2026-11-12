@@ -1,0 +1,8 @@
+{
+  "extends": "../tooling/tsconfig/base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["scripts"],
+  "exclude": ["node_modules"]
+}
