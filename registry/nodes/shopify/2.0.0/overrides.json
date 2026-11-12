@@ -25,7 +25,9 @@
       "type": "number",
       "label": "Quantity",
       "default": 1,
-      "validation": { "min": 1 },
+      "validation": {
+        "min": 1
+      },
       "description": "Line item quantity. Used by: Create Order."
     },
     "customerEmail": {
@@ -38,5 +40,9 @@
     "id": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://shopify.dev/docs/api/admin-rest",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

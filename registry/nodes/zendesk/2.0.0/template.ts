@@ -37,12 +37,14 @@ export default async function (ctx) {
     }
 
     case 'Get Ticket': {
+      if (!ctx.config.ticketId) throw new Error('Ticket ID is required for Get Ticket')
       const data = await zendeskRequest('GET', `/tickets/${ctx.config.ticketId}.json`)
       const ticket = data.ticket as Record<string, unknown>
       return { id: String(ticket.id), status: ticket.status as string, data: ticket }
     }
 
     case 'Update Ticket': {
+      if (!ctx.config.ticketId) throw new Error('Ticket ID is required for Update Ticket')
       const ticket: Record<string, unknown> = {}
       if (ctx.config.subject) ticket.subject = ctx.config.subject
       if (ctx.config.priority) ticket.priority = ctx.config.priority

@@ -3,6 +3,11 @@ export default async function (ctx) {
   const authToken = ctx.env.TWILIO_AUTH_TOKEN
   const action = ctx.config.action
 
+  function requireConfig(value: unknown, label: string): string {
+    if (!value) throw new Error(`${label} is required for this action`)
+    return String(value)
+  }
+
   async function twilioRequest(method: string, path: string, params?: URLSearchParams) {
     const headers: Record<string, string> = {
       Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
@@ -28,9 +33,9 @@ export default async function (ctx) {
   switch (action) {
     case 'Send SMS': {
       const params = new URLSearchParams({
-        To: ctx.config.to,
-        From: ctx.config.from,
-        Body: ctx.config.body,
+        To: requireConfig(ctx.config.to, 'To'),
+        From: requireConfig(ctx.config.from, 'From'),
+        Body: requireConfig(ctx.config.body, 'Body'),
       })
       if (ctx.config.statusCallbackUrl) params.set('StatusCallback', ctx.config.statusCallbackUrl)
       const data = await twilioRequest('POST', '/Messages', params)
@@ -38,16 +43,14 @@ export default async function (ctx) {
     }
 
     case 'Send WhatsApp': {
-      const toNum = ctx.config.to.startsWith('whatsapp:')
-        ? ctx.config.to
-        : `whatsapp:${ctx.config.to}`
-      const fromNum = ctx.config.from.startsWith('whatsapp:')
-        ? ctx.config.from
-        : `whatsapp:${ctx.config.from}`
+      const to = requireConfig(ctx.config.to, 'To')
+      const from = requireConfig(ctx.config.from, 'From')
+      const toNum = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`
+      const fromNum = from.startsWith('whatsapp:') ? from : `whatsapp:${from}`
       const params = new URLSearchParams({
         To: toNum,
         From: fromNum,
-        Body: ctx.config.body,
+        Body: requireConfig(ctx.config.body, 'Body'),
       })
       if (ctx.config.statusCallbackUrl) params.set('StatusCallback', ctx.config.statusCallbackUrl)
       const data = await twilioRequest('POST', '/Messages', params)
@@ -56,9 +59,9 @@ export default async function (ctx) {
 
     case 'Make Call': {
       const params = new URLSearchParams({
-        To: ctx.config.to,
-        From: ctx.config.from,
-        Twiml: ctx.config.twiml,
+        To: requireConfig(ctx.config.to, 'To'),
+        From: requireConfig(ctx.config.from, 'From'),
+        Twiml: requireConfig(ctx.config.twiml, 'TwiML'),
       })
       const data = await twilioRequest('POST', '/Calls', params)
       return { sid: data.sid, status: data.status, data }

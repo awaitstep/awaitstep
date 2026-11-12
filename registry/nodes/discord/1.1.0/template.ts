@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function (ctx: any) {
   const botToken = ctx.env.DISCORD_BOT_TOKEN
   const action = ctx.config.action
 
@@ -16,8 +16,8 @@ export default async function (ctx) {
       },
       body: body ? JSON.stringify(body) : undefined,
     })
-    if (method === 'DELETE' && response.status === 204) {
-      return { deleted: true }
+    if (response.status === 204) {
+      return method === 'DELETE' ? { deleted: true } : {}
     }
     const data = (await response.json()) as Record<string, unknown>
     if (!response.ok) {

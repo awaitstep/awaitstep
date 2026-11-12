@@ -24,5 +24,9 @@
       "label": "Sheet Title",
       "description": "Title for the new sheet. Used by: Add Sheet."
     }
+  },
+  "docsUrl": "https://developers.google.com/workspace/sheets/api/reference/rest",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

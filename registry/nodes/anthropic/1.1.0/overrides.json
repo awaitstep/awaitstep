@@ -16,5 +16,9 @@
     "usage": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://platform.claude.com/docs/en/api/messages",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

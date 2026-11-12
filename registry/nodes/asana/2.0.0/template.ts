@@ -29,6 +29,7 @@ export default async function (ctx) {
 
   switch (action) {
     case 'Create Task': {
+      if (!ctx.config.name) throw new Error('Name is required for Create Task')
       const body: Record<string, unknown> = { name: ctx.config.name }
       if (ctx.config.projectId) body.projects = [ctx.config.projectId]
       if (ctx.config.notes) body.notes = ctx.config.notes
@@ -39,11 +40,13 @@ export default async function (ctx) {
     }
 
     case 'Get Task': {
+      if (!ctx.config.taskId) throw new Error('Task ID is required for Get Task')
       const data = await asanaApi('GET', `/tasks/${ctx.config.taskId}`)
       return { id: data.gid as string, status: 'ok', data }
     }
 
     case 'Update Task': {
+      if (!ctx.config.taskId) throw new Error('Task ID is required for Update Task')
       const body: Record<string, unknown> = {}
       if (ctx.config.name) body.name = ctx.config.name
       if (ctx.config.notes) body.notes = ctx.config.notes
@@ -60,6 +63,7 @@ export default async function (ctx) {
     }
 
     case 'Add Comment': {
+      if (!ctx.config.taskId) throw new Error('Task ID is required for Add Comment')
       const data = await asanaApi('POST', `/tasks/${ctx.config.taskId}/stories`, {
         text: ctx.config.commentText,
       })

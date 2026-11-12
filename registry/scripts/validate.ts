@@ -85,7 +85,7 @@ async function main() {
     console.error(`error ${issue.path}: ${issue.message}`)
   }
   if (warnings.length > 0) {
-    console.warn(`${warnings.length} warning(s) (stale generated node.json files are expected)`)
+    console.warn(`${warnings.length} warning(s)`)
     for (const issue of warnings.slice(0, 5)) {
       console.warn(`warning ${issue.path}: ${issue.message}`)
     }

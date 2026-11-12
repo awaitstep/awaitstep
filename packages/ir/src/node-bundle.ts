@@ -84,6 +84,34 @@ const categorySchema = z.enum([
   'Forms',
 ])
 
+/**
+ * JSON with object keys sorted at every depth, so a checksum depends on the
+ * definition's content rather than the order its keys were merged in.
+ */
+export function stableStringify(value: unknown): string {
+  function canonical(input: unknown): unknown {
+    if (Array.isArray(input)) return input.map(canonical)
+    if (input !== null && typeof input === 'object') {
+      const output: Record<string, unknown> = {}
+      for (const key of Object.keys(input as Record<string, unknown>).sort()) {
+        const entry = (input as Record<string, unknown>)[key]
+        if (entry !== undefined) output[key] = canonical(entry)
+      }
+      return output
+    }
+    return input
+  }
+  return JSON.stringify(canonical(value))
+}
+
+/** The exact bytes a registry bundle checksum is computed over. */
+export function nodeBundleChecksumInput(
+  definition: NodeDefinition,
+  templates: Partial<Record<Provider, string>>,
+): string {
+  return stableStringify({ definition, templates })
+}
+
 const providerSchema = z.string().min(1)
 
 const runtimeHintsSchema = z

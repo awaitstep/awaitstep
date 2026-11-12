@@ -44,7 +44,7 @@ You cannot uninstall a node that is currently used in one or more workflows. Rem
 
 ## Using a Custom Registry
 
-By default, AwaitStep fetches nodes from the official registry at `https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry`. You can override this to use a private registry by setting the `REGISTRY_URL` environment variable in your project settings.
+By default, AwaitStep fetches nodes from the official registry at `https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry`. You can override this to use a private registry by setting the `REGISTRY_URL` environment variable in the deployment/process environment.
 
 ```
 REGISTRY_URL=https://registry.your-company.com

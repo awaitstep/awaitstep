@@ -17,6 +17,7 @@
     },
     "startDate": {
       "type": "string",
+      "required": true,
       "label": "Start Date",
       "placeholder": "2026-11-01",
       "description": "Stats start date (YYYY-MM-DD). Used by: Get Stats."
@@ -27,5 +28,9 @@
       "placeholder": "2026-11-12",
       "description": "Stats end date (YYYY-MM-DD). Used by: Get Stats."
     }
+  },
+  "docsUrl": "https://www.twilio.com/docs/sendgrid/api-reference",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

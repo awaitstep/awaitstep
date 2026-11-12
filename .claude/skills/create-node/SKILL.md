@@ -66,7 +66,7 @@ registry/nodes/<id>/
 ```
 
 `base.json` is the full `NodeDefinition` **without** `version` and `description`.
-`1.0.0/overrides.json` is `{ "version": "1.0.0", "description": "..." }`.
+`1.0.0/overrides.json` is `{ "version": "1.0.0", "description": "...", "docsUrl": "...", "runtime": { "defaultRetries": 2 } }`.
 Do not create `<version>/node.json`; CI regenerates it.
 
 ### Local node

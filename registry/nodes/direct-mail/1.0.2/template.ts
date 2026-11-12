@@ -24,6 +24,11 @@ export default async function (ctx) {
     return btoa(String.fromCharCode(...new Uint8Array(signature)))
   }
 
+  if (!ctx.config.toAddress) throw new Error('To Address is required')
+  if (!ctx.config.htmlBody && !ctx.config.textBody) {
+    throw new Error('An HTML Body or Text Body is required')
+  }
+
   const reqParams: Record<string, string> = {
     Action: 'SingleSendMail',
     Format: 'JSON',

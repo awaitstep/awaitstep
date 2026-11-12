@@ -31,5 +31,9 @@
     "id": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developer.zendesk.com/api-reference/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

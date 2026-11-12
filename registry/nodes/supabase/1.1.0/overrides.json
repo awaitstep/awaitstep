@@ -24,5 +24,9 @@
       "label": "Arguments",
       "description": "Function arguments. Used by: RPC."
     }
+  },
+  "docsUrl": "https://supabase.com/docs/reference/javascript/introduction",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

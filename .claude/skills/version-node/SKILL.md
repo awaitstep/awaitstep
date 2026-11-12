@@ -54,8 +54,9 @@ Create exactly these files (no others):
 
 Rules for `overrides.json`:
 
-- Always include `version` and `description`.
+- Always include `version` and `description`; include `docsUrl` and the current retry metadata on the new latest version.
 - Include only the fields that **change** or are **added**. Do NOT re-list unchanged config fields — `deepMerge` (see `registry/scripts/merge.ts`) layers overrides on top of `base.json` recursively.
+- Older versions stay byte-identical: keep their original runtime/docsUrl values out of the new version only. Do not change `base.json` in a way that rewrites an already-published version.
 - For nested objects (e.g. `configSchema.<field>`), include only the keys that differ; the rest are inherited from base.
 - To override an array (e.g. `tags`, `configSchema.action.options`), supply the full replacement array — arrays are not merged element-wise.
 
@@ -71,7 +72,7 @@ The CI workflow `.github/workflows/registry-index.yml` runs `registry/scripts/bu
 2. Computes checksums and rewrites `registry/index.json`.
 3. Opens an auto-merge PR with the regenerated files.
 
-If you generate these locally, checksums will diverge from CI's output and cache-invalidation issues follow. Just commit `base.json`, `overrides.json`, and `template.ts`.
+Do not generate these locally: CI owns the generated files and the auto-merge PR. Commit only `base.json`, `overrides.json`, and `template.ts`.
 
 ## Step 5: Validate locally without building
 

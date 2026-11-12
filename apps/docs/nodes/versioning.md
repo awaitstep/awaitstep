@@ -21,9 +21,11 @@ Follow standard semver conventions:
 
 | Change                                                                       | Version bump | Example           |
 | ---------------------------------------------------------------------------- | ------------ | ----------------- |
-| Backwards-compatible new feature (new optional config field)                 | Minor        | `1.0.0` → `1.1.0` |
+| Backwards-compatible new feature (new optional config field/action)          | Minor        | `1.0.0` → `1.1.0` |
+| Adding `nullable: true` to an output field (a value may now be null)         | Minor        | `1.0.0` → `1.1.0` |
 | Bug fix, internal change                                                     | Patch        | `1.0.0` → `1.0.1` |
-| Breaking change (required field added, output schema changed, field removed) | Major        | `1.0.0` → `2.0.0` |
+| Breaking change (required field added, output field removed/renamed/retyped) | Major        | `1.0.0` → `2.0.0` |
+| Existing list action moved from an array to the object envelope              | Major        | `1.0.0` → `2.0.0` |
 
 ## How Versions Are Pinned
 
@@ -86,12 +88,14 @@ If you are a node author and want to signal that a node should be replaced, set 
 ```json
 {
   "id": "my_old_node",
-  "version": "2.0.0",
   "deprecated": true,
   "deprecationMessage": "Use my_new_node instead. It supports OAuth 2.0.",
   "replacedBy": "my_new_node"
 }
 ```
+
+`version` lives in the version's `overrides.json`; `deprecated` may live in
+`base.json` or in a version override.
 
 Deprecated nodes:
 

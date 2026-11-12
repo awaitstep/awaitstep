@@ -64,6 +64,26 @@ function error(path: string, message: string): ValidationIssue {
   return { level: 'error', path, message }
 }
 
+function warning(path: string, message: string): ValidationIssue {
+  return { level: 'warning', path, message }
+}
+
+function canonicalJson(value: unknown): string {
+  function canonical(input: unknown): unknown {
+    if (Array.isArray(input)) return input.map(canonical)
+    if (input !== null && typeof input === 'object') {
+      const output: Record<string, unknown> = {}
+      for (const key of Object.keys(input as Record<string, unknown>).sort()) {
+        const entry = (input as Record<string, unknown>)[key]
+        if (entry !== undefined) output[key] = canonical(entry)
+      }
+      return output
+    }
+    return input
+  }
+  return JSON.stringify(canonical(value))
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -249,14 +269,42 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
       issues.push(error(path, `description is ${description.length} characters (max 120)`))
     }
     const docsUrl = definition.docsUrl
-    if (typeof docsUrl !== 'string') {
-      issues.push(error(path, 'docsUrl is required'))
-    } else {
-      try {
-        new URL(docsUrl)
-      } catch {
-        issues.push(error(path, `docsUrl is not a valid URL: ${docsUrl}`))
+    if (version.version === sorted[sorted.length - 1]?.version) {
+      if (typeof docsUrl !== 'string') {
+        issues.push(error(path, 'docsUrl is required'))
+      } else {
+        try {
+          new URL(docsUrl)
+        } catch {
+          issues.push(error(path, `docsUrl is not a valid URL: ${docsUrl}`))
+        }
       }
+    }
+    const configSchema = isRecord(definition.configSchema) ? definition.configSchema : {}
+    for (const [name, rawField] of Object.entries(configSchema)) {
+      if (!isRecord(rawField)) continue
+      if (rawField.type === 'secret' && typeof rawField.envVarName !== 'string') {
+        issues.push(error(`${path}/configSchema.${name}`, 'secret field must have envVarName'))
+      }
+      if (
+        (rawField.type === 'select' || rawField.type === 'multiselect') &&
+        (!Array.isArray(rawField.options) || rawField.options.length === 0)
+      ) {
+        issues.push(
+          error(`${path}/configSchema.${name}`, `${rawField.type} field must have options`),
+        )
+      }
+    }
+    if (version.node && canonicalJson(definition) !== canonicalJson(version.node)) {
+      issues.push(
+        warning(
+          `${path}/node.json`,
+          'generated node.json differs from merged base/overrides; CI will regenerate it',
+        ),
+      )
+    }
+    if (isRecord(definition.outputSchema)) {
+      issues.push(...outputSchemaIssues(definition.outputSchema, `${path}/outputSchema`))
     }
     const parsed = schema.safeParse(definition)
     if (!parsed.success) {
@@ -284,10 +332,6 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
     }
     if (Object.keys(version.templates).length === 0) {
       issues.push(error(path, 'no templates found'))
-    }
-
-    if (isRecord(definition.outputSchema)) {
-      issues.push(...outputSchemaIssues(definition.outputSchema, `${path}/outputSchema`))
     }
 
     for (const [provider, template] of Object.entries(version.templates)) {

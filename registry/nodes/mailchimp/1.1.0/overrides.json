@@ -35,8 +35,15 @@
       "type": "number",
       "label": "Limit",
       "default": 10,
-      "validation": { "min": 1, "max": 1000 },
+      "validation": {
+        "min": 1,
+        "max": 1000
+      },
       "description": "Maximum results to return. Used by: List Campaigns."
     }
+  },
+  "docsUrl": "https://mailchimp.com/developer/marketing/api/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

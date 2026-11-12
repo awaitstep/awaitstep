@@ -38,8 +38,14 @@
       "type": "number",
       "label": "Count",
       "default": 100,
-      "validation": { "min": 1 },
+      "validation": {
+        "min": 1
+      },
       "description": "Hint for the number of keys per scan. Used by: SCAN."
     }
+  },
+  "docsUrl": "https://upstash.com/docs/redis/features/restapi",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

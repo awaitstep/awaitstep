@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { nodeBundleChecksumInput } from '@awaitstep/ir'
+import type { NodeDefinition } from '@awaitstep/ir'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 
 const testIndex = {
@@ -97,7 +99,7 @@ describe('createRemoteNodeRegistry', () => {
       // Pre-compute the checksum the same way the client does
       const definition = testNodeJson
       const templates = { cloudflare: testTemplate }
-      const checksumInput = JSON.stringify({ definition, templates })
+      const checksumInput = nodeBundleChecksumInput(definition as NodeDefinition, templates)
       const hashBuffer = await crypto.subtle.digest(
         'SHA-256',
         new TextEncoder().encode(checksumInput),

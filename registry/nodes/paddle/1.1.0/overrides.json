@@ -40,8 +40,14 @@
       "type": "number",
       "label": "Quantity",
       "default": 1,
-      "validation": { "min": 1 },
+      "validation": {
+        "min": 1
+      },
       "description": "Item quantity. Used by: Create Transaction."
     }
+  },
+  "docsUrl": "https://developer.paddle.com/api-reference/overview",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

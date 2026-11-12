@@ -22,7 +22,7 @@
     "emoji": {
       "type": "string",
       "label": "Emoji",
-      "placeholder": "👍",
+      "placeholder": "\ud83d\udc4d",
       "description": "Reaction emoji. Used by: Add Reaction."
     },
     "threadName": {
@@ -30,5 +30,9 @@
       "label": "Thread Name",
       "description": "New thread name. Used by: Create Thread."
     }
+  },
+  "docsUrl": "https://discord.com/developers/docs/reference",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

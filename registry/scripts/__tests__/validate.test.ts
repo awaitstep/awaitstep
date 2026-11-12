@@ -121,6 +121,19 @@ describe('validateNode', () => {
     expect(messages).toContain('templates must not call durable primitives')
   })
 
+  it('rejects a secret without an env var and a select without options', () => {
+    const input = clone()
+    input.base = {
+      ...input.base!,
+      configSchema: {
+        action: { type: 'select', label: 'Action' },
+        token: { type: 'secret', label: 'Token' },
+      },
+    }
+    const messages = errors(input).map((issue) => issue.message)
+    expect(messages).toContain('secret field must have envVarName')
+    expect(messages).toContain('select field must have options')
+  })
   it('requires docsUrl and a valid URL', () => {
     const input = clone()
     input.base = { ...input.base!, docsUrl: 'not a url' }
@@ -172,7 +185,7 @@ describe('validateNode', () => {
       },
     }
     const messages = errors(input).map((issue) => issue.message)
-    expect(messages.some((message) => message.includes('properties'))).toBe(true)
-    expect(messages.some((message) => message.includes('items'))).toBe(true)
+    expect(messages).toContain('object output field properties must be an object')
+    expect(messages).toContain('array output field items must be an object')
   })
 })

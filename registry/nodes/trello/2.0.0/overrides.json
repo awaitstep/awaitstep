@@ -25,5 +25,9 @@
     "id": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developer.atlassian.com/cloud/trello/rest/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

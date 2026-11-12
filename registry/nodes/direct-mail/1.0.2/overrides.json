@@ -7,6 +7,9 @@
       "label": "From Alias",
       "placeholder": "Acme Inc.",
       "description": "Optional sender display name shown to the recipient. Max 15 characters per Alibaba's DirectMail spec."
+    },
+    "toAddress": {
+      "required": true
     }
   },
   "outputSchema": {
@@ -16,5 +19,9 @@
     "envId": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://www.alibabacloud.com/help/en/directmail/latest/api-dm-2015-11-23-singledosendmail",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

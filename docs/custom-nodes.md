@@ -60,7 +60,6 @@ Never run `registry/scripts/build-index.ts` locally and never commit
   "category": "Data",
   "author": "awaitstep",
   "license": "Apache-2.0",
-  "docsUrl": "https://docs.example.com/weather",
   "configSchema": {},
   "outputSchema": {},
   "providers": ["cloudflare"],

@@ -86,7 +86,8 @@ export default async function (ctx) {
       return { text: extractText(data), data }
     }
 
-    case 'Embed Text': {
+    case 'Embed Text':
+    case 'Create Embedding': {
       const data = await geminiRequest(':embedContent', {
         content: { parts: [{ text: ctx.config.prompt }] },
       })

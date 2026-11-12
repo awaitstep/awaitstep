@@ -64,8 +64,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "60 seconds"
-  },
-  "docsUrl": "https://elevenlabs.io/docs/api-reference/introduction"
+  }
 }

@@ -14,5 +14,9 @@
         "List Deployments"
       ]
     }
+  },
+  "docsUrl": "https://replicate.com/docs/reference/http",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

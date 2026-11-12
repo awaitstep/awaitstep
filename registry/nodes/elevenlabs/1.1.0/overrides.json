@@ -19,8 +19,15 @@
     "durationSeconds": {
       "type": "number",
       "label": "Duration (seconds)",
-      "validation": { "min": 0.5, "max": 30 },
+      "validation": {
+        "min": 0.5,
+        "max": 30
+      },
       "description": "Sound effect duration. Used by: Sound Effects."
     }
+  },
+  "docsUrl": "https://elevenlabs.io/docs/api-reference/introduction",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

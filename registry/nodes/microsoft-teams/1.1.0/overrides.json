@@ -20,6 +20,13 @@
       "type": "string",
       "label": "Chat ID",
       "description": "Chat ID for Graph API actions. Used by: Send Chat Message."
+    },
+    "accessToken": {
+      "description": "Microsoft Graph API access token. Used by: Send Channel Message, Reply to Message, List Channels, List Teams, Send Chat Message."
     }
+  },
+  "docsUrl": "https://learn.microsoft.com/en-us/graph/api/resources/teams-api-overview",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

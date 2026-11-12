@@ -177,7 +177,7 @@ export default async function (ctx: any) {
               ...fromFirestoreFields(row.document!.fields),
             }))
         : []
-      return { id: '', data: docs }
+      return { id: '', data: { items: docs } }
     }
 
     case 'List Collections': {

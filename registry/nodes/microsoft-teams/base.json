@@ -68,8 +68,7 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 2,
+    "defaultRetries": 3,
     "defaultTimeout": "30 seconds"
-  },
-  "docsUrl": "https://learn.microsoft.com/en-us/graph/api/resources/teams-api-overview"
+  }
 }

@@ -25,7 +25,10 @@
       "type": "number",
       "label": "Limit",
       "default": 20,
-      "validation": { "min": 1, "max": 150 },
+      "validation": {
+        "min": 1,
+        "max": 150
+      },
       "description": "Maximum contacts. Used by: List Contacts."
     }
   },
@@ -33,5 +36,9 @@
     "id": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developers.intercom.com/docs/build-an-integration/learn-more/rest-apis/",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

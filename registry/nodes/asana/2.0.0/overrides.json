@@ -20,5 +20,9 @@
     "id": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developers.asana.com/reference",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

@@ -41,6 +41,8 @@ export default async function (ctx) {
 
   switch (action) {
     case 'Create Issue': {
+      if (!ctx.config.projectKey) throw new Error('Project Key is required for Create Issue')
+      if (!ctx.config.summary) throw new Error('Summary is required for Create Issue')
       const fields: Record<string, unknown> = {
         project: { key: ctx.config.projectKey },
         issuetype: { name: ctx.config.issueType ?? 'Task' },
@@ -52,11 +54,13 @@ export default async function (ctx) {
     }
 
     case 'Get Issue': {
+      if (!ctx.config.issueKey) throw new Error('Issue Key is required for Get Issue')
       const data = await jiraRequest('GET', `/issue/${ctx.config.issueKey}`)
       return { id: data.id, key: data.key, data }
     }
 
     case 'Add Comment': {
+      if (!ctx.config.issueKey) throw new Error('Issue Key is required for Add Comment')
       const data = await jiraRequest('POST', `/issue/${ctx.config.issueKey}/comment`, {
         body: adf(ctx.config.commentBody),
       })
@@ -64,6 +68,7 @@ export default async function (ctx) {
     }
 
     case 'Transition Issue': {
+      if (!ctx.config.issueKey) throw new Error('Issue Key is required for Transition Issue')
       const data = await jiraRequest('POST', `/issue/${ctx.config.issueKey}/transitions`, {
         transition: { id: ctx.config.transitionId },
       })

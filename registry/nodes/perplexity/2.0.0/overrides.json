@@ -4,10 +4,8 @@
   "tags": ["perplexity", "ai", "search", "research", "agent"],
   "configSchema": {
     "action": {
-      "options": ["Agent Request"]
-    },
-    "model": {
-      "description": "Legacy Sonar model name; the Agent API selects the model from Effort."
+      "options": ["Agent Request"],
+      "description": "The Perplexity Agent API action to perform."
     },
     "effort": {
       "type": "select",
@@ -15,6 +13,31 @@
       "default": "fast",
       "options": ["fast", "low", "medium", "high", "xhigh"],
       "description": "Research effort level. Used by: Agent Request."
+    },
+    "prompt": {
+      "type": "textarea",
+      "label": "Prompt",
+      "required": true,
+      "description": "Input text. Used by: Agent Request."
+    },
+    "systemPrompt": {
+      "type": "textarea",
+      "label": "System Prompt",
+      "description": "Instructions for the agent. Used by: Agent Request."
+    },
+    "temperature": {
+      "type": "number",
+      "label": "Temperature",
+      "description": "Sampling temperature. Used by: Agent Request."
+    },
+    "maxTokens": {
+      "type": "number",
+      "label": "Max Tokens",
+      "description": "Maximum output tokens. Used by: Agent Request."
     }
+  },
+  "docsUrl": "https://docs.perplexity.ai/docs/agent-api/quickstart",
+  "runtime": {
+    "defaultRetries": 2
   }
 }

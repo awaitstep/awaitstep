@@ -101,11 +101,13 @@ export default async function (ctx) {
     }
 
     case 'List Events': {
-      const params = new URLSearchParams()
-      if (ctx.config.fromTime) params.set('start', String(ctx.config.fromTime))
-      if (ctx.config.toTime) params.set('end', String(ctx.config.toTime))
-      const query = params.toString() ? `?${params.toString()}` : ''
-      const data = await ddApi(`https://api.${site}/api/v1/events${query}`, 'GET')
+      const from = ctx.config.fromTime ?? nowSeconds() - 3600
+      const to = ctx.config.toTime ?? nowSeconds()
+      const params = new URLSearchParams({
+        start: String(from),
+        end: String(to),
+      })
+      const data = await ddApi(`https://api.${site}/api/v1/events?${params.toString()}`, 'GET')
       return { status: 'ok', data }
     }
 

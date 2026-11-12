@@ -33,5 +33,9 @@
     "identifier": {
       "nullable": true
     }
+  },
+  "docsUrl": "https://developers.linear.app/docs/graphql/working-with-the-graphql-api",
+  "runtime": {
+    "defaultRetries": 2
   }
 }
