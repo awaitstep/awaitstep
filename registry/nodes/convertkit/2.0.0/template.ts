@@ -49,12 +49,13 @@ export default async function (ctx: any) {
     }
 
     case 'List Subscribers': {
-      const status = ctx.config.statusFilter ?? 'active'
+      const status = String(ctx.config.statusFilter ?? 'active')
       const limit = ctx.config.limit ?? 50
-      const data = await kitRequest(
-        'GET',
-        `/subscribers?status=${encodeURIComponent(String(status))}&per_page=${limit}`,
-      )
+      const query =
+        status === 'all'
+          ? `per_page=${limit}`
+          : `status=${encodeURIComponent(status)}&per_page=${limit}`
+      const data = await kitRequest('GET', `/subscribers?${query}`)
       return { id: '', data }
     }
 
