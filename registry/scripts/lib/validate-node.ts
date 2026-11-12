@@ -244,6 +244,10 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
     }
 
     const definition = mergeDefinition(base, version.overrides)
+    const description = definition.description
+    if (typeof description === 'string' && description.length > 120) {
+      issues.push(error(path, `description is ${description.length} characters (max 120)`))
+    }
     const parsed = schema.safeParse(definition)
     if (!parsed.success) {
       for (const issue of parsed.error.issues) {
@@ -257,11 +261,6 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
     }
     if (definition.version !== version.version) {
       issues.push(error(path, `version "${String(definition.version)}" does not match directory`))
-    }
-
-    const description = definition.description
-    if (typeof description === 'string' && description.length > 120) {
-      issues.push(error(path, `description is ${description.length} characters (max 120)`))
     }
 
     const docsUrl = definition.docsUrl
