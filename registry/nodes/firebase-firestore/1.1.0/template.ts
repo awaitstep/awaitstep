@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function (ctx: any) {
   const accessToken = ctx.env.FIREBASE_ACCESS_TOKEN
   const action = ctx.config.action
   const projectId = ctx.config.projectId

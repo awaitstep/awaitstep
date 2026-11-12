@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function (ctx: any) {
   const apiKey = ctx.env.NOTION_API_KEY
   const action = ctx.config.action
   const notionVersion = '2026-03-11'

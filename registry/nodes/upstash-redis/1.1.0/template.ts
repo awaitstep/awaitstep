@@ -1,4 +1,4 @@
-export default async function (ctx) {
+export default async function (ctx: any) {
   const restUrl = ctx.env.UPSTASH_REDIS_REST_URL
   const restToken = ctx.env.UPSTASH_REDIS_REST_TOKEN
   const action = ctx.config.action
