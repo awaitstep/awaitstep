@@ -5,7 +5,9 @@ import {
   compareLibraryVersions,
   libraryFilePathError,
   libraryIconError,
+  libraryBundlePath,
   libraryImportSlugs,
+  libraryImportsField,
   libraryItemCapabilities,
   libraryCreateCapability,
   libraryItemScaffold,
@@ -326,5 +328,27 @@ describe('custom node JSON Schema', () => {
     expect(schema.required).not.toContain('author')
     expect(schema.required).not.toContain('providers')
     expect(Object.keys(schema.properties ?? {})).toContain('outputSchema')
+  })
+})
+
+describe('library modules in a deploy bundle', () => {
+  it('places a module’s files under modules/<slug>/', () => {
+    expect(libraryBundlePath('lead-scoring', 'lib/score.ts')).toBe(
+      'modules/lead-scoring/lib/score.ts',
+    )
+  })
+
+  it('maps the bare import to index and subpaths with the #app/ extension rules, per slug', () => {
+    const field = libraryImportsField(['lead-scoring', 'fmt', 'fmt'])
+    expect(field['#modules/lead-scoring']).toBe('./modules/lead-scoring/index.js')
+    expect(field['#modules/lead-scoring/*']).toBe('./modules/lead-scoring/*.js')
+    expect(field['#modules/lead-scoring/*.json']).toBe('./modules/lead-scoring/*.json')
+    expect(field['#modules/fmt/*.ts']).toBe('./modules/fmt/*.js')
+    expect(Object.keys(field).filter((key) => key === '#modules/fmt')).toHaveLength(1)
+    expect(Object.keys(field).some((key) => key === '#modules/*')).toBe(false)
+  })
+
+  it('has no entries without modules', () => {
+    expect(libraryImportsField([])).toEqual({})
   })
 })

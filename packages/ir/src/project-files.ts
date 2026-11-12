@@ -296,7 +296,25 @@ export function projectWriteErrors(
 export const PROJECT_ROOT_CONFIG_FILES = ['package.json', 'tsconfig.json', 'jsconfig.json'] as const
 
 /** Human-readable description of what the canvas generates and projects cannot shadow. */
-export const GENERATED_PATH_RULES = ['worker.*', 'nodes/**', 'awaitstep/**', 'wrangler.*'] as const
+export const GENERATED_PATH_RULES = [
+  'worker.*',
+  'nodes/**',
+  'awaitstep/**',
+  'modules/**',
+  'wrangler.*',
+] as const
+
+/**
+ * Where a deploy puts the library modules a workflow imports:
+ * `modules/<slug>/…`, reached as `#modules/<slug>`. Reserved in a
+ * workflow's own files, since a file there would sit beside a module.
+ */
+export const LIBRARY_BUNDLE_DIR = 'modules'
+
+/** Whether a project-file path is inside the library modules' bundle folder (any case). */
+export function isLibraryBundlePath(path: string): boolean {
+  return path.toLowerCase().startsWith(`${LIBRARY_BUNDLE_DIR}/`)
+}
 
 /**
  * The folder where the code workspace shows each step node's body as an
@@ -376,6 +394,7 @@ export function isGeneratedPath(path: string): boolean {
   // workflow.ts, provider primitives). A project file there would collide
   // with the generated module after compile.
   if (lower.startsWith('awaitstep/')) return true
+  if (isLibraryBundlePath(lower)) return true
   if (basenameOf(lower).startsWith('wrangler.')) return true
   const dot = lower.lastIndexOf('.')
   const stem = dot > 0 ? lower.slice(0, dot) : lower
@@ -434,6 +453,9 @@ export function projectFilePathError(
   const segments = path.split('/')
   if (segments.some((segment) => !isSafePathSegment(segment))) {
     return 'contains an unsafe path segment'
+  }
+  if (!options?.stored && isLibraryBundlePath(path)) {
+    return `is reserved for library modules; import one as #modules/<slug>`
   }
   if (!options?.stored && isGeneratedPath(path)) {
     return 'is generated from the canvas'

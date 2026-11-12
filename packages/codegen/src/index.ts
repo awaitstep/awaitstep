@@ -212,6 +212,8 @@ export {
   generateCustomNode,
   generateCustomNodeModule,
   generateCustomNodeParts,
+  templateImports,
+  type TemplateImports,
 } from './graph/generators/custom.js'
 export {
   generatePromiseContainer,

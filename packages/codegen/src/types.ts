@@ -56,9 +56,15 @@ export interface GeneratedBundle {
   files: GeneratedFile[]
   /** Node → step identity map, populated by workflow bundle generation. */
   manifest?: StepManifest
+  /**
+   * The library modules folded in under `modules/<slug>/`, which the deploy
+   * manifest maps as `#modules/<slug>`. Set by whoever folded them; a
+   * workflow's own files under `modules/` never count.
+   */
+  libraryModules?: string[]
 }
 
-export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env'] as const
+export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env', 'library'] as const
 
 /**
  * Where a diagnostic came from, so a client can route it to the right place.
@@ -73,6 +79,7 @@ export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env']
  * - `compile` — a file that does not parse
  * - `import` — an `#app/` specifier with no file behind it
  * - `env` — a variable with no value to resolve at deploy
+ * - `library` — a library module or custom node the bundle cannot use as it is
  */
 export type DiagnosticSource = (typeof DIAGNOSTIC_SOURCES)[number]
 

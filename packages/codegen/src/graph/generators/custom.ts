@@ -7,6 +7,7 @@ import {
   type GenerateMode,
   type GenerationContext,
 } from '../internal.js'
+import { withoutComments } from '../../requirements.js'
 import { generateStepConfig } from './config.js'
 
 const TEMPLATE_HEAD = /export\s+default\s+async\s+function\b/
@@ -128,12 +129,15 @@ function extractImportLines(source: string): string[] {
   for (const line of lines) {
     if (pending) {
       pending.push(line)
-      if (/from\s+['"]/.test(line)) {
+      if (/from\s*['"]/.test(line)) {
         imports.push(pending.join('\n').trim())
         pending = null
       }
-    } else if (/^\s*import\s+/.test(line)) {
-      if (/from\s+['"]/.test(line)) {
+    } else if (/^\s*import\s*['"]/.test(line)) {
+      // A bare side-effect import is a whole statement on its own.
+      imports.push(line.trim())
+    } else if (/^\s*import[\s{]/.test(line)) {
+      if (/from\s*['"]/.test(line)) {
         imports.push(line.trim())
       } else {
         pending = [line]
@@ -142,6 +146,67 @@ function extractImportLines(source: string): string[] {
   }
 
   return imports
+}
+
+const IMPORT_SPECIFIER = /(?:\bfrom\s*|^import\s*)(['"])([^'"]+)\1/
+// After the specifier: an import attribute block, a semicolon, nothing else.
+const STATEMENT_END = /^\s*(?:(?:with|assert)\s*\{[^{}]*\})?\s*;?\s*$/
+
+/** `import type …`, or braces whose every member is `type X`: erased by the compiler. */
+function isTypeOnlyImport(statement: string): boolean {
+  // `import type from './x'` is a value import of a binding named `type`.
+  if (/^import\s+type\s+(?!from\s*['"])/.test(statement)) return true
+  const braces = /^import\s*\{([^}]*)\}\s*from\b/.exec(statement)
+  if (!braces) return false
+  const members = braces[1]!
+    .split(',')
+    .map((member) => member.trim())
+    .filter(Boolean)
+  return members.length > 0 && members.every((member) => /^type\s/.test(member))
+}
+
+export interface TemplateImports {
+  /** The statements hoisted into the generated module. */
+  kept: string[]
+  /** Why an import cannot be hoisted, one message each. */
+  problems: string[]
+}
+
+/**
+ * How a node template's imports are hoisted, read with comments skipped.
+ * Type-only imports go (the compiler would erase them; a custom node's
+ * `import type { Ctx, Output } from './ctx'` names a file that is never
+ * bundled). A relative value import is refused: the template is hoisted
+ * into a generated module, where `./x` names something else. The publish
+ * check applies the same function, so what publishes also generates.
+ */
+export function templateImports(source: string): TemplateImports {
+  const kept: string[] = []
+  const problems = new Set<string>()
+  for (const statement of extractImportLines(withoutComments(source))) {
+    if (isTypeOnlyImport(statement)) continue
+    const match = IMPORT_SPECIFIER.exec(statement)
+    // A line is hoisted whole, so anything after its one specifier would ride along unjudged.
+    if (!match || !STATEMENT_END.test(statement.slice(match.index + match[0].length))) {
+      problems.add(`"${statement.split('\n')[0]}": write one import per line`)
+      continue
+    }
+    const specifier = match[2]!
+    if (/^[./]/.test(specifier)) {
+      problems.add(
+        `"${specifier}": a node template can import npm packages and #modules/ only; move shared code into a module`,
+      )
+    } else kept.push(statement)
+  }
+  return { kept, problems: [...problems] }
+}
+
+function hoistableImports(source: string, node: WorkflowNode): string[] {
+  const { kept, problems } = templateImports(source)
+  if (problems.length > 0) {
+    throw new GenerateInputError(`Node "${node.name}" imports ${problems[0]}`, 'library')
+  }
+  return kept
 }
 
 function toClassName(nodeType: string): string {
@@ -237,7 +302,7 @@ export function generateCustomNodeParts(
   ctx: GenerationContext,
   mode: GenerateMode = 'workflow',
 ): CustomNodeOutput {
-  const imports = extractImportLines(templateSource)
+  const imports = hoistableImports(templateSource, node)
   let body = extractTemplateBody(templateSource)
   const className = toClassName(node.type)
 

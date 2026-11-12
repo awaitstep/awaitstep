@@ -300,7 +300,8 @@ export function withoutComments(source: string): string {
   return parts.join('').replace(TYPE_ONLY_LINE, '')
 }
 
-const TYPE_ONLY_LINE = /\b(?:import|export)\s+type\b[^\n]*/g
+// Not `import type from 'x'`: that imports a value bound as `type`.
+const TYPE_ONLY_LINE = /\b(?:import|export)\s+type\b(?!\s+from\s*['"])[^\n]*/g
 
 const SPECIFIER_PATTERNS = [
   // from 'x' / import 'x' / export * from "x" / import{x}from"x" / backtick

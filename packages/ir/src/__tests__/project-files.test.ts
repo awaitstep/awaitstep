@@ -261,6 +261,14 @@ describe('validateProjectFiles', () => {
     expect(projectFilePathError('worker.ts')).toBe('is generated from the canvas')
   })
 
+  it('reserves modules/ for library modules on a new write, in any case, and keeps stored ones', () => {
+    const message = 'is reserved for library modules; import one as #modules/<slug>'
+    expect(projectFilePathError('modules/x.ts')).toBe(message)
+    expect(projectFilePathError('Modules/lead/index.ts')).toBe(message)
+    expect(projectFilePathError('lib/modules/x.ts')).toBeNull()
+    expect(validateProjectFiles([{ path: 'modules/x.ts', source: '' }])).toEqual([])
+  })
+
   it('lets a stored snapshot keep a path that is generated today', () => {
     // Reserving a path must not make an old version unopenable; the
     // generated-path rule is write-time only.

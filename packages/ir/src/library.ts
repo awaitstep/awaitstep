@@ -9,8 +9,11 @@ import {
   type WorkspaceRole,
 } from './access.js'
 import {
+  LIBRARY_BUNDLE_DIR,
   MAX_PROJECT_FILE_PATH_LENGTH,
   PACKAGE_MANIFEST_PATH,
+  PROJECT_IMPORTS_FIELD,
+  PROJECT_IMPORT_PREFIX,
   PROJECT_FILE_EXTENSIONS,
   fileExtension,
   isReservedToolchainPath,
@@ -191,6 +194,30 @@ export function libraryImportSlugs(sources: Iterable<string>): string[] {
     for (const match of source.matchAll(IMPORT_SPECIFIER)) slugs.add(match[2]!)
   }
   return [...slugs].sort()
+}
+
+/** Where a module's file sits in a deploy bundle: `modules/<slug>/<path>`. */
+export function libraryBundlePath(slug: string, path: string): string {
+  return `${LIBRARY_BUNDLE_DIR}/${slug}/${path}`
+}
+
+/**
+ * The deploy manifest's `imports` entries for the bundled modules: the bare
+ * `#modules/<slug>` is the module's `index`, and its subpaths follow the
+ * same extension rules as `#app/` (one pattern cannot serve both, so each
+ * slug gets its own keys).
+ */
+export function libraryImportsField(slugs: Iterable<string>): Record<string, string> {
+  const field: Record<string, string> = {}
+  for (const slug of [...new Set(slugs)].sort()) {
+    const prefix = `${LIBRARY_MODULE_IMPORT_PREFIX}${slug}`
+    const dir = `./${LIBRARY_BUNDLE_DIR}/${slug}/`
+    field[prefix] = `${dir}index.js`
+    for (const [key, target] of Object.entries(PROJECT_IMPORTS_FIELD)) {
+      field[`${prefix}/${key.slice(PROJECT_IMPORT_PREFIX.length)}`] = `${dir}${target.slice(2)}`
+    }
+  }
+  return field
 }
 
 export interface LibraryScaffoldInput {

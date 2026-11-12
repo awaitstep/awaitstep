@@ -302,4 +302,92 @@ export default async function(ctx) {
       expect(code).toMatch(/=\s*await WebhookPostNode\.execute\(env, \{/)
     })
   })
+  describe('a custom node template’s imports', () => {
+    const node: WorkflowNode = {
+      id: 'my-node',
+      name: 'Lead score',
+      type: 'custom:item1',
+      version: '1.0.1',
+      provider: 'cloudflare',
+      position: { x: 0, y: 0 },
+      data: { threshold: 3 },
+    }
+
+    it('drops the editor’s type-only ctx import and keeps npm and #modules/ imports', () => {
+      const typed = `import type { Ctx, Output } from './ctx'
+import { score } from '#modules/lead-scoring'
+import { z } from 'zod'
+
+export default async function (ctx: Ctx): Promise<Output> {
+  return { score: score(ctx.config.threshold) }
+}`
+      const code = generateCustomNode(node, typed)
+      expect(code).not.toContain('./ctx')
+      expect(code).toContain(`import { score } from '#modules/lead-scoring'`)
+      expect(code).toContain(`import { z } from 'zod'`)
+      expect(code).toContain('score(params.threshold)')
+    })
+
+    it('drops inline type-only imports too, and any type-only import, whatever it names', () => {
+      const typed = `import { type Ctx, type Output } from './ctx'
+import type { Shape } from './shapes'
+export default async function (ctx: Ctx): Promise<Output> {
+  return {}
+}`
+      const code = generateCustomNode(node, typed)
+      expect(code).not.toContain('./ctx')
+      expect(code).not.toContain('./shapes')
+    })
+
+    it('keeps a bare side-effect import as one statement, and skips commented-out imports', () => {
+      const template = `import '#modules/polyfill'
+/* import { gone } from './gone' */
+// import { alsoGone } from './gone'
+import { score } from '#modules/lead-scoring'
+export default async function (ctx) {
+  return score()
+}`
+      const code = generateCustomNode(node, template)
+      expect(code).toContain(`import '#modules/polyfill'`)
+      expect(code).toContain(`import { score } from '#modules/lead-scoring'`)
+      expect(code).not.toContain('./gone')
+    })
+
+    it('refuses a second statement riding on an import line, and reads `import type from` as a value import', () => {
+      const twoOnALine = `import x from 'zod'; import y from './evil'
+export default async function (ctx) {
+  return x
+}`
+      expect(() => generateCustomNode(node, twoOnALine)).toThrow(/one import per line/)
+      const namedType = `import type from './x'
+export default async function (ctx) {
+  return type
+}`
+      expect(() => generateCustomNode(node, namedType)).toThrow(/"\.\/x": a node template/)
+    })
+
+    it('refuses a value import from ctx, naming the node', () => {
+      const valued = `import { helper } from './ctx'
+export default async function (ctx) {
+  return helper()
+}`
+      expect(() => generateCustomNode(node, valued)).toThrow(GenerateInputError)
+      expect(() => generateCustomNode(node, valued)).toThrow(/Lead score.*"\.\/ctx".*module/)
+    })
+
+    it('refuses any other relative import, which would resolve against the generated module', () => {
+      const relative = `import { helper } from './helpers'
+export default async function (ctx) {
+  return helper()
+}`
+      try {
+        generateCustomNode(node, relative)
+        expect.unreachable()
+      } catch (error) {
+        expect(error).toBeInstanceOf(GenerateInputError)
+        expect((error as GenerateInputError).source).toBe('library')
+        expect((error as Error).message).toContain('"./helpers"')
+      }
+    })
+  })
 })
