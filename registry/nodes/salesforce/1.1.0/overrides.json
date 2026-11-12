@@ -1,0 +1,18 @@
+{
+  "version": "1.1.0",
+  "description": "Manage Salesforce records and inspect objects with the current REST API",
+  "tags": ["salesforce", "crm", "records", "soql"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Record",
+        "Get Record",
+        "Update Record",
+        "SOQL Query",
+        "Delete Record",
+        "Describe SObject",
+        "List SObjects"
+      ]
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "description": "Manage Zendesk tickets, comments, and users",
+  "tags": ["zendesk", "customer-support", "tickets", "users"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Ticket",
+        "Get Ticket",
+        "Update Ticket",
+        "List Tickets",
+        "Search Tickets",
+        "Delete Ticket",
+        "Add Comment",
+        "List Users",
+        "Get User"
+      ]
+    },
+    "comment": {
+      "type": "textarea",
+      "label": "Comment",
+      "description": "Ticket comment. Used by: Add Comment."
+    },
+    "userId": {
+      "type": "string",
+      "label": "User ID",
+      "description": "Zendesk user ID. Used by: Get User."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    }
+  }
+}
