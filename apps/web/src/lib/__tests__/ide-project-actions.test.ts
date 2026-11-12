@@ -7,6 +7,7 @@ import {
 } from '../api-client'
 import {
   createProjectFileActions,
+  heldBackMessage,
   type Notifier,
   type ProjectFileClient,
 } from '../ide/project-actions'
@@ -30,6 +31,7 @@ function setup(
   baselineOverride = baseline,
   isCurrent: () => boolean = () => true,
   canEdit: () => boolean = () => true,
+  errorsIn?: (path: string) => number,
 ) {
   const client = {
     putProjectFile: vi.fn(
@@ -72,6 +74,7 @@ function setup(
     commit,
     refresh,
     canEdit,
+    ...(errorsIn && { errorsIn }),
   })
   return { client, notify, refresh, commit, saveSteps, actions }
 }
@@ -79,6 +82,54 @@ function setup(
 describe('project file actions', () => {
   beforeEach(() => {
     useIdeStore.getState().resetSession()
+  })
+
+  it('holds back a file with errors from Save all, saving the rest and keeping its draft', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('config/env.ts', 'broken(', 'h-env')
+    store.setDraft('config/other.ts', 'fine', 'h-other')
+    const errors = (path: string) => (path === 'config/env.ts' ? 1 : 0)
+    const { client, notify, actions } = setup(baseline, undefined, undefined, errors)
+
+    expect(await actions.saveAll()).toBe(1)
+    expect(client.putProjectFile.mock.calls.map((call) => call[1])).toEqual(['config/other.ts'])
+    expect(notify.error).toHaveBeenCalledWith('env.ts has 1 error, so it wasn’t saved')
+    expect(useIdeStore.getState().drafts['config/env.ts']?.source).toBe('broken(')
+  })
+
+  it('refuses to save one file with errors, saying how many, and sends nothing', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'broken(', 'h-env')
+    const { client, notify, actions } = setup(baseline, undefined, undefined, () => 2)
+    expect(await actions.saveFile('config/env.ts')).toBe(false)
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(notify.error).toHaveBeenCalledWith('env.ts has 2 errors, so it wasn’t saved')
+  })
+
+  it('holds back the other writes that send a draft: overwrite, recreate and a rename carrying one', async () => {
+    useIdeStore.getState().setDraft('config/env.ts', 'broken(', 'h-env')
+    const { client, notify, actions } = setup(baseline, undefined, undefined, () => 1)
+    expect(await actions.overwriteFile('config/env.ts', 'h-server')).toBe(false)
+    expect(await actions.recreateFile('config/env.ts')).toBe(false)
+    expect(await actions.renameFile('config/env.ts', 'config/renamed.ts')).toBe(false)
+    expect(client.putProjectFile).not.toHaveBeenCalled()
+    expect(notify.error).toHaveBeenCalledTimes(3)
+    expect(actions.isHeldBack('config/env.ts')).toBe(true)
+  })
+
+  it('says nothing when a file with errors has nothing to save', async () => {
+    const { notify, actions } = setup(baseline, undefined, undefined, () => 1)
+    expect(await actions.saveFile('config/env.ts')).toBe(false)
+    expect(notify.error).not.toHaveBeenCalled()
+    expect(actions.isHeldBack('config/env.ts')).toBe(false)
+  })
+
+  it('names every held-back file when several have errors', () => {
+    expect(
+      heldBackMessage([
+        { path: 'a/x.ts', errors: 1 },
+        { path: 'b/y.ts', errors: 3 },
+      ]),
+    ).toBe('2 files have errors, so they weren’t saved: x.ts, y.ts')
   })
 
   it('saveAll writes exactly the dirty drafts, each against the hash it started from', async () => {

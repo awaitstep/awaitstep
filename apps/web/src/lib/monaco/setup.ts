@@ -56,6 +56,13 @@ function baseCompilerOptions(ts: Monaco['languages']['typescript']) {
   }
 }
 
+/** The Monaco instance the editors run on, once one has mounted (see `liveErrorCount`). */
+let loadedMonaco: Monaco | null = null
+
+export function loadedMonacoInstance(): Monaco | null {
+  return loadedMonaco
+}
+
 /**
  * The single Monaco configuration: one compiler config, semantic + syntax
  * validation enabled, and the provider-neutral AwaitStep module types.
@@ -67,6 +74,7 @@ function baseCompilerOptions(ts: Monaco['languages']['typescript']) {
  * context-dts.ts.
  */
 export function configureMonaco(monaco: Monaco): void {
+  loadedMonaco = monaco
   if (configured) return
   configured = true
   defineAwaitstepThemes(monaco)

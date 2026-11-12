@@ -21,6 +21,7 @@ import { useIdeStore } from '../stores/ide-store'
 import { dashKeys } from '../data/dashboard/keys'
 import { libraryItemKeys, useLibraryTree } from '../data/dashboard/library'
 import { useLibrarySources, type LibrarySourceFile } from './use-library-sources'
+import { liveErrorCount } from '../lib/monaco/live-errors'
 
 const NO_OUTCOMES = new Map()
 const NO_PROJECT_MODULES: ApiLibraryTree['projectModules'] = []
@@ -182,6 +183,7 @@ export function useLibraryWorkspace(
         ownerOf: () => 'project',
         saveSteps: () => Promise.resolve(NO_OUTCOMES),
         commit: () => Promise.resolve(),
+        errorsIn: (path) => liveErrorCount(root, path),
         refresh,
         canEdit: () => latest.current.canEdit,
         importSpecifierOf: (path) => {
@@ -206,6 +208,7 @@ export function useLibraryWorkspace(
       saveFile: (path: string) => track(() => core.saveFile(path)),
       saveFiles: (paths: readonly string[]) => track(() => core.saveFiles(paths)),
       saveAll: () => track(() => core.saveAll()),
+      isHeldBack: core.isHeldBack,
       overwriteFile: (path: string, hash: string | null) =>
         track(() => core.overwriteFile(path, hash)),
       recreateFile: (path: string) => track(() => core.recreateFile(path)),

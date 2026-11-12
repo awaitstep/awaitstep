@@ -85,9 +85,12 @@ export function WorkspaceDialogs({
         return
       }
       useIdeStore.getState().cancelClose()
-      const names = failed.map(basename).join(', ')
+      // A file held back for its errors has said so already, naming it.
+      const unexplained = failed.filter((path) => !projectFiles.isHeldBack(path))
+      if (unexplained.length === 0) return
+      const names = unexplained.map(basename).join(', ')
       actionToast.error(
-        `Couldn’t save ${names}, so ${failed.length === 1 ? 'its tab' : 'their tabs'} stayed open.`,
+        `Couldn’t save ${names}, so ${unexplained.length === 1 ? 'its tab' : 'their tabs'} stayed open.`,
         {
           description: 'Your changes are still here.',
         },

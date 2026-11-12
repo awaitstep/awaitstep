@@ -77,6 +77,15 @@ export interface ProjectActionDeps {
    * does nothing while the workflow has no version.
    */
   commit: () => Promise<void>
+  /**
+   * The errors the editor shows on a file now. Every write that sends a
+   * draft (save, overwrite, recreate, a rename carrying a draft, the save
+   * before a handler conversion) holds a file with any back, keeping its
+   * draft, and says which; warnings never hold one back. Markers lag typing
+   * by the language worker's debounce (about half a second), so a save made
+   * within it is judged on the text as it was a moment before. Defaults to none.
+   */
+  errorsIn?: (path: string) => number
   /** Refetches the workspace once a write has landed. */
   refresh: () => Promise<void>
   /** Opens Search on the old import path after a rename that left importers behind. */
@@ -99,6 +108,8 @@ export interface ProjectFileActions {
   saveFiles(paths: readonly string[]): Promise<boolean[]>
   /** Saves every dirty draft; resolves to how many were written. */
   saveAll(): Promise<number>
+  /** The file has unsaved changes and errors, so a save holds it back (and has said so). */
+  isHeldBack(path: string): boolean
   /**
    * Compare's "Keep mine and overwrite": writes the draft over the server
    * copy the person was looking at (`serverHash`, null when it was gone).
@@ -120,6 +131,16 @@ export interface ProjectFileActions {
    * never leaves the project half converted.
    */
   convertHandlers(): Promise<HandlerConversionResult | null>
+}
+
+/** "index.ts has 1 error, so it wasn't saved", or the files a batch held back. */
+export function heldBackMessage(held: readonly { path: string; errors: number }[]): string {
+  if (held.length === 1) {
+    const { path, errors } = held[0]!
+    return `${basename(path)} has ${errors === 1 ? '1 error' : `${errors} errors`}, so it wasn’t saved`
+  }
+  const names = held.map((file) => basename(file.path)).join(', ')
+  return `${held.length} files have errors, so they weren’t saved: ${names}`
 }
 
 type WriteOutcome = ProjectFileSummary | 'conflict' | 'failed'
@@ -212,6 +233,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     if (!canEdit()) return false
     const store = liveStore()
     if (!store || store.drafts[path] === undefined) return false
+    if (withoutErrors([path]).length === 0) return false
     if (isStep(path)) {
       // Compare showed the node's code as the workspace has it; keeping yours
       // means saving over exactly that, so the draft is rebased onto its hash
@@ -356,9 +378,24 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     return true
   }
 
+  // Files with errors stay drafts: the rest of the batch saves, and one
+  // notice names what was held back.
+  // Only a file with unsaved changes is judged: one with nothing to write is
+  // no one's to hold back. Every write that sends a draft comes through here.
+  function withoutErrors(paths: readonly string[]): string[] {
+    const dirty = new Set(dirtyPaths(getBaseline(), getStore().drafts))
+    const held = paths
+      .filter((path) => dirty.has(path))
+      .map((path) => ({ path, errors: deps.errorsIn?.(path) ?? 0 }))
+      .filter((file) => file.errors > 0)
+    if (held.length > 0) notify.error(heldBackMessage(held))
+    const blocked = new Set(held.map((file) => file.path))
+    return paths.filter((path) => !blocked.has(path))
+  }
+
   async function saveFiles(paths: readonly string[]): Promise<boolean[]> {
     if (!canEdit()) return paths.map(() => false)
-    const unique = [...new Set(paths)]
+    const unique = withoutErrors([...new Set(paths)])
     const steps = unique.filter(isStep)
     const files = unique.filter((path) => !isStep(path))
     const [stepOutcomes, fileOutcomes] = await Promise.all([
@@ -380,6 +417,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   return {
     async saveFile(path) {
       if (!canEdit()) return false
+      if (withoutErrors([path]).length === 0) return false
       const outcome = await saveOne(path)
       // The banners live on the file's own tab.
       if (outcome === 'conflict') showConflict(path)
@@ -397,6 +435,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       if (!canEdit() || isStep(path)) return false
       const source = getStore().drafts[path]?.source
       if (source === undefined) return false
+      if (withoutErrors([path]).length === 0) return false
       const saved = await write(path, source, { ifNoneMatch: true }, true)
       if (typeof saved === 'string') return false
       liveStore()?.rebaseDraft(path, saved.hash)
@@ -405,6 +444,11 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     },
 
     saveFiles,
+
+    isHeldBack(path) {
+      const dirty = dirtyPaths(getBaseline(), getStore().drafts).includes(path)
+      return dirty && (deps.errorsIn?.(path) ?? 0) > 0
+    },
 
     async saveAll() {
       const results = await saveFiles(dirtyPaths(getBaseline(), getStore().drafts))
@@ -445,6 +489,8 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const draft = drafts[from]
       const source = draft?.source ?? base?.source
       if (source === undefined) return false
+      // A rename writes the draft at the new path: held back like a save.
+      if (withoutErrors([from]).length === 0) return false
       // The copy at the new path is the person's text, built on the version
       // they read. If the file has moved on since (or a save was refused), the
       // rename would carry their text over and drop a version they never saw,
@@ -529,6 +575,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       // annotation file would be lost, so it is saved first.
       let savedFirst = false
       if (getStore().drafts[PROJECT_HANDLERS_PATH]) {
+        if (withoutErrors([PROJECT_HANDLERS_PATH]).length === 0) return null
         const outcome = await saveOne(PROJECT_HANDLERS_PATH)
         if (outcome !== 'saved' && outcome !== 'unchanged') return null
         savedFirst = outcome === 'saved'

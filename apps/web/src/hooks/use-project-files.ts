@@ -11,6 +11,7 @@ import { createStepCreator, type CreateStepOutcome } from '../lib/ide/step-creat
 import { createStepSaver } from '../lib/ide/step-save'
 import { useIdeStore } from '../stores/ide-store'
 import { useApi, useQueries } from '../contexts/api-client-context'
+import { liveErrorCount } from '../lib/monaco/live-errors'
 
 interface ProjectFilesInput {
   workflowId: string
@@ -170,6 +171,7 @@ export function useProjectFiles({
         ownerOf,
         saveSteps: stepSaver.save,
         commit,
+        errorsIn: (path) => liveErrorCount(workflowId, path),
         refresh,
         canEdit: () => latest.current.canEdit,
         ...(onShowImporters && { onShowImporters }),
@@ -202,6 +204,7 @@ export function useProjectFiles({
       saveFile: (path: string) => track(() => actions.saveFile(path)),
       saveFiles: (paths: readonly string[]) => track(() => actions.saveFiles(paths)),
       saveAll: () => track(() => actions.saveAll()),
+      isHeldBack: actions.isHeldBack,
       overwriteFile: (path: string, serverHash: string | null) =>
         track(() => actions.overwriteFile(path, serverHash)),
       recreateFile: (path: string) => track(() => actions.recreateFile(path)),
