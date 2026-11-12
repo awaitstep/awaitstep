@@ -26,14 +26,28 @@ export default async function (ctx: any) {
     return data
   }
 
+  function webhookUrl(): URL {
+    const raw = String(ctx.env.DISCORD_WEBHOOK_URL ?? '')
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      throw new Error('DISCORD_WEBHOOK_URL must be a valid URL')
+    }
+    if (url.protocol !== 'https:' || !['discord.com', 'discordapp.com'].includes(url.hostname)) {
+      throw new Error('DISCORD_WEBHOOK_URL must be an https://discord.com webhook URL')
+    }
+    return url
+  }
+
   switch (action) {
     case 'Send Webhook Message': {
-      const webhookUrl = ctx.env.DISCORD_WEBHOOK_URL
-      if (!webhookUrl) throw new Error('DISCORD_WEBHOOK_URL is required for Send Webhook Message')
+      const url = webhookUrl()
+      url.searchParams.set('wait', 'true')
       const body: Record<string, unknown> = { content: ctx.config.content }
       if (ctx.config.username) body.username = ctx.config.username
       if (ctx.config.avatarUrl) body.avatar_url = ctx.config.avatarUrl
-      const response = await fetch(`${webhookUrl}?wait=true`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

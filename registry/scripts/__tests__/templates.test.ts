@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { transform } from 'sucrase'
@@ -68,6 +69,35 @@ describe('registry templates', () => {
           ).not.toThrow()
           expect(code).not.toContain('ctx.')
         }
+      }
+    }
+  })
+})
+
+describe('registry security guards', () => {
+  const guards: Record<string, string> = {
+    zendesk: 'Subdomain must be a Zendesk subdomain label',
+    shopify: 'Store must be a Shopify store handle',
+    jira: 'domain must be <tenant>.atlassian.net',
+    datadog: 'Unsupported Datadog site',
+    'direct-mail': 'Invalid Alibaba Cloud region ID',
+    supabase: 'Supabase URL must be an https',
+    'google-gemini': 'x-goog-api-key',
+    salesforce: 'SALESFORCE_INSTANCE_URL must be',
+    activecampaign: 'ACTIVECAMPAIGN_API_URL must be',
+    'upstash-redis': 'UPSTASH_REDIS_REST_URL must be',
+  }
+
+  it('validates host/provider inputs in every published version', async () => {
+    for (const [id, guard] of Object.entries(guards)) {
+      const nodeDir = join(NODES_DIR, id)
+      const versions = readdirSync(nodeDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+      expect(versions.length).toBeGreaterThan(0)
+      for (const version of versions) {
+        const source = readFileSync(join(nodeDir, version, 'template.ts'), 'utf-8')
+        expect(source, `${id}@${version} is missing "${guard}"`).toContain(guard)
       }
     }
   })

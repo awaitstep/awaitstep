@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'registry/nodes/**'
+      - 'registry/scripts/**'
+      - 'registry/package.json'
+      - 'packages/ir/src/node-bundle.ts'
+      - 'pnpm-lock.yaml'
   workflow_dispatch:
 
 jobs:
@@ -29,7 +33,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build registry index
-        run: pnpm --filter @awaitstep/ir build && pnpm --filter @awaitstep/registry build-index && pnpm exec prettier --write registry/index.json registry/nodes/*/*/node.json
+        run: pnpm --filter @awaitstep/ir build && pnpm --filter @awaitstep/registry validate && pnpm --filter @awaitstep/registry build-index && pnpm exec prettier --write registry/index.json registry/nodes/*/*/node.json
 
       - name: Check for changes
         id: diff

@@ -1,8 +1,16 @@
 export default async function (ctx) {
   const accessToken = ctx.env.SHOPIFY_ACCESS_TOKEN
-  const store = ctx.config.store
   const action = ctx.config.action
-  const baseUrl = `https://${store}.myshopify.com/admin/api/2025-01`
+
+  function shopifyStore(): string {
+    const value = String(ctx.config.store ?? '')
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(value)) {
+      throw new Error('Store must be a Shopify store handle')
+    }
+    return value
+  }
+
+  const baseUrl = `https://${shopifyStore()}.myshopify.com/admin/api/2025-01`
 
   async function shopifyRequest(method: string, path: string, body?: Record<string, unknown>) {
     const response = await fetch(`${baseUrl}${path}`, {

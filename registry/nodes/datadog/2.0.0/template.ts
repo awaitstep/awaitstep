@@ -1,7 +1,17 @@
 export default async function (ctx) {
   const apiKey = ctx.env.DATADOG_API_KEY
   const action = ctx.config.action
-  const site = ctx.config.site ?? 'datadoghq.com'
+  const DATADOG_SITES = [
+    'datadoghq.com',
+    'datadoghq.eu',
+    'us3.datadoghq.com',
+    'us5.datadoghq.com',
+    'ap1.datadoghq.com',
+  ]
+  const site = String(ctx.config.site ?? 'datadoghq.com')
+  if (!DATADOG_SITES.includes(site)) {
+    throw new Error(`Unsupported Datadog site: ${site}`)
+  }
 
   async function ddApi(url: string, method: string, body?: unknown) {
     const headers: Record<string, string> = {

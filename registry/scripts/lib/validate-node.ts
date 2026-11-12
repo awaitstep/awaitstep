@@ -54,6 +54,10 @@ const FORBIDDEN_TEMPLATE_PATTERNS: Array<[RegExp, string]> = [
   [/\bprocess\s*\./, 'Node process API is not available in a node template'],
   [/\bBuffer\b/, 'Node Buffer is not available in a node template'],
   [/\brequire\s*\(/, 'CommonJS require is not available in a node template'],
+  [/\bconsole\s*\./, 'console is not allowed in a node template'],
+  [/\beval\s*\(/, 'eval is not allowed in a node template'],
+  [/\bnew\s+Function\s*\(/, 'new Function is not allowed in a node template'],
+  [/\bimport\s*\(/, 'dynamic import is not allowed in a node template'],
   [
     /\bstep\.(?:do|sleep|sleepUntil|waitForEvent)\s*\(/,
     'templates must not call durable primitives',
@@ -72,9 +76,8 @@ function canonicalJson(value: unknown): string {
   function canonical(input: unknown): unknown {
     if (Array.isArray(input)) return input.map(canonical)
     if (input !== null && typeof input === 'object') {
-      const output: Record<string, unknown> = {}
+      const output: Record<string, unknown> = Object.create(null)
       for (const key of Object.keys(input as Record<string, unknown>).sort()) {
-        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
         const entry = (input as Record<string, unknown>)[key]
         if (entry !== undefined) output[key] = canonical(entry)
       }
@@ -283,6 +286,10 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
     }
     const configSchema = isRecord(definition.configSchema) ? definition.configSchema : {}
     for (const [name, rawField] of Object.entries(configSchema)) {
+      if (name === '__proto__' || name === 'constructor' || name === 'prototype') {
+        issues.push(error(`${path}/configSchema.${name}`, 'unsafe config field name'))
+        continue
+      }
       if (!isRecord(rawField)) continue
       if (rawField.type === 'secret' && typeof rawField.envVarName !== 'string') {
         issues.push(error(`${path}/configSchema.${name}`, 'secret field must have envVarName'))
@@ -327,6 +334,9 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
       : []
     if (providers.length === 0) issues.push(error(path, 'providers is empty'))
     for (const provider of providers) {
+      if (!/^[a-z][a-z0-9-]*$/.test(provider)) {
+        issues.push(error(`${path}/providers`, `invalid provider id "${provider}"`))
+      }
       if (!version.templates[provider]) {
         issues.push(error(path, `missing template for provider "${provider}"`))
       }

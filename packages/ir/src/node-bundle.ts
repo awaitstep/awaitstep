@@ -92,9 +92,11 @@ export function stableStringify(value: unknown): string {
   function canonical(input: unknown): unknown {
     if (Array.isArray(input)) return input.map(canonical)
     if (input !== null && typeof input === 'object') {
-      const output: Record<string, unknown> = {}
+      const output: Record<string, unknown> = Object.create(null)
       for (const key of Object.keys(input as Record<string, unknown>).sort()) {
-        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+          throw new Error(`Unsafe object key in checksum input: ${key}`)
+        }
         const entry = (input as Record<string, unknown>)[key]
         if (entry !== undefined) output[key] = canonical(entry)
       }
@@ -113,7 +115,7 @@ export function nodeBundleChecksumInput(
   return stableStringify({ definition, templates })
 }
 
-const providerSchema = z.string().min(1)
+const providerSchema = z.string().regex(/^[a-z][a-z0-9-]*$/)
 
 const runtimeHintsSchema = z
   .object({

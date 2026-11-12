@@ -24,6 +24,11 @@ export default async function (ctx) {
     return btoa(String.fromCharCode(...new Uint8Array(signature)))
   }
 
+  const regionId = String(ctx.config.regionId ?? '')
+  if (!/^[a-z0-9-]+$/.test(regionId)) {
+    throw new Error(`Invalid Alibaba Cloud region ID: ${regionId}`)
+  }
+
   const reqParams: Record<string, string> = {
     Action: 'SingleSendMail',
     Format: 'JSON',
@@ -38,7 +43,7 @@ export default async function (ctx) {
     ReplyToAddress: ctx.config.replyToAddress !== 'false' ? 'true' : 'false',
     ToAddress: ctx.config.toAddress,
     Subject: ctx.config.subject,
-    RegionId: ctx.config.regionId,
+    RegionId: regionId,
   }
 
   if (ctx.config.htmlBody) reqParams.HtmlBody = ctx.config.htmlBody
@@ -58,10 +63,7 @@ export default async function (ctx) {
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
     .join('&')
 
-  const endpoint =
-    ctx.config.regionId === 'cn-hangzhou'
-      ? 'dm.aliyuncs.com'
-      : `dm.${ctx.config.regionId}.aliyuncs.com`
+  const endpoint = regionId === 'cn-hangzhou' ? 'dm.aliyuncs.com' : `dm.${regionId}.aliyuncs.com`
 
   const response = await fetch(`https://${endpoint}/`, {
     method: 'POST',

@@ -79,7 +79,10 @@ async function buildNodeEntry(
 
   for (const version of sortVersions(source.versions)) {
     let parsed: Record<string, unknown>
-    if (source.base && version.overrides) {
+    if (source.base) {
+      if (!version.overrides) {
+        throw new Error(`Node ${source.id}@${version.version} has base.json but no overrides.json`)
+      }
       parsed = mergeDefinition(source.base, version.overrides)
       await writeFile(join(version.dir, 'node.json'), JSON.stringify(parsed, null, 2) + '\n')
     } else if (version.node) {
