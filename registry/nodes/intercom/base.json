@@ -94,5 +94,5 @@
     "defaultRetries": 2,
     "defaultTimeout": "30 seconds"
   },
-  "docsUrl": "https://developers.intercom.com/docs/references/rest-api/"
+  "docsUrl": "https://developers.intercom.com/docs/build-an-integration/learn-more/rest-apis/"
 }
