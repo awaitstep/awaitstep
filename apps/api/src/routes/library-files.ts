@@ -3,15 +3,11 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { contentHash } from '@awaitstep/codegen'
 import {
-  LIBRARY_MODULE_IMPORT_PREFIX,
   LIBRARY_NODE_ICON_PATH,
-  MAX_LIBRARY_ICON_BYTES,
-  MAX_LIBRARY_VERSIONS,
   MAX_PROJECT_FILES,
   MAX_PROJECT_FILE_BYTES,
   MAX_PROJECT_TOTAL_BYTES,
   PACKAGE_MANIFEST_PATH,
-  PROJECT_FILE_EXTENSIONS,
   findProjectPathCollision,
   isProjectCodePath,
   libraryFilePathError,
@@ -23,24 +19,16 @@ import {
   validatePackageManifest,
 } from '@awaitstep/ir'
 import { draftFolders } from '../lib/library-check.js'
-import { libraryFileRecord, refreshLibraryUsages } from '../lib/library-records.js'
+import {
+  LIBRARY_CONVENTIONS as CONVENTIONS,
+  libraryFileRecord,
+  refreshLibraryUsages,
+} from '../lib/library-records.js'
 import { etag, requestedHash } from '../lib/project-files.js'
 import { zValidator } from '../lib/validation.js'
 import type { AppEnv } from '../types.js'
 
 const putFileSchema = z.object({ source: z.string().max(MAX_PROJECT_FILE_BYTES) })
-
-const CONVENTIONS = {
-  importPrefix: LIBRARY_MODULE_IMPORT_PREFIX,
-  extensions: PROJECT_FILE_EXTENSIONS,
-  limits: {
-    maxFiles: MAX_PROJECT_FILES,
-    maxFileBytes: MAX_PROJECT_FILE_BYTES,
-    maxTotalBytes: MAX_PROJECT_TOTAL_BYTES,
-    maxIconBytes: MAX_LIBRARY_ICON_BYTES,
-    maxVersions: MAX_LIBRARY_VERSIONS,
-  },
-}
 
 function readOnlyFolder(folder: string): string {
   return `Version ${folder} is published and can’t change. Start a new version from it`

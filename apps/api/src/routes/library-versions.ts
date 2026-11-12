@@ -9,6 +9,7 @@ import {
   isLibraryVersion,
   nextPatchVersion,
   projectFileBytes,
+  withManifestFields,
 } from '@awaitstep/ir'
 import type {
   DatabaseAdapter,
@@ -29,15 +30,12 @@ import type { AppEnv } from '../types.js'
 
 export const libraryVersions = new Hono<AppEnv>()
 
-/** `source` with its top-level `version` set, keeping two-space JSON. Null when it is not a JSON object. */
+/**
+ * `source` with its top-level `version` set, written as it was (indented or
+ * compact). Null when it is not a JSON object or would pass the file cap.
+ */
 function withVersion(source: string, version: string): string | null {
-  try {
-    const parsed: unknown = JSON.parse(source)
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null
-    return `${JSON.stringify({ ...(parsed as Record<string, unknown>), version }, null, 2)}\n`
-  } catch {
-    return null
-  }
+  return withManifestFields(source, { version })
 }
 
 function versionFile(file: LibrarySourceFile): LibraryVersionFile {
@@ -118,7 +116,13 @@ libraryVersions.post('/items/:id/versions', async (c) => {
   let rewrite: { file: UpsertLibraryFileData; expectedHash: string } | null = null
   if (item.kind === 'module' && bumpedFrom) {
     const manifest = files.find((f) => f.path === PACKAGE_MANIFEST_PATH)!
-    const bumped = withVersion(manifest.source, version)!
+    const bumped = withVersion(manifest.source, version)
+    if (bumped === null) {
+      return c.json(
+        { error: `package.json can’t take version ${version}: it would be too large` },
+        422,
+      )
+    }
     rewrite = { file: fileRow(item.id, PACKAGE_MANIFEST_PATH, bumped), expectedHash: manifest.hash }
     snapshot = snapshot.map((f) =>
       f.path === PACKAGE_MANIFEST_PATH ? { path: f.path, source: bumped } : f,

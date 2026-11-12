@@ -39,6 +39,7 @@ import {
 import { workflows } from './workflows.js'
 import { library } from './library.js'
 import { libraryFiles } from './library-files.js'
+import { libraryTree } from './library-tree.js'
 import { libraryVersions } from './library-versions.js'
 import { providers } from './providers.js'
 import { versions } from './versions.js'
@@ -185,6 +186,7 @@ export function createRouter(
   // project (and a workspace, when one is named); an item by its own id,
   // read with the caller's rows at its owner.
   router.use('/library/summary', requireProject)
+  router.use('/library/tree', requireProject)
   router.use('/library/items', requireProject)
   router.use('/library/items/:id/*', requireLibraryItemAccess)
 
@@ -409,6 +411,7 @@ export function createRouter(
   // writes; a check reads.
   for (const path of [
     '/library/summary',
+    '/library/tree',
     '/library/items/:id',
     '/library/items/:id/project',
     '/library/items/:id/files/*',
@@ -420,6 +423,7 @@ export function createRouter(
   }
   router.post('/library/items/:id/check', key('library', 'read'))
   router.post('/library/items', key('library', 'write'))
+  router.post('/library/items/:id/duplicate', key('library', 'write'))
   router.patch('/library/items/:id', key('library', 'write'))
   router.put('/library/items/:id/files/*', key('library', 'write'))
   router.post('/library/items/:id/versions', key('library', 'write'))
@@ -583,6 +587,7 @@ export function createRouter(
   router.use('/workflows/:workflowId/takedown', writeLimit)
   router.post('/api-keys', apiKeyCreateLimit)
   router.post('/library/items', writeLimit)
+  router.post('/library/items/:id/duplicate', writeLimit)
   router.patch('/library/items/:id', writeLimit)
   router.delete('/library/items/:id', writeLimit)
   router.post('/library/items/:id/versions', writeLimit)
@@ -670,6 +675,7 @@ export function createRouter(
   router.route('/providers', providers)
   router.route('/nodes', nodes)
   router.route('/library', library)
+  router.route('/library', libraryTree)
   router.route('/library', libraryFiles)
   router.route('/library', libraryVersions)
   router.route('/marketplace', marketplace)

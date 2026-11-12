@@ -435,4 +435,202 @@ describe('library routes', () => {
     expect(res.status).toBe(201)
     expect(body.slug).toBe('a'.repeat(63))
   })
+
+  it('lists the place’s items with their trees in one request, read-only folders marked', async () => {
+    const node = (await create('u-ama', { kind: 'node', name: 'Post' })).body.id as string
+    const mod = (await create('u-ama', { kind: 'module', name: 'Fmt' })).body.id as string
+    await create('u-dan', { kind: 'module', name: 'Shared' }, 'projectId=p-101')
+    expect((await publish('u-ama', node)).res.status).toBe(201)
+
+    const res = await call('u-ama', `/library/tree?${SALES}`)
+    expect(res.status).toBe(200)
+    const tree = await res.json()
+    expect(tree.owner).toEqual({ kind: 'workspace', id: 'ws-sales' })
+    expect(tree.viewerCan.edit).toEqual({ allowed: true })
+    expect(tree.items.map((i: { id: string }) => i.id)).toEqual([mod, node])
+    // Only what the IDE draws: no conventions, no sizes, no sources.
+    expect(Object.keys(tree).sort()).toEqual(['items', 'owner', 'projectModules', 'viewerCan'])
+    expect(Object.keys(tree.items[0]).sort()).toEqual([
+      'files',
+      'id',
+      'kind',
+      'latestVersion',
+      'name',
+      'slug',
+    ])
+    expect(tree.items[0].files[0]).toEqual({
+      path: 'index.ts',
+      hash: expect.any(String),
+      readOnly: false,
+    })
+    expect(tree.items[1]).toMatchObject({ latestVersion: '1.0.0' })
+    expect(
+      tree.items[1].files.map(
+        (f: { path: string; readOnly: boolean }) => `${f.path}:${f.readOnly}`,
+      ),
+    ).toEqual(['1.0.0/node.json:true', '1.0.0/template.ts:true'])
+    // The project's module comes along by slug, for imports Sales owns no module for.
+    expect(tree.projectModules).toEqual([
+      { id: expect.any(String), slug: 'shared', latestVersion: null },
+    ])
+
+    // The project's own tree is its own; a Sales viewer reads Sales' tree but cannot edit it.
+    const project = await (await call('u-gus', '/library/tree?projectId=p-101')).json()
+    expect(project.items.map((i: { slug: string }) => i.slug)).toEqual(['shared'])
+    expect(project.projectModules).toEqual([])
+    expect(project.viewerCan.edit.allowed).toBe(false)
+    const eve = await (await call('u-eve', `/library/tree?${SALES}`)).json()
+    expect(eve.items).toHaveLength(2)
+    expect(eve.viewerCan.edit.allowed).toBe(false)
+    // Another workspace's tree is not Gus's to read; Globex's Cleo cannot address the project.
+    expect((await call('u-gus', `/library/tree?${SALES}`)).status).toBe(404)
+    expect((await call('u-cleo', '/library/tree?projectId=p-101')).status).toBe(404)
+  })
+
+  it('duplicates a module beside it at 1.0.0, unpublished, and refuses a taken slug', async () => {
+    const id = (await create('u-ama', { kind: 'module', name: 'Lead scoring' })).body.id as string
+    await put('u-ama', id, 'index.ts', 'export const score = 1')
+    await publish('u-ama', id)
+    await publish('u-ama', id)
+
+    const res = await call(
+      'u-ama',
+      `/library/items/${id}/duplicate`,
+      h.json({ name: 'Lead scoring copy' }),
+    )
+    expect(res.status).toBe(201)
+    const copy = await res.json()
+    expect(copy).toMatchObject({
+      slug: 'lead-scoring-copy',
+      name: 'Lead scoring copy',
+      latestVersion: null,
+      owner: { kind: 'workspace', id: 'ws-sales' },
+    })
+    const index = await (await call('u-ama', `/library/items/${copy.id}/files/index.ts`)).json()
+    expect(index.source).toBe('export const score = 1')
+    const pkg = await (await call('u-ama', `/library/items/${copy.id}/files/package.json`)).json()
+    expect(JSON.parse(pkg.source)).toMatchObject({ name: 'lead-scoring-copy', version: '1.0.0' })
+    // The original is untouched.
+    const original = await (await call('u-ama', `/library/items/${id}/files/package.json`)).json()
+    expect(JSON.parse(original.source).version).toBe('1.0.1')
+
+    const taken = await call(
+      'u-ama',
+      `/library/items/${id}/duplicate`,
+      h.json({ name: 'Lead scoring copy' }),
+    )
+    expect(taken.status).toBe(409)
+    expect(
+      (await call('u-eve', `/library/items/${id}/duplicate`, h.json({ name: 'X' }))).status,
+    ).toBe(403)
+    const unknown = await call(
+      'u-ama',
+      `/library/items/${id}/duplicate`,
+      h.json({ name: 'Y', shared: true }),
+    )
+    expect(unknown.status).toBe(422)
+  })
+
+  it('duplicates a node from its latest version when no draft is open', async () => {
+    const id = (await create('u-ama', { kind: 'node', name: 'Post' })).body.id as string
+    await put(
+      'u-ama',
+      id,
+      '1.0.0/template.ts',
+      'export default async function () { return { ok: true } }',
+    )
+    expect((await publish('u-ama', id)).res.status).toBe(201)
+
+    const res = await call(
+      'u-ama',
+      `/library/items/${id}/duplicate`,
+      h.json({ name: 'Post again', slug: 'post-2' }),
+    )
+    expect(res.status).toBe(201)
+    const copy = await res.json()
+    expect(copy).toMatchObject({ slug: 'post-2', nodeType: `custom:${copy.id}` })
+    expect(await paths(copy.id)).toEqual(['1.0.0/node.json', '1.0.0/template.ts'])
+    const json = await (
+      await call('u-ama', `/library/items/${copy.id}/files/1.0.0/node.json`)
+    ).json()
+    expect(JSON.parse(json.source)).toMatchObject({
+      id: 'post-2',
+      name: 'Post again',
+      version: '1.0.0',
+    })
+    const template = await (
+      await call('u-ama', `/library/items/${copy.id}/files/1.0.0/template.ts`)
+    ).json()
+    expect(template.source).toContain('ok: true')
+  })
+
+  it('keeps a duplicate’s imports guarded: the module it uses can’t be deleted', async () => {
+    const mod = (await create('u-ama', { kind: 'module', name: 'Fmt' })).body.id as string
+    expect((await publish('u-ama', mod)).res.status).toBe(201)
+    const node = (await create('u-ama', { kind: 'node', name: 'Post' })).body.id as string
+    await put(
+      'u-ama',
+      node,
+      '1.0.0/template.ts',
+      "import { hello } from '#modules/fmt'\nexport default async function () { return {} }\n",
+    )
+    const copy = await (
+      await call('u-ama', `/library/items/${node}/duplicate`, h.json({ name: 'Post copy' }))
+    ).json()
+    expect((await call('u-ama', `/library/items/${node}`, { method: 'DELETE' })).status).toBe(204)
+    const refused = await call('u-ama', `/library/items/${mod}`, { method: 'DELETE' })
+    expect(refused.status).toBe(409)
+    expect((await refused.json()).error).toContain('Post copy')
+    const usages = await (await call('u-ama', `/library/items/${mod}/usages`)).json()
+    expect(usages.usedBy.visible.map((c: { id: string }) => c.id)).toEqual([copy.id])
+  })
+
+  it('keeps a duplicate to the file rules: a compact manifest stays compact, a reserved path is refused', async () => {
+    const id = (await create('u-ama', { kind: 'module', name: 'Fmt' })).body.id as string
+    const nested = `{"name":"fmt","version":"1.0.0","type":"module","x":${'['.repeat(3000)}${']'.repeat(3000)}}`
+    expect((await put('u-ama', id, 'package.json', nested)).status).toBe(200)
+    const res = await call('u-ama', `/library/items/${id}/duplicate`, h.json({ name: 'Fmt copy' }))
+    expect(res.status).toBe(201)
+    const copy = await res.json()
+    const pkg = await (await call('u-ama', `/library/items/${copy.id}/files/package.json`)).json()
+    expect(pkg.size).toBeLessThan(nested.length + 64)
+
+    const node = (await create('u-ama', { kind: 'node', name: 'Post' })).body.id as string
+    // A draft file saved before ctx.ts was reserved: written straight to the table.
+    await h.db.insert(h.schema.libraryItemFiles).values({
+      id: 'legacy-ctx',
+      itemId: node,
+      path: '1.0.0/ctx.ts',
+      source: 'export {}',
+      hash: 'h',
+      size: 9,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    const refused = await call(
+      'u-ama',
+      `/library/items/${node}/duplicate`,
+      h.json({ name: 'Post copy' }),
+    )
+    expect(refused.status).toBe(422)
+    expect((await refused.json()).details[0].path).toBe('1.0.0/ctx.ts')
+  })
+
+  it('reports an item that imports more modules than the cap, and publish refuses it', async () => {
+    const id = (await create('u-ama', { kind: 'node', name: 'Many' })).body.id as string
+    const imports = Array.from({ length: 101 }, (_, i) => `import '#modules/m${i}'`).join('\n')
+    await put(
+      'u-ama',
+      id,
+      '1.0.0/template.ts',
+      `${imports}\nexport default async function () { return {} }\n`,
+    )
+    const check = await (
+      await call('u-ama', `/library/items/${id}/check`, { method: 'POST' })
+    ).json()
+    expect(check.problems.map((p: { message: string }) => p.message)).toContain(
+      'Imports 101 modules; at most 100',
+    )
+    expect((await publish('u-ama', id)).res.status).toBe(422)
+  })
 })

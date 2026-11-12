@@ -3,6 +3,7 @@ import {
   LIBRARY_NODE_ICON_PATH,
   LIBRARY_NODE_MANIFEST,
   LIBRARY_NODE_TEMPLATE,
+  MAX_LIBRARY_IMPORTS,
   MAX_PROJECT_FILES,
   MAX_PROJECT_FILE_BYTES,
   MAX_PROJECT_TOTAL_BYTES,
@@ -65,7 +66,8 @@ export interface LibraryCheck {
   snapshot: LibrarySourceFile[]
 }
 
-function sizeProblems(files: readonly LibrarySourceFile[]): ValidationError[] {
+/** File-count, per-file and total size caps, as a write or a publish applies them. */
+export function sizeProblems(files: readonly LibrarySourceFile[]): ValidationError[] {
   const problems: ValidationError[] = []
   if (files.length > MAX_PROJECT_FILES) {
     problems.push({ path: '', message: `Maximum ${MAX_PROJECT_FILES} files` })
@@ -187,6 +189,12 @@ export function checkLibraryItem(
     }
     return []
   })
+  if (check.imports.length > MAX_LIBRARY_IMPORTS) {
+    importProblems.push({
+      path: '',
+      message: `Imports ${check.imports.length} modules; at most ${MAX_LIBRARY_IMPORTS}`,
+    })
+  }
   const versionProblems: ValidationError[] = check.version.ok
     ? []
     : [{ path: 'version', message: check.version.message }]

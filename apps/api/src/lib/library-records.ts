@@ -1,5 +1,11 @@
 import {
   LIBRARY_MODULE_IMPORT_PREFIX,
+  MAX_LIBRARY_ICON_BYTES,
+  MAX_LIBRARY_VERSIONS,
+  MAX_PROJECT_FILES,
+  MAX_PROJECT_FILE_BYTES,
+  MAX_PROJECT_TOTAL_BYTES,
+  PROJECT_FILE_EXTENSIONS,
   customNodeType,
   libraryItemCapabilities,
   type WorkspaceRole,
@@ -12,6 +18,19 @@ import type {
   LibraryOwner,
 } from '@awaitstep/db'
 import { codeImports } from './library-check.js'
+
+/** An item tree's conventions: how modules are imported and the size caps. */
+export const LIBRARY_CONVENTIONS = {
+  importPrefix: LIBRARY_MODULE_IMPORT_PREFIX,
+  extensions: PROJECT_FILE_EXTENSIONS,
+  limits: {
+    maxFiles: MAX_PROJECT_FILES,
+    maxFileBytes: MAX_PROJECT_FILE_BYTES,
+    maxTotalBytes: MAX_PROJECT_TOTAL_BYTES,
+    maxIconBytes: MAX_LIBRARY_ICON_BYTES,
+    maxVersions: MAX_LIBRARY_VERSIONS,
+  },
+}
 
 /** What a library item route answers with: the item as the caller may use it. */
 export function libraryItemRecord(

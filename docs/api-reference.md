@@ -1636,6 +1636,30 @@ Returns:
 - `latestVersion` is `null` for a draft that was never published.
 - In a workspace view, `own` is the workspace's items and `fromProject` is the project's. In the project view, `own` is the project's items and `fromProject` is empty.
 - `marketplace` lists the organization's installed nodes and appears in the project view only.
+- `counts.module` and `counts.node` count the place's own items (`own`), as the page's kind pills do.
+
+### `GET /library/tree`
+
+The Library IDE's explorer in one request: every item the addressed place owns, each with its files. Address it like the summary. With a workspace named, it lists that workspace's items; with none, the project's own.
+
+**Permission:** `library:read`
+
+Returns:
+
+```json
+{
+  "owner": { "kind", "id" },
+  "viewerCan": { "edit": { "allowed", "reason?" }, "create": { "allowed", "reason?" } },
+  "items": [
+    { "id", "kind", "slug", "name", "latestVersion", "files": [{ "path", "hash", "readOnly" }] }
+  ],
+  "projectModules": [{ "id", "slug", "latestVersion" }]
+}
+```
+
+- `files` is the working copy, plus each published version folder of a custom node (`readOnly: true`).
+- Sources are not included. Read a file with `GET /library/items/:id/files/:path`.
+- `projectModules` lists the project's own modules, for a workspace's tree only (empty in the project's). They are what a `#modules/<slug>` resolves to when the workspace owns no module of that slug.
 
 ### `POST /library/items`
 
@@ -1672,6 +1696,21 @@ Each refusal is `409`:
 - A slug the same owner already uses for that kind.
 - Changing a module's slug while anything uses it, naming the consumers in `{ error, consumers }`. A node's slug is free to change, since workflows place it by id.
 
+### `POST /library/items/:id/duplicate`
+
+Copies the item into a new one beside it, with the same owner and kind. The copy starts unpublished at `1.0.0`.
+
+**Permission:** `library:write`
+
+Body: `{ name, slug? }`. `slug` defaults to the name, slugified.
+
+| Kind     | What is copied                                                                                                                                                                                               |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `module` | The working copy. `package.json` takes the new slug as its `name` and version `1.0.0`.                                                                                                                       |
+| `node`   | The newest code: the open draft folder, otherwise the latest published version. It goes into `1.0.0/`, with `node.json` taking the new slug as `id`, the new name and version `1.0.0`. The icon comes along. |
+
+Returns `201` with the new item. A slug already used for that kind by the same owner is `409`. A full library is `422`.
+
 ### `DELETE /library/items/:id`
 
 **Permission:** `library:delete`
@@ -1705,7 +1744,7 @@ Body: `{ source }`.
 Path rules:
 
 - **Module:** code and data files, with `package.json` at the root only. The manifest is checked on write.
-- **Node:** `icon.svg` at the root: an SVG document of at most 32 KB with no scripts, event handlers, `javascript:` links or embedded content. Everything else lives inside a version folder (`1.0.1/…`).
+- **Node:** `icon.svg` at the root: an SVG document of at most 32 KB with no scripts, event handlers, `javascript:` links or embedded content. Everything else lives inside a version folder (`1.0.1/…`). A version folder can't hold `ctx.ts` or `ctx.d.ts`: the template's types (`import type { Ctx, Output } from './ctx'`) is drawn from `node.json` by the editor and never stored.
 
 Errors:
 

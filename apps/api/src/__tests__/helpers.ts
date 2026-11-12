@@ -2272,6 +2272,12 @@ const mockDb: DatabaseAdapter = {
   async getLibraryTree() {
     return notMocked('getLibraryTree')
   },
+  async getLibraryOwnerTree() {
+    return notMocked('getLibraryOwnerTree')
+  },
+  async getLibraryItemSources() {
+    return notMocked('getLibraryItemSources')
+  },
   async listLibraryVersions() {
     return notMocked('listLibraryVersions')
   },
