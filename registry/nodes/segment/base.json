@@ -74,5 +74,5 @@
     "defaultRetries": 2,
     "defaultTimeout": "30 seconds"
   },
-  "docsUrl": "https://segment.com/docs/connections/sources/catalog/libraries/server/http-api/"
+  "docsUrl": "https://www.twilio.com/docs/segment/connections/sources/catalog/libraries/server/http-api"
 }
