@@ -1,0 +1,28 @@
+{
+  "version": "1.1.0",
+  "description": "Read and write Supabase rows, call RPC functions, and count results",
+  "tags": ["supabase", "database", "postgres", "rows", "rpc"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Insert Row",
+        "Select Rows",
+        "Update Rows",
+        "Delete Rows",
+        "Upsert Row",
+        "Count Rows",
+        "RPC"
+      ]
+    },
+    "functionName": {
+      "type": "string",
+      "label": "Function Name",
+      "description": "Postgres function name. Used by: RPC."
+    },
+    "args": {
+      "type": "json",
+      "label": "Arguments",
+      "description": "Function arguments. Used by: RPC."
+    }
+  }
+}

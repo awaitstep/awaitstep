@@ -1,0 +1,28 @@
+{
+  "version": "1.1.0",
+  "description": "Read and write Google Sheets values and manage sheet structure",
+  "tags": ["google", "sheets", "spreadsheet", "data", "batch-update"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Read Rows",
+        "Append Row",
+        "Update Row",
+        "Clear Range",
+        "Get Spreadsheet",
+        "Batch Update",
+        "Add Sheet"
+      ]
+    },
+    "requests": {
+      "type": "json",
+      "label": "Batch Requests",
+      "description": "Google Sheets batchUpdate request objects. Used by: Batch Update."
+    },
+    "sheetTitle": {
+      "type": "string",
+      "label": "Sheet Title",
+      "description": "Title for the new sheet. Used by: Add Sheet."
+    }
+  }
+}

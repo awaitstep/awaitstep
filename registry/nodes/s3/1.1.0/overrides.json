@@ -1,0 +1,24 @@
+{
+  "version": "1.1.0",
+  "description": "Upload, download, copy, list, and delete objects in S3-compatible storage",
+  "tags": ["s3", "storage", "aws", "object-storage", "r2"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Put Object",
+        "Get Object",
+        "List Objects",
+        "Delete Object",
+        "Head Object",
+        "Copy Object",
+        "List Buckets"
+      ]
+    },
+    "destinationKey": {
+      "type": "string",
+      "label": "Destination Key",
+      "placeholder": "path/to/copy.txt",
+      "description": "Destination key. Used by: Copy Object."
+    }
+  }
+}
