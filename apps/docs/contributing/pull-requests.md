@@ -51,8 +51,8 @@ Keep commits **atomic** — one logical change per commit. Do not mix unrelated 
 
 ```bash
 # Good — separate logical changes
-git commit -m "feat: add slack_post_message node"
-git commit -m "test: add cloudflare template tests for slack_post_message"
+git commit -m "feat: add a weather registry node"
+git commit -m "test: cover the weather registry node"
 
 # Bad — mixing unrelated changes
 git commit -m "add slack node and fix typo in README and update deps"
@@ -66,17 +66,17 @@ git commit -m "add slack node and fix typo in README and update deps"
 
 All pull requests must pass the CI pipeline before merging:
 
-| Check      | Command          | What it verifies                |
-| ---------- | ---------------- | ------------------------------- |
-| Type check | `pnpm typecheck` | No TypeScript errors            |
-| Lint       | `pnpm lint`      | ESLint passes with no errors    |
-| Tests      | `pnpm test`      | All test suites pass            |
-| Build      | `pnpm build`     | All packages build successfully |
+| Check      | Command           | What it verifies                |
+| ---------- | ----------------- | ------------------------------- |
+| Type check | `pnpm type-check` | No TypeScript errors            |
+| Lint       | `pnpm lint`       | ESLint passes with no errors    |
+| Tests      | `pnpm test`       | All test suites pass            |
+| Build      | `pnpm build`      | All packages build successfully |
 
 Run these locally before pushing:
 
 ```bash
-pnpm build && pnpm test && pnpm lint && pnpm typecheck
+pnpm build && pnpm test && pnpm lint && pnpm type-check
 ```
 
 ## Opening the PR
@@ -97,18 +97,20 @@ pnpm build && pnpm test && pnpm lint && pnpm typecheck
 
 ## Adding a new node
 
-For new nodes, the PR must include:
+For a registry node, the PR must include:
 
-- [ ] `nodes/<node_id>/node.json`
-- [ ] `nodes/<node_id>/README.md`
-- [ ] `nodes/<node_id>/templates/cloudflare.ts` (at minimum)
-- [ ] `nodes/<node_id>/tests/cloudflare.test.ts`
-- [ ] All tests passing
+- [ ] `registry/nodes/<node_id>/base.json`
+- [ ] `registry/nodes/<node_id>/icon.svg`
+- [ ] `registry/nodes/<node_id>/<version>/overrides.json`
+- [ ] `registry/nodes/<node_id>/<version>/template.ts` (or `templates/<provider>.ts`)
+- [ ] No generated `<version>/node.json` and no `registry/index.json`
+- [ ] Registry validation and tests passing
 
-Run the node validator before submitting:
+Run the validator before submitting:
 
 ```bash
-pnpm node-cli validate nodes/<node_id>
+pnpm --filter @awaitstep/registry validate
+pnpm --filter @awaitstep/registry test
 ```
 
 See [Adding Nodes](./adding-nodes.md) for the full walkthrough.

@@ -1,16 +1,21 @@
 # Node Versioning
 
-Custom nodes use semantic versioning (semver). The version is declared in `node.json` and is stored in the `WorkflowIR` alongside each node instance.
+Custom nodes use semantic versioning (semver). A registry node keeps shared fields in `base.json` and each version in a directory with an `overrides.json` that declares `version` and `description`. The version is stored in the `WorkflowIR` alongside each node instance.
 
-## Semver in node.json
+## Semver in the version directory
 
-```json
-{
-  "id": "stripe_charge",
-  "version": "1.0.0",
-  ...
-}
 ```
+registry/nodes/stripe/
+├── base.json
+├── 1.0.0/
+│   ├── overrides.json   # { "version": "1.0.0", "description": "..." }
+│   └── template.ts
+└── 1.1.0/
+    ├── overrides.json   # only changed fields
+    └── template.ts
+```
+
+The generated `<version>/node.json` is owned by CI. Edit the overrides, not the generated file.
 
 Follow standard semver conventions:
 
@@ -29,7 +34,7 @@ When a node is installed from the marketplace or added to a workflow, its versio
   "nodes": [
     {
       "id": "charge_card",
-      "type": "stripe_charge",
+      "type": "stripe",
       "version": "1.2.3",
       ...
     }
@@ -76,7 +81,7 @@ Each deploy generates fresh code from the current IR. The generated code is not 
 
 ## Deprecating a Node
 
-If you are a node author and you want to signal that a node should be replaced, set `deprecated: true` in `node.json`:
+If you are a node author and want to signal that a node should be replaced, set `deprecated: true` in `base.json` (or in a version override):
 
 ```json
 {

@@ -1,6 +1,6 @@
 ---
 name: create-node
-description: Scaffold a complete AwaitStep custom node
+description: Scaffold a complete AwaitStep registry or local custom node
 disable-model-invocation: true
 argument-hint: '[node_id]'
 ---
@@ -11,142 +11,121 @@ Read the full node authoring guide before proceeding:
 
 - `.claude/skills/create-node/guide.md`
 
-Also read the canonical NodeDefinition type and reference example:
+Also read the canonical NodeDefinition type:
 
 - `packages/ir/src/node-definition.ts`
-- `packages/ir/src/bundled-nodes/http-request.ts`
+
+Decide which kind of node this is:
+
+- **Registry node** (default): `registry/nodes/<id>/`, shared `base.json` + per-version `overrides.json`, published through the registry.
+- **Local node**: `nodes/<id>/` with `node.json`, bundled into this app.
 
 ---
 
 ## Step 1: Validate Node ID
 
-The node ID is: `$ARGUMENTS`
+The node ID is `$ARGUMENTS`.
 
 If no node ID was provided, ask the user for one before continuing.
 
 Validate the node ID:
 
-1. Must match `^[a-z][a-z0-9_]*$` (lowercase, underscores, starts with letter)
-2. Must NOT conflict with builtin node IDs: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`
-3. Must NOT already exist in `nodes/`
-
-If validation fails, explain the issue and ask for a corrected ID.
+1. Must match `^[a-z][a-z0-9_-]*$`.
+2. Must NOT conflict with builtin node IDs: `step`, `sleep`, `sleep_until`, `branch`, `parallel`, `http_request`, `wait_for_event`, `loop`, `break`, `race`, `try_catch`, `sub_workflow`, `sub_script`.
+3. Must NOT already exist under the chosen directory.
 
 ## Step 2: Gather Requirements
 
 Ask the user ALL of the following in a single message:
 
-1. **What does this node do?** (one sentence — becomes the `description`)
-2. **What config fields does it need?** (name, type, required?, description for each)
-3. **Does it need any API keys or secrets?** (if yes: what env var name?)
-4. **What does it output?** (field names and types)
-5. **What category?** (one of: Payments, Email, Messaging, Database, Storage, AI, Authentication, HTTP, Scheduling, Notifications, Data, Utilities, Control Flow, Internal)
-6. **What external API does it call?** (if any — provide the base URL)
-7. **Which providers should it support?** (default: cloudflare only)
+1. **Registry or local node?**
+2. **What does this node do?** (one sentence — becomes the `description`)
+3. **What actions does it expose?** (for an `action` select; list the labels)
+4. **What config fields does each action need?** (name, type, required?, description)
+5. **What env vars/secrets does it need?** (and the `envVarName` for each)
+6. **What does it output?** (field names, types, nullable?)
+7. **What category?** (`Payments`, `Email`, `Messaging`, `Database`, `Storage`, `AI`, `Authentication`, `HTTP`, `Scheduling`, `Notifications`, `Data`, `Utilities`, `Control Flow`, `Internal`, `CRM`, `Analytics`, `Developer Tools`, `Project Management`, `E-commerce`, `Customer Support`, `Forms`)
+8. **What external API does it call?** (base URL and docs URL)
+9. **Any npm dependencies?**
 
 Wait for the user to answer before proceeding.
 
-## Step 3: Generate Files
+## Step 3: Generate files
 
-Create the following files in `nodes/<node_id>/`:
+### Registry node
 
-### 3a. `node.json`
+Create exactly:
 
-Generate a complete NodeDefinition JSON file using the user's answers. Follow the exact schema from `packages/ir/src/node-definition.ts`. Set:
+```
+registry/nodes/<id>/
+├── base.json
+├── icon.svg
+└── 1.0.0/
+    ├── overrides.json
+    └── template.ts
+```
 
-- `id`: the validated node ID
-- `version`: `"1.0.0"`
-- `author`: `"awaitstep"`
-- `license`: `"Apache-2.0"`
-- `providers`: based on user's answer (default `["cloudflare"]`)
-- `runtime.defaultRetries`: `3` unless the user specified otherwise
-- `runtime.defaultTimeout`: `"30 seconds"` unless the user specified otherwise
+`base.json` is the full `NodeDefinition` **without** `version` and `description`.
+`1.0.0/overrides.json` is `{ "version": "1.0.0", "description": "..." }`.
+Do not create `<version>/node.json`; CI regenerates it.
 
-### 3b. `templates/cloudflare.ts`
+### Local node
 
-Generate a Cloudflare Workers template that:
+Create:
 
-- Imports `NodeContext` from `@awaitstep/node-sdk`
-- Defines `Config` and `Output` interfaces matching the schemas
-- Marks secret fields as `never` in the Config interface
-- Exports a default async function accepting `ctx: NodeContext<Config>`
-- Makes the appropriate API call using `fetch` (Web APIs only)
-- Accesses secrets via `ctx.env.SECRET_NAME`
-- Throws on non-2xx responses with descriptive error messages
-- Returns an object matching the output schema
+```
+nodes/<id>/
+├── node.json
+├── template.ts
+├── icon.svg
+└── README.md
+```
 
-### 3c. `tests/cloudflare.test.ts`
+`node.json` is the full `NodeDefinition` including `version` and `description`.
 
-Generate a test file that:
+### Definition rules
 
-- Uses vitest (`describe`, `it`, `expect`, `vi`, `beforeEach`)
-- Uses `createMockContext` from `@awaitstep/node-sdk/testing`
-- Includes a happy-path test verifying correct output
-- Includes an error-path test verifying the template throws
-- Includes a test verifying correct authorization header (if secrets are used)
-- Mocks `global.fetch` — no real network calls
+- `id` matches the directory.
+- `description` is at most 120 characters.
+- Every `secret` field has `envVarName`.
+- Every `select`/`multiselect` field has non-empty `options`.
+- `providers` only names platforms with a template (today: `cloudflare`).
+- `docsUrl` points at the provider's API docs.
+- `runtime.defaultRetries` is `2`; set a sensible `defaultTimeout`.
 
-### 3d. `README.md`
+### Template rules
 
-Generate a README with:
-
-- Node name as heading
-- One-line description
-- Supported providers list (✅/❌)
-- Prerequisites (required accounts, env vars)
-- Configuration table (Field, Type, Required, Description)
-- Output table (Field, Type, Description)
-- Example workflow usage
-- Changelog with `### 1.0.0 — Initial release`
+- Export one default async function accepting `ctx`.
+- Read config from `ctx.config.<field>` and secrets from `ctx.env.<ENV_VAR>`.
+- Use Web APIs (`fetch`, `crypto`, `URL`); no `fs`, `path`, `process`, `Buffer`.
+- Throw on errors; never swallow them.
+- Do not call durable primitives (`step.do`, `step.sleep`, `step.waitForEvent`).
+- Import only packages declared in `dependencies`.
+- Return an object matching `outputSchema`; mark nullable fields.
 
 ## Step 4: Validate
 
-Run through the validation checklist from the guide against the generated files. Check every item. If any check fails, fix the issue immediately.
+Registry node:
 
-Checklist summary:
+```bash
+pnpm --filter @awaitstep/registry validate
+```
 
-- `id` matches directory name and pattern
-- `id` not a builtin
-- Valid semver version
-- Description under 120 chars
-- Valid category
-- All secret fields have `envVarName`
-- All select/multiselect fields have `options`
-- Each provider has a template file
-- Templates export default async function
-- Templates don't call step.do/step.sleep
-- Templates throw on errors
-- Secrets via `ctx.env` not `ctx.config`
-- Tests have happy + error paths
-- Tests mock fetch
-- README has config and output tables
+Local node:
+
+```bash
+pnpm nodes:generate
+```
+
+Fix every error. Do not run `registry/scripts/build-index.ts`; do not stage
+`<version>/node.json` or `registry/index.json`.
 
 ## Step 5: Summary
 
-Present a summary to the user:
+Present:
 
-```
-✅ Node scaffolded: <node_id>
-
-Files created:
-  nodes/<node_id>/node.json
-  nodes/<node_id>/templates/cloudflare.ts
-  nodes/<node_id>/tests/cloudflare.test.ts
-  nodes/<node_id>/README.md
-
-Config fields: <count>
-  - <field>: <type> (required/optional)
-  ...
-
-Output fields: <count>
-  - <field>: <type>
-  ...
-
-Required env vars:
-  - <ENV_VAR_NAME>: <description>
-
-Next steps:
-  1. Review the generated files
-  2. Test with: pnpm test nodes/<node_id>
-  3. Validate with: pnpm validate nodes/<node_id>
-```
+- files created;
+- action labels and config fields;
+- output fields and nullability;
+- required env vars;
+- the validator command and its result.

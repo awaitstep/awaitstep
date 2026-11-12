@@ -7,13 +7,13 @@ A node is a reusable, self-describing workflow building block. Every node on the
 - **What it produces** — a typed output schema that downstream nodes can reference via <code v-pre>{{nodeId.property}}</code>
 - **How it runs** — one or more code templates, one per execution provider
 
-Every node is automatically wrapped in `step.do()` by the compile pipeline. You never write retry or durability logic — the platform handles it.
+The workflow generator wraps a top-level node in `flow.step(...)`. You never write retry or durability logic — the platform handles it.
 
 ## Two Kinds of Nodes
 
 ### Built-in Nodes
 
-Built-in nodes are bundled with AwaitStep. They cannot be removed or overridden. There are 12 of them:
+Built-in nodes are bundled with AwaitStep. They cannot be removed or overridden. There are 13 of them:
 
 | Node             | Category     | Description                                |
 | ---------------- | ------------ | ------------------------------------------ |
@@ -29,6 +29,7 @@ Built-in nodes are bundled with AwaitStep. They cannot be removed or overridden.
 | `wait_for_event` | Scheduling   | Pause until an external event arrives      |
 | `http_request`   | HTTP         | Make an HTTP API call                      |
 | `sub_workflow`   | Control Flow | Trigger another workflow                   |
+| `sub_script`     | Control Flow | Call another function/script               |
 
 See [Built-in Nodes](./built-in.md) for the full reference.
 
@@ -50,8 +51,8 @@ Every node — built-in or custom — is described by a `NodeDefinition` object.
 ```typescript
 interface NodeDefinition {
   // Identity
-  id: string // e.g. "stripe_charge"
-  name: string // e.g. "Stripe Charge"
+  id: string // e.g. "stripe"
+  name: string // e.g. "Stripe"
   version: string // Semver, e.g. "1.0.0"
   description: string // Max 120 chars
   category: Category
@@ -83,58 +84,39 @@ interface NodeDefinition {
 
 ## How Templates Work
 
-Each node has one or more template files in its `templates/` directory, named by provider (`cloudflare.ts`, `inngest.ts`, etc.). A template is a TypeScript module that exports a default async function:
+A registry node has one template per version (`registry/nodes/<id>/<version>/template.ts`) and may override it per provider (`<version>/templates/<provider>.ts`). A local node uses `nodes/<id>/template.ts` or `nodes/<id>/templates/<provider>.ts`. A template is a plain TypeScript module that exports a default async function:
 
 ```typescript
-import type { NodeContext } from '@awaitstep/node-sdk'
-
-export default async function (ctx: NodeContext<Config>): Promise<Output> {
-  // Business logic here
-  // ctx.config — user-provided config values
+export default async function (ctx) {
+  // ctx.config — resolved config values
   // ctx.env    — environment variables and secrets
-  // ctx.inputs — outputs from upstream steps
-  throw new Error('...') // Always throw on error — never swallow
+  return { result: ctx.config.input }
 }
 ```
 
-At deploy time, the codegen pipeline resolves the correct template for the target provider and inlines the template body into a `step.do()` call in the generated worker.
-
-### NodeContext
-
-```typescript
-interface NodeContext<TConfig = Record<string, unknown>> {
-  config: TConfig // Config values from the drawer
-  env: Record<string, string> // Env vars and secrets (ctx.env.MY_SECRET)
-  inputs: Record<string, unknown> // Outputs from upstream steps
-  workflow: {
-    id: string // Workflow definition ID
-    instanceId: string // This run's instance ID
-    triggeredAt: string // ISO timestamp
-  }
-}
-```
+There is no `@awaitstep/node-sdk` package and no `NodeContext` type. The generator rewrites `ctx.config` reads into the step's params and `ctx.env` reads into the generated `env` object, then emits the template as a module and a `flow.step(...)` call.
 
 ### Template Rules
 
-- Use Web APIs only for Cloudflare templates (`fetch`, `crypto`, `URL`). No `fs`, `path`, `process`, or `Buffer`.
-- Never call `step.do()`, `step.sleep()`, or `step.sleepUntil()` inside a template — the platform wraps your code.
+- Use Web APIs (`fetch`, `crypto`, `URL`). Cloudflare templates must not use `fs`, `path`, `process`, or `Buffer`.
+- Never call durable primitives (`step.do`, `step.sleep`, `step.waitForEvent`) inside a template — the platform wraps your code.
 - Always throw on errors. Never return `{ success: false }`.
 - Access secrets via `ctx.env.VAR_NAME`, never via `ctx.config`.
 - Never log secret values.
 
 ## Categories
 
-| Category        | Example nodes                     |
-| --------------- | --------------------------------- |
-| `Control Flow`  | branch, loop, parallel, try_catch |
-| `HTTP`          | http_request                      |
-| `Scheduling`    | sleep, wait_for_event             |
-| `Payments`      | stripe_charge, stripe_refund      |
-| `Email`         | resend_send_email, sendgrid_send  |
-| `Messaging`     | slack_post_message, twilio_sms    |
-| `Database`      | postgres_query, d1_query          |
-| `Storage`       | r2_put, s3_upload                 |
-| `AI`            | openai_chat, anthropic_message    |
-| `Notifications` | pagerduty_alert                   |
-| `Data`          | json_transform, csv_parse         |
-| `Utilities`     | generate_uuid, format_date        |
+| Category        | Example nodes                                                       |
+| --------------- | ------------------------------------------------------------------- |
+| `Control Flow`  | branch, loop, parallel, try_catch                                   |
+| `HTTP`          | http_request                                                        |
+| `Scheduling`    | sleep, wait_for_event                                               |
+| `Payments`      | stripe, paddle, paypal, lemon-squeezy                               |
+| `Email`         | resend, sendgrid, mailchimp, convertkit                             |
+| `Messaging`     | slack, discord, telegram, twilio                                    |
+| `Database`      | airtable, supabase, firebase-firestore, upstash-redis               |
+| `Storage`       | s3                                                                  |
+| `AI`            | openai, anthropic, google-gemini, elevenlabs, perplexity, replicate |
+| `Notifications` | pagerduty, sentry                                                   |
+| `Data`          | notion, google-sheets, hubspot                                      |
+| `Utilities`     | github, jira, linear, monday, trello                                |

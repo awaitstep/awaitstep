@@ -68,5 +68,5 @@
     "defaultRetries": 2,
     "defaultTimeout": "60 seconds"
   },
-  "docsUrl": "https://docs.perplexity.ai/api-reference/chat-completions"
+  "docsUrl": "https://docs.perplexity.ai/docs/agent-api/quickstart"
 }

@@ -279,12 +279,12 @@ const payment = await step.waitForEvent('Wait for Payment', {
 
 **Custom Nodes** — Template-based generation:
 
-1. Fetch the node's template from the template resolver
+1. Fetch the node's template from the template resolver (provider-specific first, then `template.ts`)
 2. Extract the function body from the `export default async function` wrapper
-3. Replace `ctx.config.*` with actual config values
-4. Replace `ctx.env.*` with environment variable references
-5. Replace `ctx.inputs.*` with upstream node output references
-6. Wrap in a `step.do()` call
+3. Replace `ctx.config.*` with the step's params
+4. Replace `ctx.env.*` with `env` references
+5. Replace `ctx.inputs.*` with params
+6. Emit the template as a generated module (`nodes/<varName>.ts`) and call it from a `flow.step(...)`; a container child stays inline in its block
 
 #### Template Resolution
 
@@ -296,7 +296,7 @@ interface TemplateResolver {
 }
 ```
 
-For custom nodes, templates are loaded from the node registry. Provider-specific templates are preferred over the default template.
+For custom nodes, templates are loaded from the node registry for the node version in the IR. A provider-specific `<version>/templates/<provider>.ts` is preferred over the default `<version>/template.ts`.
 
 **6. Import Hoisting**
 
