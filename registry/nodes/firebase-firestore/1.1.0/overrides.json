@@ -1,0 +1,40 @@
+{
+  "version": "1.1.0",
+  "description": "Read and write Firestore documents with explicit query value types",
+  "tags": ["firebase", "firestore", "database", "google"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Document",
+        "Get Document",
+        "Update Document",
+        "Delete Document",
+        "Query Collection",
+        "List Collections",
+        "Batch Write"
+      ]
+    },
+    "queryValue": {
+      "description": "Value to compare. Used by: Query Collection."
+    },
+    "queryValueType": {
+      "type": "select",
+      "label": "Query Value Type",
+      "default": "string",
+      "options": ["string", "number", "boolean", "null"],
+      "description": "Type of Query Value. Used by: Query Collection."
+    },
+    "limit": {
+      "type": "number",
+      "label": "Limit",
+      "default": 100,
+      "validation": { "min": 1, "max": 1000 },
+      "description": "Maximum documents to return. Used by: Query Collection, List Collections."
+    },
+    "writes": {
+      "type": "json",
+      "label": "Writes",
+      "description": "Array of Firestore write objects. Used by: Batch Write."
+    }
+  }
+}

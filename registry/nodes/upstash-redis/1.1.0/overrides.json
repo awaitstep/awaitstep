@@ -1,0 +1,45 @@
+{
+  "version": "1.1.0",
+  "description": "Run Redis commands through the Upstash REST API with typed results",
+  "tags": ["upstash", "redis", "cache", "database"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "GET",
+        "SET",
+        "DEL",
+        "HSET",
+        "HGET",
+        "LPUSH",
+        "LRANGE",
+        "INCR",
+        "EXISTS",
+        "EXPIRE",
+        "INCRBY",
+        "SCAN"
+      ]
+    },
+    "value": {
+      "description": "Value or increment. Used by: SET, LPUSH, HSET, INCRBY."
+    },
+    "pattern": {
+      "type": "string",
+      "label": "Pattern",
+      "placeholder": "user:*",
+      "description": "Match pattern. Used by: SCAN."
+    },
+    "cursor": {
+      "type": "string",
+      "label": "Cursor",
+      "default": "0",
+      "description": "Scan cursor. Used by: SCAN."
+    },
+    "count": {
+      "type": "number",
+      "label": "Count",
+      "default": 100,
+      "validation": { "min": 1 },
+      "description": "Hint for the number of keys per scan. Used by: SCAN."
+    }
+  }
+}

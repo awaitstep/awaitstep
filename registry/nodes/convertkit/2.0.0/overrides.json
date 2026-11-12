@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "description": "Manage Kit subscribers, tags, sequences, and forms",
+  "tags": ["convertkit", "kit", "email", "marketing", "creators", "subscribers"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Add Subscriber",
+        "Tag Subscriber",
+        "List Subscribers",
+        "Remove Tag",
+        "Add to Sequence",
+        "Get Subscriber",
+        "List Tags",
+        "List Forms"
+      ]
+    },
+    "email": {
+      "description": "Subscriber email. Used by: Add Subscriber, Tag Subscriber, Add to Sequence, Get Subscriber, Remove Tag."
+    },
+    "apiSecret": {
+      "label": "API Key",
+      "envVarName": "KIT_API_KEY",
+      "description": "Kit V4 API key from the Developer settings tab."
+    },
+    "statusFilter": {
+      "type": "select",
+      "label": "Subscriber Status",
+      "default": "active",
+      "options": ["active", "inactive", "bounced", "complained", "cancelled", "all"],
+      "description": "Status filter. Used by: List Subscribers."
+    },
+    "limit": {
+      "type": "number",
+      "label": "Limit",
+      "default": 50,
+      "validation": { "min": 1, "max": 1000 },
+      "description": "Maximum results to return. Used by: List Subscribers."
+    }
+  }
+}
