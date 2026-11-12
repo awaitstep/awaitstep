@@ -79,7 +79,7 @@ describe('CloudflareConnect', () => {
     ])
     expect(screen.getByRole('link', { name: /Open Cloudflare API tokens/ })).toHaveAttribute(
       'href',
-      'https://dash.cloudflare.com/profile/api-tokens',
+      'https://dash.cloudflare.com/?to=/:account/api-tokens',
     )
   })
 

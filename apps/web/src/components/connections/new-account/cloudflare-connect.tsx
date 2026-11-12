@@ -11,7 +11,7 @@ import { CloudflareLogo } from './cloudflare-logo'
 import type { ConnectStepProps } from './providers'
 import { cn } from '../../../lib/utils'
 
-const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/profile/api-tokens'
+const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/?to=/:account/api-tokens'
 
 /**
  * Connecting a Cloudflare account: sign in with Cloudflare when this
