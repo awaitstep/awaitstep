@@ -1,0 +1,24 @@
+{
+  "version": "1.1.0",
+  "description": "Create and capture PayPal orders and manage authorizations",
+  "tags": ["paypal", "payments", "orders", "checkout", "authorization"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Create Order",
+        "Capture Order",
+        "Get Order",
+        "Refund Capture",
+        "Authorize Order",
+        "Capture Authorization",
+        "Void Authorization",
+        "Get Capture"
+      ]
+    },
+    "authorizationId": {
+      "type": "string",
+      "label": "Authorization ID",
+      "description": "Authorization ID. Used by: Capture Authorization, Void Authorization."
+    }
+  }
+}
