@@ -1,0 +1,39 @@
+{
+  "version": "1.1.0",
+  "description": "Submit metrics and logs and query Datadog monitors and events",
+  "tags": ["datadog", "monitoring", "metrics", "logs", "events"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Submit Metrics",
+        "Create Event",
+        "Send Logs",
+        "List Monitors",
+        "Query Metrics",
+        "List Events",
+        "Mute Monitor"
+      ]
+    },
+    "query": {
+      "type": "string",
+      "label": "Metrics Query",
+      "placeholder": "avg:system.cpu.user{*}",
+      "description": "Datadog metrics query. Used by: Query Metrics."
+    },
+    "fromTime": {
+      "type": "number",
+      "label": "From (unix seconds)",
+      "description": "Start timestamp. Used by: Query Metrics, List Events."
+    },
+    "toTime": {
+      "type": "number",
+      "label": "To (unix seconds)",
+      "description": "End timestamp. Used by: Query Metrics, List Events."
+    },
+    "monitorId": {
+      "type": "string",
+      "label": "Monitor ID",
+      "description": "Monitor ID. Used by: Mute Monitor."
+    }
+  }
+}

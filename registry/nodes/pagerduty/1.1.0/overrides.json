@@ -1,0 +1,19 @@
+{
+  "version": "1.1.0",
+  "description": "Trigger and manage PagerDuty incidents and inspect services and schedules",
+  "tags": ["pagerduty", "incidents", "alerting", "oncall", "services"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Trigger Incident",
+        "Acknowledge Incident",
+        "Resolve Incident",
+        "List Incidents",
+        "Create Incident",
+        "List Services",
+        "List Schedules",
+        "Get Incident"
+      ]
+    }
+  }
+}
