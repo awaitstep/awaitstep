@@ -30,7 +30,7 @@ import type {
   WorkflowFileSummary,
   WorkflowVersion,
 } from '@awaitstep/db'
-import { retiredByDelete, toWorkflowFileRows } from '../lib/project-files.js'
+import { etag, requestedHash, retiredByDelete, toWorkflowFileRows } from '../lib/project-files.js'
 import { graphHash } from '../lib/graph-hash.js'
 import { newProjectFileProblems } from '../lib/source-check.js'
 import { legacyTriggerCode, projectWriteRuleErrors } from '../lib/project-write-rules.js'
@@ -61,21 +61,6 @@ export const projectFiles = new Hono<AppEnv>()
 
 function summarize(file: WorkflowFileSummary) {
   return { path: file.path, hash: file.hash, size: file.size, updatedAt: file.updatedAt }
-}
-
-function etag(hash: string): string {
-  return `"${hash}"`
-}
-
-/**
- * `If-Match` as a hash: quotes and the weak marker are stripped, `*` means
- * "any existing version". Null when the header is absent.
- */
-function requestedHash(header: string | undefined): string | null {
-  if (header === undefined) return null
-  const trimmed = header.trim().replace(/^W\//, '')
-  if (trimmed === '*') return '*'
-  return trimmed.replace(/^"|"$/g, '')
 }
 
 /**

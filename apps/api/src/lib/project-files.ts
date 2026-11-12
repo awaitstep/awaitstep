@@ -75,3 +75,19 @@ export function snapshotFilesOf(irJson: string): ProjectFile[] {
     return []
   }
 }
+
+/** A content hash as an ETag header value. */
+export function etag(hash: string): string {
+  return `"${hash}"`
+}
+
+/**
+ * `If-Match` as a hash: quotes and the weak marker are stripped, `*` means
+ * "any existing version". Null when the header is absent.
+ */
+export function requestedHash(header: string | undefined): string | null {
+  if (header === undefined) return null
+  const trimmed = header.trim().replace(/^W\//, '')
+  if (trimmed === '*') return '*'
+  return trimmed.replace(/^"|"$/g, '')
+}

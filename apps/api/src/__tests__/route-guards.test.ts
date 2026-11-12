@@ -25,6 +25,7 @@ const READ_SCOPE_BY_DESIGN = new Map([
   ['POST /api/workflows/:workflowId/source/check', 'checks a candidate, writes nothing'],
   ['POST /api/workflows/:workflowId/deploy-config-preview', 'computes a preview, writes nothing'],
   ['POST /api/connections/verify-token', 'asks Cloudflare whether a token is valid'],
+  ['POST /api/library/items/:id/check', 'checks what a publish would do, writes nothing'],
 ])
 
 // better-auth owns its namespace and its own session rules; the health check
@@ -95,6 +96,8 @@ function concrete(path: string): string {
     workspaces: TEST_WORKSPACE_ID,
     'env-vars': 'env-1',
     'api-keys': 'key-x',
+    // The mock's one library item (helpers.ts).
+    library: 'lib-1',
   }
   return path
     .replace(/:path\{[^}]*\}|\*$/, 'lib/x.ts')
@@ -102,6 +105,7 @@ function concrete(path: string): string {
     .replace(/:versionId/, 'v-1')
     .replace(/:runId/, 'run-1')
     .replace(/:sessionId/, 'sess-1')
+    .replace(/:version/, '1.0.0')
     .replace(/:id/, ids[owner ?? ''] ?? 'x')
 }
 
@@ -245,6 +249,7 @@ describe('mutation route guards', () => {
     const projectScoped = (path: string) =>
       path.startsWith('/api/workflows') ||
       path.startsWith('/api/test-sessions') ||
+      path.startsWith('/api/library') ||
       path.startsWith('/api/run/')
     expect(await refusals(ORG_KEY, projectScoped)).toEqual([])
   })
@@ -257,6 +262,7 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/workflows') &&
       !path.startsWith('/api/test-sessions') &&
       !path.startsWith('/api/run/') &&
+      !path.startsWith('/api/library') &&
       !path.startsWith('/api/workspaces') &&
       !path.startsWith('/api/api-keys') &&
       // People, invitations and requests are session-only: a key is refused

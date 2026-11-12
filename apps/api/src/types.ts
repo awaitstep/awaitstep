@@ -1,4 +1,10 @@
-import type { DatabaseAdapter, Workflow, Connection, WorkspaceChip } from '@awaitstep/db'
+import type {
+  DatabaseAdapter,
+  Workflow,
+  Connection,
+  WorkspaceChip,
+  LibraryItemAccess,
+} from '@awaitstep/db'
 import type { Budget } from './middleware/rate-limit.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
@@ -129,6 +135,10 @@ export interface AppEnv {
     user: { id: string; email: string; name?: string; emailVerified?: boolean } | null
     session: { id: string; userId: string; expiresAt: Date } | null
     workflow: Workflow | undefined
+    /** Set by requireLibraryItemAccess: the item, its owner and the caller's rows there. */
+    libraryItem: LibraryItemAccess | undefined
+    /** The caller's role where the library item lives; null for a project item when they hold no project role. */
+    libraryRole: WorkspaceRole | null
     connection: Connection | undefined
     /** The Cloudflare OAuth client, when this deployment has one. */
     cloudflareOAuth: CloudflareOAuthRuntime | undefined

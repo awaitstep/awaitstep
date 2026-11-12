@@ -7,8 +7,8 @@ An API key is minted at one **level** and carries a **grid** of permissions — 
 | Level        | Reaches                                                                       | Resources (actions)                                                                                                                                                                           |
 | ------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | organization | the organization's settings, never a workflow                                 | `projects` (read, write, delete) · `members` (read) · `connections` (read, write, delete) · `resources` (read, write, delete: nodes, the marketplace and org-wide variables) · `audit` (read) |
-| project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `members` (read)                                    |
-| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete)                                                                                            |
+| project      | everything in one project, every workspace of it, ones created later included | `workspaces` (read, write, delete) · `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `library` (read, write, delete) · `members` (read)  |
+| workspace    | one workspace of a project                                                    | `workflows` (read, write, delete, deploy, run) · `runs` (read) · `variables` (read, write, delete) · `library` (read, write, delete)                                                          |
 
 Every endpoint below names the cell it needs as **Permission:** `resource:action`; a key without it answers `403 API key lacks permission: resource:action`. A key of a level the resource is not offered at is refused for its level (`403`): an organization key never reaches a project route, a project or workspace key never manages organization resources. Project and workspace keys may still read the connections and nodes their workflows deploy with through their own `workflows:read` cell, and what their workflows resolve against through `GET /env-vars/resolved` with `variables:read`. A project- or workspace-level key reaches a **set** of places: a project-level key one or more projects, a workspace-level key one or more workspaces of a single project. Every request is cut to that set — a project or workspace outside it is not found, exactly like one the creator cannot open.
 
@@ -1601,6 +1601,201 @@ reappear as a seed and the next deploy uses the default handlers / no
 project dependencies.
 
 **Permission:** `workflows:delete`
+
+---
+
+## Library
+
+Reusable code for a project: **modules** (`package.json` + `index.ts`, imported as `#modules/<slug>`) and **custom nodes** (registry-shaped: `<version>/node.json` and `<version>/template.ts` per version, `icon.svg` at the root). An item belongs to a workspace, or to the project itself (no `workspaceId`). A workspace uses its own items and the project's; it never sees another workspace's.
+
+- **Save** writes the item's working copy, which no consumer ever sees. **Publish** snapshots it as an immutable version. Every consumer's next deploy uses the latest published version; there are no pins. At most 3 versions are kept: publishing a 4th removes the oldest.
+- **Who may do what** follows your role where the item lives. For a workspace's item that is your workspace role; for the project's own, project admins act as Admins and members as Editors. Viewers read. Editors and Admins save, publish, restore, rename and delete.
+- **Project items.** Anyone who can open the project, through any of its workspaces, reads the project's items and can import them, but only project members change them (`403 From the project’s library. Only project members change it`). Another workspace's item is `404`.
+- **Keys.** Project and workspace keys use the `library` cell. Publish and restore need `library:write`; check needs `library:read`. A workspace key reaches only the items its own workspaces own; the project's items reach it in the summary. Organization keys are refused.
+- **Resolving `#modules/<slug>`.** A workspace's import resolves to its own module first, then to the project's. A project item's import resolves only to the project's modules.
+
+### `GET /library/summary`
+
+The Library page in one request. Address it like a workflow list: the project (`?projectId=` or slugs), plus `?workspaceId=` / `?workspace=` for a workspace's view.
+
+**Permission:** `library:read`
+
+Returns:
+
+```json
+{
+  "own": [Row],
+  "fromProject": [Row],
+  "marketplace": [{ "nodeId", "name", "version" }],
+  "counts": { "module", "node", "marketplace" },
+  "viewerCan": { "create": { "allowed", "reason?" } }
+}
+```
+
+- `Row` is `{ id, kind, slug, name, description, owner: { kind, id, name }, latestVersion, publishedAt, usedBy, updatedAt }`.
+- `latestVersion` is `null` for a draft that was never published.
+- In a workspace view, `own` is the workspace's items and `fromProject` is the project's. In the project view, `own` is the project's items and `fromProject` is empty.
+- `marketplace` lists the organization's installed nodes and appears in the project view only.
+
+### `POST /library/items`
+
+Creates and scaffolds an item in the workspace the request names, or in the project when it names none.
+
+**Permission:** `library:write`
+
+Body: `{ kind: "module" | "node", name, slug?, description? }`. `slug` defaults to the name, slugified.
+
+| Kind     | Scaffold                                        |
+| -------- | ----------------------------------------------- |
+| `module` | `package.json` (version `1.0.0`) and `index.ts` |
+| `node`   | `1.0.0/node.json` and `1.0.0/template.ts`       |
+
+Returns `201` with the item. Creating in the project needs a project role: someone who reaches the project only through a workspace gets `403`. A slug already used for that kind by the same owner is `409`. One workspace, or the project itself, holds at most 200 items; past that the answer is `422`.
+
+### `GET /library/items/:id`
+
+**Permission:** `library:read`
+
+Returns `{ id, kind, slug, name, description, owner, latestVersion, importPath, nodeType, viewerCan: { edit }, createdAt, updatedAt }`.
+
+- `importPath` is `#modules/<slug>` for a module, and `null` for a node.
+- `nodeType` is `custom:<id>` for a node, the IR type the canvas stores, and `null` for a module.
+
+### `PATCH /library/items/:id`
+
+Body: any of `{ name, description, slug }`. A workspace's item and the project's own may share a slug: the workspace's wins inside that workspace.
+
+**Permission:** `library:write`
+
+Each refusal is `409`:
+
+- A slug the same owner already uses for that kind.
+- Changing a module's slug while anything uses it, naming the consumers in `{ error, consumers }`. A node's slug is free to change, since workflows place it by id.
+
+### `DELETE /library/items/:id`
+
+**Permission:** `library:delete`
+
+Returns `204`. While anything uses the item, returns `409 { error: "Can’t delete: used by …", consumers }`.
+
+`consumers` is `{ visible: [...], hiddenCount }`. Consumers in places you cannot open are counted in `hiddenCount`, never named.
+
+### `GET /library/items/:id/project`
+
+The item's tree and its conventions.
+
+**Permission:** `library:read`
+
+Returns `{ kind, importPrefix: "#modules/", extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes, maxIconBytes, maxVersions }, files: [{ path, hash, size, updatedAt, readOnly }] }`. For a custom node, every published version folder is listed too, with `readOnly: true`.
+
+### `GET /library/items/:id/files/:path`
+
+**Permission:** `library:read`
+
+Returns `{ path, hash, size, updatedAt, source, readOnly }`. A working-copy file also comes with an `ETag`. A node's published file is read from its version.
+
+### `PUT /library/items/:id/files/:path`
+
+Creates or replaces a working-copy file. `If-Match` and `If-None-Match` work as for [project files](#project-files). Answers `201` with `{ path, hash, size, updatedAt }` and an `ETag` when it creates the file, `200` when it replaces one.
+
+**Permission:** `library:write`
+
+Body: `{ source }`.
+
+Path rules:
+
+- **Module:** code and data files, with `package.json` at the root only. The manifest is checked on write.
+- **Node:** `icon.svg` at the root: an SVG document of at most 32 KB with no scripts, event handlers, `javascript:` links or embedded content. Everything else lives inside a version folder (`1.0.1/…`).
+
+Errors:
+
+- `409` for a write into a published version folder (it is read-only).
+- `422` for a path or manifest error, or for a second unpublished folder.
+
+### `DELETE /library/items/:id/files/:path`
+
+**Permission:** `library:delete`
+
+Returns `204`. Optional `If-Match`. A file inside a published folder is `409`.
+
+### `POST /library/items/:id/check`
+
+What a publish would do, without writing anything.
+
+**Permission:** `library:read`
+
+Returns `{ version, bumpedFrom, problems: [{ path, message }] }`. `problems` covers:
+
+- path rules;
+- the manifest (`package.json`, or for a node `node.json` against the node schema, with its `version` equal to its folder);
+- the version rule;
+- size caps;
+- `#modules/` imports that resolve to no module, or to one never published.
+
+### `POST /library/items/:id/versions`
+
+Publish.
+
+**Permission:** `library:write`
+
+What gets published:
+
+- **Module:** the version in `package.json`. If it equals the latest published version, the next patch is published instead and written back to `package.json` (`bumpedFrom` says so).
+- **Node:** its one unpublished version folder. That folder leaves the working copy and becomes read-only.
+
+Returns `201 { version, seq, publishedAt, bumpedFrom, pruned }`.
+
+Errors:
+
+- `400` for a version below the latest, or a node folder at or below it. A module at the latest publishes the next patch instead.
+- `422 { error, details }` when `check` reports problems.
+- `409` when a concurrent publish got there first, including one that changed the latest this publish was judged against.
+
+### `GET /library/items/:id/versions`
+
+**Permission:** `library:read`
+
+Returns `{ versions: [{ version, seq, publishedAt, publishedBy: { id, name } | null }] }`, newest first, at most 3.
+
+### `GET /library/items/:id/versions/:version`
+
+**Permission:** `library:read`
+
+Returns the version with `files: [{ path, source, hash, size }]` and `imports`, the module slugs it uses. Returns `404` once the version has been pruned.
+
+### `POST /library/items/:id/versions/:version/restore`
+
+Copies a version's code into the working copy as the next patch after the latest. "New version" in the dashboard is a restore of the latest.
+
+**Permission:** `library:write`
+
+- **Module:** the whole working copy is replaced, and `package.json` carries the new version.
+- **Node:** a new unpublished folder is created. Any open one is replaced, and `node.json` carries the new version.
+
+Returns `{ restoredFrom, version }`.
+
+### `GET /library/items/:id/usages`
+
+**Permission:** `library:read`
+
+Returns:
+
+```json
+{
+  "uses": [{ "id", "kind", "slug", "name", "owner" }],
+  "usedBy": {
+    "visible": [
+      { "kind": "workflow", "id", "name", "workspace", "runs" },
+      { "kind": "item", "id", "itemKind", "name", "slug", "owner" }
+    ],
+    "hiddenCount"
+  }
+}
+```
+
+- `uses` lists the modules the item imports. They are always ones you can open, so none is hidden.
+- `runs` is the item's version in the workflow's newest live deployment, or `null`.
+- Uses come from the saved working copy and every kept version, so a saved but unpublished import already guards a delete. Which module a slug means is decided when you read it, the way a deploy resolves it: a module created or shadowed after its consumer was saved is judged correctly. A module's own slug never counts as an import. A workspace's saved import of a project module keeps it from being deleted; project members are Editors in every workspace, so they always see that consumer by name and can remove the import.
 
 ---
 
