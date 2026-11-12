@@ -1,15 +1,26 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env tsx
 /**
- * Builds registry/index.json from the registry/nodes/ directory.
- * Run: npx tsx registry/scripts/build-index.ts
+ * Builds registry/index.json from registry/nodes/.
+ *
+ * CI only. Never run locally: it rewrites the generated node.json files and
+ * index.json, which the registry-index workflow owns.
+ *
+ * Run: pnpm --filter @awaitstep/registry build-index
  */
 
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { nodeDefinitionSchema } from '@awaitstep/ir'
 import type { NodeDefinition, Provider } from '@awaitstep/ir'
-import { deepMerge } from './merge.js'
+import {
+  latestVersion,
+  loadNodeSources,
+  loadTemplates,
+  mergeDefinition,
+  sortVersions,
+  type NodeSource,
+} from './lib/definition.js'
 
 interface RegistryVersionEntry {
   version: string
@@ -39,136 +50,114 @@ interface RegistryIndex {
 }
 
 const NODES_DIR = join(import.meta.dirname, '..', 'nodes')
+const INDEX_PATH = join(import.meta.dirname, '..', 'index.json')
 
-async function getDirectories(path: string): Promise<string[]> {
-  const entries = await readdir(path, { withFileTypes: true })
-  return entries.filter((e) => e.isDirectory()).map((e) => e.name)
-}
-
-async function fileExists(path: string): Promise<boolean> {
+async function loadPreviousIndex(): Promise<Map<string, RegistryVersionEntry>> {
+  const entries = new Map<string, RegistryVersionEntry>()
   try {
-    await readFile(path)
-    return true
-  } catch {
-    return false
-  }
-}
-
-async function loadDefinition(
-  nodeDir: string,
-  versionDir: string,
-): Promise<Record<string, unknown>> {
-  const basePath = join(nodeDir, 'base.json')
-  const overridesPath = join(versionDir, 'overrides.json')
-  const nodePath = join(versionDir, 'node.json')
-
-  if (await fileExists(basePath)) {
-    const base = JSON.parse(await readFile(basePath, 'utf-8'))
-    let merged: Record<string, unknown>
-    if (await fileExists(overridesPath)) {
-      merged = deepMerge(base, JSON.parse(await readFile(overridesPath, 'utf-8')))
-    } else if (await fileExists(nodePath)) {
-      return JSON.parse(await readFile(nodePath, 'utf-8'))
-    } else {
-      throw new Error(`No overrides.json or node.json found in ${versionDir}`)
+    const raw = JSON.parse(await readFile(INDEX_PATH, 'utf-8')) as RegistryIndex
+    for (const node of raw.nodes) {
+      for (const version of node.versions) {
+        entries.set(`${node.id}@${version.version}`, version)
+      }
     }
-    await writeFile(nodePath, JSON.stringify(merged, null, 2) + '\n')
-    return merged
+  } catch {
+    // No previous index, or it is unreadable: every version is new.
   }
-
-  return JSON.parse(await readFile(nodePath, 'utf-8'))
+  return entries
 }
 
-async function buildNodeEntry(nodeId: string): Promise<RegistryNodeEntry> {
-  const nodeDir = join(NODES_DIR, nodeId)
-  const versionDirs = (await getDirectories(nodeDir)).sort()
-
-  if (versionDirs.length === 0) {
-    throw new Error(`Node ${nodeId} has no version directories`)
-  }
+async function buildNodeEntry(
+  source: NodeSource,
+  previous: Map<string, RegistryVersionEntry>,
+): Promise<RegistryNodeEntry> {
+  if (source.versions.length === 0) throw new Error(`Node ${source.id} has no version directories`)
 
   const versions: RegistryVersionEntry[] = []
   let latestDef: NodeDefinition | null = null
+  const now = new Date().toISOString()
 
-  for (const version of versionDirs) {
-    const versionDir = join(nodeDir, version)
-    const parsed = await loadDefinition(nodeDir, versionDir)
+  for (const version of sortVersions(source.versions)) {
+    let parsed: Record<string, unknown>
+    if (source.base && version.overrides) {
+      parsed = mergeDefinition(source.base, version.overrides)
+      await writeFile(join(version.dir, 'node.json'), JSON.stringify(parsed, null, 2) + '\n')
+    } else if (version.node) {
+      parsed = version.node
+    } else {
+      throw new Error(`Node ${source.id}@${version.version} has no definition`)
+    }
 
-    // Validate against the shared schema
     const result = nodeDefinitionSchema.safeParse(parsed)
     if (!result.success) {
-      const issues = result.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
-      throw new Error(`Validation failed for ${nodeId}@${version}:\n${issues.join('\n')}`)
-    }
-    // Use raw parsed object for checksum (preserves original key order)
-    // Zod validation above ensures correctness, but reorders keys
-    const definition = parsed as NodeDefinition
-
-    if (definition.id !== nodeId) {
-      throw new Error(`Node ID mismatch: directory ${nodeId}, definition ${definition.id}`)
-    }
-    if (definition.version !== version) {
+      const issues = result.error.issues.map(
+        (issue) => `  ${issue.path.join('.')}: ${issue.message}`,
+      )
       throw new Error(
-        `Version mismatch for ${nodeId}: directory ${version}, definition ${definition.version}`,
+        `Validation failed for ${source.id}@${version.version}:\n${issues.join('\n')}`,
+      )
+    }
+    const definition = parsed as unknown as NodeDefinition
+
+    if (definition.id !== source.id) {
+      throw new Error(`Node ID mismatch: directory ${source.id}, definition ${definition.id}`)
+    }
+    if (definition.version !== version.version) {
+      throw new Error(
+        `Version mismatch for ${source.id}: directory ${version.version}, definition ${definition.version}`,
       )
     }
 
-    // Read templates
-    const templates: Partial<Record<Provider, string>> = {}
+    const templates = await loadTemplates(version.dir, definition.providers)
     for (const provider of definition.providers) {
-      try {
-        templates[provider] = await readFile(
-          join(versionDir, 'templates', `${provider}.ts`),
-          'utf-8',
+      if (!templates[provider]) {
+        throw new Error(
+          `No template found for ${source.id}@${version.version} provider ${provider}`,
         )
-      } catch {
-        try {
-          templates[provider] = await readFile(join(versionDir, 'template.ts'), 'utf-8')
-        } catch {
-          throw new Error(`No template found for ${nodeId}@${version} provider ${provider}`)
-        }
       }
     }
 
-    // Compute checksum (same algorithm as node-cli and remote-node-registry client)
     const checksumInput = JSON.stringify({ definition, templates })
     const hash = createHash('sha256').update(checksumInput).digest('hex')
-
+    const checksum = `sha256:${hash}`
+    const previousEntry = previous.get(`${source.id}@${version.version}`)
     versions.push({
-      version,
-      checksum: `sha256:${hash}`,
-      publishedAt: new Date().toISOString(),
+      version: version.version,
+      checksum,
+      publishedAt: previousEntry?.checksum === checksum ? previousEntry.publishedAt : now,
       deprecated: definition.deprecated,
     })
 
     latestDef = definition
   }
 
-  const latest = versionDirs[versionDirs.length - 1]
+  const latest = latestVersion(versions)
+  if (!latest || !latestDef) throw new Error(`Node ${source.id} has no latest version`)
 
   return {
-    id: nodeId,
-    name: latestDef!.name,
-    description: latestDef!.description,
-    category: latestDef!.category,
-    tags: latestDef!.tags ?? [],
-    icon: latestDef!.icon,
-    author: latestDef!.author,
-    license: latestDef!.license,
-    providers: latestDef!.providers,
+    id: source.id,
+    name: latestDef.name,
+    description: latestDef.description,
+    category: latestDef.category,
+    tags: latestDef.tags ?? [],
+    icon: latestDef.icon,
+    author: latestDef.author,
+    license: latestDef.license,
+    providers: latestDef.providers,
     latest,
     versions,
   }
 }
 
 async function main() {
-  const nodeIds = await getDirectories(NODES_DIR)
-  console.log(`Found ${nodeIds.length} nodes: ${nodeIds.join(', ')}`)
+  const sources = await loadNodeSources(NODES_DIR)
+  const previous = await loadPreviousIndex()
+  console.log(`Found ${sources.length} nodes: ${sources.map((source) => source.id).join(', ')}`)
 
   const nodes: RegistryNodeEntry[] = []
-  for (const nodeId of nodeIds.sort()) {
-    console.log(`  Processing ${nodeId}...`)
-    nodes.push(await buildNodeEntry(nodeId))
+  for (const source of sources) {
+    console.log(`  Processing ${source.id}...`)
+    nodes.push(await buildNodeEntry(source, previous))
   }
 
   const index: RegistryIndex = {
@@ -176,9 +165,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     nodes,
   }
-
-  const outputPath = join(import.meta.dirname, '..', 'index.json')
-  await writeFile(outputPath, JSON.stringify(index, null, 2) + '\n')
+  await writeFile(INDEX_PATH, JSON.stringify(index, null, 2) + '\n')
   console.log(`\nWrote index.json with ${nodes.length} nodes`)
 }
 

@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Interact with GitHub issues and comments via the REST API"
+}

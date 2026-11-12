@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Upload, download, list, and delete objects in S3-compatible storage"
+}

@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Generate text, embeddings, images, and moderate content with OpenAI APIs"
+}

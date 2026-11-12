@@ -59,7 +59,8 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 3,
+    "defaultRetries": 2,
     "defaultTimeout": "60 seconds"
-  }
+  },
+  "docsUrl": "https://ai.google.dev/gemini-api/docs"
 }

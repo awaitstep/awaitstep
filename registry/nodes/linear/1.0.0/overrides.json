@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Create, read, update, and list issues in Linear via GraphQL"
+}

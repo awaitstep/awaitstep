@@ -1,0 +1,24 @@
+{
+  "name": "@awaitstep/registry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build-index": "tsx scripts/build-index.ts",
+    "lint": "eslint scripts/",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
+    "validate": "tsx scripts/validate.ts"
+  },
+  "dependencies": {
+    "@awaitstep/ir": "workspace:*"
+  },
+  "devDependencies": {
+    "@awaitstep/codegen": "workspace:*",
+    "@awaitstep/tsconfig": "workspace:*",
+    "@types/node": "^26.6.5",
+    "sucrase": "^3.35.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.5"
+  }
+}

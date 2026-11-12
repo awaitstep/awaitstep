@@ -87,7 +87,8 @@
   },
   "providers": ["cloudflare"],
   "runtime": {
-    "defaultRetries": 3,
+    "defaultRetries": 2,
     "defaultTimeout": "30 seconds"
-  }
+  },
+  "docsUrl": "https://www.alibabacloud.com/help/en/directmail/latest/api-dm-2015-11-23-singledosendmail"
 }

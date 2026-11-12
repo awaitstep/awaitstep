@@ -85,6 +85,8 @@ When review feedback is shared, work through **every** comment in it — in full
 
 - **Multi-version nodes use the overrides method — never duplicate `node.json` across versions.** Shared config lives in `registry/nodes/<id>/base.json`; each version contributes a small `registry/nodes/<id>/<version>/overrides.json` with only `version`, `description`, and any fields that change. The canonical example is `registry/nodes/google-gemini/`. Match its file structure 1:1 when bumping or adding a version.
 - Templates are per-version (`<version>/template.ts` or `<version>/templates/<provider>.ts`) — there is no template inheritance. Copy from the previous version and apply the change.
+- **Every node has `base.json` + per-version `overrides.json`; `base.json` carries `docsUrl` and the retry/timeout metadata.** Do not put `version` or `description` in `base.json`.
+- Validate the registry without generating anything: `pnpm --filter @awaitstep/registry validate`. It checks merge/semver, definition schema, action/config/env agreement, template parsing, imports, forbidden APIs, and output shapes. The PR workflow runs it plus the registry tests.
 - **Never run `registry/scripts/build-index.ts` locally.** CI (`.github/workflows/registry-index.yml`) regenerates `<version>/node.json` and `registry/index.json` on push to `main` and opens an auto-merge PR. Do NOT stage `node.json` or `index.json` — only `base.json`, `overrides.json`, and templates.
 - For step-by-step guidance when versioning a node, use the `/version-node` skill.
 

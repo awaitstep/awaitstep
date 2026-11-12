@@ -1,0 +1,35 @@
+name: Validate Registry
+
+on:
+  pull_request:
+    paths:
+      - 'registry/**'
+      - 'packages/ir/src/node-bundle.ts'
+      - 'pnpm-workspace.yaml'
+      - 'pnpm-lock.yaml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build packages the registry scripts import
+        run: pnpm --filter @awaitstep/codegen... build
+
+      - name: Validate node definitions and templates
+        run: pnpm --filter @awaitstep/registry validate
+
+      - name: Registry tests
+        run: pnpm --filter @awaitstep/registry test

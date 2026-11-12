@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "description": "Execute Redis commands on Upstash via REST API"
+}
