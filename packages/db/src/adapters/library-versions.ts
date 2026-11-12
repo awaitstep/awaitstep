@@ -24,7 +24,7 @@ import {
   readJsonArray,
   type Dialect,
 } from './json-array.js'
-import type { LibraryTables } from './library-fields.js'
+import type { LibraryFields, LibraryTables } from './library-fields.js'
 import type { LibraryFilesAdapter } from './library-files.js'
 import type { LibraryUsagesAdapter } from './library-usages.js'
 
@@ -50,6 +50,7 @@ export class LibraryVersionsAdapter {
     private files: LibraryFilesAdapter,
     private usages: LibraryUsagesAdapter,
     private dialect: Dialect,
+    private fields: LibraryFields,
   ) {}
 
   // Who published, named only while they are still in the item's
@@ -231,6 +232,9 @@ export class LibraryVersionsAdapter {
             string | null
           >`(select ${latest.version} from ${aliasedFrom(latest)} where ${latest.itemId} = ${i.id} order by ${latest.seq} desc limit 1)`,
         ),
+        // The later of the item's own change and its newest file write: when it was last saved.
+        // Only for the owner's own items: a project module listed in a workspace's tree has none.
+        savedAt: fieldOf(sql`(case when ${own} then ${this.fields.updatedAt(i)} else null end)`),
         files: fieldOf(sql`(case when ${own} then ${this.workingJson(i)} else null end)`),
         published: fieldOf(
           sql`(case when ${own} and ${i.kind} = 'node' then ${this.publishedJson(i)} else null end)`,
@@ -248,6 +252,7 @@ export class LibraryVersionsAdapter {
       name: string
       own: number
       latestVersion: string | null
+      savedAt: string
       files: unknown
       published: unknown
     }[]) {
@@ -262,6 +267,7 @@ export class LibraryVersionsAdapter {
         slug: row.slug,
         name: row.name,
         latestVersion,
+        savedAt: row.savedAt,
         files: readJsonArray<LibraryFileSummary>(row.files),
         published: readJsonArray<LibraryVersionFileSummary>(row.published),
       })

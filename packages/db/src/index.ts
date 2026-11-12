@@ -208,6 +208,12 @@ export { DrizzleDatabaseAdapter } from './adapters/index.js'
 export type { SchemaRef, DrizzleAdapterOptions } from './adapters/index.js'
 export type {
   CreateLibraryItemData,
+  DeploymentLibraryVersion,
+  LibraryBundle,
+  LibraryBundleItem,
+  LibraryBundleRoots,
+  LibraryBundleLimits,
+  WorkflowLibraryUses,
   LibraryConsumerItem,
   LibraryConsumerPlace,
   LibraryConsumerWorkflow,

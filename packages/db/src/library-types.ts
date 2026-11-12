@@ -254,6 +254,8 @@ export interface LibraryOwnerTreeItem {
   slug: string
   name: string
   latestVersion: string | null
+  /** When it was last saved: the item's own change or its newest file write, as ISO text. */
+  savedAt: string
   files: LibraryFileSummary[]
   /** A node's published files (all but the icon); empty for a module. */
   published: LibraryVersionFileSummary[]
@@ -270,4 +272,61 @@ export interface LibraryOwnerTree {
 export interface LibraryItemSources {
   files: { path: string; source: string }[]
   latest: { version: string; files: { path: string; source: string }[] } | null
+}
+
+/** What a workflow's bundle starts from: where it sits, what its code imports and the custom nodes it places. */
+export interface LibraryBundleRoots {
+  projectId: string
+  workspaceId: string | null
+  /** `#modules/<slug>` slugs the workflow's own code imports. */
+  slugs: string[]
+  /** Item ids of the `custom:<itemId>` nodes on its canvas. */
+  nodeItemIds: string[]
+}
+
+/** An item a bundle reaches, at its latest published version (null: never published). */
+export interface LibraryBundleItem {
+  id: string
+  kind: LibraryKind
+  slug: string
+  name: string
+  /** Null for the project's own item. */
+  workspaceId: string | null
+  version: string | null
+  /** The version's files, relative to it; empty without a version. */
+  files: LibraryVersionFile[]
+  /** The module slugs that version imports. */
+  imports: string[]
+  /** Who reached it: another item's id, or null for the workflow itself. */
+  importers: (string | null)[]
+}
+
+/** How much one bundle may reach: items, and the files of their versions in total. */
+export interface LibraryBundleLimits {
+  items: number
+  /** Characters of the versions' stored file JSON, summed. */
+  bytes: number
+  files: number
+}
+
+export interface LibraryBundle {
+  items: LibraryBundleItem[]
+  /** More items were reachable than the cap allows. */
+  truncated: boolean
+  /** The items' files together pass a limit; every item then comes back without its files. */
+  oversize: boolean
+}
+
+/** One library version a deployment bundled. */
+export interface DeploymentLibraryVersion {
+  itemId: string
+  slug: string
+  version: string
+}
+
+/** A workflow as a library consumer: what it uses (where it sits is read from its row). */
+export interface WorkflowLibraryUses {
+  workflowId: string
+  slugs: string[]
+  nodeItemIds: string[]
 }

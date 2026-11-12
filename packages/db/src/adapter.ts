@@ -1,5 +1,10 @@
 import type {
   CreateLibraryItemData,
+  DeploymentLibraryVersion,
+  LibraryBundle,
+  LibraryBundleRoots,
+  LibraryBundleLimits,
+  WorkflowLibraryUses,
   LibraryConsumerPlace,
   LibraryConsumers,
   LibraryFile,
@@ -934,6 +939,8 @@ export interface DatabaseAdapter {
     error?: string
     configSnapshot?: string
     createdBy?: string
+    /** The library versions it bundled, written in the same unit. */
+    libraryVersions?: DeploymentLibraryVersion[]
   }): Promise<Deployment>
   /** The version live on that account (its newest successful deploy) is locked. */
   isLiveVersionLocked(workflowId: string, connectionId: string): Promise<boolean>
@@ -1262,6 +1269,16 @@ export interface DatabaseAdapter {
   restoreLibraryVersion(data: RestoreLibraryVersionData): Promise<void>
   /** Makes `slugs` the item's whole set of uses, resolved as a deploy resolves them. */
   rewriteLibraryUsages(place: LibraryConsumerPlace, slugs: string[]): Promise<void>
+  /** Makes `uses` the workflow's whole set of uses; custom nodes out of its reach are skipped. */
+  rewriteWorkflowLibraryUsages(uses: WorkflowLibraryUses): Promise<void>
+  /**
+   * Every library item a workflow's bundle reaches from `roots`, each at its
+   * latest published version, in one statement, within `limits`.
+   */
+  resolveLibraryBundle(
+    roots: LibraryBundleRoots,
+    limits: LibraryBundleLimits,
+  ): Promise<LibraryBundle>
   /** What the item uses and who uses it, as the caller may see them. */
   getLibraryUsages(userId: string, itemId: string): Promise<LibraryUsages>
   /** Who uses the item, as the caller may see them. */

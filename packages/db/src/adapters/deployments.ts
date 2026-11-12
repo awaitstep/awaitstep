@@ -1,5 +1,8 @@
 import { eq, desc, and, or, lt, lte, aliasedTable, getTableColumns, sql } from 'drizzle-orm'
 import type { Deployment, DeploymentListItem } from '../types.js'
+import type { DeploymentLibraryVersion } from '../library-types.js'
+import { atomically } from './atomic.js'
+import { chunked, rowsPerInsert } from './statement-params.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 
@@ -15,6 +18,7 @@ export class DeploymentsAdapter {
     private connections: AnyTable,
     private workflows: AnyTable,
     private projects: AnyTable,
+    private libraryVersions: AnyTable,
   ) {}
 
   async create(data: {
@@ -33,6 +37,8 @@ export class DeploymentsAdapter {
     configSnapshot?: string
     /** The user who deployed it. */
     createdBy?: string
+    /** The library versions it bundled, written with it. */
+    libraryVersions?: DeploymentLibraryVersion[]
   }): Promise<Deployment> {
     const now = new Date().toISOString()
     const row = {
@@ -52,7 +58,20 @@ export class DeploymentsAdapter {
       takenDownAt: null,
       takenDownBy: null,
     }
-    await this.db.insert(this.table).values(row)
+    const library = (data.libraryVersions ?? []).map((entry) => ({
+      deploymentId: data.id,
+      itemId: entry.itemId,
+      slug: entry.slug,
+      version: entry.version,
+    }))
+    // Chunked: D1 binds at most 100 parameters per statement, and a bundle
+    // reaches up to 100 items of 4 columns each.
+    await atomically(this.db, (tx) => [
+      tx.insert(this.table).values(row),
+      ...chunked(library, rowsPerInsert(this.libraryVersions)).map((some) =>
+        tx.insert(this.libraryVersions).values(some),
+      ),
+    ])
     return row
   }
 

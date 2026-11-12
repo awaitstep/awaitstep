@@ -1,5 +1,10 @@
 import type {
   CreateLibraryItemData,
+  DeploymentLibraryVersion,
+  LibraryBundle,
+  LibraryBundleRoots,
+  LibraryBundleLimits,
+  WorkflowLibraryUses,
   LibraryConsumerPlace,
   LibraryConsumers,
   LibraryFile,
@@ -214,6 +219,7 @@ import { LibraryFields, type LibraryTables } from './library-fields.js'
 import { LibraryFilesAdapter } from './library-files.js'
 import { LibraryItemsAdapter } from './library-items.js'
 import { LibraryUsagesAdapter } from './library-usages.js'
+import { LibraryBundleAdapter } from './library-bundle.js'
 import { LibraryVersionsAdapter } from './library-versions.js'
 
 export interface SchemaRef {
@@ -305,6 +311,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _libraryFiles: LibraryFilesAdapter
   private _libraryVersions: LibraryVersionsAdapter
   private _libraryUsages: LibraryUsagesAdapter
+  private _libraryBundle: LibraryBundleAdapter
   private _scope: ScopeAdapter
   private _summaries: SummaryAdapter
   private _access: AccessAdapter
@@ -483,6 +490,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       schema.connections,
       schema.workflows,
       schema.projects,
+      schema.deploymentLibraryVersions,
     )
     this._apiKeys = new ApiKeysAdapter(
       db,
@@ -559,6 +567,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       libraryRoles,
       this._dialect,
     )
+    this._libraryBundle = new LibraryBundleAdapter(db, this._dialect)
     this._libraryItems = new LibraryItemsAdapter(
       db,
       { ...libraryTables, ...tables },
@@ -573,6 +582,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._libraryFiles,
       this._libraryUsages,
       this._dialect,
+      libraryFields,
     )
     if (roles) {
       this._account = new AccountAdapter(
@@ -1632,6 +1642,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     error?: string
     configSnapshot?: string
     createdBy?: string
+    libraryVersions?: DeploymentLibraryVersion[]
   }): Promise<Deployment> {
     return this._deployments.create(data)
   }
@@ -2085,6 +2096,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
   rewriteLibraryUsages(place: LibraryConsumerPlace, slugs: string[]): Promise<void> {
     return this._libraryUsages.rewrite(place, slugs)
+  }
+  rewriteWorkflowLibraryUsages(uses: WorkflowLibraryUses): Promise<void> {
+    return this._libraryUsages.rewriteWorkflow(uses)
+  }
+  resolveLibraryBundle(
+    roots: LibraryBundleRoots,
+    limits: LibraryBundleLimits,
+  ): Promise<LibraryBundle> {
+    return this._libraryBundle.resolve(roots, limits)
   }
   getLibraryUsages(userId: string, itemId: string): Promise<LibraryUsages> {
     return this._libraryUsages.usages(userId, itemId)

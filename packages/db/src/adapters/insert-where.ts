@@ -31,12 +31,14 @@ export function insertWhereQuery(
   row: Record<string, unknown>,
   from: AnyTable,
   condition: SQL,
+  options: { skipExisting?: boolean } = {},
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- drizzle's pending insert, run by `await` or a batch
 ): any {
-  return db
+  const insert = db
     .insert(table)
     .select(db.select(boundFields(table, row)).from(from).where(condition))
-    .returning()
+  // A row some concurrent writer already put there is left as it is.
+  return (options.skipExisting ? insert.onConflictDoNothing() : insert).returning()
 }
 
 /**

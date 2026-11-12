@@ -5,6 +5,7 @@ import type {
   LibraryResolvedModule,
   LibraryUsages,
   LibraryUses,
+  WorkflowLibraryUses,
 } from '../library-types.js'
 import { atomically } from './atomic.js'
 import {
@@ -19,7 +20,7 @@ import {
 import type { LibraryFields, LibraryTables } from './library-fields.js'
 import { liveOnItsAccount } from './live-deployment.js'
 import type { RoleFields } from './role-fields.js'
-import { insertWhereQuery } from './insert-where.js'
+import { boundFields, insertWhereQuery } from './insert-where.js'
 import { chunked, rowsPerInsert } from './statement-params.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,11 +76,13 @@ export class LibraryUsagesAdapter {
     }))
     if (onlyIf) {
       for (const row of rows) {
-        statements.push(insertWhereQuery(tx, u, row, onlyIf.from, onlyIf.condition))
+        statements.push(
+          insertWhereQuery(tx, u, row, onlyIf.from, onlyIf.condition, { skipExisting: true }),
+        )
       }
     } else {
       for (const some of chunked(rows, rowsPerInsert(u))) {
-        statements.push(tx.insert(u).values(some).returning({ id: u.id }))
+        statements.push(tx.insert(u).values(some).onConflictDoNothing().returning({ id: u.id }))
       }
     }
     return statements
@@ -87,6 +90,65 @@ export class LibraryUsagesAdapter {
 
   async rewrite(place: LibraryConsumerPlace, slugs: string[]): Promise<void> {
     await atomically(this.db, (tx) => this.rewriteStatements(tx, place, slugs))
+  }
+
+  /**
+   * Makes `uses` the workflow's whole set of rows. Two saves racing on pg
+   * (READ COMMITTED) can each miss the other's fresh rows in their delete,
+   * so an insert meeting an existing row skips it rather than failing a
+   * save whose version is already written. Module slugs are stored
+   * as written (resolved when read); a custom node only when it is in the
+   * workflow's reach — its own workspace's or its project's own — so an IR
+   * naming some other item cannot make that item look used and block its delete.
+   */
+  async rewriteWorkflow(uses: WorkflowLibraryUses): Promise<void> {
+    const u = this.t.libraryUsages
+    const now = new Date().toISOString()
+    await atomically(this.db, (tx) => {
+      const statements: unknown[] = [
+        tx.delete(u).where(eq(u.workflowId, uses.workflowId)).returning({ id: u.id }),
+      ]
+      const slugRows = [...new Set(uses.slugs)].map((slug) => ({
+        id: `${uses.workflowId}:${slug}`,
+        workflowId: uses.workflowId,
+        consumerItemId: null,
+        slug,
+        nodeId: null,
+        createdAt: now,
+      }))
+      for (const some of chunked(slugRows, rowsPerInsert(u))) {
+        statements.push(tx.insert(u).values(some).onConflictDoNothing().returning({ id: u.id }))
+      }
+      // Every placed node in one INSERT … SELECT: only items in the workflow's
+      // reach (its own workspace's or its project's own, read from the
+      // workflow row in the same statement) get a row.
+      if (uses.nodeItemIds.length > 0) {
+        const n = this.t.libraryItems
+        const wf = aliasedTable(this.t.workflows, 'lww')
+        const fields = {
+          ...boundFields(u, {
+            id: null,
+            workflowId: uses.workflowId,
+            consumerItemId: null,
+            slug: null,
+            nodeId: null,
+            createdAt: now,
+          }),
+          // A slug has no ':', so a node's id can never meet a slug row's.
+          id: sql`${uses.workflowId} || ':node:' || ${n.id}`,
+          nodeId: sql`${n.id}`,
+        }
+        const inReach = sql`${n.id} in ${idList(this.dialect, [...new Set(uses.nodeItemIds)])} and ${n.kind} = 'node' and exists (select 1 from ${aliasedFrom(wf)} where ${wf.id} = ${uses.workflowId} and ${wf.projectId} = ${n.projectId} and coalesce(${n.workspaceId}, '') in (coalesce(${wf.workspaceId}, ''), ''))`
+        statements.push(
+          tx
+            .insert(u)
+            .select(tx.select(fields).from(n).where(inReach))
+            .onConflictDoNothing()
+            .returning({ id: u.id }),
+        )
+      }
+      return statements
+    })
   }
 
   /**
