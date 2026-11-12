@@ -112,12 +112,20 @@ describe('validateNode', () => {
     input.versions[0].templates.cloudflare = `export default async function (ctx) {
       const path = process.cwd()
       const buffer = Buffer.from('x')
+      console.log('debug')
+      eval('1')
+      new Function('return 1')
+      await import('node:fs')
       await step.sleep('wait', '1 second')
       return { id: path + buffer.length }
     }`
     const messages = errors(input).map((issue) => issue.message)
     expect(messages).toContain('Node process API is not available in a node template')
     expect(messages).toContain('Node Buffer is not available in a node template')
+    expect(messages).toContain('console is not allowed in a node template')
+    expect(messages).toContain('eval is not allowed in a node template')
+    expect(messages).toContain('new Function is not allowed in a node template')
+    expect(messages).toContain('dynamic import is not allowed in a node template')
     expect(messages).toContain('templates must not call durable primitives')
   })
 

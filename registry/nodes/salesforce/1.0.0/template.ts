@@ -1,5 +1,19 @@
 export default async function (ctx) {
-  const instanceUrl = ctx.env.SALESFORCE_INSTANCE_URL
+  function salesforceInstanceUrl(): string {
+    const raw = String(ctx.env.SALESFORCE_INSTANCE_URL ?? '')
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      throw new Error('SALESFORCE_INSTANCE_URL must be a valid URL')
+    }
+    if (url.protocol !== 'https:' || !url.hostname.endsWith('.salesforce.com')) {
+      throw new Error('SALESFORCE_INSTANCE_URL must be an https://*.salesforce.com URL')
+    }
+    return url.origin
+  }
+
+  const instanceUrl = salesforceInstanceUrl()
   const token = ctx.env.SALESFORCE_ACCESS_TOKEN
   const action = ctx.config.action
   const apiBase = `${instanceUrl}/services/data/v59.0`

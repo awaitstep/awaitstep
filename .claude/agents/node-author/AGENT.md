@@ -58,8 +58,14 @@ export default async function (ctx) {
   const action = ctx.config.action
   const token = ctx.env.API_TOKEN
   switch (action) {
-    case 'Do Thing':
-      return { data: { token } }
+    case 'Do Thing': {
+      const response = await fetch('https://api.example.com/thing', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(`API error: ${response.status}`)
+      return { data }
+    }
     default:
       throw new Error(`Unknown action: ${action}`)
   }
@@ -72,7 +78,7 @@ export default async function (ctx) {
 - Throw on errors; never return `{ success: false }`.
 - Never call durable primitives (`step.do`, `step.sleep`, `step.waitForEvent`).
 - Import only packages declared in `dependencies`.
-- Never log secrets.
+- Never log secrets, and never return an env value in the node output — run outputs are persisted and visible.
 
 ## Codegen
 

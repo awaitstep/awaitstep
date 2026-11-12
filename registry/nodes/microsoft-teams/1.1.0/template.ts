@@ -30,11 +30,23 @@ export default async function (ctx: any) {
     return String(value)
   }
 
+  function webhookUrl(): string {
+    const raw = String(ctx.env.TEAMS_WEBHOOK_URL ?? '')
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      throw new Error('TEAMS_WEBHOOK_URL must be a valid URL')
+    }
+    if (url.protocol !== 'https:') {
+      throw new Error('TEAMS_WEBHOOK_URL must be an https URL')
+    }
+    return url.toString()
+  }
+
   switch (action) {
     case 'Send Webhook Message': {
-      const webhookUrl = ctx.env.TEAMS_WEBHOOK_URL
-      if (!webhookUrl) throw new Error('TEAMS_WEBHOOK_URL is required for Send Webhook Message')
-      const response = await fetch(webhookUrl, {
+      const response = await fetch(webhookUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

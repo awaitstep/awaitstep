@@ -152,7 +152,7 @@ describe('Upstash result serialization', () => {
       ctx(
         { action: 'LRANGE', key: 'list', start: 0, stop: -1 },
         {
-          UPSTASH_REDIS_REST_URL: 'https://redis.example.com',
+          UPSTASH_REDIS_REST_URL: 'https://example.upstash.io',
           UPSTASH_REDIS_REST_TOKEN: 'token',
         },
       ),

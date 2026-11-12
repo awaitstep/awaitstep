@@ -1,4 +1,4 @@
-import { nodeBundleChecksumInput } from '@awaitstep/ir'
+import { nodeBundleChecksumInput, nodeDefinitionSchema } from '@awaitstep/ir'
 import type { NodeDefinition, Provider, NodeBundle } from '@awaitstep/ir'
 
 export interface RegistryVersionEntry {
@@ -71,7 +71,12 @@ export function createRemoteNodeRegistry(config: RemoteNodeRegistryConfig): Remo
     async getNodeBundle(nodeId: string, version: string): Promise<NodeBundle> {
       const versionBase = `${baseUrl}/nodes/${nodeId}/${version}`
 
-      const definition = await fetchJson<NodeDefinition>(`${versionBase}/node.json`)
+      const rawDefinition = await fetchJson<unknown>(`${versionBase}/node.json`)
+      const parsedDefinition = nodeDefinitionSchema.safeParse(rawDefinition)
+      if (!parsedDefinition.success) {
+        throw new Error(`Invalid node definition for ${nodeId}@${version}`)
+      }
+      const definition = parsedDefinition.data as NodeDefinition
 
       const templates: Partial<Record<Provider, string>> = {}
       for (const provider of definition.providers) {
@@ -102,7 +107,10 @@ export function createRemoteNodeRegistry(config: RemoteNodeRegistryConfig): Remo
       const index = await this.getIndex()
       const nodeEntry = index.nodes.find((n) => n.id === nodeId)
       const versionEntry = nodeEntry?.versions.find((v) => v.version === version)
-      if (versionEntry?.checksum && versionEntry.checksum !== `sha256:${hash}`) {
+      if (!versionEntry?.checksum) {
+        throw new Error(`Registry index has no checksum for ${nodeId}@${version}`)
+      }
+      if (versionEntry.checksum !== `sha256:${hash}`) {
         throw new Error(
           `Checksum mismatch for ${nodeId}@${version}: expected ${versionEntry.checksum}, got sha256:${hash}`,
         )

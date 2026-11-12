@@ -1,5 +1,19 @@
 export default async function (ctx: any) {
-  const restUrl = ctx.env.UPSTASH_REDIS_REST_URL
+  function upstashUrl(): string {
+    const raw = String(ctx.env.UPSTASH_REDIS_REST_URL ?? '')
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      throw new Error('UPSTASH_REDIS_REST_URL must be a valid URL')
+    }
+    if (url.protocol !== 'https:' || !url.hostname.endsWith('.upstash.io')) {
+      throw new Error('UPSTASH_REDIS_REST_URL must be an https://*.upstash.io URL')
+    }
+    return url.origin
+  }
+
+  const restUrl = upstashUrl()
   const restToken = ctx.env.UPSTASH_REDIS_REST_TOKEN
   const action = ctx.config.action
 

@@ -1,9 +1,17 @@
 export default async function (ctx) {
   const email = ctx.env.ZENDESK_EMAIL
   const apiToken = ctx.env.ZENDESK_API_TOKEN
-  const subdomain = ctx.config.subdomain
   const action = ctx.config.action
-  const baseUrl = `https://${subdomain}.zendesk.com/api/v2`
+
+  function zendeskSubdomain(): string {
+    const value = String(ctx.config.subdomain ?? '')
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i.test(value)) {
+      throw new Error('Subdomain must be a Zendesk subdomain label')
+    }
+    return value
+  }
+
+  const baseUrl = `https://${zendeskSubdomain()}.zendesk.com/api/v2`
   const credentials = btoa(`${email}/token:${apiToken}`)
 
   async function zendeskRequest(method: string, path: string, body?: Record<string, unknown>) {

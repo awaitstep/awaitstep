@@ -37,6 +37,18 @@ const testNodeJson = {
 
 const testTemplate = 'export default async function(ctx) { return {} }'
 
+async function expectedChecksum(
+  definition: typeof testNodeJson,
+  templates: Record<string, string>,
+): Promise<string> {
+  const input = nodeBundleChecksumInput(definition as NodeDefinition, templates)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  const hash = Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+  return `sha256:${hash}`
+}
+
 beforeEach(() => {
   vi.restoreAllMocks()
 })
@@ -97,17 +109,9 @@ describe('createRemoteNodeRegistry', () => {
   describe('getNodeBundle', () => {
     it('fetches and assembles a node bundle', async () => {
       // Pre-compute the checksum the same way the client does
-      const definition = testNodeJson
-      const templates = { cloudflare: testTemplate }
-      const checksumInput = nodeBundleChecksumInput(definition as NodeDefinition, templates)
-      const hashBuffer = await crypto.subtle.digest(
-        'SHA-256',
-        new TextEncoder().encode(checksumInput),
-      )
-      const hash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('')
-      const expectedChecksum = `sha256:${hash}`
+      const checksum = await expectedChecksum(testNodeJson, {
+        cloudflare: testTemplate,
+      })
 
       // Update test index with correct checksum
       const indexWithChecksum = {
@@ -115,7 +119,7 @@ describe('createRemoteNodeRegistry', () => {
         nodes: [
           {
             ...testIndex.nodes[0],
-            versions: [{ ...testIndex.nodes[0].versions[0], checksum: expectedChecksum }],
+            versions: [{ ...testIndex.nodes[0].versions[0], checksum }],
           },
         ],
       }
@@ -141,10 +145,11 @@ describe('createRemoteNodeRegistry', () => {
 
       expect(bundle.definition.id).toBe('test_node')
       expect(bundle.templates.cloudflare).toBe(testTemplate)
-      expect(bundle.checksum).toBe(expectedChecksum)
+      expect(bundle.checksum).toBe(checksum)
     })
 
     it('falls back to default template when provider-specific is missing', async () => {
+      const checksum = await expectedChecksum(testNodeJson, { cloudflare: testTemplate })
       vi.stubGlobal(
         'fetch',
         vi.fn().mockImplementation((url: string) => {
@@ -157,7 +162,7 @@ describe('createRemoteNodeRegistry', () => {
                   nodes: [
                     {
                       ...testIndex.nodes[0],
-                      versions: [{ ...testIndex.nodes[0].versions[0], checksum: '' }],
+                      versions: [{ ...testIndex.nodes[0].versions[0], checksum }],
                     },
                   ],
                 }),

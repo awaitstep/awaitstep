@@ -5,9 +5,9 @@ export default async function (ctx) {
   const baseUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}`
 
   async function geminiRequest(endpoint: string, body: Record<string, unknown>) {
-    const response = await fetch(`${baseUrl}${endpoint}?key=${apiKey}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body),
     })
     const data = (await response.json()) as Record<string, unknown>

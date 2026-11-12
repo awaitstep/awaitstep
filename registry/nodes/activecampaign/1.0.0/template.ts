@@ -1,5 +1,19 @@
 export default async function (ctx) {
-  const apiUrl = ctx.env.ACTIVECAMPAIGN_API_URL
+  function activeCampaignUrl(): string {
+    const raw = String(ctx.env.ACTIVECAMPAIGN_API_URL ?? '')
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      throw new Error('ACTIVECAMPAIGN_API_URL must be a valid URL')
+    }
+    if (url.protocol !== 'https:' || !/^[a-z0-9-]+\.api-(?:us|eu)\d+\.com$/i.test(url.hostname)) {
+      throw new Error('ACTIVECAMPAIGN_API_URL must be an https://<account>.api-usN.com URL')
+    }
+    return url.origin
+  }
+
+  const apiUrl = activeCampaignUrl()
   const apiKey = ctx.env.ACTIVECAMPAIGN_API_KEY
   const action = ctx.config.action
 

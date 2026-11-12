@@ -1,7 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 
 export default async function (ctx) {
-  const supabase = createClient(ctx.config.supabaseUrl, ctx.env.SUPABASE_ANON_KEY)
+  function supabaseUrl(): string {
+    const raw = String(ctx.config.supabaseUrl ?? '')
+    let url: URL
+    try {
+      url = new URL(raw)
+    } catch {
+      throw new Error('Supabase URL must be a valid URL')
+    }
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      !/^[a-z0-9-]+\.supabase\.co$/i.test(url.hostname)
+    ) {
+      throw new Error('Supabase URL must be an https://<project>.supabase.co URL')
+    }
+    return url.origin
+  }
+
+  const supabase = createClient(supabaseUrl(), ctx.env.SUPABASE_ANON_KEY)
   const action = ctx.config.action
   const table = ctx.config.table
 

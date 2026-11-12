@@ -44,7 +44,7 @@ export function toJsLiteral(value: unknown): string {
     const envMatch = value.match(ENV_REF_BRACED) ?? value.match(ENV_REF_BARE)
     if (envMatch) return `env.${envMatch[1]}`
     if (/\$\{.*?\}/.test(value)) {
-      return '`' + value.replace(/`/g, '\\`') + '`'
+      return '`' + value.replace(/\\/g, '\\\\').replace(/`/g, '\\`') + '`'
     }
     return JSON.stringify(value)
   }

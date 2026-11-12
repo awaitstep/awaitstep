@@ -33,6 +33,15 @@ describe('nodeBundleSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('rejects a provider id that could escape the template path', () => {
+    const result = nodeBundleSchema.safeParse({
+      ...bundle,
+      definition: { ...definition, providers: ['../../secret'] },
+      templates: { '../../secret': 'export default async function (ctx) {}' },
+    })
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('stableStringify', () => {
