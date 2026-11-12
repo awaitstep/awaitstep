@@ -105,6 +105,7 @@ export async function buildDevWorkspaceFiles(
       name: workspaceName(options.workflowId),
       dependencies: options.dependencies,
       manifestSource: bundlePackageManifest(bundle),
+      libraryModules: bundle.libraryModules,
     }),
   })
 

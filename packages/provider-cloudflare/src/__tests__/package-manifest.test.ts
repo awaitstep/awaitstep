@@ -4,6 +4,29 @@ import { PROJECT_IMPORTS_FIELD } from '@awaitstep/ir'
 import { buildWorkerPackageJson, hasDependencies } from '../deploy/package-manifest.js'
 
 describe('buildWorkerPackageJson', () => {
+  it('maps each bundled library module and drops the project’s own #modules/ keys', () => {
+    const pkg = JSON.parse(
+      buildWorkerPackageJson({
+        name: 'w',
+        manifestSource: JSON.stringify({
+          imports: { '#modules/lead-scoring': './elsewhere.js', '#lib/x': './lib/x.js' },
+        }),
+        libraryModules: ['lead-scoring'],
+      }),
+    ) as { imports: Record<string, string> }
+    expect(pkg.imports['#modules/lead-scoring']).toBe('./modules/lead-scoring/index.js')
+    expect(pkg.imports['#modules/lead-scoring/*']).toBe('./modules/lead-scoring/*.js')
+    expect(pkg.imports['#lib/x']).toBe('./lib/x.js')
+    expect(Object.keys(pkg.imports).filter((k) => k.startsWith('#modules/x'))).toEqual([])
+  })
+
+  it('maps no #modules/ entry without folded library modules, whatever the files are called', () => {
+    const pkg = JSON.parse(buildWorkerPackageJson({ name: 'w' })) as {
+      imports: Record<string, string>
+    }
+    expect(Object.keys(pkg.imports).some((k) => k.startsWith('#modules/'))).toBe(false)
+  })
+
   it('always carries the #app import map, even with no dependencies or manifest', () => {
     expect(JSON.parse(buildWorkerPackageJson({ name: 'awaitstep-worker' }))).toEqual({
       name: 'awaitstep-worker',

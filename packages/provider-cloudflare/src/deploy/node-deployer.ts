@@ -72,6 +72,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
           name: options.packageName ?? DEFAULT_WORKER_PACKAGE_NAME,
           dependencies: options.dependencies,
           manifestSource: bundlePackageManifest(bundle),
+          libraryModules: bundle.libraryModules,
         }),
         'utf-8',
       )

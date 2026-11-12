@@ -114,6 +114,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
           name: options.packageName ?? DEFAULT_WORKER_PACKAGE_NAME,
           dependencies: options.dependencies,
           manifestSource: bundlePackageManifest(bundle),
+          libraryModules: bundle.libraryModules,
         }),
       )
       if (hasDependencies(options.dependencies)) {

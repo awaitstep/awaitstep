@@ -1,5 +1,10 @@
 import { AWAITSTEP_IMPORTS_FIELD, AWAITSTEP_IMPORT_PREFIX } from '@awaitstep/codegen'
-import { PROJECT_IMPORTS_FIELD, parsePackageManifest } from '@awaitstep/ir'
+import {
+  LIBRARY_MODULE_IMPORT_PREFIX,
+  PROJECT_IMPORTS_FIELD,
+  libraryImportsField,
+  parsePackageManifest,
+} from '@awaitstep/ir'
 
 export const DEFAULT_WORKER_PACKAGE_NAME = 'awaitstep-worker'
 
@@ -16,22 +21,29 @@ export interface WorkerPackageJsonInput {
   dependencies?: Record<string, string>
   /** The project's own package.json source, if the bundle carries one. */
   manifestSource?: string
+  /** The library module slugs folded into the bundle (`GeneratedBundle.libraryModules`). */
+  libraryModules?: readonly string[]
 }
 
 /**
  * The package.json every deploy directory gets. A project-owned manifest
  * contributes its honoured fields (name, version, description, license,
  * `engines`, extra `#` import entries); the deploy always forces `private`,
- * ESM, the `#app/*` project alias, the `#awaitstep/*` runtime alias and the
- * resolved dependency set, so nothing in the user's file can redirect the
- * install or change how code resolves.
+ * ESM, the `#app/*` project alias, the `#awaitstep/*` runtime alias, one
+ * `#modules/<slug>` entry pair per bundled library module and the resolved
+ * dependency set, so nothing in the user's file can redirect the install or
+ * change how code resolves.
  */
 export function buildWorkerPackageJson(input: WorkerPackageJsonInput): string {
   const user = input.manifestSource ? parsePackageManifest(input.manifestSource) : null
   // A project cannot shadow an emitted runtime module with an exact
   // `#awaitstep/...` key: Node resolves exact keys before the forced pattern.
+  // Nor point `#modules/…` anywhere but at the bundled library modules.
   const userImports = Object.fromEntries(
-    Object.entries(user?.imports ?? {}).filter(([key]) => !key.startsWith(AWAITSTEP_IMPORT_PREFIX)),
+    Object.entries(user?.imports ?? {}).filter(
+      ([key]) =>
+        !key.startsWith(AWAITSTEP_IMPORT_PREFIX) && !key.startsWith(LIBRARY_MODULE_IMPORT_PREFIX),
+    ),
   )
   const manifest = {
     name: user?.name ?? input.name,
@@ -41,7 +53,12 @@ export function buildWorkerPackageJson(input: WorkerPackageJsonInput): string {
     private: true,
     type: 'module',
     ...(user?.engines && { engines: user.engines }),
-    imports: { ...userImports, ...PROJECT_IMPORTS_FIELD, ...AWAITSTEP_IMPORTS_FIELD },
+    imports: {
+      ...userImports,
+      ...libraryImportsField(input.libraryModules ?? []),
+      ...PROJECT_IMPORTS_FIELD,
+      ...AWAITSTEP_IMPORTS_FIELD,
+    },
     ...(hasDependencies(input.dependencies) && { dependencies: input.dependencies }),
   }
   return JSON.stringify(manifest, null, 2)
