@@ -1,0 +1,34 @@
+{
+  "version": "1.1.0",
+  "description": "Send Discord messages, reactions, threads, and inspect channels",
+  "tags": ["discord", "messaging", "webhooks", "bot", "threads"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Send Webhook Message",
+        "Send Channel Message",
+        "Edit Message",
+        "Delete Message",
+        "Add Reaction",
+        "Create Thread",
+        "List Channels"
+      ]
+    },
+    "guildId": {
+      "type": "string",
+      "label": "Guild ID",
+      "description": "Discord server ID. Used by: List Channels."
+    },
+    "emoji": {
+      "type": "string",
+      "label": "Emoji",
+      "placeholder": "👍",
+      "description": "Reaction emoji. Used by: Add Reaction."
+    },
+    "threadName": {
+      "type": "string",
+      "label": "Thread Name",
+      "description": "New thread name. Used by: Create Thread."
+    }
+  }
+}
