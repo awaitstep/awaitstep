@@ -51,7 +51,7 @@ export default async function (ctx) {
 
     case 'List Cards': {
       const data = await trelloApi('GET', `/lists/${ctx.config.listId}/cards`)
-      return { id: null, status: 'ok', data }
+      return { id: null, status: 'ok', data: { items: data } }
     }
 
     case 'Move Card': {
@@ -78,7 +78,7 @@ export default async function (ctx) {
 
     case 'List Boards': {
       const data = await trelloApi('GET', '/members/me/boards')
-      return { id: null, status: 'ok', data }
+      return { id: null, status: 'ok', data: { items: data } }
     }
 
     default:

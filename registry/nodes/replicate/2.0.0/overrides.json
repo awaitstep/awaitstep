@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Run Replicate predictions and inspect models and deployments",
   "tags": ["replicate", "ai", "ml", "models", "predictions"],
   "configSchema": {

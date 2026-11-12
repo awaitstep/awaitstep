@@ -67,7 +67,7 @@ export default async function (ctx) {
 
     case 'List SObjects': {
       const data = await sfRequest('GET', '/sobjects')
-      return { id: '', success: true, data }
+      return { id: '', success: true, data: { items: data } }
     }
 
     default:

@@ -79,7 +79,12 @@ export default async function (ctx) {
       if (ctx.config.startDate) params.set('start_date', String(ctx.config.startDate))
       if (ctx.config.endDate) params.set('end_date', String(ctx.config.endDate))
       const query = params.toString() ? `?${params.toString()}` : ''
-      return await sendgridRequest('GET', `/v3/stats${query}`)
+      const result = await sendgridRequest('GET', `/v3/stats${query}`)
+      return {
+        statusCode: result.statusCode,
+        success: result.success,
+        data: { stats: result.data },
+      }
     }
 
     case 'List Templates': {

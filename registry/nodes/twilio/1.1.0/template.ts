@@ -11,14 +11,13 @@ export default async function (ctx) {
     if (hasBody) {
       headers['Content-Type'] = 'application/x-www-form-urlencoded'
     }
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}${path}.json`,
-      {
-        method,
-        headers,
-        body: hasBody ? params.toString() : undefined,
-      },
-    )
+    const [resource, query] = path.split('?')
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}${resource}.json${query ? `?${query}` : ''}`
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: hasBody ? params.toString() : undefined,
+    })
     const data = (await response.json()) as Record<string, unknown>
     if (!response.ok) {
       throw new Error(`Twilio API error: ${(data.message as string) ?? response.statusText}`)

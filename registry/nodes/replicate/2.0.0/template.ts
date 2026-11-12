@@ -49,7 +49,7 @@ export default async function (ctx) {
 
     case 'List Predictions': {
       const data = await replicateRequest('/predictions')
-      return { id: '', status: '', data }
+      return { id: '', status: '', data: { items: data } }
     }
 
     case 'List Models': {
