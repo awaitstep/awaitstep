@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { escapingImports, unresolvedAppImports } from '../lib/import-check.js'
+import { TOO_COMPLEX, escapingImports, unresolvedAppImports } from '../lib/import-check.js'
 
 function code(path: string, source: string) {
   return { path, source }
@@ -426,5 +426,32 @@ describe('unresolvedAppImports with prototype-named extensions', () => {
         code('x.constructor.ts', 'export default 1'),
       ]),
     ).toEqual([])
+  })
+})
+
+describe('escapingImports on crafted input', () => {
+  // Each of these used to take seconds to minutes at the 512 KB file cap
+  // (security review, 2026-11-12): many unclosed `/*` after keywords, or
+  // unclosed nested dynamic calls, were rescanned to the end per match.
+  const cases: [string, string][] = [
+    ['unclosed comments after keywords', 'from /*'.repeat(70_000)],
+    ['unclosed nested dynamic imports', 'import('.repeat(70_000)],
+    ['unclosed computed dynamic imports', "import('a'+".repeat(45_000)],
+    ['comments all closing at the very end', `${'from /* '.repeat(55_000)}*/`],
+  ]
+  for (const [name, source] of cases) {
+    it(`refuses ${name} quickly instead of scanning for minutes`, () => {
+      const started = performance.now()
+      const result = escapingImports([{ path: 'x.ts', source }])
+      expect(performance.now() - started).toBeLessThan(2_000)
+      expect(result).toEqual([{ path: 'x.ts', specifier: TOO_COMPLEX }])
+    })
+  }
+
+  it('still judges an ordinary file with comments and dynamic imports', () => {
+    const source = `/** Loads a thing. */\nconst a = await import('./a')\n// note\nconst b = await import('../../../etc/x')\n`
+    expect(escapingImports([{ path: 'x.ts', source }])).toEqual([
+      { path: 'x.ts', specifier: '../../../etc/x' },
+    ])
   })
 })

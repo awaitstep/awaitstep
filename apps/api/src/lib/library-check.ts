@@ -25,6 +25,7 @@ import {
   type ValidationError,
 } from '@awaitstep/ir'
 import type { LibraryResolvedModule } from '@awaitstep/db'
+import { libraryImportProblems } from './library-imports.js'
 
 export interface LibrarySourceFile {
   path: string
@@ -98,6 +99,7 @@ function moduleCheck(files: readonly LibrarySourceFile[], latest: string | null)
       message: `A module needs ${LIBRARY_MODULE_ENTRY}: it is what '#modules/<slug>' imports`,
     })
   }
+  problems.push(...libraryImportProblems('module', files))
   const declared = manifest ? parsePackageManifest(manifest.source)?.version : undefined
   return {
     version: moduleVersionChoice(declared, latest),
@@ -149,6 +151,9 @@ function nodeCheck(files: readonly LibrarySourceFile[], latest: string | null): 
       message: 'A node version needs template.ts',
     })
   }
+  problems.push(
+    ...libraryImportProblems('node', inFolder).map((p) => ({ ...p, path: `${prefix}${p.path}` })),
+  )
   const snapshot = icon ? [...inFolder, { path: icon.path, source: icon.source }] : inFolder
   return { version, problems, imports: codeImports(inFolder), snapshot }
 }

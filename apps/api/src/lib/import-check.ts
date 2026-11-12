@@ -1,5 +1,10 @@
 import { AWAITSTEP_IMPORT_PREFIX, AWAITSTEP_MODULE_DIR, withoutComments } from '@awaitstep/codegen'
-import { PROJECT_IMPORT_PREFIX, projectImportCandidates } from '@awaitstep/ir'
+import {
+  LIBRARY_BUNDLE_DIR,
+  LIBRARY_MODULE_IMPORT_PREFIX,
+  PROJECT_IMPORT_PREFIX,
+  projectImportCandidates,
+} from '@awaitstep/ir'
 
 /**
  * Whitespace and comments between a keyword and its specifier — legal there,
@@ -46,6 +51,11 @@ function decodeEscapes(text: string): string {
   })
 }
 
+/** Every literal specifier a file imports, comments skipped, in order of appearance. */
+export function importSpecifiers(source: string): string[] {
+  return [...withoutComments(source).matchAll(IMPORT_SPECIFIER)].map(specifierOf)
+}
+
 export interface UnresolvedImport {
   /** The file doing the importing. */
   path: string
@@ -53,7 +63,7 @@ export interface UnresolvedImport {
 }
 
 /**
- * `#app/` and `#awaitstep/` imports with no file behind them.
+ * `#app/`, `#awaitstep/` and bundled `#modules/` imports with no file behind them.
  *
  * Nothing else checks this. The compile step transpiles each file on its
  * own with no module resolution, so `#app/lib/mising` parses perfectly and
@@ -81,6 +91,11 @@ export function unresolvedAppImports(
   imports?: Readonly<Record<string, string>>,
 ): UnresolvedImport[] {
   const present = new Set(files.map((file) => file.path))
+  const bundledModules = new Set<string>()
+  for (const path of present) {
+    const match = BUNDLED_MODULE_PATH.exec(path)
+    if (match) bundledModules.add(match[1]!)
+  }
   const declared = Object.keys(imports ?? {})
   const unresolved: UnresolvedImport[] = []
   const seen = new Set<string>()
@@ -88,9 +103,12 @@ export function unresolvedAppImports(
   for (const file of codeFiles) {
     for (const match of withoutComments(file.source).matchAll(IMPORT_SPECIFIER)) {
       const specifier = specifierOf(match)
-      const target = resolutionTarget(specifier)
+      const library = libraryTarget(specifier, bundledModules)
+      if (library === 'unbundled') continue
+      const target = library ?? resolutionTarget(specifier)
       if (target === null) continue
-      if (claimedByManifest(specifier, declared)) continue
+      // The deploy drops a project's own `#modules/` keys, so they claim nothing.
+      if (library === null && claimedByManifest(specifier, declared)) continue
       if (target === '' || resolves(target, present)) continue
       // One report per file and specifier: the same bad import written
       // twice in a file is one mistake to fix.
@@ -102,6 +120,27 @@ export function unresolvedAppImports(
   }
   return unresolved
 }
+
+/**
+ * Where a `#modules/<slug>[/<subpath>]` import points in the bundle — the
+ * bare slug at the module's `index`, a subpath under its folder — or
+ * `'unbundled'` when no module of that slug was folded in (the Library's own
+ * diagnostics say why), or null for any other specifier.
+ */
+function libraryTarget(
+  specifier: string,
+  bundledModules: ReadonlySet<string>,
+): string | 'unbundled' | null {
+  if (!specifier.startsWith(LIBRARY_MODULE_IMPORT_PREFIX)) return null
+  const rest = specifier.slice(LIBRARY_MODULE_IMPORT_PREFIX.length)
+  const slash = rest.indexOf('/')
+  const slug = slash === -1 ? rest : rest.slice(0, slash)
+  if (!bundledModules.has(slug)) return 'unbundled'
+  const folder = `${LIBRARY_BUNDLE_DIR}/${slug}/`
+  return slash === -1 ? `${folder}index` : `${folder}${rest.slice(slash + 1)}`
+}
+
+const BUNDLED_MODULE_PATH = new RegExp(`^${LIBRARY_BUNDLE_DIR}/([^/]+)/`)
 
 /**
  * The bundle path a generated import points at, or null when the specifier
@@ -144,6 +183,12 @@ export function escapingImports(
   }
   for (const file of codeFiles) {
     const dir = file.path.split('/').slice(0, -1)
+    // Refused, not skipped: a file this gate cannot judge in bounded time
+    // could be hiding the import it exists to catch.
+    if (commentScanCost(file.source) > COMMENT_SCAN_BUDGET) {
+      report(file.path, TOO_COMPLEX)
+      continue
+    }
     for (const match of file.source.matchAll(IMPORT_SPECIFIER)) {
       const specifier = specifierOf(match)
       if (escapesRoot(dir, specifier)) report(file.path, specifier)
@@ -155,11 +200,51 @@ export function escapingImports(
       const pattern = decodeEscapes(match[1]!.replace(/\$\{[^}]*\}/g, 'x'))
       if (escapesRoot(dir, pattern)) report(file.path, match[1]!)
     }
-    for (const argument of computedImportArguments(file.source)) {
-      if (computedArgumentEscapes(argument)) report(file.path, argument.text)
+    const computed = computedImportArguments(file.source)
+    if (computed === null) report(file.path, TOO_COMPLEX)
+    else {
+      for (const argument of computed) {
+        if (computedArgumentEscapes(argument)) report(file.path, argument.text)
+      }
     }
   }
   return escaping
+}
+
+/**
+ * What `escapingImports` reports, in place of a specifier, for a file it
+ * will not judge in bounded time. Callers word it with `escapeMessage`.
+ */
+export const TOO_COMPLEX = 'Imports too complex to check; simplify the comments or dynamic imports'
+
+/** A refusal from `escapingImports` in words: the too-complex case is not about one specifier. */
+export function escapeMessage(escape: UnresolvedImport, outside: string): string {
+  return escape.specifier === TOO_COMPLEX
+    ? TOO_COMPLEX
+    : `"${escape.specifier}" reaches outside ${outside}`
+}
+
+// Characters the two scans below may walk per file. Real code stays far
+// below both; only crafted input reaches them.
+const COMMENT_SCAN_BUDGET = 20_000_000
+const DYNAMIC_SCAN_BUDGET = 2_000_000
+
+/**
+ * What the patterns' gap matcher would walk through block comments: from
+ * each `/*` to the next `*\/` (or the end). The lazy `/*…*\/` in GAP is
+ * tried from every keyword, so many unclosed openers make it quadratic;
+ * this measures that cost linearly first (the next close is found once per
+ * stretch, not once per opener).
+ */
+function commentScanCost(source: string): number {
+  let cost = 0
+  let close = -2
+  for (let open = source.indexOf('/*'); open !== -1; open = source.indexOf('/*', open + 1)) {
+    if (close !== -1 && close < open + 2) close = source.indexOf('*/', open + 2)
+    cost += (close === -1 ? source.length : close) - open
+    if (cost > COMMENT_SCAN_BUDGET) return cost
+  }
+  return cost
 }
 
 const TEMPLATE_IMPORT = new RegExp(
@@ -183,8 +268,11 @@ interface ComputedArgument {
  * constant concatenations and treats the rest as a glob over their static
  * parts, so a path built in pieces reaches as far as one written whole.
  */
-function computedImportArguments(source: string): ComputedArgument[] {
+function computedImportArguments(source: string): ComputedArgument[] | null {
   const found: ComputedArgument[] = []
+  // Each call scans to its closing parenthesis, so unclosed nested calls
+  // (`import(import(import(…`) would rescan the rest of the file per call.
+  let budget = DYNAMIC_SCAN_BUDGET
   for (const call of source.matchAll(DYNAMIC_CALL)) {
     const start = call.index! + call[0].length
     const literals: string[] = []
@@ -194,15 +282,19 @@ function computedImportArguments(source: string): ComputedArgument[] {
     let firstToken: 'literal' | 'other' | null = null
     let otherTokens = false
     while (i < source.length && depth > 0) {
+      if (--budget < 0) return null
       const ch = source[i]!
       if (ch === '/' && (source[i + 1] === '*' || source[i + 1] === '/')) {
         const close = source[i + 1] === '*' ? '*/' : '\n'
         const end = source.indexOf(close, i + 2)
-        i = end === -1 ? source.length : end + close.length
+        const next = end === -1 ? source.length : end + close.length
+        budget -= next - i
+        i = next
         continue
       }
       if (ch === "'" || ch === '"' || ch === '`') {
         const end = literalEnd(source, i)
+        budget -= end - i
         const body = source.slice(i + 1, end)
         literals.push(decodeEscapes(ch === '`' ? body.replace(/\$\{[^}]*\}/g, '') : body))
         literalCount++

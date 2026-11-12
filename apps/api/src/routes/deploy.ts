@@ -140,6 +140,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     error: result.error,
     configSnapshot: deploymentSnapshot,
     createdBy: c.get('userId'),
+    libraryVersions: prepared.library,
   })
 
   // Post-deploy: persist config only on success
@@ -254,6 +255,7 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
       error: result.error,
       configSnapshot: deploymentSnapshot,
       createdBy: c.get('userId'),
+      libraryVersions: prepared.library,
     })
 
     // Post-deploy: persist config only on success

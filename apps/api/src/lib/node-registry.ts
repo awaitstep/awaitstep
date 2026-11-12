@@ -40,9 +40,15 @@ export function buildNodeRegistry(data: RegistryFile): AppNodeRegistry {
   return { registry, templateResolver, templates: data.templates }
 }
 
+/**
+ * The registry a prepare generates with: the builtins, then installed
+ * marketplace nodes, then the workflow's custom nodes (each `custom:<itemId>`
+ * at its latest published version, Cloudflare template only).
+ */
 export function createMergedNodeRegistry(
   base: AppNodeRegistry | undefined,
   installedNodes: InstalledNode[],
+  customNodes: readonly { definition: NodeDefinition; template: string }[] = [],
 ): AppNodeRegistry {
   const registry = new NodeRegistry()
   const mergedTemplates: Record<string, Record<string, string>> = Object.create(null)
@@ -64,6 +70,11 @@ export function createMergedNodeRegistry(
       if (source) nodeTemplates[provider] = source
     }
     mergedTemplates[bundle.definition.id] = nodeTemplates
+  }
+
+  for (const custom of customNodes) {
+    registry.register(custom.definition)
+    mergedTemplates[custom.definition.id] = { cloudflare: custom.template }
   }
 
   const templateResolver: TemplateResolver = {

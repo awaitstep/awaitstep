@@ -70,7 +70,7 @@ describe('project file routes', () => {
     const body = await res.json()
     expect(body).toMatchObject({
       importPrefix: '#app/',
-      generated: ['worker.*', 'nodes/**', 'awaitstep/**', 'wrangler.*'],
+      generated: ['worker.*', 'nodes/**', 'awaitstep/**', 'modules/**', 'wrangler.*'],
       rootConfigFiles: ['package.json', 'tsconfig.json', 'jsconfig.json'],
       files: [],
       limits: { maxFiles: 100, maxFileBytes: 512_000, maxTotalBytes: 2_000_000 },

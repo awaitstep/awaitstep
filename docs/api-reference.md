@@ -1184,7 +1184,10 @@ The IR is the only source of truth. A version's deployable code is generated
 from it on demand — the canvas owns `worker.ts`, `nodes/**`, `awaitstep/**` and `wrangler.*`,
 and nothing stores a copy you could edit in their place. What you write lives
 in project files (below), which are folded into every generation, and the
-whole bundle is readable here at any time.
+whole bundle is readable here at any time. Library modules the workflow
+reaches are folded in as `modules/<slug>/…` at their latest published
+version (see [Library](#library)); those files carry no `hash`, since they
+are not the workflow's to write.
 
 ### `GET /workflows/:workflowId/source`
 
@@ -1227,13 +1230,14 @@ return `200`, with what was found listed in `diagnostics`:
 
 `source` is one of:
 
-|            |                                                                                                      |
-| ---------- | ---------------------------------------------------------------------------------------------------- |
-| `ir`       | the workflow itself — fix it on the canvas                                                           |
-| `provider` | the node cannot deploy here                                                                          |
-| `compile`  | the file does not parse; `path` names it, and `nodeId` the step when it is a step's generated module |
-| `import`   | an `#app/` or `#awaitstep/` specifier with no file behind it; `path` names the importing file        |
-| `env`      | a variable with no value to resolve at deploy; names only, never values                              |
+|            |                                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `ir`       | the workflow itself — fix it on the canvas                                                                       |
+| `provider` | the node cannot deploy here                                                                                      |
+| `compile`  | the file does not parse; `path` names it, and `nodeId` the step when it is a step's generated module             |
+| `import`   | an `#app/` or `#awaitstep/` specifier with no file behind it; `path` names the importing file                    |
+| `env`      | a variable with no value to resolve at deploy; names only, never values                                          |
+| `library`  | a library module or custom node the bundle cannot use as it is (see [Library in a deploy](#library-in-a-deploy)) |
 
 The array is empty for a healthy workflow and always present. Only a
 failure that leaves no source to return — generation itself throwing — is
@@ -1294,7 +1298,7 @@ curl -X POST "$API/workflows/$WF/source/check" -H "Authorization: Bearer $KEY"
 {
   "ok": false,
   "versionId": "v_2b…",
-  "checked": ["ir", "provider", "env", "compile", "import"],
+  "checked": ["ir", "library", "provider", "env", "compile", "import"],
   "diagnostics": [
     {
       "source": "import",
@@ -1364,7 +1368,7 @@ ETag rules and a worked end-to-end pass — see the
 section is the per-endpoint reference.
 
 A workflow is a small project: beside the code the canvas generates
-(`worker.ts`, `nodes/**`, `awaitstep/**`, `wrangler.*`) it owns any files you create — code in
+(`worker.ts`, `nodes/**`, `awaitstep/**`, `wrangler.*`) and the library modules a deploy bundles (`modules/**`), a workflow owns any files you create — code in
 any folder (`config/env.ts`, `services/stripe/client.ts`), data and docs
 (`data/countries.json`, `README.md`), and the standard root config files
 (`package.json`, `tsconfig.json`). Folders exist implicitly through file
@@ -1505,7 +1509,7 @@ larger one is rejected with `413` before any of these apply. So the 2 MB
 project total is reached across several requests, never in one, and a single
 file near 512 KB has to be sent on its own. Paths use
 `[A-Za-z0-9._-]` segments (no dotfiles, no `..`), may not be generated paths
-(`worker.*`, `nodes/**`, `awaitstep/**`, `wrangler.*`, in any case), the step-code
+(`worker.*`, `nodes/**`, `awaitstep/**`, `modules/**`, `wrangler.*`, in any case; `modules/**` answers "is reserved for library modules"), the step-code
 folder (`steps/**`, in any case), lockfiles or
 `node_modules`, may hold `package.json`/`tsconfig.json`/`jsconfig.json` only
 at the root, must not collide with another file after compile or on a
@@ -1520,7 +1524,7 @@ know whether anything changed before reading or writing.
 
 **Permission:** `workflows:read`
 
-Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }], version: { id, graphHash } | null }`. `version` is the latest version's identity (see `GET /workflows/:id/full`), so one poll also notices a save made elsewhere; it is `null` while the workflow has no version.
+Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "awaitstep/**", "modules/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }], version: { id, graphHash } | null }`. `version` is the latest version's identity (see `GET /workflows/:id/full`), so one poll also notices a save made elsewhere; it is `null` while the workflow has no version.
 
 ### `GET /workflows/:workflowId/files/:path`
 
@@ -1651,12 +1655,13 @@ Returns:
   "owner": { "kind", "id" },
   "viewerCan": { "edit": { "allowed", "reason?" }, "create": { "allowed", "reason?" } },
   "items": [
-    { "id", "kind", "slug", "name", "latestVersion", "files": [{ "path", "hash", "readOnly" }] }
+    { "id", "kind", "slug", "name", "latestVersion", "savedAt", "files": [{ "path", "hash", "readOnly" }] }
   ],
   "projectModules": [{ "id", "slug", "latestVersion" }]
 }
 ```
 
+- `savedAt` is when the item was last saved: its own change or its newest file write.
 - `files` is the working copy, plus each published version folder of a custom node (`readOnly: true`).
 - Sources are not included. Read a file with `GET /library/items/:id/files/:path`.
 - `projectModules` lists the project's own modules, for a workspace's tree only (empty in the project's). They are what a `#modules/<slug>` resolves to when the workspace owns no module of that slug.
@@ -1769,7 +1774,8 @@ Returns `{ version, bumpedFrom, problems: [{ path, message }] }`. `problems` cov
 - the manifest (`package.json`, or for a node `node.json` against the node schema, with its `version` equal to its folder);
 - the version rule;
 - size caps;
-- `#modules/` imports that resolve to no module, or to one never published.
+- `#modules/` imports that resolve to no module, or to one never published;
+- imports library code may not make: `#app/…` anywhere, a module import that climbs out of its own folder, and, in a node's template, any relative value import (type-only imports such as the editor's `import type { Ctx, Output } from './ctx'` are erased), or more than one import on a line.
 
 ### `POST /library/items/:id/versions`
 
@@ -1837,6 +1843,32 @@ Returns:
 - Uses come from the saved working copy and every kept version, so a saved but unpublished import already guards a delete. Which module a slug means is decided when you read it, the way a deploy resolves it: a module created or shadowed after its consumer was saved is judged correctly. A module's own slug never counts as an import. A workspace's saved import of a project module keeps it from being deleted; project members are Editors in every workspace, so they always see that consumer by name and can remove the import.
 
 ---
+
+### Library in a deploy
+
+Every prepare of a workflow (deploy, `GET …/source`, `POST …/source/check`, test sessions, local dev) folds in what it uses from the Library. Nothing is stored; the next prepare reads the Library again.
+
+- **What is bundled.** The latest published version of every module the workflow imports (from step code, handlers or project files), every custom node it places (`custom:<itemId>`), and every module those import in turn. A module's files land at `modules/<slug>/…`, except its `package.json`, whose `dependencies` join the deploy's.
+- **Resolution.** Each importer resolves `#modules/<slug>` from where it sits: the workflow and its workspace's items from their workspace, then the project; a project item from the project only. Another workspace's items are never reached.
+- **Custom nodes.** Generated from the latest version's `template.ts`, with `node.json` as the definition. The editor's `import type … from './ctx'` is dropped.
+- **Deploy manifest.** `#modules/<slug>` maps to `./modules/<slug>/index.js`, and subpaths follow the `#app/` extension rules. A `#modules/` key in the workflow's own `package.json` is ignored.
+- **Recorded.** A deployment records the version of each item it bundled, which is what an item's Used by shows as "runs".
+- **Used by.** Saving a workflow version records the modules it imports and the custom nodes it places, so Used by and the delete guard see a draft. A custom node out of the workflow's reach is not recorded.
+
+Check reports these as `library` diagnostics, and deploy refuses with `400` and the first message:
+
+- an unpublished module or node (`Module "x" has no published version yet; publish it to use it`);
+- a slug no module answers (`Cannot resolve "#modules/x": no module of that name in this workspace or the project`);
+- a custom node out of reach, named by id only (`Unknown custom node "<id>": it is not in this workspace or the project`);
+- one slug meaning two modules in one bundle (`"#modules/fmt" means the project’s module for Notify, but this workspace’s module for this workflow; rename one of them`);
+- imports library code may not make (see check above);
+- the workflow's own files under `modules/` once it bundles a library module (`modules/ is reserved for library modules; move "modules/x.ts" elsewhere`);
+- more than 100 library items reached, or library code over 400 files or 4,000,000 bytes in total;
+- the merged dependency set failing the install rules once library code adds to it (`Dependencies with library code: Maximum 15 dependencies`).
+
+A file whose comments or dynamic imports are too tangled to judge in bounded time is refused with `Imports too complex to check; simplify the comments or dynamic imports`, for workflow files and library code alike.
+
+Library sources asking for one package at different ranges, or disagreeing with the workflow's own `package.json`, fail too: `Dependency conflict: zod: aa 1.0.0 wants ^3.23.0, bb 1.0.0 wants ^4.1.0`. Rolling back to an older workflow version still bundles the latest published library code.
 
 ## Deployments
 

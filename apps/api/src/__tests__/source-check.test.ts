@@ -140,7 +140,7 @@ describe('POST /api/workflows/:workflowId/source/check', () => {
     it('says what it checked, and never claims a type check', async () => {
       await saveVersion()
       const { body } = await check()
-      expect(body.checked).toEqual(['ir', 'provider', 'env', 'compile', 'import'])
+      expect(body.checked).toEqual(['ir', 'library', 'provider', 'env', 'compile', 'import'])
       expect(body.checked).not.toContain('type')
       // The canvas owns the generated code, so nothing can drift from it —
       // and `checked` says so rather than leaving an agent to assume drift

@@ -67,8 +67,12 @@ source.get('/:workflowId/source', async (c) => {
   }
   // Project-owned files carry their content hash — the same value the file
   // routes serve as ETag — so a client editing from this one response has a
-  // precondition that matches the text it read.
-  const projectPaths = new Set((prepared.ir.runtime?.files ?? []).map((f) => f.path))
+  // precondition that matches the text it read. Library code folded in is
+  // not the workflow's to write, so it carries no hash.
+  const libraryPaths = new Set(prepared.libraryPaths)
+  const projectPaths = new Set(
+    (prepared.ir.runtime?.files ?? []).map((f) => f.path).filter((p) => !libraryPaths.has(p)),
+  )
   return c.json({
     versionId,
     entry: prepared.bundle.entry,

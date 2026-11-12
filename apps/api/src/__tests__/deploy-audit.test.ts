@@ -132,6 +132,46 @@ describe('deploys in the audit log', () => {
     expect(JSON.stringify(recordedAuditEvents())).not.toContain('token')
   })
 
+  it('writes the library versions it bundled with the deployment, both ways of deploying', async () => {
+    const stepCode = "import { score } from '#modules/lead-scoring'\nreturn score()"
+    const version = await mockDb.createVersion({
+      id: 'v-2',
+      workflowId: 'wf-1',
+      ir: JSON.stringify({
+        ...validIR,
+        nodes: [{ ...validIR.nodes[0], data: { code: stepCode } }],
+      }),
+    })
+    await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+    vi.spyOn(mockDb, 'resolveLibraryBundle').mockResolvedValue({
+      truncated: false,
+      oversize: false,
+      items: [
+        {
+          id: 'lib-1',
+          kind: 'module',
+          slug: 'lead-scoring',
+          name: 'Lead scoring',
+          workspaceId: null,
+          version: '1.4.1',
+          files: [
+            { path: 'index.ts', source: 'export const score = () => 1\n', hash: 'h', size: 29 },
+          ],
+          imports: [],
+          importers: [null],
+        },
+      ],
+    })
+    const created = vi.spyOn(mockDb, 'createDeployment')
+    expect((await post(app, '/deploy', { connectionId: 'conn-1' })).status).toBe(200)
+    await (await post(app, '/deploy-stream', { connectionId: 'conn-1' })).text()
+    expect(created.mock.calls.map(([data]) => data.libraryVersions)).toEqual([
+      [{ itemId: 'lib-1', slug: 'lead-scoring', version: '1.4.1' }],
+      [{ itemId: 'lib-1', slug: 'lead-scoring', version: '1.4.1' }],
+    ])
+    vi.restoreAllMocks()
+  })
+
   it('records who deployed, both ways of deploying', async () => {
     await post(app, '/deploy', { connectionId: 'conn-1' })
     await (await post(app, '/deploy-stream', { connectionId: 'conn-1' })).text()

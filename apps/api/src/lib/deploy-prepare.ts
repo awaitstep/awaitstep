@@ -1,6 +1,6 @@
 import type { WorkflowProvider, ProviderConfig, GeneratedBundle } from '@awaitstep/codegen'
 import { PROJECT_CONNECTION_REASONS, type ArtifactIR } from '@awaitstep/ir'
-import type { DatabaseAdapter, Workflow } from '@awaitstep/db'
+import type { DatabaseAdapter, DeploymentLibraryVersion, Workflow } from '@awaitstep/db'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
@@ -20,6 +20,8 @@ export interface DeployContext {
   connectionName: string
   resolvedDeploymentConfig: unknown
   connectionProvider: string
+  /** The library versions the bundle carries, recorded with the deployment. */
+  library: DeploymentLibraryVersion[]
 }
 
 export interface DeployPrepareError {
@@ -168,6 +170,7 @@ export async function prepareDeploy(
     connectionName: connection.name,
     resolvedDeploymentConfig: resolvedConfig.config,
     connectionProvider: connection.provider,
+    library: prepared.library,
   }
 }
 

@@ -40,6 +40,7 @@ libraryTree.get('/tree', async (c) => {
       slug: item.slug,
       name: item.name,
       latestVersion: item.latestVersion,
+      savedAt: item.savedAt,
       files: [
         ...item.files.map((file) => ({ path: file.path, hash: file.hash, readOnly: false })),
         ...item.published.map((file) => ({

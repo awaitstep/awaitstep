@@ -28,6 +28,8 @@ import type {
   PersonAuditInsert,
   NotificationInsert,
   RunTrigger,
+  WorkflowLibraryUses,
+  DeploymentLibraryVersion,
 } from '@awaitstep/db'
 import type {
   GeneratedBundle,
@@ -58,6 +60,8 @@ const store = {
   envVars: new Map<string, EnvVar>(),
   // Which workspaces (a project's variable) or projects (an organization's) a listed variable reaches.
   envVarReach: new Map<string, Set<string>>(),
+  workflowLibraryUses: new Map<string, WorkflowLibraryUses>(),
+  deploymentLibraryVersions: new Map<string, DeploymentLibraryVersion[]>(),
   auditEvents: [] as AuditEventInsert[],
   personAuditEvents: [] as PersonAuditInsert[],
   notifications: [] as NotificationInsert[],
@@ -126,6 +130,8 @@ export function resetStore() {
   seedTestProject()
   store.envVars.clear()
   store.envVarReach.clear()
+  store.workflowLibraryUses.clear()
+  store.deploymentLibraryVersions.clear()
   store.auditEvents.length = 0
   store.personAuditEvents.length = 0
   store.notifications.length = 0
@@ -1666,7 +1672,8 @@ const mockDb: DatabaseAdapter = {
   },
 
   // Deployments
-  async createDeployment(data) {
+  async createDeployment({ libraryVersions, ...data }) {
+    if (libraryVersions?.length) store.deploymentLibraryVersions.set(data.id, libraryVersions)
     const d: Deployment = {
       ...data,
       versionId: data.versionId ?? null,
@@ -2298,6 +2305,12 @@ const mockDb: DatabaseAdapter = {
   },
   async rewriteLibraryUsages() {
     return notMocked('rewriteLibraryUsages')
+  },
+  async rewriteWorkflowLibraryUsages(uses) {
+    store.workflowLibraryUses.set(uses.workflowId, uses)
+  },
+  async resolveLibraryBundle() {
+    return { items: [], truncated: false, oversize: false }
   },
   async getLibraryUsages() {
     return notMocked('getLibraryUsages')

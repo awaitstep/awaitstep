@@ -14,6 +14,7 @@ import {
   type WorkflowVersion,
 } from '@awaitstep/db'
 import { foldProjectFiles, stripProjectOwnedRuntime } from './runtime-fold.js'
+import { recordWorkflowLibraryUses } from './library-fold.js'
 import { normalizeStepModules } from '@awaitstep/codegen'
 import { canonicalJson, graphHash } from './graph-hash.js'
 
@@ -49,6 +50,11 @@ export interface PersistVersionInput {
    * its race to another first save, or to a legacy handlers.ts, writes none.
    */
   freshSeeds?: UpsertWorkflowFileData[]
+  /**
+   * The workflow row's legacy trigger code, which a prepare folds in: its
+   * `#modules/` imports count as uses too.
+   */
+  legacyTriggerCode?: string | null
 }
 
 /** What a save is judged against, read together so no write can slip between them. */
@@ -159,9 +165,21 @@ async function trySave(
     (latest ? graphHash(latest.ir) : null) === input.baseGraphHash
 
   // The version holds the seeds' content from here on; the table follows
-  // once the write is in, and a path stored meanwhile is left as it is.
+  // once the write is in, and a path stored meanwhile is left as it is. The
+  // workflow's library usage rows follow the saved document the same way,
+  // so Used by and the delete guard see a draft as soon as it is saved.
   const seeded = async <T>(result: T): Promise<T> => {
-    if (seeds.length > 0) await db.createWorkflowFilesIfAbsent(seeds)
+    await Promise.all([
+      seeds.length > 0 ? db.createWorkflowFilesIfAbsent(seeds) : undefined,
+      recordWorkflowLibraryUses(
+        db,
+        input.workflowId,
+        withLegacyTriggerCode(
+          foldProjectFiles(input.ir, files, { useSnapshot: false }),
+          input.legacyTriggerCode,
+        ),
+      ),
+    ])
     return result
   }
 
@@ -232,6 +250,20 @@ export async function persistVersion(
   return conflictWith(await db.getLatestVersion(input.workflowId))
 }
 
+/**
+ * A document with the workflow row's legacy trigger code beside its own, as
+ * far as what it imports goes: a prepare folds the column in, so its
+ * imports are bundled and have to be recorded as uses.
+ */
+export function withLegacyTriggerCode(
+  ir: ArtifactIR,
+  legacy: string | null | undefined,
+): ArtifactIR {
+  if (!legacy) return ir
+  const own = ir.runtime?.triggerCode
+  return { ...ir, runtime: { ...ir.runtime, triggerCode: own ? `${own}\n${legacy}` : legacy } }
+}
+
 /** The stored document, migrated, as the folds read it; null for a row that is not a JSON object. */
 export function storedDocument(irText: string): ArtifactIR | null {
   try {
@@ -252,7 +284,7 @@ export function storedDocument(irText: string): ArtifactIR | null {
  */
 export async function commitProjectFiles(
   db: DatabaseAdapter,
-  input: { workflowId: string; userId: string },
+  input: { workflowId: string; userId: string; legacyTriggerCode?: string | null },
 ): Promise<CommitResult> {
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const reads = await readForSave(db, input.workflowId)

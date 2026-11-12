@@ -21,14 +21,26 @@ import {
 } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
 import type { ArtifactIR, ProjectFile } from '@awaitstep/ir'
-import { loadArtifact, parsePackageManifest } from '@awaitstep/ir'
-import type { DatabaseAdapter, Workflow, WorkflowVersion } from '@awaitstep/db'
+import { CUSTOM_NODE_TYPE_PREFIX, loadArtifact, parsePackageManifest } from '@awaitstep/ir'
+import type {
+  DatabaseAdapter,
+  DeploymentLibraryVersion,
+  Workflow,
+  WorkflowVersion,
+} from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
-import { collectNodeDependencies, mergeDependencies } from './dependencies.js'
+import { collectNodeDependencies } from './dependencies.js'
+import { dependenciesWithLibrary, validateWithLibrary } from './library-prepare.js'
+import { foldLibrary } from './library-fold.js'
 import { placeOf, resolveAndValidateEnvVars } from './env-resolve.js'
-import { escapingImports, unresolvedAppImports } from './import-check.js'
+import {
+  TOO_COMPLEX,
+  escapeMessage,
+  escapingImports,
+  unresolvedAppImports,
+} from './import-check.js'
 import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
@@ -68,6 +80,10 @@ export interface WorkflowContext {
    * supplied `projectFiles` to overlay.
    */
   projectFileRows: readonly { path: string; hash: string }[]
+  /** The library versions the bundle carries, which a deployment records. */
+  library: DeploymentLibraryVersion[]
+  /** Bundle paths that are library code folded in, never the workflow's own files. */
+  libraryPaths: readonly string[]
 }
 
 /**
@@ -209,16 +225,44 @@ export async function prepareWorkflow(
   // fold the snapshot they were saved with.
   ir = foldProjectHandlers(foldProjectFiles(ir, projectFiles, { useSnapshot: !isCurrentVersion }))
 
-  // Merge installed nodes for custom node template resolution
+  // Installed marketplace nodes and the Library are read together: neither
+  // depends on the other. The Library folds the latest published version of
+  // every module and custom node the workflow reaches; the workflow's own
+  // files stay what is validated against the project-file rules.
+  const ownIr = ir
   const nodeTypesInIR = new Set(ir.nodes.map((n) => n.type))
-  const missingFromBuiltin = [...nodeTypesInIR].filter((t) => !input.nodeRegistry?.registry.get(t))
-  const installedNodes =
+  const missingFromBuiltin = [...nodeTypesInIR].filter(
+    (t) => !t.startsWith(CUSTOM_NODE_TYPE_PREFIX) && !input.nodeRegistry?.registry.get(t),
+  )
+  const [installedNodes, libraryFold] = await Promise.all([
     missingFromBuiltin.length > 0
-      ? (await db.listInstalledNodes(organizationId, { limit: 100 })).data.filter((n) =>
-          missingFromBuiltin.includes(n.nodeId),
-        )
-      : []
-  const nodeRegistry = createMergedNodeRegistry(input.nodeRegistry, installedNodes)
+      ? db
+          .listInstalledNodes(organizationId, { limit: 100 })
+          .then((page) => page.data.filter((n) => missingFromBuiltin.includes(n.nodeId)))
+      : [],
+    foldLibrary(db, { projectId: workflow.projectId, workspaceId: workflow.workspaceId }, ir),
+  ])
+  checked.push('library')
+  if (libraryFold.diagnostics.length > 0) {
+    if (!lenient) {
+      const [first, ...rest] = libraryFold.diagnostics
+      return {
+        error: first!.message,
+        status: 400,
+        ...(rest.length > 0 && { details: libraryFold.diagnostics }),
+        diagnostics: libraryFold.diagnostics,
+        checked,
+        finding: true,
+      }
+    }
+    diagnostics.push(...libraryFold.diagnostics)
+  }
+  ir = libraryFold.ir
+  const nodeRegistry = createMergedNodeRegistry(
+    input.nodeRegistry,
+    installedNodes,
+    libraryFold.customNodes,
+  )
 
   // The artifact can name its runtime itself, which is what lets a canvas or
   // local test work with no deployment connection. A caller that names a
@@ -257,7 +301,7 @@ export async function prepareWorkflow(
   )
 
   // Validate IR
-  const validation = adapter.validate(ir)
+  const validation = validateWithLibrary(adapter, ownIr, ir)
   if (!validation.ok) {
     if (!lenient) {
       return {
@@ -409,6 +453,12 @@ export async function prepareWorkflow(
     }
   }
 
+  // The modules folded in travel with the bundle, so every deployer maps
+  // exactly those as `#modules/<slug>`, never a workflow file under modules/.
+  if (libraryFold.moduleSlugs.length > 0) {
+    bundle = { ...bundle, libraryModules: libraryFold.moduleSlugs }
+  }
+
   // Dependencies: the bundle's own package.json is the source of truth —
   // the project's own manifest when it has one; the legacy dependencies
   // setting (folded into the runtime block) only applies when it does not.
@@ -416,7 +466,23 @@ export async function prepareWorkflow(
   const manifest = manifestSource ? parsePackageManifest(manifestSource) : null
   const workflowDeps = manifest ? (manifest.dependencies ?? {}) : (ir.runtime?.dependencies ?? {})
   const nodeDeps = collectNodeDependencies(ir, nodeRegistry)
-  const dependencies = mergeDependencies(workflowDeps, nodeDeps)
+  const { dependencies, findings: dependencyFindings } = dependenciesWithLibrary(
+    workflowDeps,
+    nodeDeps,
+    libraryFold.dependencySources,
+  )
+  if (dependencyFindings.length > 0) {
+    if (!lenient) {
+      return {
+        error: dependencyFindings[0]!,
+        status: 400,
+        ...(dependencyFindings.length > 1 && { details: dependencyFindings }),
+        checked,
+        finding: true,
+      }
+    }
+    for (const message of dependencyFindings) diagnostics.push({ source: 'library', message })
+  }
 
   // Catch syntax errors in user-authored code (step bodies, handlers, project
   // modules) before deploy/preview consumers act on the bundle. Without this
@@ -457,7 +523,10 @@ export async function prepareWorkflow(
   if (escapes.length > 0 && !lenient) {
     const first = escapes[0]!
     return {
-      error: `Import "${first.specifier}" in ${first.path} reaches outside the project`,
+      error:
+        first.specifier === TOO_COMPLEX
+          ? `${first.path}: ${TOO_COMPLEX}`
+          : `Import "${first.specifier}" in ${first.path} reaches outside the project`,
       status: 422,
       ...(escapes.length > 1 && {
         details: escapes.map((e) => ({ path: e.path, message: `"${e.specifier}"` })),
@@ -474,7 +543,10 @@ export async function prepareWorkflow(
     for (const escape of escapes) {
       diagnostics.push({
         source: 'import',
-        message: `"${escape.specifier}" reaches outside the project — imports must stay inside it`,
+        message:
+          escape.specifier === TOO_COMPLEX
+            ? TOO_COMPLEX
+            : `${escapeMessage(escape, 'the project')} — imports must stay inside it`,
         path: escape.path,
       })
     }
@@ -508,6 +580,8 @@ export async function prepareWorkflow(
     requirements,
     checked,
     projectFileRows: loadedFiles.map(({ path, hash }) => ({ path, hash })),
+    library: libraryFold.library,
+    libraryPaths: libraryFold.paths,
   }
 }
 

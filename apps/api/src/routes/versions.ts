@@ -24,8 +24,10 @@ import {
   persistVersion,
   readForSave,
   storedDocument,
+  withLegacyTriggerCode,
   type VersionSaveResult,
 } from '../lib/version-save.js'
+import { recordWorkflowLibraryUses } from '../lib/library-fold.js'
 import { recordAudit, type AuditRecord } from '../lib/audit.js'
 import type { AppEnv } from '../types.js'
 import { versionDetailRecord, versionPageRecord } from '../lib/list-records.js'
@@ -201,6 +203,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
       baseGraphHash: body.baseGraphHash,
       seeds: toWorkflowFileRows(workflowId, seeds),
       freshSeeds: toWorkflowFileRows(workflowId, freshSeeds),
+      legacyTriggerCode: workflow.triggerCode,
     },
     reads,
   )
@@ -218,6 +221,7 @@ versions.post('/:workflowId/versions/commit', async (c) => {
   const result = await commitProjectFiles(c.get('db'), {
     workflowId: workflow.id,
     userId: c.get('userId'),
+    legacyTriggerCode: workflow.triggerCode,
   })
   if ('error' in result) return c.json({ error: result.error }, result.status)
   return saveResponse(c, result)
@@ -269,7 +273,19 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
     ),
   ])
 
-  await db.advanceCurrentVersion(workflowId, newVersion)
+  // The reverted document is current now: its uses replace the ones the
+  // version it replaced recorded, or the delete guard would judge the wrong code.
+  const reverted = storedDocument(targetVersion.ir)
+  await Promise.all([
+    db.advanceCurrentVersion(workflowId, newVersion),
+    reverted
+      ? recordWorkflowLibraryUses(
+          db,
+          workflowId,
+          withLegacyTriggerCode(reverted, c.get('workflow')?.triggerCode),
+        )
+      : undefined,
+  ])
   const audited = workflowAudit(c, workflowId)
   await recordAudit(c, {
     event: 'version.revert',

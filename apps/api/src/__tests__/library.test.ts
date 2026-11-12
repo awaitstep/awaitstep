@@ -456,8 +456,11 @@ describe('library routes', () => {
       'kind',
       'latestVersion',
       'name',
+      'savedAt',
       'slug',
     ])
+    // When the draft was last saved, for history's "Draft · saved 1m ago" (28j).
+    expect(Date.parse(tree.items[0].savedAt)).not.toBeNaN()
     expect(tree.items[0].files[0]).toEqual({
       path: 'index.ts',
       hash: expect.any(String),
