@@ -1,0 +1,44 @@
+{
+  "version": "1.1.0",
+  "description": "Manage Lemon Squeezy orders, subscriptions, products, and checkouts",
+  "tags": ["lemonsqueezy", "payments", "subscriptions", "digital", "checkout"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "List Orders",
+        "Get Order",
+        "List Customers",
+        "Get Customer",
+        "List Subscriptions",
+        "Get Subscription",
+        "List Products",
+        "Create Checkout"
+      ]
+    },
+    "subscriptionId": {
+      "type": "string",
+      "label": "Subscription ID",
+      "description": "Subscription ID. Used by: Get Subscription."
+    },
+    "storeId": {
+      "type": "string",
+      "label": "Store ID",
+      "description": "Store ID. Used by: Create Checkout."
+    },
+    "variantId": {
+      "type": "string",
+      "label": "Variant ID",
+      "description": "Variant ID. Used by: Create Checkout."
+    },
+    "checkoutEmail": {
+      "type": "string",
+      "label": "Checkout Email",
+      "description": "Prefilled checkout email. Used by: Create Checkout."
+    },
+    "redirectUrl": {
+      "type": "string",
+      "label": "Redirect URL",
+      "description": "URL to redirect after checkout. Used by: Create Checkout."
+    }
+  }
+}

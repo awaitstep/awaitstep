@@ -1,0 +1,47 @@
+{
+  "version": "1.1.0",
+  "description": "Manage Paddle customers, transactions, subscriptions, and products",
+  "tags": ["paddle", "payments", "subscriptions", "billing", "customers"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "List Transactions",
+        "Get Transaction",
+        "List Subscriptions",
+        "Get Customer",
+        "List Products",
+        "Create Customer",
+        "Create Transaction",
+        "Cancel Subscription",
+        "List Customers"
+      ]
+    },
+    "email": {
+      "type": "string",
+      "label": "Email",
+      "description": "Customer email. Used by: Create Customer."
+    },
+    "name": {
+      "type": "string",
+      "label": "Name",
+      "description": "Customer name. Used by: Create Customer."
+    },
+    "subscriptionId": {
+      "type": "string",
+      "label": "Subscription ID",
+      "description": "Subscription ID. Used by: Cancel Subscription."
+    },
+    "priceId": {
+      "type": "string",
+      "label": "Price ID",
+      "description": "Price ID. Used by: Create Transaction."
+    },
+    "quantity": {
+      "type": "number",
+      "label": "Quantity",
+      "default": 1,
+      "validation": { "min": 1 },
+      "description": "Item quantity. Used by: Create Transaction."
+    }
+  }
+}

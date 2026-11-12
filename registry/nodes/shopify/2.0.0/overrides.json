@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "description": "Manage Shopify products, orders, and customers with the current Admin API",
+  "tags": ["shopify", "ecommerce", "products", "orders", "customers"],
+  "configSchema": {
+    "action": {
+      "options": [
+        "Get Product",
+        "List Products",
+        "Create Product",
+        "Update Product",
+        "Delete Product",
+        "Get Order",
+        "List Orders",
+        "Create Order",
+        "List Customers"
+      ]
+    },
+    "variantId": {
+      "type": "string",
+      "label": "Variant ID",
+      "description": "Product variant ID. Used by: Create Order."
+    },
+    "quantity": {
+      "type": "number",
+      "label": "Quantity",
+      "default": 1,
+      "validation": { "min": 1 },
+      "description": "Line item quantity. Used by: Create Order."
+    },
+    "customerEmail": {
+      "type": "string",
+      "label": "Customer Email",
+      "description": "Customer email for the order. Used by: Create Order."
+    }
+  },
+  "outputSchema": {
+    "id": {
+      "nullable": true
+    }
+  }
+}
