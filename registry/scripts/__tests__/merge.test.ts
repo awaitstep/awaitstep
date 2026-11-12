@@ -54,6 +54,11 @@ describe('deepMerge', () => {
     expect(base).toEqual(original)
   })
 
+  it('ignores prototype-polluting keys', () => {
+    const result = deepMerge({}, JSON.parse('{"__proto__":{"polluted":true},"safe":1}'))
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+    expect(result.safe).toBe(1)
+  })
   it('handles empty overrides', () => {
     const base = { id: 'test', name: 'Test' }
     const result = deepMerge(base, {})

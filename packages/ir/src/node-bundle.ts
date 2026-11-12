@@ -94,6 +94,7 @@ export function stableStringify(value: unknown): string {
     if (input !== null && typeof input === 'object') {
       const output: Record<string, unknown> = {}
       for (const key of Object.keys(input as Record<string, unknown>).sort()) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue
         const entry = (input as Record<string, unknown>)[key]
         if (entry !== undefined) output[key] = canonical(entry)
       }
