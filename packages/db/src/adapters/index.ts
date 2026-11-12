@@ -6,6 +6,9 @@ import type {
   LibraryFileSummary,
   LibraryItem,
   LibraryItemAccess,
+  LibraryItemSources,
+  LibraryOwnerScope,
+  LibraryOwnerTree,
   LibraryItemUpdateOutcome,
   LibraryKind,
   LibraryVersionFile,
@@ -2039,6 +2042,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     kind: LibraryKind,
   ): Promise<{ files: LibraryFileSummary[]; published: LibraryVersionFileSummary[] }> {
     return this._libraryVersions.tree(itemId, kind)
+  }
+  getLibraryOwnerTree(scope: LibraryOwnerScope): Promise<LibraryOwnerTree> {
+    return this._libraryVersions.ownerTree(scope)
+  }
+  getLibraryItemSources(itemId: string): Promise<LibraryItemSources> {
+    return this._libraryVersions.sources(itemId)
   }
   libraryVersionExists(itemId: string, version: string): Promise<boolean> {
     return this._libraryVersions.exists(itemId, version)

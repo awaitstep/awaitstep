@@ -6,6 +6,9 @@ import type {
   LibraryFileSummary,
   LibraryItem,
   LibraryItemAccess,
+  LibraryItemSources,
+  LibraryOwnerScope,
+  LibraryOwnerTree,
   LibraryItemUpdateOutcome,
   LibraryKind,
   LibraryVersionFile,
@@ -1230,6 +1233,10 @@ export interface DatabaseAdapter {
     itemId: string,
     kind: LibraryKind,
   ): Promise<{ files: LibraryFileSummary[]; published: LibraryVersionFileSummary[] }>
+  /** Every item one owner holds, each with its tree: one statement. */
+  getLibraryOwnerTree(scope: LibraryOwnerScope): Promise<LibraryOwnerTree>
+  /** The working copy with sources and the latest version's files: one statement. */
+  getLibraryItemSources(itemId: string): Promise<LibraryItemSources>
   listLibraryVersions(itemId: string): Promise<LibraryVersionListItem[]>
   getLibraryVersion(itemId: string, version: string): Promise<LibraryVersionDetail | null>
   /** Whether the item has published this version. */

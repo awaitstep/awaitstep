@@ -2,6 +2,10 @@ import { aliasedTable, and, desc, eq, sql, type SQL } from 'drizzle-orm'
 import { isUniqueViolation } from '../db-errors.js'
 import type {
   LibraryFileSummary,
+  LibraryItemSources,
+  LibraryOwnerScope,
+  LibraryOwnerTree,
+  LibraryOwnerTreeItem,
   LibraryVersionDetail,
   LibraryVersionFile,
   LibraryVersionFileSummary,
@@ -184,9 +188,130 @@ export class LibraryVersionsAdapter {
     kind: 'module' | 'node',
   ): Promise<{ files: LibraryFileSummary[]; published: LibraryVersionFileSummary[] }> {
     const i = this.t.libraryItems
+    const published = kind === 'module' ? sql`null` : this.publishedJson(i)
+    const rows = await this.db
+      .select({ files: fieldOf(this.workingJson(i)), published: fieldOf(published) })
+      .from(i)
+      .where(eq(i.id, itemId))
+      .limit(1)
+    return {
+      files: readJsonArray<LibraryFileSummary>(rows[0]?.files),
+      published: readJsonArray<LibraryVersionFileSummary>(rows[0]?.published),
+    }
+  }
+
+  /**
+   * Every item one owner holds (a workspace, or the project itself), each
+   * with its tree as `tree()` reads it: the Library IDE's explorer in one
+   * statement. Sources stay behind; the IDE reads a file when it opens it.
+   */
+  async ownerTree(scope: LibraryOwnerScope): Promise<LibraryOwnerTree> {
+    const i = aliasedTable(this.t.libraryItems, 'lot')
+    const own =
+      scope.workspaceId === null
+        ? sql`${i.workspaceId} is null`
+        : sql`${i.workspaceId} = ${scope.workspaceId}`
+    // In a workspace's tree, the project's modules come along by slug and
+    // latest version only: what its imports resolve to when it owns none.
+    const projectModule =
+      scope.workspaceId === null
+        ? sql`1 = 0`
+        : sql`(${i.workspaceId} is null and ${i.kind} = 'module')`
+    const latest = aliasedTable(this.t.libraryVersions, 'lotv')
+    const rows = await this.db
+      .select({
+        id: i.id,
+        kind: i.kind,
+        slug: i.slug,
+        name: i.name,
+        own: sql<number>`(case when ${own} then 1 else 0 end)`.mapWith(Number),
+        // fieldOf: a statement with no joins would strip the subqueries' qualifiers.
+        latestVersion: fieldOf(
+          sql<
+            string | null
+          >`(select ${latest.version} from ${aliasedFrom(latest)} where ${latest.itemId} = ${i.id} order by ${latest.seq} desc limit 1)`,
+        ),
+        files: fieldOf(sql`(case when ${own} then ${this.workingJson(i)} else null end)`),
+        published: fieldOf(
+          sql`(case when ${own} and ${i.kind} = 'node' then ${this.publishedJson(i)} else null end)`,
+        ),
+      })
+      .from(i)
+      .where(and(eq(i.projectId, scope.projectId), sql`(${own} or ${projectModule})`))
+      .orderBy(i.kind, i.slug)
+    const items: LibraryOwnerTreeItem[] = []
+    const projectModules: LibraryOwnerTree['projectModules'] = []
+    for (const row of rows as {
+      id: string
+      kind: 'module' | 'node'
+      slug: string
+      name: string
+      own: number
+      latestVersion: string | null
+      files: unknown
+      published: unknown
+    }[]) {
+      const latestVersion = row.latestVersion ?? null
+      if (!row.own) {
+        projectModules.push({ id: row.id, slug: row.slug, latestVersion })
+        continue
+      }
+      items.push({
+        id: row.id,
+        kind: row.kind,
+        slug: row.slug,
+        name: row.name,
+        latestVersion,
+        files: readJsonArray<LibraryFileSummary>(row.files),
+        published: readJsonArray<LibraryVersionFileSummary>(row.published),
+      })
+    }
+    return { items, projectModules }
+  }
+
+  /**
+   * The item's working copy with sources, and its latest version's files:
+   * what a duplicate copies, in one statement.
+   */
+  async sources(itemId: string): Promise<LibraryItemSources> {
+    const i = this.t.libraryItems
+    const f = aliasedTable(this.t.libraryItemFiles, 'lsf')
+    const v = aliasedTable(this.t.libraryVersions, 'lsv')
+    const working = sql`(select ${jsonArrayOf(this.dialect, { path: f.path, source: f.source }, sql`${f.path}`)} from ${aliasedFrom(f)} where ${f.itemId} = ${i.id})`
+    const latestVersion = sql<
+      string | null
+    >`(select ${v.version} from ${aliasedFrom(v)} where ${v.itemId} = ${i.id} order by ${v.seq} desc limit 1)`
+    const lv = aliasedTable(this.t.libraryVersions, 'lsl')
+    const latestFiles = sql`(select ${lv.files} from ${aliasedFrom(lv)} where ${lv.itemId} = ${i.id} order by ${lv.seq} desc limit 1)`
+    const rows = await this.db
+      .select({
+        files: fieldOf(working),
+        latestVersion: fieldOf(latestVersion),
+        latestFiles: fieldOf(latestFiles),
+      })
+      .from(i)
+      .where(eq(i.id, itemId))
+      .limit(1)
+    const row = rows[0]
+    const latestVersionText = (row?.latestVersion as string | null | undefined) ?? null
+    return {
+      files: readJsonArray<{ path: string; source: string }>(row?.files),
+      latest:
+        latestVersionText === null
+          ? null
+          : {
+              version: latestVersionText,
+              files: readJsonArray<LibraryVersionFile>(row?.latestFiles).map((file) => ({
+                path: file.path,
+                source: file.source,
+              })),
+            },
+    }
+  }
+
+  private workingJson(i: AnyDb): SQL {
     const f = aliasedTable(this.t.libraryItemFiles, 'ltf')
-    const v = aliasedTable(this.t.libraryVersions, 'ltv')
-    const working = sql`(select ${jsonArrayOf(
+    return sql`(select ${jsonArrayOf(
       this.dialect,
       {
         id: f.id,
@@ -199,21 +324,14 @@ export class LibraryVersionsAdapter {
       },
       sql`${f.path}`,
     )} from ${aliasedFrom(f)} where ${f.itemId} = ${i.id})`
-    const published =
-      kind === 'module'
-        ? sql`null`
-        : this.dialect === 'pg'
-          ? sql`(select coalesce(json_agg(json_build_object('version', ${v.version}, 'path', e->>'path', 'hash', e->>'hash', 'size', (e->>'size')::int, 'publishedAt', ${isoText(this.dialect, v.publishedAt)}) order by ${v.seq} desc, e->>'path'), '[]'::json) from ${aliasedFrom(v)}, json_array_elements(${v.files}::json) as e where ${v.itemId} = ${i.id} and e->>'path' <> ${ICON})`
-          : sql`(select json_group_array(json_object('version', ${v.version}, 'path', json_extract(e.value, '$.path'), 'hash', json_extract(e.value, '$.hash'), 'size', json_extract(e.value, '$.size'), 'publishedAt', ${v.publishedAt}) order by ${v.seq} desc, json_extract(e.value, '$.path')) from ${aliasedFrom(v)}, json_each(${v.files}) as e where ${v.itemId} = ${i.id} and json_extract(e.value, '$.path') <> ${ICON})`
-    const rows = await this.db
-      .select({ files: fieldOf(working), published: fieldOf(published) })
-      .from(i)
-      .where(eq(i.id, itemId))
-      .limit(1)
-    return {
-      files: readJsonArray<LibraryFileSummary>(rows[0]?.files),
-      published: readJsonArray<LibraryVersionFileSummary>(rows[0]?.published),
-    }
+  }
+
+  // A node's published files but its icon (the icon lives in the working copy).
+  private publishedJson(i: AnyDb): SQL {
+    const v = aliasedTable(this.t.libraryVersions, 'ltv')
+    return this.dialect === 'pg'
+      ? sql`(select coalesce(json_agg(json_build_object('version', ${v.version}, 'path', e->>'path', 'hash', e->>'hash', 'size', (e->>'size')::int, 'publishedAt', ${isoText(this.dialect, v.publishedAt)}) order by ${v.seq} desc, e->>'path'), '[]'::json) from ${aliasedFrom(v)}, json_array_elements(${v.files}::json) as e where ${v.itemId} = ${i.id} and e->>'path' <> ${ICON})`
+      : sql`(select json_group_array(json_object('version', ${v.version}, 'path', json_extract(e.value, '$.path'), 'hash', json_extract(e.value, '$.hash'), 'size', json_extract(e.value, '$.size'), 'publishedAt', ${v.publishedAt}) order by ${v.seq} desc, json_extract(e.value, '$.path')) from ${aliasedFrom(v)}, json_each(${v.files}) as e where ${v.itemId} = ${i.id} and json_extract(e.value, '$.path') <> ${ICON})`
   }
 
   /**

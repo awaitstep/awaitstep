@@ -42,6 +42,8 @@ export interface CreateLibraryItemData {
   description: string
   createdBy: string | null
   files: UpsertLibraryFileData[]
+  /** The module slugs its files import (a duplicate's copied code): its usage rows, written with it. */
+  usageSlugs?: string[]
 }
 
 export interface UpdateLibraryItemData {
@@ -237,4 +239,35 @@ export interface LibraryResolvedModule {
   slug: string
   itemId: string
   latestVersion: string | null
+}
+
+/** One owner's library: a workspace's, or (workspaceId null) the project's own. */
+export interface LibraryOwnerScope {
+  projectId: string
+  workspaceId: string | null
+}
+
+/** An item in its owner's tree: the Library IDE's explorer row with its files. */
+export interface LibraryOwnerTreeItem {
+  id: string
+  kind: LibraryKind
+  slug: string
+  name: string
+  latestVersion: string | null
+  files: LibraryFileSummary[]
+  /** A node's published files (all but the icon); empty for a module. */
+  published: LibraryVersionFileSummary[]
+}
+
+/** One owner's items with their trees, and (for a workspace) the project's modules it may import. */
+export interface LibraryOwnerTree {
+  items: LibraryOwnerTreeItem[]
+  /** The project's own modules, by slug: empty in the project's own tree. */
+  projectModules: { id: string; slug: string; latestVersion: string | null }[]
+}
+
+/** What a duplicate copies: the working copy, and the latest version's files. */
+export interface LibraryItemSources {
+  files: { path: string; source: string }[]
+  latest: { version: string; files: { path: string; source: string }[] } | null
 }

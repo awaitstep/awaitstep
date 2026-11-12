@@ -259,6 +259,78 @@ describe.each([
     expect((await h.adapter.getLibraryTree('m', 'module')).published).toEqual([])
   })
 
+  it('lists one owner’s items with their trees, never another owner’s', async () => {
+    await create(item('fmt'))
+    await create(
+      item('post', {
+        kind: 'node',
+        files: [
+          { id: 'p1', itemId: 'post', path: '1.0.0/node.json', source: '{}', hash: 'a', size: 2 },
+          { id: 'p2', itemId: 'post', path: 'icon.svg', source: '<svg/>', hash: 'c', size: 6 },
+        ],
+      }),
+    )
+    await create(item('ops-only', { workspaceId: 'ws-ops' }))
+    await create(item('proj', { workspaceId: null }))
+    await h.adapter.publishLibraryVersion(
+      {
+        id: 'post@1',
+        item: { itemId: 'post', projectId: 'p-101', workspaceId: 'ws-sales' },
+        version: '1.0.0',
+        expectedSeq: 0,
+        files: [
+          { path: 'node.json', source: '{}', hash: 'a', size: 2 },
+          { path: 'icon.svg', source: '<svg/>', hash: 'c', size: 6 },
+        ],
+        imports: [],
+        publishedBy: 'u-ama',
+        removePaths: ['1.0.0/node.json'],
+        rewrite: null,
+        usageSlugs: [],
+      },
+      3,
+    )
+
+    const salesTree = await h.adapter.getLibraryOwnerTree({
+      projectId: 'p-101',
+      workspaceId: 'ws-sales',
+    })
+    const sales = salesTree.items
+    expect(sales.map((i) => i.slug)).toEqual(['fmt', 'post'])
+    // The project's modules come along by slug only, never another workspace's.
+    expect(salesTree.projectModules).toEqual([{ id: 'proj', slug: 'proj', latestVersion: null }])
+    const [fmt, post] = sales
+    expect(fmt).toMatchObject({ kind: 'module', latestVersion: null, published: [] })
+    expect(fmt!.files.map((f) => f.path)).toEqual(['index.ts'])
+    expect(fmt!.files[0]).not.toHaveProperty('source')
+    expect(post!.latestVersion).toBe('1.0.0')
+    expect(post!.files.map((f) => f.path)).toEqual(['icon.svg'])
+    expect(post!.published.map((f) => `${f.version}/${f.path}`)).toEqual(['1.0.0/node.json'])
+
+    const project = await h.adapter.getLibraryOwnerTree({ projectId: 'p-101', workspaceId: null })
+    expect(project.items.map((i) => i.slug)).toEqual(['proj'])
+    expect(project.projectModules).toEqual([])
+    expect(await h.adapter.getLibraryOwnerTree({ projectId: 'p-202', workspaceId: null })).toEqual({
+      items: [],
+      projectModules: [],
+    })
+  })
+
+  it('reads an item’s working copy with sources and its latest version’s files', async () => {
+    await create(item('fmt'))
+    expect(await h.adapter.getLibraryItemSources('fmt')).toEqual({
+      files: [{ path: 'index.ts', source: 'export {}' }],
+      latest: null,
+    })
+    await publish('fmt', '1.0.0')
+    await publish('fmt', '1.0.1')
+    const sources = await h.adapter.getLibraryItemSources('fmt')
+    expect(sources.latest).toEqual({
+      version: '1.0.1',
+      files: files(2).map((f) => ({ path: f.path, source: f.source })),
+    })
+  })
+
   it('writes a bumped file before the version, and refuses when it changed since read', async () => {
     await create(item('m'))
     const base = {
@@ -436,7 +508,8 @@ describe.each([
     // The project's own items, never another workspace's.
     expect(sales.fromProject.map((r) => r.id)).toEqual(['p-mod'])
     expect(sales.marketplace).toEqual([])
-    expect(sales.counts).toEqual({ module: 2, node: 1, marketplace: 0 })
+    // Own items only: the project's module is listed, not counted.
+    expect(sales.counts).toEqual({ module: 1, node: 1, marketplace: 0 })
 
     const project = await h.adapter.getLibrarySummary({
       level: 'project',
@@ -602,12 +675,21 @@ describe.each([
     expect((await h.adapter.listLibraryVersions('m'))[0]!.publishedBy).toBeNull()
   })
 
+  it('writes a new item’s usage rows with it', async () => {
+    await create(item('copy', { usageSlugs: ['fmt', 'dates'] }))
+    expect(await h.count('library_usages', "consumer_item_id = 'copy'")).toBe(2)
+    await create(item('fmt'))
+    const usages = await h.adapter.getLibraryUsages('u-ama', 'fmt')
+    expect(usages.usedBy.visible.map((c) => c.id)).toEqual(['copy'])
+  })
+
   it('stops creating at the owner’s cap, writing neither the item nor its files', async () => {
     expect(await create(item('a'), 2)).toMatchObject({ id: 'a' })
     expect(await create(item('b'), 2)).toMatchObject({ id: 'b' })
-    expect(await create(item('c'), 2)).toBeNull()
+    expect(await create(item('c', { usageSlugs: ['fmt'] }), 2)).toBeNull()
     expect(await h.count('library_items', "id = 'c'")).toBe(0)
     expect(await h.count('library_item_files', "item_id = 'c'")).toBe(0)
+    expect(await h.count('library_usages', "consumer_item_id = 'c'")).toBe(0)
     // Another owner has its own room.
     expect(await create(item('d', { workspaceId: 'ws-ops' }), 2)).toMatchObject({ id: 'd' })
   })

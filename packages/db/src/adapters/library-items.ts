@@ -118,6 +118,15 @@ export class LibraryItemsAdapter {
     const [written] = await atomicallyReturning<{ id: string }>(this.db, (tx) => [
       insertWhereQuery(tx, items, row, p, room),
       ...this.files.insertWhereItemStatements(tx, data.files, items),
+      // Only when the item landed: a full owner writes nothing at all.
+      ...(data.usageSlugs && data.usageSlugs.length > 0
+        ? this.usages.rewriteStatements(
+            tx,
+            { itemId: data.id, projectId: data.projectId, workspaceId: data.workspaceId },
+            data.usageSlugs,
+            { from: items, condition: eq(items.id, data.id) },
+          )
+        : []),
     ])
     return written && written.length > 0 ? row : null
   }
@@ -196,8 +205,8 @@ export class LibraryItemsAdapter {
   /**
    * The Library page in one statement: the place's own items, the
    * project's own (a workspace may use them; no workspace sees another's)
-   * and, for the project, the organization's marketplace nodes, with
-   * counts per kind.
+   * and, for the project, the organization's marketplace nodes, with the
+   * place's own items counted per kind.
    */
   async summary(scope: LibrarySummaryScope): Promise<LibrarySummary> {
     const own = aliasedTable(this.t.libraryItems, 'lso')
@@ -212,7 +221,8 @@ export class LibraryItemsAdapter {
         : sql`1 = 0`
     const count = (kind: 'module' | 'node') => {
       const a = aliasedTable(this.t.libraryItems, `lsc${kind[0]}`)
-      return sql<number>`(select count(*) from ${aliasedFrom(a)} where (${ownerIs(a)} or ${inProject(a)}) and ${a.kind} = ${kind})`
+      // The page's kind pills count the place's own items (28a).
+      return sql<number>`(select count(*) from ${aliasedFrom(a)} where ${ownerIs(a)} and ${a.kind} = ${kind})`
     }
     const n = this.t.installedNodes
     const nodeName =
