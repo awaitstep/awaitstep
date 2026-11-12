@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "description": "Ask Perplexity through the Agent API with configurable effort levels",
+  "tags": ["perplexity", "ai", "search", "research", "agent"],
+  "configSchema": {
+    "action": {
+      "options": ["Agent Request"]
+    },
+    "model": {
+      "description": "Legacy Sonar model name; the Agent API selects the model from Effort."
+    },
+    "effort": {
+      "type": "select",
+      "label": "Effort",
+      "default": "fast",
+      "options": ["fast", "low", "medium", "high", "xhigh"],
+      "description": "Research effort level. Used by: Agent Request."
+    }
+  }
+}
