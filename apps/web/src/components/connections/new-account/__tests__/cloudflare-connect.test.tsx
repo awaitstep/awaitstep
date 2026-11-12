@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -66,9 +66,17 @@ describe('CloudflareConnect', () => {
   it('lists the permissions the API token needs, with a link to make one', () => {
     renderStep()
     const card = screen.getByRole('region', { name: 'Token permissions' })
-    expect(card).toHaveTextContent('Account · Workers Scripts · Admin, Edit, Read')
-    expect(card).toHaveTextContent('Account · Workers KV Storage · Edit')
-    expect(card).toHaveTextContent('Account · Account Settings · Read')
+    // One line per scope the OAuth sign-in asks for, in the same order.
+    expect(
+      within(card)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual([
+      'Account · Account Settings · Read',
+      'Account · Workers Scripts · Admin',
+      'Account · Workers KV Storage · Read',
+      'Account · Workers KV Storage · Write',
+    ])
     expect(screen.getByRole('link', { name: /Open Cloudflare API tokens/ })).toHaveAttribute(
       'href',
       'https://dash.cloudflare.com/profile/api-tokens',

@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig((options) => ({
-  entry: ['src/index.ts', 'src/codegen/generate.ts'],
+  entry: ['src/index.ts', 'src/codegen/generate.ts', 'src/oauth-permissions.ts'],
   format: ['esm'],
   dts: !process.env.NO_DTS,
   // Watch rebuilds run beside the app dev servers; cleaning dist here

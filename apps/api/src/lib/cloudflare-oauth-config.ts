@@ -1,4 +1,7 @@
-import type { CloudflareOAuthClientConfig } from '@awaitstep/provider-cloudflare'
+import {
+  DEFAULT_CLOUDFLARE_OAUTH_SCOPES,
+  type CloudflareOAuthClientConfig,
+} from '@awaitstep/provider-cloudflare'
 
 /**
  * The Cloudflare OAuth client this deployment talks to.
@@ -33,14 +36,11 @@ export interface CloudflareOAuthRuntime extends CloudflareOAuthClientConfig {
  *
  * Every requested scope must also be on the OAuth client: the request can ask
  * for less than the client allows, never more.
+ *
+ * The list itself lives in `@awaitstep/provider-cloudflare/oauth-permissions`,
+ * beside its dashboard names, so the token form lists the same permissions.
  */
-export const DEFAULT_CLOUDFLARE_OAUTH_SCOPES = [
-  'account-settings.read',
-  'workers-scripts.admin',
-  // KV Read and Write are separate; the Resources UI lists keys and writes them.
-  'workers-kv-storage.read',
-  'workers-kv-storage.write',
-]
+export { DEFAULT_CLOUDFLARE_OAUTH_SCOPES }
 
 export const CLOUDFLARE_OAUTH_CALLBACK_PATH = '/api/oauth/cloudflare/callback'
 

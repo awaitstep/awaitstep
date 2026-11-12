@@ -11,6 +11,10 @@
     "./codegen": {
       "types": "./dist/codegen/generate.d.ts",
       "import": "./dist/codegen/generate.js"
+    },
+    "./oauth-permissions": {
+      "types": "./dist/oauth-permissions.d.ts",
+      "import": "./dist/oauth-permissions.js"
     }
   },
   "scripts": {
