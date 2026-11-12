@@ -4,7 +4,7 @@ import type {
   ApiLibraryConsumerWorkflow,
   ApiLibraryTreeItem,
 } from '../../../lib/library-api'
-import { DetailsSection } from './details-section'
+import { DetailsEmpty, DetailsSection, DotRow } from './details-section'
 
 function consumerNote(consumer: ApiLibraryConsumerWorkflow | ApiLibraryConsumerItem): string {
   if (consumer.kind === 'item') return consumer.itemKind === 'module' ? 'module' : 'custom node'
@@ -22,18 +22,18 @@ export function UsedBySection({ item }: { item: ApiLibraryTreeItem }) {
       {item.kind === 'node' || (data?.uses.length ?? 0) > 0 ? (
         <DetailsSection title="Uses">
           {!data ? (
-            <p className="text-xs text-muted-foreground">Loading…</p>
+            <DetailsEmpty>Loading…</DetailsEmpty>
           ) : data.uses.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No modules.</p>
+            <DetailsEmpty>No modules.</DetailsEmpty>
           ) : (
-            <ul className="flex flex-col gap-1.5 text-xs">
+            <ul className="flex flex-col">
               {data.uses.map((module) => (
-                <li key={module.id} className="flex items-center gap-2">
-                  <span className="flex-1 truncate font-mono text-foreground">
+                <DotRow key={module.id}>
+                  <span className="min-w-0 flex-1 truncate font-mono text-foreground">
                     #modules/{module.slug}
                   </span>
-                  <span className="text-muted-foreground">{module.owner.name}</span>
-                </li>
+                  <span className="text-2xs text-muted-foreground">{module.owner.name}</span>
+                </DotRow>
               ))}
             </ul>
           )}
@@ -48,22 +48,21 @@ export function UsedBySection({ item }: { item: ApiLibraryTreeItem }) {
             Couldn’t load who uses it.
           </p>
         ) : !data ? (
-          <p className="text-xs text-muted-foreground">Loading…</p>
+          <DetailsEmpty>Loading…</DetailsEmpty>
         ) : visible.length === 0 && hidden === 0 ? (
-          <p className="text-xs text-muted-foreground">Not used yet.</p>
+          <DetailsEmpty>Not used yet.</DetailsEmpty>
         ) : (
-          <ul className="flex flex-col gap-1.5">
+          <ul className="flex flex-col">
             {visible.map((consumer) => (
-              <li
-                key={`${consumer.kind}:${consumer.id}`}
-                className="flex items-center gap-2 text-xs"
-              >
-                <span className="flex-1 truncate text-foreground">{consumer.name}</span>
-                <span className="text-muted-foreground">{consumerNote(consumer)}</span>
-              </li>
+              <DotRow key={`${consumer.kind}:${consumer.id}`}>
+                <span className="min-w-0 flex-1 truncate text-muted-foreground/90">
+                  {consumer.name}
+                </span>
+                <span className="text-2xs text-muted-foreground">{consumerNote(consumer)}</span>
+              </DotRow>
             ))}
             {hidden > 0 && (
-              <li className="text-xs text-muted-foreground">
+              <li className="pt-1 text-2xs text-muted-foreground">
                 {hidden === 1 ? '1 more you can’t open' : `${hidden} more you can’t open`}
               </li>
             )}

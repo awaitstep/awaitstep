@@ -6,7 +6,8 @@ import { manifestSummary } from '../../../lib/library/manifest-summary'
 import { Button } from '../../ui/button'
 import { DynamicFields } from '../../canvas/dynamic-fields'
 import { KIND_LABEL } from '../../library/library-format'
-import { DetailsSection } from './details-section'
+import { LibraryKindTile } from '../../library/parts/library-kind-tile'
+import { DetailsEmpty, DetailsSection, DotRow } from './details-section'
 import { UsedBySection } from './used-by-section'
 import { VersionsSection } from './versions-section'
 
@@ -48,6 +49,10 @@ export function LibraryDetails({
     )
   }
 
+  // The node.json name as edited; the item's own while that file has none to read.
+  const manifestName = summary?.rows.find((row) => row.label === 'name')?.value
+  const previewName = manifestName && manifestName !== '—' ? manifestName : item.name
+
   function handleEdit() {
     if (summary) openFile(summary.path)
   }
@@ -61,12 +66,26 @@ export function LibraryDetails({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-auto bg-card" aria-label="Details">
-      <p className="border-b border-border px-4 py-3 text-xs text-muted-foreground">
-        {KIND_LABEL[item.kind]} · /{itemRoot(item)}
-      </p>
+    <div
+      className="flex h-full min-h-0 flex-col gap-4 overflow-auto bg-card p-3.5"
+      aria-label="Details"
+    >
+      <div className="flex items-center gap-2.5">
+        <LibraryKindTile kind={item.kind} className="size-8 rounded-lg text-xs" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
+          <span className="truncate text-2xs text-muted-foreground">
+            {KIND_LABEL[item.kind]} · /{itemRoot(item)}
+          </span>
+        </div>
+      </div>
       <DetailsSection
-        title={item.kind === 'module' ? 'package.json' : 'node.json'}
+        label="Manifest"
+        title={
+          <span className="font-mono normal-case tracking-normal">
+            {summary?.path ?? (item.kind === 'module' ? 'package.json' : 'node.json')}
+          </span>
+        }
         action={
           summary ? (
             <Button
@@ -82,21 +101,28 @@ export function LibraryDetails({
         }
         note={
           item.kind === 'module'
-            ? 'Name, version and dependencies live in package.json.'
-            : 'Read from node.json. Edit the file to change it.'
+            ? 'Name, description and dependencies live in package.json. Edit the file to change them.'
+            : 'Everything here is read from node.json. Edit the file to change it.'
         }
       >
         {summary ? (
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+          <dl className="overflow-hidden rounded-lg border border-border bg-background">
             {summary.rows.map((row) => (
-              <div key={row.label} className="contents">
-                <dt className="text-muted-foreground">{row.label}</dt>
-                <dd className="truncate font-mono text-foreground">{row.value}</dd>
+              <div
+                key={row.label}
+                className="flex items-start gap-2.5 border-t border-border px-2.5 py-2 first:border-t-0"
+              >
+                <dt className="w-20 shrink-0 font-mono text-2xs leading-5 text-muted-foreground">
+                  {row.label}
+                </dt>
+                <dd className="min-w-0 flex-1 break-words font-mono text-xs leading-5 text-foreground">
+                  {row.value}
+                </dd>
               </div>
             ))}
           </dl>
         ) : (
-          <p className="text-xs text-muted-foreground">Loading…</p>
+          <DetailsEmpty>Loading…</DetailsEmpty>
         )}
       </DetailsSection>
       <VersionsSection
@@ -106,32 +132,38 @@ export function LibraryDetails({
         onHistory={handleHistory}
       />
       {item.kind === 'module' ? (
-        <DetailsSection title="Dependencies" note="From package.json. Bundled at deploy.">
+        <DetailsSection title="Dependencies" note="Resolved from package.json. Bundled at deploy.">
           {summary && summary.dependencies.length > 0 ? (
-            <ul className="flex flex-col gap-1 font-mono text-xs">
+            <ul className="flex flex-col font-mono">
               {summary.dependencies.map((dep) => (
-                <li key={dep.name} className="flex gap-2">
-                  <span className="flex-1 truncate text-foreground">{dep.name}</span>
+                <DotRow key={dep.name}>
+                  <span className="min-w-0 flex-1 truncate text-foreground">{dep.name}</span>
                   <span className="text-muted-foreground">{dep.range}</span>
-                </li>
+                </DotRow>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-muted-foreground">None.</p>
+            <DetailsEmpty>None.</DetailsEmpty>
           )}
         </DetailsSection>
       ) : (
         <DetailsSection title="How it looks on canvas" note="Drawn from configSchema.">
-          {summary?.configSchema && Object.keys(summary.configSchema).length > 0 ? (
-            <DynamicFields
-              configSchema={summary.configSchema}
-              data={defaultsOf(summary.configSchema)}
-              onChange={noop}
-              readOnly
-            />
-          ) : (
-            <p className="text-xs text-muted-foreground">No settings.</p>
-          )}
+          <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-background p-3">
+            <div className="flex items-center gap-2">
+              <LibraryKindTile kind="node" className="size-6 rounded-md text-2xs" />
+              <span className="truncate text-sm font-semibold text-foreground">{previewName}</span>
+            </div>
+            {summary?.configSchema && Object.keys(summary.configSchema).length > 0 ? (
+              <DynamicFields
+                configSchema={summary.configSchema}
+                data={defaultsOf(summary.configSchema)}
+                onChange={noop}
+                readOnly
+              />
+            ) : (
+              <DetailsEmpty>No settings.</DetailsEmpty>
+            )}
+          </div>
         </DetailsSection>
       )}
       <UsedBySection item={item} />

@@ -17,21 +17,29 @@ interface DockTabsProps {
   problemCount: number
   sessionRunning: boolean
   onSelect: (tab: DockTab) => void
+  /** The tabs to show, in order; the workflow IDE's three by default. */
+  tabs?: readonly { id: DockTab; label: string }[]
 }
 
 /** The dock's tab strip; ←/→ (and Home/End) move between tabs, the active one is the tab stop. */
-export function DockTabs({ active, problemCount, sessionRunning, onSelect }: DockTabsProps) {
+export function DockTabs({
+  active,
+  problemCount,
+  sessionRunning,
+  onSelect,
+  tabs = DOCK_TAB_DEFS,
+}: DockTabsProps) {
   const listRef = useRef<HTMLDivElement>(null)
 
   function handleKeyDown(event: React.KeyboardEvent) {
     const next = nextTabIndex(
       event.key,
-      DOCK_TAB_DEFS.findIndex((tab) => tab.id === active),
-      DOCK_TAB_DEFS.length,
+      tabs.findIndex((tab) => tab.id === active),
+      tabs.length,
     )
     if (next === null) return
     event.preventDefault()
-    onSelect(DOCK_TAB_DEFS[next]!.id)
+    onSelect(tabs[next]!.id)
     listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus()
   }
 
@@ -43,7 +51,7 @@ export function DockTabs({ active, problemCount, sessionRunning, onSelect }: Doc
       onKeyDown={handleKeyDown}
       className="flex items-center gap-1"
     >
-      {DOCK_TAB_DEFS.map((tab) => (
+      {tabs.map((tab) => (
         <DockTabButton
           key={tab.id}
           tab={tab.id}

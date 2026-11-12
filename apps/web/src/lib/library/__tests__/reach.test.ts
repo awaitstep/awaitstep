@@ -15,6 +15,7 @@ function tree(): ApiLibraryTree {
     slug: id,
     name: id,
     latestVersion: null,
+    savedAt: '2026-11-12T10:00:00.000Z',
     files: files.map((f) => file(f)),
   })
   return {

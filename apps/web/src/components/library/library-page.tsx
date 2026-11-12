@@ -1,9 +1,9 @@
+import { Info, PanelLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
 import { useLibrarySummary } from '../../data/dashboard/library'
 import { libraryCodePath, type LibraryPlaceSlugs } from '../../lib/dashboard-paths'
-import type { ApiLibraryRow, LibraryKind } from '../../lib/library-api'
-import { Button, buttonVariants } from '../ui/button'
+import type { ApiLibraryRow } from '../../lib/library-api'
+import { buttonVariants } from '../ui/button'
 import { SegmentedFilter, type FilterOption } from '../ui/segmented-filter'
 import { ShellLink } from '../ui/shell-link'
 import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
@@ -40,16 +40,13 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
   const canCreate = summary.data?.viewerCan.create.allowed ?? false
   const projectPlace = { org: place.org, project: place.project }
 
-  function handleNew(kind: LibraryKind) {
-    setDialog({ kind: 'new', itemKind: kind })
-  }
-
+  // New items are named in the IDE's tree, where they open next.
   function handleNewModule() {
-    handleNew('module')
+    goTo(libraryCodePath(place, { new: 'module' }))
   }
 
   function handleNewNode() {
-    handleNew('node')
+    goTo(libraryCodePath(place, { new: 'node' }))
   }
 
   function handleOpen(row: ApiLibraryRow) {
@@ -153,7 +150,8 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
             <MarketplaceTable rows={filter === 'module' ? [] : data.marketplace} />
           </section>
         )}
-        <p className="text-2xs text-muted-foreground">
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Info className="size-3.5 shrink-0" aria-hidden="true" />
           Workflows pick up the latest published version on their next deploy.
         </p>
       </>
@@ -163,23 +161,11 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
   return (
     <>
       <TopBarContent>
-        <ShellLink
-          href={libraryCodePath(place)}
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
+        {/* One way in: new items are named in the IDE's tree, so New would only open it too. */}
+        <ShellLink href={libraryCodePath(place)} className={buttonVariants({ size: 'sm' })}>
+          <PanelLeft aria-hidden="true" />
           Open IDE
         </ShellLink>
-        {canCreate && (
-          <>
-            <Button type="button" variant="outline" size="sm" onClick={handleNewNode}>
-              New node
-            </Button>
-            <Button type="button" size="sm" onClick={handleNewModule}>
-              <Plus aria-hidden="true" />
-              New module
-            </Button>
-          </>
-        )}
       </TopBarContent>
       <PageBody>
         <PageIntro
@@ -195,6 +181,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
       {dialog && (
         <LibraryDialogs
           place={place}
+          placeName={placeName}
           dialog={dialog}
           canEdit={canCreate}
           onClose={handleCloseDialog}

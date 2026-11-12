@@ -16,5 +16,10 @@ export const Route = createFileRoute('/_authed/$org/$project/$workspace/library_
 function WorkspaceLibraryCodeRoute() {
   const slugs = Route.useParams()
   const open = Route.useSearch()
-  return <WorkspaceLibraryCode slugs={slugs} open={open} />
+  const navigate = Route.useNavigate()
+
+  function handleNewConsumed() {
+    void navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true })
+  }
+  return <WorkspaceLibraryCode slugs={slugs} open={open} onNewConsumed={handleNewConsumed} />
 }

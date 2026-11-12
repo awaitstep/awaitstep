@@ -1,18 +1,20 @@
 import type { LibraryPlaceSlugs } from '../../lib/dashboard-paths'
-import type { ApiLibraryRow, LibraryKind } from '../../lib/library-api'
+import type { ApiLibraryRow } from '../../lib/library-api'
 import { DeleteLibraryItemDialog } from './dialogs/delete-library-item-dialog'
 import { DuplicateLibraryItemDialog } from './dialogs/duplicate-library-item-dialog'
-import { NewLibraryItemDialog } from './dialogs/new-library-item-dialog'
 import { RenameLibraryItemDialog } from './dialogs/rename-library-item-dialog'
 import { VersionHistoryDialog } from './version-history-dialog'
 
 /** The one dialog the Library page has open. */
-export type LibraryDialog =
-  | { kind: 'new'; itemKind: LibraryKind }
-  | { kind: 'history' | 'rename' | 'duplicate' | 'delete'; item: ApiLibraryRow }
+export type LibraryDialog = {
+  kind: 'history' | 'rename' | 'duplicate' | 'delete'
+  item: ApiLibraryRow
+}
 
 interface LibraryDialogsProps {
   place: LibraryPlaceSlugs
+  /** Where the drafts live, for a never-published item's history. */
+  placeName: string
   dialog: LibraryDialog
   /** The viewer may change the place's items: history offers Restore. */
   canEdit: boolean
@@ -20,10 +22,14 @@ interface LibraryDialogsProps {
 }
 
 /** Renders the page's open dialog; each closes itself through `onClose`. */
-export function LibraryDialogs({ place, dialog, canEdit, onClose }: LibraryDialogsProps) {
+export function LibraryDialogs({
+  place,
+  placeName,
+  dialog,
+  canEdit,
+  onClose,
+}: LibraryDialogsProps) {
   switch (dialog.kind) {
-    case 'new':
-      return <NewLibraryItemDialog place={place} kind={dialog.itemKind} onClose={onClose} />
     case 'history':
       return (
         <VersionHistoryDialog
@@ -31,6 +37,8 @@ export function LibraryDialogs({ place, dialog, canEdit, onClose }: LibraryDialo
           item={dialog.item}
           onClose={onClose}
           canEdit={canEdit}
+          savedAt={dialog.item.updatedAt}
+          placeName={placeName}
         />
       )
     case 'rename':

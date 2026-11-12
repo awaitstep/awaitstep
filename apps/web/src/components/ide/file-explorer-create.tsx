@@ -18,6 +18,10 @@ export interface CreateRowProps {
   /** Resolves to whether the file was created; the row stays open when it was not. */
   onSubmit: (path: string) => Promise<boolean>
   onCancel: () => void
+  /** A typed `a/b.ts` stays under `target` instead of meaning the root (always so for a folder). */
+  relative?: boolean
+  /** Why the path is refused, in place of the project-file rules. */
+  validate?: (path: string) => string | null
 }
 
 function crumbLabel(folder: string): string {
@@ -33,6 +37,8 @@ export function CreateRow({
   depth,
   onSubmit,
   onCancel,
+  relative = mode === 'folder',
+  validate,
 }: CreateRowProps) {
   const [value, setValue] = useState(initial)
   const [announced, setAnnounced] = useState<string | null>(null)
@@ -40,9 +46,10 @@ export function CreateRow({
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const resolved = resolveNewPath(target, value, mode === 'folder')
+  const refusal = (path: string) => (validate ? validate(path) : newFileError(path, existing))
+  const resolved = resolveNewPath(target, value, relative)
   const empty = value.trim() === ''
-  const error = blockedReason ?? (empty ? null : newFileError(resolved, existing))
+  const error = blockedReason ?? (empty ? null : refusal(resolved))
   const invalid = empty || error !== null
   const folder = resolved ? dirname(resolved) : target
 
@@ -54,8 +61,8 @@ export function CreateRow({
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value
     setValue(next)
-    const nextPath = resolveNewPath(target, next, mode === 'folder')
-    const nextError = blockedReason ?? (next.trim() ? newFileError(nextPath, existing) : null)
+    const nextPath = resolveNewPath(target, next, relative)
+    const nextError = blockedReason ?? (next.trim() ? refusal(nextPath) : null)
     if (nextError === null) {
       clearTimeout(timer.current)
       setAnnounced(null)

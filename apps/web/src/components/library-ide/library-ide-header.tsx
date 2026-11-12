@@ -1,4 +1,4 @@
-import { ArrowLeft, PanelBottom, PanelLeft, PanelRight, Search } from 'lucide-react'
+import { PanelBottom, PanelLeft, PanelRight, Rocket, Save, Search } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import type { ApiLibraryTreeItem } from '../../lib/library-api'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
@@ -7,7 +7,7 @@ import { cn } from '../../lib/utils'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { Badge } from '../ui/badge'
-import { Button, buttonVariants } from '../ui/button'
+import { Button } from '../ui/button'
 import { ShellLink } from '../ui/shell-link'
 import { LibraryKindTile } from '../library/parts/library-kind-tile'
 
@@ -51,6 +51,11 @@ function ToggleButton({
   )
 }
 
+/** A thin rule between the top bar's groups (28d). */
+function Divider() {
+  return <span aria-hidden="true" className="h-5 w-px shrink-0 bg-border" />
+}
+
 /** The Library IDE's top bar (28d): where you are, Save with its count, the panes, and Publish. */
 export function LibraryIdeHeader({
   libraryHref,
@@ -81,36 +86,44 @@ export function LibraryIdeHeader({
   }
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-3">
-      <ShellLink href={libraryHref} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
-        <ArrowLeft aria-hidden="true" />
-        Library
-      </ShellLink>
+    <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-3 text-sm">
+      <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2">
+        <ShellLink href={libraryHref} className="text-muted-foreground hover:text-foreground">
+          Library
+        </ShellLink>
+        {item && (
+          <>
+            <span aria-hidden="true" className="text-muted-foreground/60">
+              /
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <LibraryKindTile kind={item.kind} className="size-5 rounded-md text-2xs" />
+              <span className="truncate font-semibold text-foreground">{item.name}</span>
+            </span>
+          </>
+        )}
+      </nav>
       {item && (
-        <span className="flex min-w-0 items-center gap-2">
-          <LibraryKindTile kind={item.kind} />
-          <span className="truncate text-sm font-semibold text-foreground">{item.name}</span>
-          <Badge variant={item.latestVersion ? 'outline' : 'neutral'}>
-            {item.latestVersion ? `v${item.latestVersion}` : 'draft'}
-          </Badge>
-        </span>
+        <Badge variant="neutral">{item.latestVersion ? `v${item.latestVersion}` : 'draft'}</Badge>
       )}
       <Badge variant="neutral">{placeName}</Badge>
       <span className="flex-1" />
       {canEdit && (
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={onSave}
           disabled={dirtyCount === 0}
           loading={saving}
           title={`Save (${formatShortcut(IDE_SHORTCUTS.save, isMac)})`}
         >
+          <Save aria-hidden="true" />
           Save
           {dirtyCount > 0 && <Badge variant="warning">{dirtyCount}</Badge>}
         </Button>
       )}
+      {canEdit && <Divider />}
       <ToggleButton
         label={`Toggle explorer (${formatShortcut(IDE_SHORTCUTS.toggleExplorer, isMac)})`}
         pressed={layout.explorerOpen}
@@ -132,6 +145,7 @@ export function LibraryIdeHeader({
       >
         <PanelRight className="size-4" aria-hidden="true" />
       </ToggleButton>
+      <Divider />
       <ToggleButton
         label={`Go to file (${formatShortcut(IDE_SHORTCUTS.quickOpen, isMac)})`}
         pressed={false}
@@ -139,6 +153,7 @@ export function LibraryIdeHeader({
       >
         <Search className="size-4" aria-hidden="true" />
       </ToggleButton>
+      {canEdit && publish && <Divider />}
       {canEdit && publish && (
         <Button
           type="button"
@@ -147,6 +162,7 @@ export function LibraryIdeHeader({
           disabled={publish.disabledReason !== null}
           title={publish.disabledReason ?? undefined}
         >
+          <Rocket aria-hidden="true" />
           {publish.label}
         </Button>
       )}

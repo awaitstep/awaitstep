@@ -1,23 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useBlocker } from '@tanstack/react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { useLibraryCheck } from '../../data/dashboard/library'
+import { useCreateLibraryItem } from '../../data/dashboard/library'
+import { failureLine } from '../../lib/action-toast'
+import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useLibraryLanguageService } from '../../hooks/use-library-language-service'
 import { useLibraryWorkspace } from '../../hooks/use-library-workspace'
 import { useMinWidth } from '../../hooks/use-min-width'
 import { useWorkspaceProblems } from '../../hooks/use-workspace-problems'
 import { libraryPath, type LibraryPlaceSlugs } from '../../lib/dashboard-paths'
-import { matchShortcut } from '../../lib/ide/shortcuts'
 import type { ApiLibraryTreeItem, LibraryKind } from '../../lib/library-api'
-import { checkProblems, conflictProblems } from '../../lib/library/check-problems'
 import { draftFolderOf, idePath, itemRoot } from '../../lib/library/ide-index'
-import { newestNodeFolder } from '../../lib/library/manifest-summary'
-import { isMacPlatform } from '../../lib/platform'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { QuickOpenDialog } from '../ide/quick-open-dialog'
-import { CloseDirtyDialog } from '../ide/close-dirty-dialog'
-import { WorkspaceUnsavedDialog } from '../ide/workspace-dialogs'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { LibraryDetails } from './details/library-details'
 import { LibraryDock } from './library-dock'
@@ -26,15 +21,21 @@ import { LibraryExplorer, type ItemAction } from './library-explorer'
 import { LibraryIdeDialogs, type LibraryIdeDialog } from './library-ide-dialogs'
 import { LibraryIdeHeader } from './library-ide-header'
 import { LibraryStatusBar } from './library-status-bar'
-import { publishState } from './publish-state'
-import { CompareDialog } from './compare-dialog'
 import { PublishDialog } from './publish-dialog'
+import { LibraryCompare } from './workspace/library-compare'
+import { LibraryGuards } from './workspace/library-guards'
+import { useActivePublish } from './workspace/use-active-publish'
+import { useOpenTarget } from './workspace/use-open-target'
 
 interface LibraryWorkspaceViewProps {
   place: LibraryPlaceSlugs
   placeName: string
   initialItem?: string
   initialFile?: string
+  /** `?new=`: open the explorer's new-item row under that root (the Library page's New buttons). */
+  initialNew?: LibraryKind
+  /** Drops `?new=` from the URL once read, so a reload never reopens the row. */
+  onNewConsumed?: () => void
 }
 
 /** Below this the tree, editor and details can't all be usable at once. */
@@ -50,18 +51,32 @@ export function LibraryWorkspaceView({
   placeName,
   initialItem,
   initialFile,
+  initialNew,
+  onNewConsumed,
 }: LibraryWorkspaceViewProps) {
   // One session per mount, cleared before anything reads it: tabs and drafts
   // never carry over from a workflow's IDE or an earlier Library visit, and
-  // the file the URL names is opened into the fresh session (below).
-  useState(() => useIdeStore.getState().resetSession())
+  // the file the URL names is opened into the fresh session.
+  useState(() => {
+    useIdeStore.getState().resetSession()
+    // The row `?new=` asks for lives in the tree: the tree is shown to hold it.
+    if (initialNew) useIdeLayoutStore.setState({ explorerOpen: true })
+  })
   const ws = useLibraryWorkspace(place, initialItem)
+  const createItem = useCreateLibraryItem(place)
   const { index, files, dirty, actions } = ws
   const [dialog, setDialog] = useState<LibraryIdeDialog | null>(null)
-  const [publishing, setPublishing] = useState(false)
   const [comparing, setComparing] = useState<string | null>(null)
   const wideEnough = useMinWidth(MIN_WIDTH)
-  const isMac = isMacPlatform()
+  // On the window, like the workflow IDE: they work from the moment the page
+  // opens, before anything inside it has focus.
+  useIdeShortcuts({
+    save: () => void actions.saveAll(),
+    quickOpen: () => useIdeStore.getState().showDialog('quickOpen'),
+    toggleExplorer: () => useIdeLayoutStore.getState().toggleExplorer(),
+    toggleDock: () => useIdeLayoutStore.getState().toggleDock(),
+    togglePreview: () => useIdeLayoutStore.getState().togglePreview(),
+  })
   const layout = useIdeLayoutStore(
     useShallow((s) => ({
       explorerOpen: s.explorerOpen,
@@ -69,113 +84,44 @@ export function LibraryWorkspaceView({
       previewOpen: s.previewOpen,
     })),
   )
-  const { openFile, resetSession, clearDraft, closeFiles } = useIdeStore(
+  const { openFile, resetSession, clearDraft } = useIdeStore(
     useShallow((s) => ({
       openFile: s.openFile,
       resetSession: s.resetSession,
       clearDraft: s.clearDraft,
-      closeFiles: s.closeFiles,
     })),
   )
-
   useEffect(() => () => resetSession(), [resetSession])
+  // A navigation, so after render: the row already holds what `?new=` asked for.
+  const newConsumed = useRef(false)
+  useEffect(() => {
+    if (!initialNew || newConsumed.current) return
+    newConsumed.current = true
+    onNewConsumed?.()
+  }, [initialNew, onNewConsumed])
 
   const conflicts = useLibraryLanguageService(ws.root, files)
   const live = useWorkspaceProblems(ws.root)
-
-  const activeItem = ws.activeItemId ? (index.itemById.get(ws.activeItemId) ?? null) : null
-  const check = useLibraryCheck(activeItem?.id ?? null, { enabled: ws.canEdit })
-  const saved = useMemo(
-    () => [
-      ...(activeItem && check.data ? checkProblems(activeItem, check.data.problems) : []),
-      ...conflictProblems(conflicts),
-    ],
-    [activeItem, check.data, conflicts],
+  const { activeItem, check, saved, publish, publishing, setPublishing } = useActivePublish(
+    ws,
+    conflicts,
   )
-  const itemDirty = activeItem
-    ? [...dirty].some((path) => path.startsWith(`${itemRoot(activeItem)}/`))
-    : false
-  const publish = activeItem
-    ? publishState(check.data, check.isFetching, itemDirty, check.isError)
-    : null
-
-  const openItem = useCallback(
-    (itemId: string) => {
-      ws.selectItem(itemId)
-      const item = index.itemById.get(itemId)
-      if (!item) return
-      const first = firstFileOf(item)
-      if (first) openFile(first)
-    },
-    [ws, index, openFile],
-  )
-
-  // What to open once the tree has it: the URL's item or file, then any
-  // item a dialog made (new, duplicated, restored) once the refetched tree
-  // lists it. After render, since opening a tab updates the explorer.
-  const [pendingOpen, setPendingOpen] = useState<{ item?: string; file?: string } | null>({
-    item: initialItem,
-    file: initialFile,
-  })
-  const treeLoaded = ws.tree.data !== undefined
-  useEffect(() => {
-    if (!pendingOpen || !treeLoaded) return
-    if (pendingOpen.file && index.files.has(pendingOpen.file)) openFile(pendingOpen.file)
-    else if (pendingOpen.item && index.itemById.has(pendingOpen.item)) openItem(pendingOpen.item)
-    setPendingOpen(null)
-  }, [pendingOpen, treeLoaded, index, openFile, openItem])
-
-  const hasUnsaved = dirty.size > 0
-  const blocker = useBlocker({
-    shouldBlockFn: () => hasUnsaved,
-    enableBeforeUnload: () => hasUnsaved,
-    withResolver: true,
-  })
-
-  function handleSave() {
-    void actions.saveAll()
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent) {
-    const id = matchShortcut(event.nativeEvent, isMac)
-    if (!id) return
-    const store = useIdeLayoutStore.getState()
-    if (id === 'save') void actions.saveAll()
-    else if (id === 'quickOpen') useIdeStore.getState().showDialog('quickOpen')
-    else if (id === 'toggleExplorer') store.toggleExplorer()
-    else if (id === 'toggleDock') store.toggleDock()
-    else if (id === 'togglePreview') store.togglePreview()
-    else return
-    event.preventDefault()
-  }
+  const { openWhenListed } = useOpenTarget(ws, { item: initialItem, file: initialFile })
+  const sourceOf = useCallback((path: string) => files.get(path)?.source, [files])
 
   function handleItemAction(action: ItemAction, item: ApiLibraryTreeItem) {
-    if (action === 'new-version') {
-      setDialog({ kind: 'restore', item, version: item.latestVersion! })
-      return
+    if (action === 'new-version') setDialog({ kind: 'restore', item, version: item.latestVersion! })
+    else setDialog({ kind: action, item })
+  }
+
+  async function handleCreateItem(kind: LibraryKind, name: string): Promise<string | null> {
+    try {
+      const item = await createItem.mutateAsync({ kind, name })
+      openWhenListed(item.id)
+      return null
+    } catch (error) {
+      return failureLine(error, 'Couldn’t create it')
     }
-    setDialog({ kind: action, item })
-  }
-
-  function handleNewItem(kind: LibraryKind) {
-    setDialog({ kind: 'new-item', itemKind: kind })
-  }
-
-  function handleRestore(item: ApiLibraryTreeItem, version: string) {
-    setDialog({ kind: 'restore', item, version })
-  }
-
-  function handleHistory(item: ApiLibraryTreeItem) {
-    setDialog({ kind: 'history', item })
-  }
-
-  function handleOpenVersion(item: ApiLibraryTreeItem, version: string) {
-    openFile(idePath(item, `${version}/node.json`))
-  }
-
-  // Opened from the tree as it is after the refetch, never the index this render holds.
-  function handleItemReady(itemId: string) {
-    void ws.refresh().then(() => setPendingOpen({ item: itemId }))
   }
 
   /** A restore replaced the item's code (a node's open folder): edits there are gone, as the dialog said. */
@@ -186,76 +132,37 @@ export function LibraryWorkspaceView({
       if (item.kind === 'module') ws.forgetItem(itemRoot(item))
       else if (folder) ws.forgetItem(idePath(item, folder))
     }
-    handleItemReady(itemId)
+    openWhenListed(itemId)
   }
 
-  function handleRevert(path: string) {
-    clearDraft(path)
+  function handleOpenVersion(item: ApiLibraryTreeItem, version: string) {
+    openFile(idePath(item, `${version}/node.json`))
   }
 
   function handleOverwrite(path: string, serverHash: string | null) {
     void actions.overwriteFile(path, serverHash)
   }
 
-  function handleCloseSave(dirtyPaths: string[], paths: string[]) {
-    void actions.saveFiles(dirtyPaths).then((results) => {
-      if (results.every(Boolean)) closeFiles(paths)
-    })
-  }
-
-  function handleCloseDiscard(dirtyPaths: string[], paths: string[]) {
-    for (const path of dirtyPaths) clearDraft(path)
-    closeFiles(paths)
-  }
-
-  function handleCloseReview(path: string) {
-    openFile(path)
-  }
-
-  function handleCloseDialog() {
-    setDialog(null)
-  }
-
-  const comparingFile = comparing ? (index.files.get(comparing) ?? null) : null
-
-  function handleCompareUseServer() {
-    if (comparing) clearDraft(comparing)
-  }
-
-  function handleCompareKeepMine(serverHash: string | null) {
-    if (comparing) void actions.overwriteFile(comparing, serverHash)
-  }
-
-  function handleCompareClose() {
-    setComparing(null)
-  }
-
   function handlePublishOpen() {
     setPublishing(true)
   }
 
-  function handlePublishClose() {
-    setPublishing(false)
-  }
+  // Offered from a never-published item's history (28j), for the active item only.
+  const historyPublish =
+    activeItem && publish && ws.canEdit
+      ? { itemId: activeItem.id, ...publish, onPublish: handlePublishOpen }
+      : null
 
-  function handlePublishRefused() {
-    void check.refetch()
-  }
-
-  function handleRetry() {
-    void ws.tree.refetch()
-  }
-
-  const sourceOf = useCallback((path: string) => files.get(path)?.source, [files])
-  const libraryHref = libraryPath(place)
-
+  // The guards stay mounted in every branch: a narrow window or a failed
+  // refetch must not let unsaved edits go without asking.
   if (ws.tree.isError) {
     return (
       <div className="p-8">
+        <LibraryGuards ws={ws} />
         <WorkspaceLoadError
           what="the library"
           error={ws.tree.error}
-          onRetry={handleRetry}
+          onRetry={() => void ws.tree.refetch()}
           retrying={ws.tree.isFetching}
         />
       </div>
@@ -265,6 +172,7 @@ export function LibraryWorkspaceView({
   if (!wideEnough) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+        <LibraryGuards ws={ws} />
         <p className="text-sm font-medium text-foreground">The Library IDE needs a wider window.</p>
         <p className="text-xs text-muted-foreground">
           Widen the window, or manage items from the Library page.
@@ -274,18 +182,15 @@ export function LibraryWorkspaceView({
   }
 
   return (
-    <div
-      className="fixed inset-0 flex flex-col overflow-hidden bg-background"
-      onKeyDown={handleKeyDown}
-    >
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <LibraryIdeHeader
-        libraryHref={libraryHref}
+        libraryHref={libraryPath(place)}
         placeName={placeName}
         item={activeItem}
         dirtyCount={dirty.size}
         saving={actions.busy}
         canEdit={ws.canEdit}
-        onSave={handleSave}
+        onSave={() => void actions.saveAll()}
         publish={publish}
         onPublish={handlePublishOpen}
       />
@@ -299,11 +204,12 @@ export function LibraryWorkspaceView({
               activeItemId={ws.activeItemId}
               canEdit={ws.canEdit}
               canCreate={ws.canCreate}
-              onNewItem={handleNewItem}
+              onCreateItem={handleCreateItem}
+              initialNew={initialNew}
               onSelectItem={ws.selectItem}
               onItemAction={handleItemAction}
-              onNewFile={(folder) => setDialog({ kind: 'new-file', folder })}
-              onRenameFile={(path) => setDialog({ kind: 'rename-file', path })}
+              onCreateFile={actions.createFile}
+              onRenameFile={actions.renameFile}
               onDeleteFile={(path) => setDialog({ kind: 'delete-file', path })}
             />
           </div>
@@ -317,7 +223,7 @@ export function LibraryWorkspaceView({
               loading={ws.loading}
               isReadOnly={ws.isReadOnly}
               readOnlyReason={ws.readOnlyReason}
-              onRevertFile={handleRevert}
+              onRevertFile={clearDraft}
               onChange={ws.onEditorChange}
               onOverwrite={handleOverwrite}
               onCompare={setComparing}
@@ -328,6 +234,7 @@ export function LibraryWorkspaceView({
               <LibraryDock live={live} saved={saved} dirty={dirty} />
             </div>
           )}
+          <LibraryStatusBar problems={[...live, ...saved]} />
         </div>
         {layout.previewOpen && (
           <aside className="w-80 shrink-0 border-l border-border">
@@ -335,67 +242,38 @@ export function LibraryWorkspaceView({
               item={activeItem}
               sourceOf={sourceOf}
               canEdit={ws.canEdit}
-              onRestore={handleRestore}
-              onHistory={handleHistory}
+              onRestore={(item, version) => setDialog({ kind: 'restore', item, version })}
+              onHistory={(item) => setDialog({ kind: 'history', item })}
             />
           </aside>
         )}
       </div>
-      <LibraryStatusBar problems={[...live, ...saved]} />
       <QuickOpenDialog files={files} />
-      <CloseDirtyDialog
-        saving={actions.busy}
-        onSave={handleCloseSave}
-        onDiscard={handleCloseDiscard}
-        onReview={handleCloseReview}
-      />
-      {/* Review… needs the workflow IDE's Unsaved changes tab, so it is not offered here. */}
-      <WorkspaceUnsavedDialog
-        blocker={blocker}
-        dirtyCount={dirty.size}
-        canEdit={ws.canEdit}
-        wideEnough={false}
-        saving={actions.busy}
-        saveAll={actions.saveAll}
-      />
+      <LibraryGuards ws={ws} />
       {dialog && (
         <LibraryIdeDialogs
           ws={ws}
           place={place}
           dialog={dialog}
-          onClose={handleCloseDialog}
-          onItemReady={handleItemReady}
+          onClose={() => setDialog(null)}
+          onItemReady={openWhenListed}
           onRestored={handleRestored}
           onOpenVersion={handleOpenVersion}
+          placeName={placeName}
+          publish={historyPublish}
         />
       )}
-      {comparingFile && comparing && (
-        <CompareDialog
-          path={comparing}
-          file={comparingFile}
-          mine={files.get(comparing)?.source ?? ''}
-          onUseServer={handleCompareUseServer}
-          onKeepMine={handleCompareKeepMine}
-          onClose={handleCompareClose}
-        />
-      )}
+      {comparing && <LibraryCompare ws={ws} path={comparing} onClose={() => setComparing(null)} />}
       {publishing && activeItem && check.data?.version && (
         <PublishDialog
           place={place}
           item={activeItem}
           version={check.data.version}
           bumpedFrom={check.data.bumpedFrom}
-          onClose={handlePublishClose}
-          onRefused={handlePublishRefused}
+          onClose={() => setPublishing(false)}
+          onRefused={() => void check.refetch()}
         />
       )}
     </div>
   )
-}
-
-/** The file an item opens on: a module's index.ts, a node's newest node.json. */
-function firstFileOf(item: ApiLibraryTreeItem): string | null {
-  if (item.kind === 'module') return idePath(item, 'index.ts')
-  const folder = draftFolderOf(item) ?? newestNodeFolder(item)
-  return folder ? idePath(item, `${folder}/node.json`) : null
 }

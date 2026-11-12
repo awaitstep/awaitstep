@@ -1,13 +1,14 @@
 import { ChevronDown, ChevronRight, MoreHorizontal } from 'lucide-react'
-import type { TreeNode } from '../../lib/ide/file-tree'
-import { cn } from '../../lib/utils'
+import type { TreeNode } from '../../../lib/ide/file-tree'
+import { cn } from '../../../lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { FileIcon } from '../ide/file-icon'
+} from '../../ui/dropdown-menu'
+import { keepFocusOnField } from './focus-name-field'
+import { FileIcon } from '../../ide/file-icon'
 
 export interface RowMenuItem {
   label: string
@@ -85,7 +86,7 @@ export function ExplorerLine({
           >
             <MoreHorizontal className="size-3.5" aria-hidden="true" />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
+          <DropdownMenuContent align="start" onCloseAutoFocus={keepFocusOnField}>
             {menu.map((item) => (
               <DropdownMenuItem
                 key={item.label}

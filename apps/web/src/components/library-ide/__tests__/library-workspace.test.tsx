@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useIdeStore } from '../../../stores/ide-store'
+import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
+import { isMacPlatform } from '../../../lib/platform'
 import { LibraryWorkspaceView } from '../library-workspace'
+import { DataSourceProvider } from '../../../data/dashboard/source'
 import { ProjectFileConflictError } from '../../../lib/api-client'
 import { SOURCES, salesTree, withFile } from './fixtures/library-tree'
 
 const api = vi.hoisted(() => ({
+  createItem: vi.fn(),
   getTree: vi.fn(),
   getFile: vi.fn(),
   putFile: vi.fn(),
@@ -62,17 +66,22 @@ function newClient() {
 }
 
 function renderIde(
-  open: { item?: string; file?: string } = { item: 'lead' },
+  open: { item?: string; file?: string; new?: 'module' | 'node' } = { item: 'lead' },
   client: QueryClient = newClient(),
+  onNewConsumed?: () => void,
 ) {
   return render(
     <QueryClientProvider client={client}>
-      <LibraryWorkspaceView
-        place={place}
-        placeName="Sales"
-        initialItem={open.item}
-        initialFile={open.file}
-      />
+      <DataSourceProvider source="api">
+        <LibraryWorkspaceView
+          place={place}
+          placeName="Sales"
+          initialItem={open.item}
+          initialFile={open.file}
+          initialNew={open.new}
+          onNewConsumed={onNewConsumed}
+        />
+      </DataSourceProvider>
     </QueryClientProvider>,
   )
 }
@@ -272,17 +281,99 @@ describe('Library IDE', () => {
     expect(useIdeStore.getState().openPaths).toEqual([])
   })
 
-  it('adds a file at a module’s root from the item’s menu', async () => {
+  it('adds a file at a module’s root by typing its name in the tree', async () => {
     api.putFile.mockResolvedValue({ path: 'helpers.ts', hash: 'h-helpers', size: 0, updatedAt: '' })
     renderIde()
     await userEvent.click(await screen.findByRole('button', { name: 'Actions for lead-scoring' }))
     await userEvent.click(await screen.findByRole('menuitem', { name: 'New file' }))
-    const dialog = await screen.findByRole('dialog', { name: 'New file' })
-    await userEvent.type(within(dialog).getByRole('textbox'), 'helpers.ts')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'New file path' }),
+      'helpers.ts{Enter}',
+    )
     await waitFor(() =>
       expect(api.putFile).toHaveBeenCalledWith('lead', 'helpers.ts', '', { ifNoneMatch: true }),
     )
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'New file path' })).toBeNull())
+  })
+
+  it('takes its shortcuts from the moment it opens, with nothing focused inside it', async () => {
+    renderIde()
+    await screen.findByText('lead-scoring')
+    expect(document.activeElement).toBe(document.body)
+    const before = useIdeLayoutStore.getState().explorerOpen
+    // ⌘ on a Mac, Ctrl elsewhere: whichever this platform reads.
+    const mod = isMacPlatform() ? { metaKey: true } : { ctrlKey: true }
+    fireEvent.keyDown(window, { key: 'b', ...mod })
+    expect(useIdeLayoutStore.getState().explorerOpen).toBe(!before)
+    fireEvent.keyDown(window, { key: 'b', ...mod })
+    expect(useIdeLayoutStore.getState().explorerOpen).toBe(before)
+  })
+
+  it('puts the cursor in the name field a menu opens, ready to type', async () => {
+    renderIde()
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for lead-scoring' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'New file' }))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'New file path' })),
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: /New module/ }))
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('textbox', { name: 'New module name' })),
+    )
+  })
+
+  it('shows the tree for ?new= even when it was hidden, then drops ?new= from the URL', async () => {
+    useIdeLayoutStore.setState({ explorerOpen: false })
+    const consumed = vi.fn()
+    renderIde({ new: 'module' }, undefined, consumed)
+    expect(await screen.findByRole('textbox', { name: 'New module name' })).toBeTruthy()
+    await waitFor(() => expect(consumed).toHaveBeenCalledTimes(1))
+  })
+
+  it('names a new module in the tree, then opens it', async () => {
+    api.createItem.mockResolvedValue({ id: 'fmt', kind: 'module', slug: 'fmt', name: 'Fmt' })
+    renderIde({})
+    await screen.findByText('lead-scoring')
+    await userEvent.click(screen.getByRole('button', { name: 'New in /modules' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await userEvent.type(screen.getByRole('textbox', { name: 'New module name' }), 'Fmt{Enter}')
+    await waitFor(() =>
+      expect(api.createItem).toHaveBeenCalledWith(place, { kind: 'module', name: 'Fmt' }),
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'New module name' })).toBeNull(),
+    )
+  })
+
+  it('opens the new-node row when the Library page sent ?new=node, and keeps a refusal under it', async () => {
+    api.createItem.mockRejectedValue(
+      Object.assign(new Error('A node with that name is already here'), { status: 409 }),
+    )
+    renderIde({ new: 'node' })
+    const field = await screen.findByRole('textbox', { name: 'New node name' })
+    await userEvent.type(field, 'Post{Enter}')
+    expect(await screen.findByText('A node with that name is already here')).toBeTruthy()
+    expect(screen.getByRole('textbox', { name: 'New node name' })).toHaveValue('Post')
+  })
+
+  it('renames a file in its row, keeping it inside its item', async () => {
+    renderIde()
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for index.ts' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    const field = screen.getByRole('textbox', { name: 'New path for index.ts' })
+    // Only the name is edited: the item's folder is not in the field.
+    expect(field).toHaveValue('index.ts')
+    await userEvent.clear(field)
+    await userEvent.type(field, 'package.json')
+    expect(await screen.findByText('A file with that name is already here')).toBeTruthy()
+    await userEvent.clear(field)
+    await userEvent.type(field, 'index.ts{Enter}')
+    // The name it already has closes the row, with nothing refused and nothing sent.
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: /New path/ })).toBeNull())
+    expect(api.putFile).not.toHaveBeenCalled()
   })
 
   it('offers Open read-only in a module’s history only for nodes', async () => {

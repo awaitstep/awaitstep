@@ -120,14 +120,15 @@ export function libraryPath(place: LibraryPlaceSlugs): string {
     : projectPagePath(place, 'library')
 }
 
-/** The Library IDE, opened on an item (and one of its files) when given. */
+/** The Library IDE, opened on an item (and one of its files), or naming a new item, when given. */
 export function libraryCodePath(
   place: LibraryPlaceSlugs,
-  open: { item?: string; file?: string } = {},
+  open: { item?: string; file?: string; new?: 'module' | 'node' } = {},
 ): string {
   const search = new URLSearchParams()
   if (open.item) search.set('item', open.item)
   if (open.file) search.set('file', open.file)
+  if (open.new) search.set('new', open.new)
   const qs = search.toString()
   return `${libraryPath(place)}/code${qs ? `?${qs}` : ''}`
 }

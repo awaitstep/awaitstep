@@ -8,6 +8,7 @@ const node: ApiLibraryTreeItem = {
   slug: 'post',
   name: 'Post',
   latestVersion: '2.0.0',
+  savedAt: '2026-11-12T10:00:00.000Z',
   files: [
     { path: '2.0.1/node.json', hash: 'a', readOnly: false },
     { path: '2.0.1/template.ts', hash: 'b', readOnly: false },

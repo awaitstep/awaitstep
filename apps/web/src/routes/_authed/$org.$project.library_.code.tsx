@@ -16,5 +16,10 @@ export const Route = createFileRoute('/_authed/$org/$project/library_/code')({
 function ProjectLibraryCodeRoute() {
   const slugs = Route.useParams()
   const open = Route.useSearch()
-  return <ProjectLibraryCode slugs={slugs} open={open} />
+  const navigate = Route.useNavigate()
+
+  function handleNewConsumed() {
+    void navigate({ search: (prev) => ({ ...prev, new: undefined }), replace: true })
+  }
+  return <ProjectLibraryCode slugs={slugs} open={open} onNewConsumed={handleNewConsumed} />
 }

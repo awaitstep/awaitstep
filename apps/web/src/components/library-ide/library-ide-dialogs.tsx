@@ -1,24 +1,20 @@
-import { basename, dirname } from '../../lib/ide/file-tree'
-import type { ApiLibraryTreeItem, LibraryKind, LibraryPlace } from '../../lib/library-api'
-import { newFileError } from '../../lib/library/explorer-tree'
+import { basename } from '../../lib/ide/file-tree'
+import type { ApiLibraryTreeItem, LibraryPlace } from '../../lib/library-api'
 import { itemRoot } from '../../lib/library/ide-index'
 import type { LibraryWorkspace } from '../../hooks/use-library-workspace'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { DeleteLibraryItemDialog } from '../library/dialogs/delete-library-item-dialog'
 import { DuplicateLibraryItemDialog } from '../library/dialogs/duplicate-library-item-dialog'
-import { NewLibraryItemDialog } from '../library/dialogs/new-library-item-dialog'
 import { RenameLibraryItemDialog } from '../library/dialogs/rename-library-item-dialog'
 import { VersionHistoryDialog } from '../library/version-history-dialog'
-import { FileNameDialog } from './file-name-dialog'
+import type { HistoryPublish } from '../library/history/version-history-empty'
 import { RestoreConfirmDialog } from './restore-confirm-dialog'
 
 /** The one dialog the Library IDE has open. */
 export type LibraryIdeDialog =
-  | { kind: 'new-item'; itemKind: LibraryKind }
   | { kind: 'rename' | 'duplicate' | 'delete' | 'history'; item: ApiLibraryTreeItem }
   | { kind: 'restore'; item: ApiLibraryTreeItem; version: string }
-  | { kind: 'new-file'; folder: string }
-  | { kind: 'rename-file' | 'delete-file'; path: string }
+  | { kind: 'delete-file'; path: string }
 
 interface LibraryIdeDialogsProps {
   ws: LibraryWorkspace
@@ -30,6 +26,9 @@ interface LibraryIdeDialogsProps {
   /** A restore landed: the item's replaced edits are dropped before it reopens. */
   onRestored: (itemId: string) => void
   onOpenVersion: (item: ApiLibraryTreeItem, version: string) => void
+  placeName: string
+  /** Publish for the active item, offered by a never-published item's history (28j). */
+  publish: (HistoryPublish & { itemId: string }) | null
 }
 
 export function LibraryIdeDialogs({
@@ -40,23 +39,16 @@ export function LibraryIdeDialogs({
   onItemReady,
   onRestored,
   onOpenVersion,
+  placeName,
+  publish,
 }: LibraryIdeDialogsProps) {
-  const { actions, index } = ws
+  const { actions } = ws
 
   function handleCreated(item: { id: string }) {
     onItemReady(item.id)
   }
 
   switch (dialog.kind) {
-    case 'new-item':
-      return (
-        <NewLibraryItemDialog
-          place={place}
-          kind={dialog.itemKind}
-          onClose={onClose}
-          onCreated={handleCreated}
-        />
-      )
     case 'rename': {
       const before = itemRoot(dialog.item)
       return (
@@ -100,6 +92,9 @@ export function LibraryIdeDialogs({
             onOpenReadOnly: (version: string) => onOpenVersion(item, version),
           })}
           onRestored={() => onRestored(item.id)}
+          savedAt={item.savedAt}
+          placeName={placeName}
+          publish={publish?.itemId === item.id ? publish : undefined}
         />
       )
     }
@@ -113,31 +108,6 @@ export function LibraryIdeDialogs({
           onRestored={onRestored}
         />
       )
-    case 'new-file':
-      return (
-        <FileNameDialog
-          title="New file"
-          folder={dialog.folder}
-          submitLabel="Create"
-          validate={(name) => newFileError(index, dialog.folder, name)}
-          onSubmit={(name) => actions.createFile(`${dialog.folder}/${name}`)}
-          onClose={onClose}
-        />
-      )
-    case 'rename-file': {
-      const folder = dirname(dialog.path)
-      return (
-        <FileNameDialog
-          title={`Rename ${basename(dialog.path)}`}
-          folder={folder}
-          initial={basename(dialog.path)}
-          submitLabel="Rename"
-          validate={(name) => newFileError(index, folder, name)}
-          onSubmit={(name) => actions.renameFile(dialog.path, `${folder}/${name}`)}
-          onClose={onClose}
-        />
-      )
-    }
     case 'delete-file':
       return (
         <ConfirmDialog

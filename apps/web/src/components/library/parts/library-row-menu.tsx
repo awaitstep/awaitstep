@@ -1,4 +1,5 @@
 import { MoreHorizontal } from 'lucide-react'
+import { usedByLabel } from '../library-format'
 import { copyToClipboard } from '../../../lib/utils'
 import { actionToast } from '../../../lib/action-toast'
 import type { ApiLibraryRow } from '../../../lib/library-api'
@@ -58,8 +59,14 @@ export function LibraryRowMenu({ row, canEdit, onOpen, onAction }: LibraryRowMen
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" aria-label={`Actions for ${row.name}`}>
-          <MoreHorizontal aria-hidden="true" />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="size-[30px] rounded-lg"
+          aria-label={`Actions for ${row.name}`}
+        >
+          <MoreHorizontal className="size-3.5" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -76,6 +83,11 @@ export function LibraryRowMenu({ row, canEdit, onOpen, onAction }: LibraryRowMen
               Delete
             </DropdownMenuItem>
           </>
+        )}
+        {canEdit && row.usedBy > 0 && (
+          <p className="px-3 pt-1.5 pb-2 text-2xs leading-snug text-muted-foreground">
+            Used by {usedByLabel(row.usedBy)}, so Delete is refused.
+          </p>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

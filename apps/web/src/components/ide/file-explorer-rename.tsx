@@ -17,23 +17,41 @@ export interface RenameRowProps {
   /** Resolves to whether it was renamed; the row stays open when it was not. */
   onSubmit: (to: string) => Promise<boolean>
   onCancel: () => void
+  /** A folder kept as it is: only the path below it is edited (the Library keeps a file inside its item). */
+  scope?: string
+  /** Why the new path is refused, in place of the project-file rules. */
+  validate?: (to: string) => string | null
 }
 
 /**
  * The file's path, edited where its row is. It dismisses like the new-file
  * row: Esc, or leaving the field while the name is unchanged, empty or refused.
  */
-export function RenameRow({ path, role, existing, depth, onSubmit, onCancel }: RenameRowProps) {
-  const [value, setValue] = useState(path)
+export function RenameRow({
+  path,
+  role,
+  existing,
+  depth,
+  onSubmit,
+  onCancel,
+  scope,
+  validate,
+}: RenameRowProps) {
+  const prefix = scope ? `${scope}/` : ''
+  const initial = prefix && path.startsWith(prefix) ? path.slice(prefix.length) : path
+  const [value, setValue] = useState(initial)
   const [announced, setAnnounced] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const others = existing.filter((p) => p !== path)
+  const target = (typed: string) => normalizeNewPath(`${prefix}${typed.trim()}`)
+  const refusal = (typed: string) =>
+    validate ? validate(target(typed)) : newFileError(target(typed), others)
   const empty = value.trim() === ''
-  const unchanged = !empty && normalizeNewPath(value) === path
-  const error = empty || unchanged ? null : newFileError(value, others)
+  const unchanged = !empty && target(value) === path
+  const error = empty || unchanged ? null : refusal(value)
 
   function announceLater(next: string | null) {
     clearTimeout(timer.current)
@@ -43,8 +61,7 @@ export function RenameRow({ path, role, existing, depth, onSubmit, onCancel }: R
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const next = event.target.value
     setValue(next)
-    const nextError =
-      next.trim() && normalizeNewPath(next) !== path ? newFileError(next, others) : null
+    const nextError = next.trim() && target(next) !== path ? refusal(next) : null
     if (nextError === null) {
       clearTimeout(timer.current)
       setAnnounced(null)
@@ -53,10 +70,10 @@ export function RenameRow({ path, role, existing, depth, onSubmit, onCancel }: R
 
   // The name without its folder or extension is what people retype.
   function handleFocus(event: React.FocusEvent<HTMLInputElement>) {
-    const name = basename(path)
-    const start = path.length - name.length
+    const name = basename(initial)
+    const start = initial.length - name.length
     const dot = name.lastIndexOf('.')
-    event.currentTarget.setSelectionRange(start, dot > 0 ? start + dot : path.length)
+    event.currentTarget.setSelectionRange(start, dot > 0 ? start + dot : initial.length)
   }
 
   async function submit() {
@@ -72,7 +89,7 @@ export function RenameRow({ path, role, existing, depth, onSubmit, onCancel }: R
     }
     if (busy) return
     setBusy(true)
-    const renamed = await onSubmit(normalizeNewPath(value))
+    const renamed = await onSubmit(target(value))
     // On success the row unmounts; on a refusal it stays for another try.
     if (!renamed) {
       setBusy(false)

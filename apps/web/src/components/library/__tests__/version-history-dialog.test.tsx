@@ -99,4 +99,40 @@ describe('VersionHistoryDialog', () => {
     await screen.findByRole('list', { name: 'Versions' })
     expect(screen.queryByRole('button', { name: /^Restore/ })).not.toBeInTheDocument()
   })
+
+  it('shows a never-published item what publishing gives it, and publishes from there in the IDE', async () => {
+    api.listVersions.mockResolvedValue({ versions: [] })
+    api.getUsages.mockResolvedValue({ uses: [], usedBy: { visible: [], hiddenCount: 0 } })
+    const onClose = vi.fn()
+    const onPublish = vi.fn()
+    renderWithDashboardData(
+      <VersionHistoryDialog
+        place={place}
+        item={item}
+        onClose={onClose}
+        canEdit
+        savedAt={new Date().toISOString()}
+        placeName="Sales"
+        publish={{ label: 'Publish v1.0.0', disabledReason: null, onPublish }}
+      />,
+    )
+    expect(await screen.findByText('Nothing published yet')).toBeVisible()
+    expect(screen.getByText('No versions')).toBeVisible()
+    expect(screen.getByText(/^Draft · saved/)).toBeVisible()
+    expect(screen.getByText('Drafts stay in Sales.')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Publish v1.0.0' }))
+    expect(onClose).toHaveBeenCalled()
+    expect(onPublish).toHaveBeenCalled()
+  })
+
+  it('offers only Close for a never-published item on the Library page', async () => {
+    api.listVersions.mockResolvedValue({ versions: [] })
+    api.getUsages.mockResolvedValue({ uses: [], usedBy: { visible: [], hiddenCount: 0 } })
+    renderWithDashboardData(
+      <VersionHistoryDialog place={place} item={item} onClose={vi.fn()} canEdit />,
+    )
+    expect(await screen.findByText('Nothing published yet')).toBeVisible()
+    expect(screen.queryByRole('button', { name: /Publish/ })).toBeNull()
+    expect(screen.getAllByRole('button', { name: 'Close' }).length).toBeGreaterThan(0)
+  })
 })

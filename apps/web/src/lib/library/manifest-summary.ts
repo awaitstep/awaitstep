@@ -39,10 +39,12 @@ export function manifestSummary(
     const manifest = parsePackageManifest(source)
     return {
       path,
+      // The file's own keys, as 28d lists them, then how code imports the module.
       rows: [
-        { label: 'Package', value: manifest?.name ?? '—' },
-        { label: 'Version', value: manifest?.version ?? '—' },
-        { label: 'Import', value: `#modules/${item.slug}` },
+        { label: 'name', value: manifest?.name ?? '—' },
+        ...(manifest?.description ? [{ label: 'description', value: manifest.description }] : []),
+        { label: 'version', value: manifest?.version ?? '—' },
+        { label: 'import', value: `#modules/${item.slug}` },
       ],
       dependencies: Object.entries(manifest?.dependencies ?? {}).map(([name, range]) => ({
         name,
@@ -68,9 +70,13 @@ export function manifestSummary(
   return {
     path,
     rows: [
-      { label: 'Name', value: text('name') },
-      { label: 'Version', value: text('version') },
-      { label: 'Category', value: text('category') },
+      { label: 'id', value: text('id') },
+      { label: 'name', value: text('name') },
+      ...(text('description') !== '—' && text('description') !== ''
+        ? [{ label: 'description', value: text('description') }]
+        : []),
+      { label: 'category', value: text('category') },
+      { label: 'version', value: text('version') },
     ],
     dependencies:
       deps && typeof deps === 'object' && !Array.isArray(deps)

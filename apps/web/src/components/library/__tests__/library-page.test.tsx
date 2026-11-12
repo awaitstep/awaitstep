@@ -143,17 +143,26 @@ describe('Library page', () => {
     expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/library/code?item=lead-2')
   })
 
-  it('creates a module from the top bar and opens it in the IDE', async () => {
-    api.createItem.mockResolvedValue({ id: 'new-1' })
+  it('has one way into the IDE in the top bar, where new items are named', async () => {
     renderPage()
     await screen.findByRole('table', { name: 'Library items in Sales' })
     const topBar = screen.getByRole('banner', { name: 'Top bar' })
-    await userEvent.click(within(topBar).getByRole('button', { name: 'New module' }))
-    const dialog = await screen.findByRole('dialog', { name: 'New module' })
-    await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Fmt')
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Create' }))
-    expect(api.createItem).toHaveBeenCalledWith(sales, { kind: 'module', name: 'Fmt' })
-    expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/library/code?item=new-1')
+    expect(within(topBar).getByRole('link', { name: 'Open IDE' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/library/code',
+    )
+    expect(within(topBar).queryByRole('link', { name: /New/ })).toBeNull()
+    expect(within(topBar).queryByRole('button', { name: /New/ })).toBeNull()
+  })
+
+  it('sends the empty state’s New buttons to the IDE with the kind to name', async () => {
+    api.getSummary.mockResolvedValue(
+      salesSummary({ own: [], fromProject: [], counts: { module: 0, node: 0, marketplace: 0 } }),
+    )
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'New node' }))
+    expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/library/code?new=node')
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('shows the project’s own items and installed marketplace nodes on the project page', async () => {

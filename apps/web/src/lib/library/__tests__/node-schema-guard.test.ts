@@ -38,6 +38,7 @@ describe('node.json mid-edit', () => {
         slug: 'n',
         name: 'N',
         latestVersion: null,
+        savedAt: '2026-11-12T10:00:00.000Z',
         files: [{ path: '1.0.0/node.json', hash: 'h', readOnly: false }],
       }
       expect(() => manifestSummary(item, () => json)).not.toThrow()

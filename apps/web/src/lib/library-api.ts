@@ -71,6 +71,8 @@ export interface ApiLibraryTreeFile {
 }
 
 export interface ApiLibraryTreeItem {
+  /** When it was last saved (its own change or its newest file write), ISO. */
+  savedAt: string
   id: string
   kind: LibraryKind
   slug: string

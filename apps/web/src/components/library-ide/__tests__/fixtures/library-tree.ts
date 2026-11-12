@@ -23,6 +23,7 @@ export function salesTree(over: Partial<ApiLibraryTree> = {}): ApiLibraryTree {
         slug: 'lead-scoring',
         name: 'Lead scoring',
         latestVersion: '1.0.0',
+        savedAt: '2026-11-12T10:00:00.000Z',
         files: [file('index.ts'), file('package.json')],
       },
       {
@@ -31,6 +32,7 @@ export function salesTree(over: Partial<ApiLibraryTree> = {}): ApiLibraryTree {
         slug: 'post',
         name: 'Post',
         latestVersion: '1.0.0',
+        savedAt: '2026-11-12T10:00:00.000Z',
         files: [file('1.0.0/node.json', true), file('1.0.0/template.ts', true)],
       },
     ],

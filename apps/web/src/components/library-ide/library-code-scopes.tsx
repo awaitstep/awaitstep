@@ -1,4 +1,5 @@
 import type { ProjectSlugs, WorkspaceSlugs } from '../../lib/dashboard-paths'
+import type { LibraryKind } from '../../lib/library-api'
 import { useProjectScope } from '../project-settings/use-project-scope'
 import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
 import { LibraryWorkspaceView } from './library-workspace'
@@ -6,10 +7,19 @@ import { LibraryWorkspaceView } from './library-workspace'
 interface OpenTarget {
   item?: string
   file?: string
+  new?: LibraryKind
 }
 
 /** `/{org}/{project}/{workspace}/library/code`: a workspace's Library IDE. */
-export function WorkspaceLibraryCode({ slugs, open }: { slugs: WorkspaceSlugs; open: OpenTarget }) {
+export function WorkspaceLibraryCode({
+  slugs,
+  open,
+  onNewConsumed,
+}: {
+  slugs: WorkspaceSlugs
+  open: OpenTarget
+  onNewConsumed?: () => void
+}) {
   const scope = useWorkspaceScope(slugs)
   if (!scope) return null
   return (
@@ -20,12 +30,22 @@ export function WorkspaceLibraryCode({ slugs, open }: { slugs: WorkspaceSlugs; o
       placeName={scope.workspace.workspace.name}
       initialItem={open.item}
       initialFile={open.file}
+      initialNew={open.new}
+      onNewConsumed={onNewConsumed}
     />
   )
 }
 
 /** `/{org}/{project}/library/code`: the project's own Library IDE. */
-export function ProjectLibraryCode({ slugs, open }: { slugs: ProjectSlugs; open: OpenTarget }) {
+export function ProjectLibraryCode({
+  slugs,
+  open,
+  onNewConsumed,
+}: {
+  slugs: ProjectSlugs
+  open: OpenTarget
+  onNewConsumed?: () => void
+}) {
   const scope = useProjectScope(slugs)
   if (!scope) return null
   return (
@@ -35,6 +55,8 @@ export function ProjectLibraryCode({ slugs, open }: { slugs: ProjectSlugs; open:
       placeName={scope.project.project.name}
       initialItem={open.item}
       initialFile={open.file}
+      initialNew={open.new}
+      onNewConsumed={onNewConsumed}
     />
   )
 }

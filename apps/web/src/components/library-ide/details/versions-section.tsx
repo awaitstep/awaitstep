@@ -1,9 +1,8 @@
 import { useLibraryVersions } from '../../../data/dashboard/library'
 import type { ApiLibraryTreeItem } from '../../../lib/library-api'
 import { timeAgoOrDay } from '../../../lib/time'
-import { Badge } from '../../ui/badge'
 import { Button } from '../../ui/button'
-import { DetailsSection } from './details-section'
+import { DetailsEmpty, DetailsSection, DotRow } from './details-section'
 
 interface VersionsSectionProps {
   item: ApiLibraryTreeItem
@@ -12,7 +11,7 @@ interface VersionsSectionProps {
   onHistory: () => void
 }
 
-/** The kept versions (at most three) with Restore on the older ones. */
+/** The kept versions (at most three), the newest current, Restore on the older ones (28d). */
 export function VersionsSection({ item, canEdit, onRestore, onHistory }: VersionsSectionProps) {
   const versions = useLibraryVersions(item.id)
   const list = versions.data ?? []
@@ -22,7 +21,7 @@ export function VersionsSection({ item, canEdit, onRestore, onHistory }: Version
       action={
         list.length > 0 ? (
           <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={onHistory}>
-            History
+            All {list.length}
           </Button>
         ) : undefined
       }
@@ -33,30 +32,36 @@ export function VersionsSection({ item, canEdit, onRestore, onHistory }: Version
       }
     >
       {versions.isPending ? (
-        <p className="text-xs text-muted-foreground">Loading…</p>
+        <DetailsEmpty>Loading…</DetailsEmpty>
       ) : list.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Not published yet.</p>
+        <DetailsEmpty>
+          Nothing published yet. Publishing records a version you can go back to.
+        </DetailsEmpty>
       ) : (
-        <ul className="flex flex-col gap-1.5">
+        <ul className="flex flex-col">
           {list.map((version, index) => (
-            <li key={version.version} className="flex items-center gap-2 text-xs">
+            <DotRow key={version.version} on={index === 0}>
               <span className="font-mono text-foreground">v{version.version}</span>
-              {index === 0 && <Badge variant="success">current</Badge>}
-              <span className="flex-1 truncate text-muted-foreground">
+              <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground">
+                {version.publishedBy ? `${version.publishedBy.name} · ` : ''}
                 {timeAgoOrDay(version.publishedAt)}
               </span>
-              {index > 0 && canEdit && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 px-2"
-                  onClick={() => onRestore(version.version)}
-                >
-                  Restore
-                </Button>
+              {index === 0 ? (
+                <span className="text-2xs text-muted-foreground">current</span>
+              ) : (
+                canEdit && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0"
+                    onClick={() => onRestore(version.version)}
+                  >
+                    Restore
+                  </Button>
+                )
               )}
-            </li>
+            </DotRow>
           ))}
         </ul>
       )}

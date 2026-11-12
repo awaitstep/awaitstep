@@ -92,7 +92,9 @@ export function LibraryTable({
       {
         id: 'menu',
         header: '',
-        width: '56px',
+        // The 30px menu button plus the cell's 20px padding each side; any
+        // narrower and the button spills past the card's edge.
+        width: '70px',
         align: 'right',
         cell: (row) =>
           onOpen && onAction ? (
