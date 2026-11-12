@@ -1,0 +1,26 @@
+{
+  "version": "1.1.0",
+  "description": "Generate speech and sound effects with Eleven v4 and the current voices API",
+  "tags": ["elevenlabs", "ai", "tts", "speech", "audio", "sound-effects"],
+  "configSchema": {
+    "action": {
+      "options": ["Text to Speech", "List Voices", "Get Voice", "List Models", "Sound Effects"]
+    },
+    "modelId": {
+      "default": "eleven_v4"
+    },
+    "outputFormat": {
+      "type": "select",
+      "label": "Output Format",
+      "default": "mp3_44100_128",
+      "options": ["mp3_44100_128", "mp3_22050_32", "pcm_16000", "ulaw_8000", "wav_44100"],
+      "description": "Audio format. Used by: Text to Speech, Sound Effects."
+    },
+    "durationSeconds": {
+      "type": "number",
+      "label": "Duration (seconds)",
+      "validation": { "min": 0.5, "max": 30 },
+      "description": "Sound effect duration. Used by: Sound Effects."
+    }
+  }
+}

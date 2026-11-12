@@ -1,0 +1,15 @@
+{
+  "version": "1.1.0",
+  "description": "Generate text and count tokens with current Claude models",
+  "tags": ["anthropic", "ai", "claude", "llm"],
+  "configSchema": {
+    "action": {
+      "options": ["Chat Completion", "Count Tokens"]
+    },
+    "model": {
+      "type": "select",
+      "default": "claude-sonnet-5-5",
+      "options": ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-2"]
+    }
+  }
+}
