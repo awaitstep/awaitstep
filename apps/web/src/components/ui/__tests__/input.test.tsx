@@ -45,4 +45,31 @@ describe('Input with debounceMs', () => {
     vi.advanceTimersByTime(300)
     expect(onChange).toHaveBeenCalledOnce()
   })
+
+  it('writes a pending edit on Enter, before the form it is in submits', () => {
+    const seen: string[] = []
+    let latest = ''
+    function handleSubmit(event: React.FormEvent) {
+      event.preventDefault()
+      seen.push(latest)
+    }
+    const onKeyDown = vi.fn()
+    render(
+      <form onSubmit={handleSubmit}>
+        <Input
+          aria-label="name"
+          value=""
+          onChange={(e) => (latest = e.target.value)}
+          onKeyDown={onKeyDown}
+          debounceMs={300}
+        />
+      </form>,
+    )
+    const input = screen.getByLabelText('name')
+    fireEvent.change(input, { target: { value: 'ops' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    fireEvent.submit(input.closest('form')!)
+    expect(seen).toEqual(['ops'])
+    expect(onKeyDown).toHaveBeenCalledOnce()
+  })
 })

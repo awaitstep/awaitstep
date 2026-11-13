@@ -6,7 +6,16 @@ type InputProps = React.ComponentProps<'input'> & {
   debounceMs?: number
 }
 
-function Input({ className, type, debounceMs, value, onChange, onBlur, ...props }: InputProps) {
+function Input({
+  className,
+  type,
+  debounceMs,
+  value,
+  onChange,
+  onBlur,
+  onKeyDown,
+  ...props
+}: InputProps) {
   const [localValue, setLocalValue] = useState(value)
   const pendingRef = useRef(false)
   const onChangeRef = useRef(onChange)
@@ -38,6 +47,16 @@ function Input({ className, type, debounceMs, value, onChange, onBlur, ...props 
     [debouncedOnChange, onBlur],
   )
 
+  // Enter submits the form the input is in, before any blur: write the
+  // pending edit first, so the submit reads what was typed.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') debouncedOnChange?.flush()
+      onKeyDown?.(e)
+    },
+    [debouncedOnChange, onKeyDown],
+  )
+
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       if (debouncedOnChange) {
@@ -61,6 +80,7 @@ function Input({ className, type, debounceMs, value, onChange, onBlur, ...props 
       value={debouncedOnChange ? localValue : value}
       onChange={handleChange}
       onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
       {...props}
     />
   )
