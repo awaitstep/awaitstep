@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import type { RemoteNodeRegistry } from '../lib/remote-node-registry.js'
+import { RegistryBundleError, type RemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import type { NodeBundle, NodeDefinition } from '@awaitstep/ir'
 import {
   createTestApp,
@@ -87,6 +87,25 @@ describe('marketplace', () => {
       expect(body.nodes[0].usage).toBeNull()
     })
 
+    it('answers 503 with a reason when the registry can’t be reached', async () => {
+      app = createTestApp({
+        remoteNodeRegistry: {
+          async getIndex() {
+            throw new RegistryBundleError(
+              'Couldn’t reach the node registry. Try again later.',
+              'Registry fetch failed: 503',
+            )
+          },
+          getNodeBundle: mockRegistry.getNodeBundle,
+        },
+      })
+      const res = await app.request(url(''))
+      expect(res.status).toBe(503)
+      expect(await res.json()).toEqual({
+        error: 'Couldn’t reach the node registry. Try again later.',
+      })
+    })
+
     it('returns 503 when registry is not configured', async () => {
       const appNoRegistry = createTestApp()
       const res = await appNoRegistry.request(url(''))
@@ -129,6 +148,74 @@ describe('marketplace', () => {
         body: JSON.stringify({ nodeId: 'test_node' }),
       })
       expect(res.status).toBe(409)
+    })
+
+    it('answers 502 with the registry’s readable reason when its bundle is refused', async () => {
+      app = createTestApp({
+        remoteNodeRegistry: {
+          getIndex: mockRegistry.getIndex,
+          async getNodeBundle() {
+            throw new RegistryBundleError(
+              'The node registry’s copy of test_node 1.0.0 doesn’t match its index, so it wasn’t installed. Try again later.',
+              'Checksum mismatch for test_node@1.0.0: expected sha256:aa, got sha256:bb',
+            )
+          },
+        },
+      })
+      const res = await app.request(url('/install'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId: 'test_node' }),
+      })
+      expect(res.status).toBe(502)
+      const body = await res.json()
+      expect(body).toEqual({
+        error:
+          'The node registry’s copy of test_node 1.0.0 doesn’t match its index, so it wasn’t installed. Try again later.',
+      })
+      // The hashes stay in the log.
+      expect(JSON.stringify(body)).not.toContain('sha256')
+      expect(await mockDb.getInstalledNode(TEST_ORG_ID, 'test_node')).toBeNull()
+    })
+
+    it('answers 502 when the registry’s index can’t be reached', async () => {
+      app = createTestApp({
+        remoteNodeRegistry: {
+          async getIndex() {
+            throw new RegistryBundleError(
+              'Couldn’t reach the node registry. Try again later.',
+              'Registry fetch failed: 503',
+            )
+          },
+          getNodeBundle: mockRegistry.getNodeBundle,
+        },
+      })
+      const res = await app.request(url('/install'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId: 'test_node' }),
+      })
+      expect(res.status).toBe(502)
+      expect(await res.json()).toEqual({
+        error: 'Couldn’t reach the node registry. Try again later.',
+      })
+    })
+
+    it('leaves any other failure to the server error handler', async () => {
+      app = createTestApp({
+        remoteNodeRegistry: {
+          getIndex: mockRegistry.getIndex,
+          async getNodeBundle() {
+            throw new Error('database is down')
+          },
+        },
+      })
+      const res = await app.request(url('/install'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId: 'test_node' }),
+      })
+      expect(res.status).toBe(500)
     })
 
     it('returns 404 for unknown node', async () => {

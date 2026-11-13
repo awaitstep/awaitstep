@@ -59,7 +59,12 @@ A custom registry serves the same static layout:
 | `GET /nodes/:id/:version/template.ts`     | The default template                               |
 | `GET /nodes/:id/:version/templates/:p.ts` | An optional provider-specific template             |
 
-The client verifies the version checksum from `index.json` against the definition and templates it fetched. The definition types come from `@awaitstep/ir`.
+The client verifies a version's checksum from `index.json` against the definition and templates it fetched. Each version carries two:
+
+- `stableChecksum`: SHA-256 over the definition with its keys sorted, plus the templates. Current releases check this one.
+- `checksum`: SHA-256 over `node.json` exactly as written, plus the templates. Releases before `stableChecksum` existed check this one, so the index keeps it.
+
+A custom registry may publish only `checksum`; current releases fall back to it. The definition types come from `@awaitstep/ir`.
 
 :::info
 The `REGISTRY_URL` override applies to all node installs and update checks for the project. It does not affect built-in nodes, which are always bundled with AwaitStep.

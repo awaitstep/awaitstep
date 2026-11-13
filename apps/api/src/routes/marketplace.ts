@@ -4,7 +4,28 @@ import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import { recordAudit } from '../lib/audit.js'
+import { createLogger } from '../lib/logger.js'
+import { RegistryBundleError } from '../lib/remote-node-registry.js'
 import type { AppEnv } from '../types.js'
+
+const log = createLogger('marketplace')
+
+/**
+ * What the registry answered, or the sentence to answer with when it couldn't
+ * hand over something usable (unreachable, invalid, not matching its index);
+ * the detail goes to the log. Any other error is the server's own and throws.
+ */
+async function fromRegistry<T>(
+  work: () => Promise<T>,
+): Promise<{ value: T } | { refusal: string }> {
+  try {
+    return { value: await work() }
+  } catch (err) {
+    if (!(err instanceof RegistryBundleError)) throw err
+    log.warn('Registry refused', { detail: err.detail })
+    return { refusal: err.message }
+  }
+}
 
 const nodeIdSchema = z
   .string()
@@ -59,10 +80,13 @@ marketplace.get('/', async (c) => {
   const db = c.get('db')
 
   // The org's installs and how many workflows use each come from one statement.
-  const [index, installed] = await Promise.all([
-    remoteRegistry.getIndex(),
+  const [fetched, installed] = await Promise.all([
+    fromRegistry(() => remoteRegistry.getIndex()),
     db.listNodeUsage(organizationId),
   ])
+  // The page reads 503 as "can't reach the registry"; installed nodes keep working.
+  if ('refusal' in fetched) return c.json({ error: fetched.refusal }, 503)
+  const index = fetched.value
   const installedById = new Map(installed.map((n) => [n.nodeId, n]))
 
   const nodes = index.nodes.map((node) => {
@@ -105,8 +129,9 @@ marketplace.get('/:nodeId', async (c) => {
   const remoteRegistry = c.get('remoteNodeRegistry')
   if (!remoteRegistry) return c.json({ error: 'Node registry not configured' }, 503)
 
-  const index = await remoteRegistry.getIndex()
-  const node = index.nodes.find((n) => n.id === c.req.param('nodeId'))
+  const fetched = await fromRegistry(() => remoteRegistry.getIndex())
+  if ('refusal' in fetched) return c.json({ error: fetched.refusal }, 503)
+  const node = fetched.value.nodes.find((n) => n.id === c.req.param('nodeId'))
   if (!node) return c.json({ error: 'Node not found in registry' }, 404)
 
   const organizationId = c.get('organizationId')
@@ -132,8 +157,10 @@ marketplace.post('/install', zValidator('json', installSchema), async (c) => {
   const existing = await db.getInstalledNode(organizationId, nodeId)
   if (existing) return c.json({ error: 'Node already installed' }, 409)
 
-  const index = await remoteRegistry.getIndex()
-  const nodeEntry = index.nodes.find((n) => n.id === nodeId)
+  // The registry, not this request, is at fault: a bad gateway, with its reason.
+  const fetchedIndex = await fromRegistry(() => remoteRegistry.getIndex())
+  if ('refusal' in fetchedIndex) return c.json({ error: fetchedIndex.refusal }, 502)
+  const nodeEntry = fetchedIndex.value.nodes.find((n) => n.id === nodeId)
   if (!nodeEntry) return c.json({ error: 'Node not found in registry' }, 404)
 
   const targetVersion = version ?? nodeEntry.latest
@@ -141,7 +168,9 @@ marketplace.post('/install', zValidator('json', installSchema), async (c) => {
     return c.json({ error: `Version ${targetVersion} not found` }, 404)
   }
 
-  const bundle = await remoteRegistry.getNodeBundle(nodeId, targetVersion)
+  const fetched = await fromRegistry(() => remoteRegistry.getNodeBundle(nodeId, targetVersion))
+  if ('refusal' in fetched) return c.json({ error: fetched.refusal }, 502)
+  const bundle = fetched.value
 
   const installed = await db.installNode({
     id: nanoid(),
@@ -186,8 +215,10 @@ marketplace.post('/update', zValidator('json', updateSchema), async (c) => {
   const existing = await db.getInstalledNode(organizationId, nodeId)
   if (!existing) return c.json({ error: 'Node not installed' }, 404)
 
-  const index = await remoteRegistry.getIndex()
-  const nodeEntry = index.nodes.find((n) => n.id === nodeId)
+  // The registry, not this request, is at fault: a bad gateway, with its reason.
+  const fetchedIndex = await fromRegistry(() => remoteRegistry.getIndex())
+  if ('refusal' in fetchedIndex) return c.json({ error: fetchedIndex.refusal }, 502)
+  const nodeEntry = fetchedIndex.value.nodes.find((n) => n.id === nodeId)
   if (!nodeEntry) return c.json({ error: 'Node not found in registry' }, 404)
 
   const targetVersion = version ?? nodeEntry.latest
@@ -199,7 +230,9 @@ marketplace.post('/update', zValidator('json', updateSchema), async (c) => {
     return c.json({ error: 'Already on this version' }, 409)
   }
 
-  const bundle = await remoteRegistry.getNodeBundle(nodeId, targetVersion)
+  const fetched = await fromRegistry(() => remoteRegistry.getNodeBundle(nodeId, targetVersion))
+  if ('refusal' in fetched) return c.json({ error: fetched.refusal }, 502)
+  const bundle = fetched.value
 
   const updated = await db.updateInstalledNodeBundle(organizationId, nodeId, {
     version: targetVersion,

@@ -628,6 +628,8 @@ Install a node from the marketplace.
 
 `version` is optional — defaults to the latest available version.
 
+Answers `502` with a readable `error` when the registry can't hand over a usable node: it can't be reached, the node is invalid or has no code, or its files don't match the checksum in `index.json`. `/marketplace/update` answers the same way. `GET /marketplace` and `GET /marketplace/:nodeId` answer `503` with a readable `error` when the registry can't be reached.
+
 ---
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/marketplace/uninstall</span> <span class="api-scope">resources:delete</span>
