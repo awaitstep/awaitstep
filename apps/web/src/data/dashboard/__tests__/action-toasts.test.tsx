@@ -496,6 +496,31 @@ describe('dashboard action toasts', () => {
     })
   }
 
+  it('adds the registry’s reason to a node install or update the registry refused', () => {
+    const registry = Object.assign(
+      new Error('The node registry’s copy of hubspot 1.0.0 doesn’t match its index.'),
+      {
+        status: 502,
+      },
+    )
+    const crash = Object.assign(new Error('Checksum mismatch: sha256:abc'), { status: 500 })
+    for (const row of [ROWS.resources!.useInstallNode!, ROWS.resources!.useUpdateNode!]) {
+      const meta = metaOf(row)
+      if (!meta || meta === 'silent' || typeof meta.error !== 'function') {
+        throw new Error('expected an error line that reads the failure')
+      }
+      expect(meta.error(row.vars, registry)).toBe(
+        `${row.error}. The node registry’s copy of hubspot 1.0.0 doesn’t match its index.`,
+      )
+      expect(meta.error(row.vars, crash)).toBe(row.error)
+      const proxy = Object.assign(new Error('Request failed (502)'), {
+        status: 502,
+        hasReason: false,
+      })
+      expect(meta.error(row.vars, proxy)).toBe(row.error)
+    }
+  })
+
   it('never repeats a server reason in a failure line', () => {
     const lines = Object.values(ROWS).flatMap((rows) => Object.values(rows).map((r) => r.error))
     for (const line of lines) if (line) expect(line).toMatch(/^Couldn’t /)

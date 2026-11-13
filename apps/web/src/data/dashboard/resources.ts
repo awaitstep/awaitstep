@@ -56,10 +56,32 @@ const API_CHANGE = {
   updateNode: 'update',
 } as const
 
+/**
+ * The general line, plus the registry's reason when the registry was at
+ * fault (the API answers 502 with a sentence meant for the person, never
+ * the raw checksums). Any other server error, and a 502 with no reason in
+ * its body, keeps to the general line.
+ */
+function withRegistryReason(general: string) {
+  return (_variables: unknown, error: unknown): string => {
+    const failure = error as { status?: unknown; hasReason?: unknown } | null
+    // A proxy's own 502 (the API down) has no reason of its own to add.
+    return failure?.status === 502 &&
+      failure.hasReason !== false &&
+      error instanceof Error &&
+      error.message.trim()
+      ? `${general}. ${error.message}`
+      : general
+  }
+}
+
 const NODE_TOAST: Record<NodeChange, ActionToast> = {
-  installNode: { success: 'Node installed', error: 'Couldn’t install the node' },
+  installNode: {
+    success: 'Node installed',
+    error: withRegistryReason('Couldn’t install the node'),
+  },
   uninstallNode: { success: 'Node uninstalled', error: 'Couldn’t uninstall the node' },
-  updateNode: { success: 'Node updated', error: 'Couldn’t update the node' },
+  updateNode: { success: 'Node updated', error: withRegistryReason('Couldn’t update the node') },
 }
 
 function useNodeChange(org: string, change: NodeChange) {
