@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
   dashboardDb,
+  dashboardServer,
+  MockApiError,
   renderWithDashboardData,
   resetDashboardData,
 } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
@@ -118,6 +120,22 @@ describe('Resources › Nodes', () => {
       ).toBeVisible(),
     )
     expect(card('Anthropic')).toHaveTextContent('Not used yet')
+  })
+
+  it('leaves a failed install to its toast, without the server’s text on the page', async () => {
+    const spy = vi
+      .spyOn(dashboardServer.resources, 'installNode')
+      .mockRejectedValue(new MockApiError(500, 'Checksum mismatch for anthropic@1.0.0'))
+    renderWithDashboardData(<Page />)
+    const install = await screen.findByRole('button', {
+      name: 'Install Anthropic for every project in Acme Inc',
+    })
+    await userEvent.click(install)
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    await waitFor(() => expect(install).toBeEnabled())
+    expect(screen.queryByText(/Checksum mismatch/)).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+    spy.mockRestore()
   })
 
   it('asks before uninstalling a node in use, and keeps it on Keep installed', async () => {

@@ -41,28 +41,20 @@ export function NodesTab({ org, nodes, canManage, reason, asDialog }: NodesTabPr
   const categories = categoryOptions(nodes)
   const { installed, available } = filterNodes(nodes, { show, category, search })
   const changing = [install, uninstall, update].find((m) => m.isPending)
-  // One change at a time: a second one would replace the first's progress and error.
+  // One change at a time: a second one would replace the first's progress.
+  // A failure is the mutation's toast (`NODE_TOAST`): the server's reason for
+  // a refusal, the general line for a server error.
   const pending = changing?.variables
-  const failed = [install, uninstall, update].find((m) => m.isError)?.error
-
-  function resetErrors() {
-    install.reset()
-    uninstall.reset()
-    update.reset()
-  }
 
   function handleInstall(nodeId: string) {
-    resetErrors()
     install.mutate(nodeId)
   }
 
   function handleUpdate(nodeId: string) {
-    resetErrors()
     update.mutate(nodeId)
   }
 
   function handleUninstall(nodeId: string) {
-    resetErrors()
     const node = nodes.find((n) => n.id === nodeId)
     // In use: say what happens to those workflows first.
     if (node?.usage) setConfirming(node)
@@ -125,11 +117,6 @@ export function NodesTab({ org, nodes, canManage, reason, asDialog }: NodesTabPr
         <div className="max-w-sm">
           <Banner tone="warn">{reason}</Banner>
         </div>
-      )}
-      {failed && (
-        <p role="alert" className="text-xs text-status-error">
-          {failed.message}
-        </p>
       )}
       <div
         className={cn(
