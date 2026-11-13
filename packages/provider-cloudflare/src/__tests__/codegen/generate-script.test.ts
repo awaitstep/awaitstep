@@ -252,7 +252,7 @@ describe('generateScript', () => {
     expect(manifest.steps[0]).not.toHaveProperty('exportKey')
   })
 
-  it('reads the export flag on a step only: a registry node’s own `export` field means something else', () => {
+  it('reads the export flag on a template node too: `export` is its placement setting, never a template field', () => {
     const custom: ScriptIR['nodes'][0] = {
       id: 'x',
       type: 'csv-writer',
@@ -262,7 +262,11 @@ describe('generateScript', () => {
       provider: 'cloudflare',
       data: { export: true },
     }
-    expect(exportPlan(makeScript([custom])).has('x')).toBe(false)
+    expect(exportPlan(makeScript([custom])).get('x')).toEqual({
+      nodeId: 'x',
+      varName: 'Write_CSV',
+      key: 'Write_CSV',
+    })
   })
 
   it('returns a legacy EXPORT_ step only when its body returns, as it always did', () => {
@@ -1167,7 +1171,7 @@ describe('generateScript', () => {
     expect(code).toMatch(/const Find = await \(async \(\) => \{/)
   })
 
-  it('integrates a custom node template (hoists class, IIFE call, env param)', () => {
+  it('puts a custom node template in its own module, called as a durable step by default', () => {
     const template = `export default async function(ctx) {
   return { url: ctx.config.url, key: ctx.env.API_KEY };
 }`
@@ -1183,26 +1187,110 @@ describe('generateScript', () => {
       },
     ])
 
-    const code = generateScript(ir, {
-      templateResolver: { getTemplate: () => template },
+    const bundle = generateScriptBundle(ir, {
+      templateResolver: {
+        getTemplate: () => template,
+        getRuntime: () => ({ defaultRetries: 3, defaultTimeout: '30 seconds' }),
+      },
     })
+    const module = bundle.files.find((f) => f.path === 'nodes/Fetch_Thing.ts')!
+    // The template's class lives in the node's module, never in the graph module.
+    expect(module.source).toContain('async function $runTemplate(ctx: any) {')
+    const graph = bundle.files
+      .filter((f) => f.path !== 'nodes/Fetch_Thing.ts')
+      .map((f) => f.source)
+      .join('\n')
+    expect(graph).not.toContain('runTemplate')
+    // Durable by default, with the node's node.json runtime hints as its config.
+    expect(graph).toContain(
+      'flow.step("fetch-thing", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, () =>',
+    )
+    expect(graph).toContain('$Fetch_Thing({ env })')
+    // env.API_KEY usage in the module is auto-detected for the Env interface.
+    expect(generateScript(ir, { templateResolver: { getTemplate: () => template } })).toMatch(
+      /interface Env \{[\s\S]*API_KEY: string;[\s\S]*\}/,
+    )
+  })
 
-    // Class is hoisted to module top-level and unchanged from workflow mode.
-    expect(code).toContain('class FetchThingNode {')
-    expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
+  it('binds and returns a custom node’s value with Return this value, never passing the flag to the template', () => {
+    const template = `export default async function(ctx) { return { sip: 1234 } }`
+    const ir = makeScript([
+      {
+        id: 'hello',
+        type: 'say_hello',
+        name: 'Say Hello',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { name: 'Frank Test', export: true, exportAs: 'greeting' },
+      },
+    ])
+    const bundle = generateScriptBundle(ir, { templateResolver: { getTemplate: () => template } })
+    const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
+    expect(graph).toContain('const Say_Hello = await flow.step("hello"')
+    expect(graph).toContain('return { greeting: Say_Hello };')
+    const module = bundle.files.find((f) => f.path === 'nodes/Say_Hello.ts')!
+    expect(module.source).toContain('"name": "Frank Test"')
+    expect(module.source).not.toMatch(/"export"|"exportAs"/)
+  })
 
-    // Call site uses script-mode shape.
-    expect(code).not.toContain('flow.step')
-    expect(code).toContain('FetchThingNode.execute(env, {')
-    expect(code).not.toContain('FetchThingNode.execute(this.env')
-    // Custom nodes are already isolated inside `static execute`, so script
-    // mode calls them directly — no IIFE wrap.
-    expect(code).not.toMatch(/await \(async \(\) => \{\s*return FetchThingNode/)
-    // Not exported (name = "Fetch Thing") and not referenced → bare `await ...`.
-    expect(code).toMatch(/^\s*await FetchThingNode\.execute\(env, \{/m)
+  it('binds a custom node’s value whenever its template returns one, read or not', () => {
+    const returns = `export default async function(ctx) { return { sip: 1234 } }`
+    const silent = `export default async function(ctx) { console.log(ctx) }`
+    const ir = makeScript([
+      {
+        id: 'hello',
+        type: 'say_hello',
+        name: 'Say Hello',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { name: 'Frank Test' },
+      },
+      {
+        id: 'log',
+        type: 'log_it',
+        name: 'Log It',
+        position: { x: 0, y: 100 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
+      },
+    ])
+    ir.edges = [{ id: 'e', source: 'hello', target: 'log' }]
+    const bundle = generateScriptBundle(ir, {
+      templateResolver: { getTemplate: (type) => (type === 'say_hello' ? returns : silent) },
+    })
+    const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
+    expect(graph).toContain('const Say_Hello = await flow.step("hello"')
+    // Nothing returned, nothing to bind.
+    expect(graph).toMatch(/^\s*await flow\.step\("log"/m)
+    // Bound, but not in the response unless asked.
+    expect(graph).toContain('return {};')
+  })
 
-    // env.API_KEY usage in the class body is auto-detected for the Env interface.
-    expect(code).toMatch(/interface Env \{[\s\S]*API_KEY: string;[\s\S]*\}/)
+  it('calls an Inline custom node directly, with no step', () => {
+    const template = `export default async function(ctx) { return { ok: true } }`
+    const ir = makeScript([
+      {
+        id: 'quick',
+        type: 'quick_thing',
+        name: 'Quick',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { inline: true, label: 'x' },
+      },
+    ])
+    const bundle = generateScriptBundle(ir, { templateResolver: { getTemplate: () => template } })
+    const all = bundle.files.map((f) => f.source).join('\n')
+    expect(all).not.toContain('flow.step("quick"')
+    // No `step` passed: a function with no durable step declares none.
+    expect(all).toContain('await $Quick({ env })')
+    // `inline` is how the placement runs, never a field the template receives.
+    const module = bundle.files.find((f) => f.path === 'nodes/Quick.ts')!
+    expect(module.source).not.toContain('"inline"')
+    expect(module.source).toContain('"label": "x"')
   })
 })
 

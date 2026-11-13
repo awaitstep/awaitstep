@@ -1,12 +1,14 @@
 # Custom Nodes
 
 AwaitStep ships built-in nodes (`step`, `sleep`, `branch`, `parallel`, …) and
-supports two kinds of custom nodes:
+supports three kinds of custom nodes:
 
 - **Local nodes** live under `nodes/<id>/` in the app repository and are bundled
   at build time.
 - **Remote nodes** live under `registry/nodes/<id>/`, are installed from the
   marketplace, and are pinned to a version.
+- **Library nodes** are written in a workspace's or project's Library (see
+  [Library nodes](#library-nodes)).
 
 The public authoring guides are [Apps Docs — Custom Nodes](../apps/docs/nodes/custom-nodes.md)
 and [Apps Docs — Adding Nodes](../apps/docs/contributing/adding-nodes.md). This
@@ -130,3 +132,36 @@ required-field or output-shape changes.
 
 Local nodes are not version-pinned; they are always used at their current
 version.
+
+## Library nodes
+
+A Library node is a user's own node, authored in the dashboard's Library IDE
+rather than in this repository. It has the registry's shape, with
+`nodes/<slug>/<version>/{node.json,template.ts}` and `icon.svg` at the item
+root, but:
+
+- its node type is `custom:<itemId>`, so a rename never breaks a stored IR;
+- `author`, `license` and `providers` default to `custom`, `UNLICENSED` and
+  `["cloudflare"]`;
+- it is **not pinned**. Every deploy takes its latest published version, and a
+  workflow's Overview names the accounts that still run an older one;
+- the canvas palette lists it under "Custom nodes" for its own workspace and,
+  for a project node, every workspace of the project. Unpublished nodes are
+  never offered;
+- its template may import npm packages and `#modules/<slug>`, nothing
+  relative.
+
+## How a template node runs
+
+These rules apply to every template node: local, marketplace and Library nodes.
+
+- **The context is a real object.** The template's parameter (`ctx`, or any name, or a destructure such as `{ config, env }`) receives `{ env, config, inputs }`. `config` and `inputs` both hold the node's fields, as set on the canvas. Logging it, destructuring it or passing it to a helper works as written.
+- **Its own module, as written.** The template becomes `nodes/<var>.ts`, in workflows and functions, inside containers too. The module holds the template unchanged: its imports, its own top-level constants and helpers, and its function as `$runTemplate`. A default export builds `{ env, config, inputs }` from the node's fields and calls it. Nothing in the template is rewritten, so its own variables (a local `params`, say) keep their meaning. The entry imports the module and calls it with `{ env }`, adding `inputs` when a field reads an earlier value or a loop's `item`.
+- **Durable or Inline.** The node's panel has the step's "Inline — no step" switch.
+  - Durable is the default, in workflows and functions. The node runs inside `flow.step` with the retries and timeout its `node.json` `runtime` declares: `defaultRetries`, with a 5-second exponential delay, and `defaultTimeout`. A node with no hints runs with the runtime's defaults.
+  - Inline calls the module directly, with no step.
+  - Either way, the node's value can be read downstream and returned with "Return this value".
+- **Fields that read earlier values.** A field may hold `{{node.path}}`, where `node` is an earlier node's id or the name its code goes by (`sample_step`, as a step reads `inputs.sample_step`); write it without spaces. A field that is a whole `{{…}}` hands the template the value itself (an object stays an object); text around expressions makes a string. `{{event.payload.x}}` reads the trigger's payload.
+- **Its value is bound.** When the template returns a value, the generated code binds it, `const <var> = …`, in workflows and functions, whether or not anything reads it.
+- **Return this value.** In a function, the node's panel has the switch, as a step's does. The function then returns the node's value under its name, or under the key set.
+- `inline`, `export` and `exportAs` are reserved. They are the placement's own settings, never passed to the template, and a Library node's `configSchema` may not declare them.

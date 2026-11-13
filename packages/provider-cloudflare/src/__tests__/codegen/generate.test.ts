@@ -506,21 +506,15 @@ describe('generateWorkflow with custom nodes', () => {
     const code = programOf(ir, resolver)
 
     expect(code).toContain('class CustomWorkflow')
-    // Class definition hoisted before workflow class
-    expect(code).toContain('class WebhookPostNode {')
-    expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
-    // Step calls use the class
+    // The template runs as written, in its own module; the workflow only calls it.
+    expect(code).toContain('async function $runTemplate(ctx: any) {')
+    expect(code).toContain('fetch(ctx.config.url')
+    expect(code).toContain('return $runTemplate({ env, config: $fields, inputs: $fields });')
+    // Step calls use the modules
     expect(code).toContain('const Fetch_Data = await flow.step("step-1"')
     expect(code).toContain('const Send_Webhook = await flow.step("webhook-1"')
-    expect(code).toContain('WebhookPostNode.execute(env, {')
     expect(code).toContain('"url": "https://hook.example.com/endpoint"')
     expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')
-    // The template's ctx.* references are resolved. Scope the check to the
-    // generated class so the bootstrap's own ctx.attempt cannot mask a leak.
-    const classStart = code.indexOf('class WebhookPostNode {')
-    const classEnd = code.indexOf('\n}\n', classStart)
-    expect(classEnd).toBeGreaterThan(classStart)
-    expect(code.slice(classStart, classEnd)).not.toMatch(/\bctx\./)
     // Env vars from template are in the Env interface
     expect(code).toContain('API_KEY: string;')
   })
@@ -565,7 +559,9 @@ export default async function(ctx) {
       "import { uniqueNamesGenerator, adjectives, colors, animals } from 'unique-names-generator'"
     const holder = bundle.files.find((f) => f.source.includes(importLine))!
     expect(holder).toBeDefined()
-    expect(holder.source.indexOf(importLine)).toBeLessThan(holder.source.indexOf('class '))
+    expect(holder.source.indexOf(importLine)).toBeLessThan(
+      holder.source.indexOf('async function $runTemplate'),
+    )
 
     // Import should NOT appear inside the step.do body
     const workflow = workflowSource(bundle)

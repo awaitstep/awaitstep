@@ -67,7 +67,8 @@ describe('registry templates', () => {
           expect(() =>
             transform(code, { transforms: ['typescript'], disableESTransforms: true }),
           ).not.toThrow()
-          expect(code).not.toContain('ctx.')
+          // The template runs as written, handed the context it declares.
+          expect(code).toContain('({ env, config: params, inputs: params })')
         }
       }
     }

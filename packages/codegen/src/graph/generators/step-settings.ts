@@ -1,5 +1,11 @@
-import { isBuiltinNodeType, type StepConfig, type WorkflowNode } from '@awaitstep/ir'
+import {
+  isBuiltinNodeType,
+  type RuntimeHints,
+  type StepConfig,
+  type WorkflowNode,
+} from '@awaitstep/ir'
 import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
+import { isInlineTemplateNode, templateStepConfig } from './custom.js'
 
 type SettingsNode = Pick<WorkflowNode, 'type' | 'data' | 'config'>
 
@@ -33,9 +39,13 @@ export interface AppliedStepSettings {
  * fields on `data` (see `resolveStepConfig`); `sub_script` and every registry
  * node read only `node.config`; `wait_for_event` reads `data.timeout`; and
  * the rest take nothing (a `sub_workflow` ignores its timeout, an inline
- * step is not a step at all).
+ * step or template node is not a step at all). A template node's own
+ * defaults are its node.json `runtime` hints, passed in as `runtime`.
  */
-export function appliedStepSettings(node: SettingsNode): AppliedStepSettings {
+export function appliedStepSettings(
+  node: SettingsNode,
+  runtime?: RuntimeHints,
+): AppliedStepSettings {
   const none = { retries: false, timeout: false, config: undefined }
   if (node.type === 'step') {
     if (node.data.inline === true) return none
@@ -73,8 +83,11 @@ export function appliedStepSettings(node: SettingsNode): AppliedStepSettings {
       config: resolveStepConfig(node as WorkflowNode) ?? DEFAULT_STEP_CONFIG,
     }
   }
+  // A template node: Inline is no step; durable, its placement's config,
+  // else its node.json runtime hints (passed in when known).
   if (!isBuiltinNodeType(node.type)) {
-    return { retries: true, timeout: true, config: node.config }
+    if (isInlineTemplateNode(node)) return none
+    return { retries: true, timeout: true, config: templateStepConfig(node, runtime) }
   }
   return none
 }

@@ -196,10 +196,11 @@ describe('generateCustomNode', () => {
     // Class definition
     expect(code).toContain('class WebhookPostNode {')
     expect(code).toContain('static async execute(env: Env, params: Record<string, unknown>)')
-    expect(code).toContain('params.webhookUrl')
-    expect(code).toContain('env.API_KEY')
-    expect(code).toContain('params.previous_step')
-    expect(code).not.toContain('ctx.')
+    // The template body runs as written, given the context it declares.
+    expect(code).toContain('ctx.config.webhookUrl')
+    expect(code).toContain('ctx.env.API_KEY')
+    expect(code).toContain('ctx.inputs.previous_step')
+    expect(code).toContain('})({ env, config: params, inputs: params });')
 
     // Step call
     expect(code).toContain('const My_Node = await flow.step("my-node"')
@@ -325,7 +326,7 @@ export default async function (ctx: Ctx): Promise<Output> {
       expect(code).not.toContain('./ctx')
       expect(code).toContain(`import { score } from '#modules/lead-scoring'`)
       expect(code).toContain(`import { z } from 'zod'`)
-      expect(code).toContain('score(params.threshold)')
+      expect(code).toContain('score(ctx.config.threshold)')
     })
 
     it('drops inline type-only imports too, and any type-only import, whatever it names', () => {

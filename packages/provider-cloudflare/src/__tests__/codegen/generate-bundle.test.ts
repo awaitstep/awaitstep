@@ -178,12 +178,13 @@ export default async function(ctx) {
     ])
     const mod = bundle.files.find((f) => f.path === 'nodes/Post_webhook.ts')!
     expect(mod.source).toContain("import { z } from 'zod'")
-    expect(mod.source).toContain('class WebhookPostNode {')
-    expect(mod.source).toContain(
-      'export default async function Post_webhook_step({ env, event, inputs, step, ctx })',
-    )
+    // The template as written, beside a default export that builds its ctx.
+    expect(mod.source).toContain('async function $runTemplate(ctx: any) {')
+    expect(mod.source).toContain('fetch(ctx.config.url')
+    expect(mod.source).toContain('export default async function Post_webhook_step({')
     expect(mod.source).toContain('const { Fetch_data } = inputs;')
-    expect(mod.source).toContain('return WebhookPostNode.execute(env, {')
+    expect(mod.source).toContain('return $runTemplate({ env, config: $fields, inputs: $fields });')
+    expect(mod.source).not.toContain('class ')
     // env arrives as a parameter — never rewritten to this.env.
     expect(mod.source).not.toContain('this.env')
   })
@@ -192,10 +193,10 @@ export default async function(ctx) {
     const entry = workflowSource(bundle)
     expect(entry).toContain('import $Post_webhook from "#app/nodes/Post_webhook.js";')
     // Wrapped: the call outgrows the line once indented into `run`.
-    expect(entry).toContain(
-      'await flow.step("hook", (ctx) =>\n      $Post_webhook({ env, event, inputs: { Fetch_data }, step, ctx }),\n    );',
+    expect(entry).toMatch(
+      /await flow\.step\("hook", \(\) =>\s*\$Post_webhook\(\{ env, inputs: \{ Fetch_data \} \}\)/,
     )
-    expect(entry).not.toContain('class WebhookPostNode')
+    expect(entry).not.toContain('runTemplate')
   })
 })
 
@@ -323,13 +324,16 @@ describe('generateWorkflowBundle container-child custom nodes', () => {
     edges: [{ id: 'e1', source: 'branch', target: 'custom', label: 'yes' }],
   }
 
-  it('keeps the generated class beside its call site in the workflow module', () => {
+  it('gives a container child its own module, imported by the workflow module', () => {
     const bundle = generateWorkflowBundle(containerIR, { templateResolver: resolver })
     const workflow = workflowSource(bundle)
-    expect(workflow).toMatch(/class \w+ \{/)
-    expect(workflow).toContain('WebhookPostNode.execute(')
-    // The entry is the bootstrap; the class is not declared there.
+    // The template is not pasted into the workflow or the entry: it is a module.
+    expect(workflow).not.toMatch(/class WebhookPostNode/)
     expect(providerEntrySource(bundle)).not.toMatch(/class WebhookPostNode/)
+    const module = bundle.files.find((f) => f.path === 'nodes/Custom.ts')
+    expect(module?.source).toContain('async function $runTemplate(ctx: any) {')
+    expect(workflow).toContain('import $Custom from "#app/nodes/Custom.js"')
+    expect(workflow).toContain('$Custom({ env })')
   })
 })
 

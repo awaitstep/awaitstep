@@ -1,3 +1,4 @@
+import { isBuiltinNodeType } from '@awaitstep/ir'
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { RUNTIME_MODULE_SOURCE } from '@awaitstep/sdk/runtime-source'
 import { validateBundle, projectBundleFiles } from '../bundle.js'
@@ -449,7 +450,12 @@ function generateFunction(
         hoistedVarNames.push(varName)
         graphBody = graphBody.replace(new RegExp(`\\bconst ${varName}\\s*=`, 'g'), `${varName} =`)
       }
-    } else if (!isReferencedElsewhere && !RESULT_CONTAINERS.has(node.type)) {
+    } else if (
+      !isReferencedElsewhere &&
+      !RESULT_CONTAINERS.has(node.type) &&
+      // A template node that returns a value keeps its binding, read or not.
+      isBuiltinNodeType(node.type)
+    ) {
       graphBody = graphBody.replace(new RegExp(`\\bconst ${varName}\\s*=\\s*(await\\b)`, 'g'), '$1')
     }
   }

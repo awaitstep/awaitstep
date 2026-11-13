@@ -1,4 +1,4 @@
-import { JS_RESERVED_WORDS } from '@awaitstep/ir'
+import { JS_RESERVED_WORDS, isBuiltinNodeType } from '@awaitstep/ir'
 
 export function sanitizeIdentifier(name: string): string {
   return name
@@ -30,9 +30,9 @@ export function stripExportPrefix(name: string): string {
 }
 
 /**
- * Node kinds a function's response can include — the ones carrying an
- * `export` field of their own. A registry node may have an `export` field for
- * its own reasons, so only these kinds read it.
+ * Builtin node kinds a function's response can include — the ones carrying
+ * an `export` field of their own. Template nodes read it too (see
+ * `isExportableNodeType`); the node schema refuses `export` as their field.
  */
 export const EXPORTABLE_NODE_TYPES: ReadonlySet<string> = new Set([
   'step',
@@ -40,6 +40,16 @@ export const EXPORTABLE_NODE_TYPES: ReadonlySet<string> = new Set([
   'sub_workflow',
   'sub_script',
 ])
+
+/**
+ * Whether a node's `export` field means "Return this value": the exportable
+ * builtin kinds, and every template node (custom and marketplace), whose
+ * `export`/`exportAs` are placement settings codegen never passes to the
+ * template (and a Library node may not declare as config fields).
+ */
+export function isExportableNodeType(type: string): boolean {
+  return EXPORTABLE_NODE_TYPES.has(type) || !isBuiltinNodeType(type)
+}
 
 /**
  * Kinds whose value is in a function's response unless the node opts out: a
@@ -74,7 +84,7 @@ export function isExportedNode(node: {
   // The legacy name marker is authoritative: the canvas disables the switch
   // when a name carries it, so a stale `export: false` must not undo it.
   if (isExportedName(node.name)) return true
-  if (EXPORTABLE_NODE_TYPES.has(node.type)) {
+  if (isExportableNodeType(node.type)) {
     if (node.data?.export === false) return false
     if (node.data?.export === true) return true
   }

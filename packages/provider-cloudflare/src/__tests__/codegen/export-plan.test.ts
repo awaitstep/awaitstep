@@ -134,9 +134,14 @@ describe('exportPlan', () => {
     expect([...exportPlan(ir).values()]).toEqual([{ nodeId: 'h', varName: 'h', key: 'h' }])
   })
 
-  it('ignores an export field on a kind that is not exportable', () => {
-    const ir = graph([node('n', 'webhook-post', { export: true })], [])
+  it('ignores an export field on a builtin kind that is not exportable', () => {
+    const ir = graph([node('n', 'sleep', { duration: '1 second', export: true })], [])
     expect(exportPlan(ir).size).toBe(0)
+  })
+
+  it('returns a template node whose export field is on', () => {
+    const ir = graph([node('n', 'webhook-post', { export: true })], [])
+    expect([...exportPlan(ir).values()]).toEqual([{ nodeId: 'n', varName: 'n', key: 'n' }])
   })
 
   it('refuses a key that is not an identifier, falling back to the variable name', () => {

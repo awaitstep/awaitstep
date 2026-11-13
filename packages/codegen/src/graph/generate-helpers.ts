@@ -1,9 +1,16 @@
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { RESERVED_EXPRESSION_REFS, resolveExpressions, scanExpressions } from '@awaitstep/ir'
+import {
+  RESERVED_EXPRESSION_REFS,
+  isBuiltinNodeType,
+  resolveExpressions,
+  scanExpressions,
+} from '@awaitstep/ir'
 import type { GenerateMode, TemplateResolver, StepKind } from './internal.js'
 import type { GenerationContext, GeneratorLookup } from './internal.js'
 import { GenerateInputError, childContext } from './internal.js'
+import type { FieldExpression } from './generators/custom.js'
 import {
+  compileFieldExpressions,
   generateCustomNode,
   generateCustomNodeModule,
   generateCustomNodeParts,
@@ -112,19 +119,21 @@ export function generateNodeCode(
   if (templateResolver) {
     const template = templateResolver.getTemplate(node.type, node.provider)
     if (template) {
-      // Scripts stay single-file; a container child's template code stays
-      // in its block, so only top-level workflow custom nodes become modules.
-      if (ctx.emitModules && mode === 'workflow' && !ctx.inContainer) {
-        return generateCustomNodeModule(node, template, ctx)
+      const options = { runtime: templateResolver.getRuntime?.(node.type) }
+      // Every template node is its own module, workflow or function, top
+      // level or in a container: the entry imports and calls it, so template
+      // code never piles up in the entry file.
+      if (ctx.emitModules) {
+        return generateCustomNodeModule(node, template, ctx, mode, options)
       }
       if (classDefinitions) {
-        const parts = generateCustomNodeParts(node, template, ctx, mode)
+        const parts = generateCustomNodeParts(node, template, ctx, mode, options)
         if (!classDefinitions.has(parts.className)) {
           classDefinitions.set(parts.className, parts.classDefinition)
         }
         return parts.imports.join('\n') + '\n' + parts.stepCode
       }
-      return generateCustomNode(node, template, ctx, mode)
+      return generateCustomNode(node, template, ctx, mode, options)
     }
   }
   throw new GenerateInputError(
@@ -148,7 +157,11 @@ export function resolveNodeExpressions(
   const asModule = node.type === 'step' && node.data.inline !== true
   const refFor = (ref: string): string =>
     asModule && !RESERVED_EXPRESSION_REFS.has(ref) ? `inputs.${varNameFor(ref)}` : varNameFor(ref)
-  const resolve = (value: string) => resolveExpressions(value, refFor)
+  // A template node's fields are written out as values, not code text: an
+  // expression there must stay recognisable as code, or it ships quoted.
+  const template = !isBuiltinNodeType(node.type)
+  const resolve = (value: string): string | FieldExpression =>
+    template ? compileFieldExpressions(value, refFor) : resolveExpressions(value, refFor)
   const resolvedData: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(node.data)) {
     if (typeof value === 'string') {

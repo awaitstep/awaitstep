@@ -81,6 +81,7 @@ export {
   isValidExportKey,
   DEFAULT_EXPORTED_NODE_TYPES,
   EXPORTABLE_NODE_TYPES,
+  isExportableNodeType,
   stripExportPrefix,
   RESERVED_VAR_NAMES,
 } from './sanitize.js'
@@ -212,6 +213,9 @@ export {
   generateCustomNode,
   generateCustomNodeModule,
   generateCustomNodeParts,
+  isInlineTemplateNode,
+  templateParameter,
+  templateStepConfig,
   templateImports,
   type TemplateImports,
 } from './graph/generators/custom.js'

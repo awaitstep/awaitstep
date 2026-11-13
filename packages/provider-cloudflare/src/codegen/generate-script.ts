@@ -1,5 +1,5 @@
 import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
+import { hasHandlerModules, isBuiltinNodeType, projectHandlerModules } from '@awaitstep/ir'
 import type {
   StepManifestEntry,
   GeneratedBundle,
@@ -311,7 +311,12 @@ function generateScriptInternal(
         hoistedVarNames.push(v)
         graphBody = graphBody.replace(new RegExp(`\\bconst ${v}\\s*=`, 'g'), `${v} =`)
       }
-    } else if (!isReferencedElsewhere && !RESULT_CONTAINERS.has(node.type)) {
+    } else if (
+      !isReferencedElsewhere &&
+      !RESULT_CONTAINERS.has(node.type) &&
+      // A template node that returns a value keeps its binding, read or not.
+      isBuiltinNodeType(node.type)
+    ) {
       // Drop the `const X = ` prefix only when the RHS starts with `await ` —
       // the resulting bare `await ...;` is a valid statement. For non-await
       // RHS (e.g. an object literal), leave the const as-is rather than
@@ -330,6 +335,11 @@ function generateScriptInternal(
     for (const m of classDef.matchAll(envVarPattern)) {
       allEnvNames.add(m[1])
     }
+  }
+  // Template nodes are modules now: their env reads are typed too.
+  for (const file of ctx.files) {
+    if (file.role !== 'module') continue
+    for (const m of file.source.matchAll(envVarPattern)) allEnvNames.add(m[1])
   }
 
   // Scripts have no `WORKFLOW` self-binding (they aren't a Workflow). Only
