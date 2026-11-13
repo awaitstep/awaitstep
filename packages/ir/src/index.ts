@@ -192,6 +192,7 @@ export {
 export { NodeRegistry } from './node-registry.js'
 export type { NodeBundle } from './node-bundle.js'
 export {
+  legacyNodeBundleChecksumInput,
   nodeBundleChecksumInput,
   nodeBundleSchema,
   nodeDefinitionSchema,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  legacyNodeBundleChecksumInput,
   nodeBundleChecksumInput,
   nodeBundleSchema,
   nodeDefinitionSchema,
@@ -85,6 +86,18 @@ describe('nodeBundleChecksumInput', () => {
     const right = { templates: { cloudflare: 'x' }, definition: { a: 1, b: 2 } }
     expect(nodeBundleChecksumInput(left.definition as never, left.templates)).toBe(
       nodeBundleChecksumInput(right.definition as never, right.templates),
+    )
+  })
+})
+
+describe('legacyNodeBundleChecksumInput', () => {
+  it('keeps the definition’s own key order, as releases before the stable checksum hash it', () => {
+    const templates = { cloudflare: 'x' }
+    expect(legacyNodeBundleChecksumInput({ b: 2, a: 1 }, templates)).toBe(
+      '{"definition":{"b":2,"a":1},"templates":{"cloudflare":"x"}}',
+    )
+    expect(legacyNodeBundleChecksumInput({ b: 2, a: 1 }, templates)).not.toBe(
+      legacyNodeBundleChecksumInput({ a: 1, b: 2 }, templates),
     )
   })
 })

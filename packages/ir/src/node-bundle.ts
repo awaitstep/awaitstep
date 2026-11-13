@@ -107,7 +107,21 @@ export function stableStringify(value: unknown): string {
   return JSON.stringify(canonical(value))
 }
 
-/** The exact bytes a registry bundle checksum is computed over. */
+/**
+ * The bytes the registry index's `checksum` is computed over, for releases
+ * that predate `nodeBundleChecksumInput`: the definition exactly as its
+ * `node.json` is written (raw, in its own key order — not schema-parsed) and
+ * the templates by provider. The index keeps this checksum so those releases
+ * still verify installs; current clients check `stableChecksum`.
+ */
+export function legacyNodeBundleChecksumInput(
+  definition: unknown,
+  templates: Partial<Record<Provider, string>>,
+): string {
+  return JSON.stringify({ definition, templates })
+}
+
+/** The exact bytes a registry bundle checksum is computed over (the index's `stableChecksum`). */
 export function nodeBundleChecksumInput(
   definition: NodeDefinition,
   templates: Partial<Record<Provider, string>>,
