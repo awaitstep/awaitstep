@@ -6,7 +6,7 @@ import { parseLibraryCodeSearch } from '../../lib/library/code-search'
 const page: DashboardPage = { kind: 'editor' }
 
 // The Library IDE, full screen, like a workflow's code view.
-export const Route = createFileRoute('/_authed/$org/$project/$workspace/library_/code')({
+export const Route = createFileRoute('/_authed/$org/$project/$workspace/scripts-nodes_/code')({
   staticData: { dashboardPage: page },
   head: () => pageHead(page),
   validateSearch: parseLibraryCodeSearch,

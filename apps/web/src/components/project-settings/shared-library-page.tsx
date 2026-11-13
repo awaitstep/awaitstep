@@ -133,7 +133,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
   if (shared.isError) {
     body = (
       <WorkspaceLoadError
-        what="the shared library"
+        what="the shared workflows and functions"
         error={shared.error}
         onRetry={handleRetry}
         retrying={shared.isFetching}
@@ -141,7 +141,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
     )
   } else if (!shared.data) {
     body = (
-      <LoadingRegion label="Loading the shared library">
+      <LoadingRegion label="Loading the shared workflows and functions">
         <ListCardSkeleton rows={3} trailing={3} />
       </LoadingRegion>
     )
@@ -171,7 +171,7 @@ export function SharedLibraryPage({ slugs }: SharedLibraryPageProps) {
     <>
       <PageBody>
         <PageIntro
-          title="Shared library"
+          title="Workflows & functions"
           description={'Workflows and functions every workspace in this project can use.'}
         />
         {body}

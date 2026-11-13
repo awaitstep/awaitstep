@@ -60,8 +60,8 @@ const ORG_SETTINGS_LABEL: Record<OrgSettingsPage, string> = {
 
 const PROJECT_PAGE_LABEL: Record<ProjectPage, string> = {
   workspaces: 'Workspaces',
-  library: 'Library',
-  shared: 'Shared library',
+  'scripts-nodes': 'Scripts & nodes',
+  shared: 'Workflows & functions',
   members: 'Members',
   connections: 'Connections',
   'api-keys': 'API keys',
@@ -73,7 +73,7 @@ const WORKSPACE_PAGE_LABEL: Record<WorkspacePage, string> = {
   overview: 'Overview',
   workflows: 'Workflows',
   functions: 'Functions',
-  library: 'Library',
+  'scripts-nodes': 'Scripts & nodes',
   runs: 'Runs',
   settings: 'Workspace settings',
 }

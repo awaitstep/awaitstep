@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithDashboardData } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
 import { VersionHistoryDialog } from '../version-history-dialog'
@@ -67,6 +67,21 @@ describe('VersionHistoryDialog', () => {
     expect(diff).toHaveTextContent('−1')
     expect(screen.queryByRole('region', { name: 'package.json' })).not.toBeInTheDocument()
     expect(screen.getByText('1 workflow still runs v1.4.1')).toBeVisible()
+  })
+
+  it('lays out as 28i: name and count in the header, focus on the selected version, a compare bar and the selection in the footer', async () => {
+    versions()
+    renderWithDashboardData(
+      <VersionHistoryDialog place={place} item={item} onClose={vi.fn()} canEdit />,
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Lead scoring · version history' })
+    expect(await within(dialog).findByText('3 versions')).toBeVisible()
+    const versionList = await within(dialog).findByRole('list', { name: 'Versions' })
+    const selected = within(versionList).getByRole('button', { name: /1\.4\.1/ })
+    await waitFor(() => expect(selected).toHaveFocus())
+    expect(within(dialog).getByRole('button', { name: 'Close' })).not.toHaveFocus()
+    expect(await within(dialog).findByText('v1.4.1 → v1.4.2 (current)')).toBeVisible()
+    expect(within(dialog).getByText(/^Selected v1\.4\.1 · published by Ama Mensah/)).toBeVisible()
   })
 
   it('restores the selected version only after confirming', async () => {

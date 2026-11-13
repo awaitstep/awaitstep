@@ -15,7 +15,7 @@ export function readOnlyNote(path: string, viewerReason: string | null): string 
     return 'This version is published and can’t change. Start a new version from it.'
   }
   if (path.startsWith(`${ROOT_DIR.module}/`)) {
-    return 'From the project’s library, as last published. Change it in the project’s Library.'
+    return 'From the project’s scripts & nodes, as last published. Change it there.'
   }
   return 'Read-only.'
 }

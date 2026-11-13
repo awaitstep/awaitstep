@@ -31,8 +31,8 @@ import { Route as AuthedOrgProjectIndexRouteImport } from './routes/_authed/$org
 import { Route as AuthedOrgProjectWorkspaceRouteImport } from './routes/_authed/$org.$project.$workspace'
 import { Route as AuthedOrgProjectApiKeysRouteImport } from './routes/_authed/$org.$project.api-keys'
 import { Route as AuthedOrgProjectConnectionsRouteImport } from './routes/_authed/$org.$project.connections'
-import { Route as AuthedOrgProjectLibraryRouteImport } from './routes/_authed/$org.$project.library'
 import { Route as AuthedOrgProjectMembersRouteImport } from './routes/_authed/$org.$project.members'
+import { Route as AuthedOrgProjectScriptsNodesRouteImport } from './routes/_authed/$org.$project.scripts-nodes'
 import { Route as AuthedOrgProjectSharedRouteImport } from './routes/_authed/$org.$project.shared'
 import { Route as AuthedOrgProjectVariablesRouteImport } from './routes/_authed/$org.$project.variables'
 import { Route as AuthedOrgProjectWorkspacesRouteImport } from './routes/_authed/$org.$project.workspaces'
@@ -49,12 +49,12 @@ import { Route as AuthedOrglessAccountProfileRouteImport } from './routes/_authe
 import { Route as AuthedOrglessAccountSessionsRouteImport } from './routes/_authed/_orgless.account.sessions'
 import { Route as AuthedOrgProjectWorkspaceIndexRouteImport } from './routes/_authed/$org.$project.$workspace.index'
 import { Route as AuthedOrgProjectWorkspaceFunctionsRouteImport } from './routes/_authed/$org.$project.$workspace.functions'
-import { Route as AuthedOrgProjectWorkspaceLibraryRouteImport } from './routes/_authed/$org.$project.$workspace.library'
 import { Route as AuthedOrgProjectWorkspaceOverviewRouteImport } from './routes/_authed/$org.$project.$workspace.overview'
 import { Route as AuthedOrgProjectWorkspaceRunsRouteImport } from './routes/_authed/$org.$project.$workspace.runs'
+import { Route as AuthedOrgProjectWorkspaceScriptsNodesRouteImport } from './routes/_authed/$org.$project.$workspace.scripts-nodes'
 import { Route as AuthedOrgProjectWorkspaceSettingsRouteImport } from './routes/_authed/$org.$project.$workspace.settings'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsRouteImport } from './routes/_authed/$org.$project.$workspace.workflows'
-import { Route as AuthedOrgProjectLibraryCodeRouteImport } from './routes/_authed/$org.$project.library_.code'
+import { Route as AuthedOrgProjectScriptsNodesCodeRouteImport } from './routes/_authed/$org.$project.scripts-nodes_.code'
 import { Route as AuthedOrgProjectSettingsIndexRouteImport } from './routes/_authed/$org.$project.settings.index'
 import { Route as AuthedOrgProjectSettingsApiKeysRouteImport } from './routes/_authed/$org.$project.settings.api-keys'
 import { Route as AuthedOrgProjectSettingsGeneralRouteImport } from './routes/_authed/$org.$project.settings.general'
@@ -62,7 +62,7 @@ import { Route as AuthedOrgProjectSettingsMembersRouteImport } from './routes/_a
 import { Route as AuthedOrgProjectSettingsSharedRouteImport } from './routes/_authed/$org.$project.settings.shared'
 import { Route as AuthedOrgProjectSettingsVariablesRouteImport } from './routes/_authed/$org.$project.settings.variables'
 import { Route as AuthedOrgProjectSettingsWorkspacesRouteImport } from './routes/_authed/$org.$project.settings.workspaces'
-import { Route as AuthedOrgProjectWorkspaceLibraryCodeRouteImport } from './routes/_authed/$org.$project.$workspace.library_.code'
+import { Route as AuthedOrgProjectWorkspaceScriptsNodesCodeRouteImport } from './routes/_authed/$org.$project.$workspace.scripts-nodes_.code'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdIndexRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id.index'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdDeployRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id.deploy'
@@ -182,16 +182,17 @@ const AuthedOrgProjectConnectionsRoute =
     path: '/connections',
     getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
-const AuthedOrgProjectLibraryRoute = AuthedOrgProjectLibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => AuthedOrgProjectRoute,
-} as any)
 const AuthedOrgProjectMembersRoute = AuthedOrgProjectMembersRouteImport.update({
   id: '/members',
   path: '/members',
   getParentRoute: () => AuthedOrgProjectRoute,
 } as any)
+const AuthedOrgProjectScriptsNodesRoute =
+  AuthedOrgProjectScriptsNodesRouteImport.update({
+    id: '/scripts-nodes',
+    path: '/scripts-nodes',
+    getParentRoute: () => AuthedOrgProjectRoute,
+  } as any)
 const AuthedOrgProjectSharedRoute = AuthedOrgProjectSharedRouteImport.update({
   id: '/shared',
   path: '/shared',
@@ -284,12 +285,6 @@ const AuthedOrgProjectWorkspaceFunctionsRoute =
     path: '/functions',
     getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
   } as any)
-const AuthedOrgProjectWorkspaceLibraryRoute =
-  AuthedOrgProjectWorkspaceLibraryRouteImport.update({
-    id: '/library',
-    path: '/library',
-    getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
-  } as any)
 const AuthedOrgProjectWorkspaceOverviewRoute =
   AuthedOrgProjectWorkspaceOverviewRouteImport.update({
     id: '/overview',
@@ -300,6 +295,12 @@ const AuthedOrgProjectWorkspaceRunsRoute =
   AuthedOrgProjectWorkspaceRunsRouteImport.update({
     id: '/runs',
     path: '/runs',
+    getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
+  } as any)
+const AuthedOrgProjectWorkspaceScriptsNodesRoute =
+  AuthedOrgProjectWorkspaceScriptsNodesRouteImport.update({
+    id: '/scripts-nodes',
+    path: '/scripts-nodes',
     getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
   } as any)
 const AuthedOrgProjectWorkspaceSettingsRoute =
@@ -314,10 +315,10 @@ const AuthedOrgProjectWorkspaceWorkflowsRoute =
     path: '/workflows',
     getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
   } as any)
-const AuthedOrgProjectLibraryCodeRoute =
-  AuthedOrgProjectLibraryCodeRouteImport.update({
-    id: '/library_/code',
-    path: '/library/code',
+const AuthedOrgProjectScriptsNodesCodeRoute =
+  AuthedOrgProjectScriptsNodesCodeRouteImport.update({
+    id: '/scripts-nodes_/code',
+    path: '/scripts-nodes/code',
     getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
 const AuthedOrgProjectSettingsIndexRoute =
@@ -362,10 +363,10 @@ const AuthedOrgProjectSettingsWorkspacesRoute =
     path: '/settings/workspaces',
     getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
-const AuthedOrgProjectWorkspaceLibraryCodeRoute =
-  AuthedOrgProjectWorkspaceLibraryCodeRouteImport.update({
-    id: '/library_/code',
-    path: '/library/code',
+const AuthedOrgProjectWorkspaceScriptsNodesCodeRoute =
+  AuthedOrgProjectWorkspaceScriptsNodesCodeRouteImport.update({
+    id: '/scripts-nodes_/code',
+    path: '/scripts-nodes/code',
     getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
   } as any)
 const AuthedOrgProjectWorkspaceWorkflowsIdRoute =
@@ -431,8 +432,8 @@ export interface FileRoutesByFullPath {
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
   '/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
-  '/$org/$project/library': typeof AuthedOrgProjectLibraryRoute
   '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
+  '/$org/$project/scripts-nodes': typeof AuthedOrgProjectScriptsNodesRoute
   '/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
   '/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
   '/$org/$project/workspaces': typeof AuthedOrgProjectWorkspacesRoute
@@ -449,12 +450,12 @@ export interface FileRoutesByFullPath {
   '/$org/settings/': typeof AuthedOrgSettingsIndexRoute
   '/account/': typeof AuthedOrglessAccountIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
-  '/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
   '/$org/$project/$workspace/overview': typeof AuthedOrgProjectWorkspaceOverviewRoute
   '/$org/$project/$workspace/runs': typeof AuthedOrgProjectWorkspaceRunsRoute
+  '/$org/$project/$workspace/scripts-nodes': typeof AuthedOrgProjectWorkspaceScriptsNodesRoute
   '/$org/$project/$workspace/settings': typeof AuthedOrgProjectWorkspaceSettingsRoute
   '/$org/$project/$workspace/workflows': typeof AuthedOrgProjectWorkspaceWorkflowsRoute
-  '/$org/$project/library/code': typeof AuthedOrgProjectLibraryCodeRoute
+  '/$org/$project/scripts-nodes/code': typeof AuthedOrgProjectScriptsNodesCodeRoute
   '/$org/$project/settings/api-keys': typeof AuthedOrgProjectSettingsApiKeysRoute
   '/$org/$project/settings/general': typeof AuthedOrgProjectSettingsGeneralRoute
   '/$org/$project/settings/members': typeof AuthedOrgProjectSettingsMembersRoute
@@ -463,7 +464,7 @@ export interface FileRoutesByFullPath {
   '/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
   '/$org/$project/$workspace/': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/$org/$project/settings/': typeof AuthedOrgProjectSettingsIndexRoute
-  '/$org/$project/$workspace/library/code': typeof AuthedOrgProjectWorkspaceLibraryCodeRoute
+  '/$org/$project/$workspace/scripts-nodes/code': typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   '/$org/$project/$workspace/workflows/$id': typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
   '/$org/$project/$workspace/workflows/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/$org/$project/$workspace/workflows/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
@@ -489,8 +490,8 @@ export interface FileRoutesByTo {
   '/$org': typeof AuthedOrgIndexRoute
   '/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
   '/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
-  '/$org/$project/library': typeof AuthedOrgProjectLibraryRoute
   '/$org/$project/members': typeof AuthedOrgProjectMembersRoute
+  '/$org/$project/scripts-nodes': typeof AuthedOrgProjectScriptsNodesRoute
   '/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
   '/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
   '/$org/$project/workspaces': typeof AuthedOrgProjectWorkspacesRoute
@@ -507,12 +508,12 @@ export interface FileRoutesByTo {
   '/$org/settings': typeof AuthedOrgSettingsIndexRoute
   '/account': typeof AuthedOrglessAccountIndexRoute
   '/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
-  '/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
   '/$org/$project/$workspace/overview': typeof AuthedOrgProjectWorkspaceOverviewRoute
   '/$org/$project/$workspace/runs': typeof AuthedOrgProjectWorkspaceRunsRoute
+  '/$org/$project/$workspace/scripts-nodes': typeof AuthedOrgProjectWorkspaceScriptsNodesRoute
   '/$org/$project/$workspace/settings': typeof AuthedOrgProjectWorkspaceSettingsRoute
   '/$org/$project/$workspace/workflows': typeof AuthedOrgProjectWorkspaceWorkflowsRoute
-  '/$org/$project/library/code': typeof AuthedOrgProjectLibraryCodeRoute
+  '/$org/$project/scripts-nodes/code': typeof AuthedOrgProjectScriptsNodesCodeRoute
   '/$org/$project/settings/api-keys': typeof AuthedOrgProjectSettingsApiKeysRoute
   '/$org/$project/settings/general': typeof AuthedOrgProjectSettingsGeneralRoute
   '/$org/$project/settings/members': typeof AuthedOrgProjectSettingsMembersRoute
@@ -521,7 +522,7 @@ export interface FileRoutesByTo {
   '/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/$org/$project/settings': typeof AuthedOrgProjectSettingsIndexRoute
-  '/$org/$project/$workspace/library/code': typeof AuthedOrgProjectWorkspaceLibraryCodeRoute
+  '/$org/$project/$workspace/scripts-nodes/code': typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   '/$org/$project/$workspace/workflows/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/$org/$project/$workspace/workflows/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
   '/$org/$project/$workspace/workflows/$id/overview': typeof AuthedOrgProjectWorkspaceWorkflowsIdOverviewRoute
@@ -552,8 +553,8 @@ export interface FileRoutesById {
   '/_authed/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceRouteWithChildren
   '/_authed/$org/$project/api-keys': typeof AuthedOrgProjectApiKeysRoute
   '/_authed/$org/$project/connections': typeof AuthedOrgProjectConnectionsRoute
-  '/_authed/$org/$project/library': typeof AuthedOrgProjectLibraryRoute
   '/_authed/$org/$project/members': typeof AuthedOrgProjectMembersRoute
+  '/_authed/$org/$project/scripts-nodes': typeof AuthedOrgProjectScriptsNodesRoute
   '/_authed/$org/$project/shared': typeof AuthedOrgProjectSharedRoute
   '/_authed/$org/$project/variables': typeof AuthedOrgProjectVariablesRoute
   '/_authed/$org/$project/workspaces': typeof AuthedOrgProjectWorkspacesRoute
@@ -570,12 +571,12 @@ export interface FileRoutesById {
   '/_authed/$org/settings/': typeof AuthedOrgSettingsIndexRoute
   '/_authed/_orgless/account/': typeof AuthedOrglessAccountIndexRoute
   '/_authed/$org/$project/$workspace/functions': typeof AuthedOrgProjectWorkspaceFunctionsRoute
-  '/_authed/$org/$project/$workspace/library': typeof AuthedOrgProjectWorkspaceLibraryRoute
   '/_authed/$org/$project/$workspace/overview': typeof AuthedOrgProjectWorkspaceOverviewRoute
   '/_authed/$org/$project/$workspace/runs': typeof AuthedOrgProjectWorkspaceRunsRoute
+  '/_authed/$org/$project/$workspace/scripts-nodes': typeof AuthedOrgProjectWorkspaceScriptsNodesRoute
   '/_authed/$org/$project/$workspace/settings': typeof AuthedOrgProjectWorkspaceSettingsRoute
   '/_authed/$org/$project/$workspace/workflows': typeof AuthedOrgProjectWorkspaceWorkflowsRoute
-  '/_authed/$org/$project/library_/code': typeof AuthedOrgProjectLibraryCodeRoute
+  '/_authed/$org/$project/scripts-nodes_/code': typeof AuthedOrgProjectScriptsNodesCodeRoute
   '/_authed/$org/$project/settings/api-keys': typeof AuthedOrgProjectSettingsApiKeysRoute
   '/_authed/$org/$project/settings/general': typeof AuthedOrgProjectSettingsGeneralRoute
   '/_authed/$org/$project/settings/members': typeof AuthedOrgProjectSettingsMembersRoute
@@ -584,7 +585,7 @@ export interface FileRoutesById {
   '/_authed/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
   '/_authed/$org/$project/$workspace/': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/_authed/$org/$project/settings/': typeof AuthedOrgProjectSettingsIndexRoute
-  '/_authed/$org/$project/$workspace/library_/code': typeof AuthedOrgProjectWorkspaceLibraryCodeRoute
+  '/_authed/$org/$project/$workspace/scripts-nodes_/code': typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   '/_authed/$org/$project/$workspace/workflows_/$id': typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
   '/_authed/$org/$project/$workspace/workflows_/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/_authed/$org/$project/$workspace/workflows_/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
@@ -615,8 +616,8 @@ export interface FileRouteTypes {
     | '/$org/$project/$workspace'
     | '/$org/$project/api-keys'
     | '/$org/$project/connections'
-    | '/$org/$project/library'
     | '/$org/$project/members'
+    | '/$org/$project/scripts-nodes'
     | '/$org/$project/shared'
     | '/$org/$project/variables'
     | '/$org/$project/workspaces'
@@ -633,12 +634,12 @@ export interface FileRouteTypes {
     | '/$org/settings/'
     | '/account/'
     | '/$org/$project/$workspace/functions'
-    | '/$org/$project/$workspace/library'
     | '/$org/$project/$workspace/overview'
     | '/$org/$project/$workspace/runs'
+    | '/$org/$project/$workspace/scripts-nodes'
     | '/$org/$project/$workspace/settings'
     | '/$org/$project/$workspace/workflows'
-    | '/$org/$project/library/code'
+    | '/$org/$project/scripts-nodes/code'
     | '/$org/$project/settings/api-keys'
     | '/$org/$project/settings/general'
     | '/$org/$project/settings/members'
@@ -647,7 +648,7 @@ export interface FileRouteTypes {
     | '/$org/$project/settings/workspaces'
     | '/$org/$project/$workspace/'
     | '/$org/$project/settings/'
-    | '/$org/$project/$workspace/library/code'
+    | '/$org/$project/$workspace/scripts-nodes/code'
     | '/$org/$project/$workspace/workflows/$id'
     | '/$org/$project/$workspace/workflows/$id/deploy'
     | '/$org/$project/$workspace/workflows/$id/deployments'
@@ -673,8 +674,8 @@ export interface FileRouteTypes {
     | '/$org'
     | '/$org/$project/api-keys'
     | '/$org/$project/connections'
-    | '/$org/$project/library'
     | '/$org/$project/members'
+    | '/$org/$project/scripts-nodes'
     | '/$org/$project/shared'
     | '/$org/$project/variables'
     | '/$org/$project/workspaces'
@@ -691,12 +692,12 @@ export interface FileRouteTypes {
     | '/$org/settings'
     | '/account'
     | '/$org/$project/$workspace/functions'
-    | '/$org/$project/$workspace/library'
     | '/$org/$project/$workspace/overview'
     | '/$org/$project/$workspace/runs'
+    | '/$org/$project/$workspace/scripts-nodes'
     | '/$org/$project/$workspace/settings'
     | '/$org/$project/$workspace/workflows'
-    | '/$org/$project/library/code'
+    | '/$org/$project/scripts-nodes/code'
     | '/$org/$project/settings/api-keys'
     | '/$org/$project/settings/general'
     | '/$org/$project/settings/members'
@@ -705,7 +706,7 @@ export interface FileRouteTypes {
     | '/$org/$project/settings/workspaces'
     | '/$org/$project/$workspace'
     | '/$org/$project/settings'
-    | '/$org/$project/$workspace/library/code'
+    | '/$org/$project/$workspace/scripts-nodes/code'
     | '/$org/$project/$workspace/workflows/$id/deploy'
     | '/$org/$project/$workspace/workflows/$id/deployments'
     | '/$org/$project/$workspace/workflows/$id/overview'
@@ -735,8 +736,8 @@ export interface FileRouteTypes {
     | '/_authed/$org/$project/$workspace'
     | '/_authed/$org/$project/api-keys'
     | '/_authed/$org/$project/connections'
-    | '/_authed/$org/$project/library'
     | '/_authed/$org/$project/members'
+    | '/_authed/$org/$project/scripts-nodes'
     | '/_authed/$org/$project/shared'
     | '/_authed/$org/$project/variables'
     | '/_authed/$org/$project/workspaces'
@@ -753,12 +754,12 @@ export interface FileRouteTypes {
     | '/_authed/$org/settings/'
     | '/_authed/_orgless/account/'
     | '/_authed/$org/$project/$workspace/functions'
-    | '/_authed/$org/$project/$workspace/library'
     | '/_authed/$org/$project/$workspace/overview'
     | '/_authed/$org/$project/$workspace/runs'
+    | '/_authed/$org/$project/$workspace/scripts-nodes'
     | '/_authed/$org/$project/$workspace/settings'
     | '/_authed/$org/$project/$workspace/workflows'
-    | '/_authed/$org/$project/library_/code'
+    | '/_authed/$org/$project/scripts-nodes_/code'
     | '/_authed/$org/$project/settings/api-keys'
     | '/_authed/$org/$project/settings/general'
     | '/_authed/$org/$project/settings/members'
@@ -767,7 +768,7 @@ export interface FileRouteTypes {
     | '/_authed/$org/$project/settings/workspaces'
     | '/_authed/$org/$project/$workspace/'
     | '/_authed/$org/$project/settings/'
-    | '/_authed/$org/$project/$workspace/library_/code'
+    | '/_authed/$org/$project/$workspace/scripts-nodes_/code'
     | '/_authed/$org/$project/$workspace/workflows_/$id'
     | '/_authed/$org/$project/$workspace/workflows_/$id/deploy'
     | '/_authed/$org/$project/$workspace/workflows_/$id/deployments'
@@ -940,18 +941,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgProjectConnectionsRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
     }
-    '/_authed/$org/$project/library': {
-      id: '/_authed/$org/$project/library'
-      path: '/library'
-      fullPath: '/$org/$project/library'
-      preLoaderRoute: typeof AuthedOrgProjectLibraryRouteImport
-      parentRoute: typeof AuthedOrgProjectRoute
-    }
     '/_authed/$org/$project/members': {
       id: '/_authed/$org/$project/members'
       path: '/members'
       fullPath: '/$org/$project/members'
       preLoaderRoute: typeof AuthedOrgProjectMembersRouteImport
+      parentRoute: typeof AuthedOrgProjectRoute
+    }
+    '/_authed/$org/$project/scripts-nodes': {
+      id: '/_authed/$org/$project/scripts-nodes'
+      path: '/scripts-nodes'
+      fullPath: '/$org/$project/scripts-nodes'
+      preLoaderRoute: typeof AuthedOrgProjectScriptsNodesRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/shared': {
@@ -1066,13 +1067,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgProjectWorkspaceFunctionsRouteImport
       parentRoute: typeof AuthedOrgProjectWorkspaceRoute
     }
-    '/_authed/$org/$project/$workspace/library': {
-      id: '/_authed/$org/$project/$workspace/library'
-      path: '/library'
-      fullPath: '/$org/$project/$workspace/library'
-      preLoaderRoute: typeof AuthedOrgProjectWorkspaceLibraryRouteImport
-      parentRoute: typeof AuthedOrgProjectWorkspaceRoute
-    }
     '/_authed/$org/$project/$workspace/overview': {
       id: '/_authed/$org/$project/$workspace/overview'
       path: '/overview'
@@ -1085,6 +1079,13 @@ declare module '@tanstack/react-router' {
       path: '/runs'
       fullPath: '/$org/$project/$workspace/runs'
       preLoaderRoute: typeof AuthedOrgProjectWorkspaceRunsRouteImport
+      parentRoute: typeof AuthedOrgProjectWorkspaceRoute
+    }
+    '/_authed/$org/$project/$workspace/scripts-nodes': {
+      id: '/_authed/$org/$project/$workspace/scripts-nodes'
+      path: '/scripts-nodes'
+      fullPath: '/$org/$project/$workspace/scripts-nodes'
+      preLoaderRoute: typeof AuthedOrgProjectWorkspaceScriptsNodesRouteImport
       parentRoute: typeof AuthedOrgProjectWorkspaceRoute
     }
     '/_authed/$org/$project/$workspace/settings': {
@@ -1101,11 +1102,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgProjectWorkspaceWorkflowsRouteImport
       parentRoute: typeof AuthedOrgProjectWorkspaceRoute
     }
-    '/_authed/$org/$project/library_/code': {
-      id: '/_authed/$org/$project/library_/code'
-      path: '/library/code'
-      fullPath: '/$org/$project/library/code'
-      preLoaderRoute: typeof AuthedOrgProjectLibraryCodeRouteImport
+    '/_authed/$org/$project/scripts-nodes_/code': {
+      id: '/_authed/$org/$project/scripts-nodes_/code'
+      path: '/scripts-nodes/code'
+      fullPath: '/$org/$project/scripts-nodes/code'
+      preLoaderRoute: typeof AuthedOrgProjectScriptsNodesCodeRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
     }
     '/_authed/$org/$project/settings/': {
@@ -1157,11 +1158,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgProjectSettingsWorkspacesRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
     }
-    '/_authed/$org/$project/$workspace/library_/code': {
-      id: '/_authed/$org/$project/$workspace/library_/code'
-      path: '/library/code'
-      fullPath: '/$org/$project/$workspace/library/code'
-      preLoaderRoute: typeof AuthedOrgProjectWorkspaceLibraryCodeRouteImport
+    '/_authed/$org/$project/$workspace/scripts-nodes_/code': {
+      id: '/_authed/$org/$project/$workspace/scripts-nodes_/code'
+      path: '/scripts-nodes/code'
+      fullPath: '/$org/$project/$workspace/scripts-nodes/code'
+      preLoaderRoute: typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRouteImport
       parentRoute: typeof AuthedOrgProjectWorkspaceRoute
     }
     '/_authed/$org/$project/$workspace/workflows_/$id': {
@@ -1248,13 +1249,13 @@ const AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren =
 
 interface AuthedOrgProjectWorkspaceRouteChildren {
   AuthedOrgProjectWorkspaceFunctionsRoute: typeof AuthedOrgProjectWorkspaceFunctionsRoute
-  AuthedOrgProjectWorkspaceLibraryRoute: typeof AuthedOrgProjectWorkspaceLibraryRoute
   AuthedOrgProjectWorkspaceOverviewRoute: typeof AuthedOrgProjectWorkspaceOverviewRoute
   AuthedOrgProjectWorkspaceRunsRoute: typeof AuthedOrgProjectWorkspaceRunsRoute
+  AuthedOrgProjectWorkspaceScriptsNodesRoute: typeof AuthedOrgProjectWorkspaceScriptsNodesRoute
   AuthedOrgProjectWorkspaceSettingsRoute: typeof AuthedOrgProjectWorkspaceSettingsRoute
   AuthedOrgProjectWorkspaceWorkflowsRoute: typeof AuthedOrgProjectWorkspaceWorkflowsRoute
   AuthedOrgProjectWorkspaceIndexRoute: typeof AuthedOrgProjectWorkspaceIndexRoute
-  AuthedOrgProjectWorkspaceLibraryCodeRoute: typeof AuthedOrgProjectWorkspaceLibraryCodeRoute
+  AuthedOrgProjectWorkspaceScriptsNodesCodeRoute: typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   AuthedOrgProjectWorkspaceWorkflowsIdRoute: typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
 }
 
@@ -1262,18 +1263,18 @@ const AuthedOrgProjectWorkspaceRouteChildren: AuthedOrgProjectWorkspaceRouteChil
   {
     AuthedOrgProjectWorkspaceFunctionsRoute:
       AuthedOrgProjectWorkspaceFunctionsRoute,
-    AuthedOrgProjectWorkspaceLibraryRoute:
-      AuthedOrgProjectWorkspaceLibraryRoute,
     AuthedOrgProjectWorkspaceOverviewRoute:
       AuthedOrgProjectWorkspaceOverviewRoute,
     AuthedOrgProjectWorkspaceRunsRoute: AuthedOrgProjectWorkspaceRunsRoute,
+    AuthedOrgProjectWorkspaceScriptsNodesRoute:
+      AuthedOrgProjectWorkspaceScriptsNodesRoute,
     AuthedOrgProjectWorkspaceSettingsRoute:
       AuthedOrgProjectWorkspaceSettingsRoute,
     AuthedOrgProjectWorkspaceWorkflowsRoute:
       AuthedOrgProjectWorkspaceWorkflowsRoute,
     AuthedOrgProjectWorkspaceIndexRoute: AuthedOrgProjectWorkspaceIndexRoute,
-    AuthedOrgProjectWorkspaceLibraryCodeRoute:
-      AuthedOrgProjectWorkspaceLibraryCodeRoute,
+    AuthedOrgProjectWorkspaceScriptsNodesCodeRoute:
+      AuthedOrgProjectWorkspaceScriptsNodesCodeRoute,
     AuthedOrgProjectWorkspaceWorkflowsIdRoute:
       AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren,
   }
@@ -1287,13 +1288,13 @@ interface AuthedOrgProjectRouteChildren {
   AuthedOrgProjectWorkspaceRoute: typeof AuthedOrgProjectWorkspaceRouteWithChildren
   AuthedOrgProjectApiKeysRoute: typeof AuthedOrgProjectApiKeysRoute
   AuthedOrgProjectConnectionsRoute: typeof AuthedOrgProjectConnectionsRoute
-  AuthedOrgProjectLibraryRoute: typeof AuthedOrgProjectLibraryRoute
   AuthedOrgProjectMembersRoute: typeof AuthedOrgProjectMembersRoute
+  AuthedOrgProjectScriptsNodesRoute: typeof AuthedOrgProjectScriptsNodesRoute
   AuthedOrgProjectSharedRoute: typeof AuthedOrgProjectSharedRoute
   AuthedOrgProjectVariablesRoute: typeof AuthedOrgProjectVariablesRoute
   AuthedOrgProjectWorkspacesRoute: typeof AuthedOrgProjectWorkspacesRoute
   AuthedOrgProjectIndexRoute: typeof AuthedOrgProjectIndexRoute
-  AuthedOrgProjectLibraryCodeRoute: typeof AuthedOrgProjectLibraryCodeRoute
+  AuthedOrgProjectScriptsNodesCodeRoute: typeof AuthedOrgProjectScriptsNodesCodeRoute
   AuthedOrgProjectSettingsApiKeysRoute: typeof AuthedOrgProjectSettingsApiKeysRoute
   AuthedOrgProjectSettingsGeneralRoute: typeof AuthedOrgProjectSettingsGeneralRoute
   AuthedOrgProjectSettingsMembersRoute: typeof AuthedOrgProjectSettingsMembersRoute
@@ -1307,13 +1308,13 @@ const AuthedOrgProjectRouteChildren: AuthedOrgProjectRouteChildren = {
   AuthedOrgProjectWorkspaceRoute: AuthedOrgProjectWorkspaceRouteWithChildren,
   AuthedOrgProjectApiKeysRoute: AuthedOrgProjectApiKeysRoute,
   AuthedOrgProjectConnectionsRoute: AuthedOrgProjectConnectionsRoute,
-  AuthedOrgProjectLibraryRoute: AuthedOrgProjectLibraryRoute,
   AuthedOrgProjectMembersRoute: AuthedOrgProjectMembersRoute,
+  AuthedOrgProjectScriptsNodesRoute: AuthedOrgProjectScriptsNodesRoute,
   AuthedOrgProjectSharedRoute: AuthedOrgProjectSharedRoute,
   AuthedOrgProjectVariablesRoute: AuthedOrgProjectVariablesRoute,
   AuthedOrgProjectWorkspacesRoute: AuthedOrgProjectWorkspacesRoute,
   AuthedOrgProjectIndexRoute: AuthedOrgProjectIndexRoute,
-  AuthedOrgProjectLibraryCodeRoute: AuthedOrgProjectLibraryCodeRoute,
+  AuthedOrgProjectScriptsNodesCodeRoute: AuthedOrgProjectScriptsNodesCodeRoute,
   AuthedOrgProjectSettingsApiKeysRoute: AuthedOrgProjectSettingsApiKeysRoute,
   AuthedOrgProjectSettingsGeneralRoute: AuthedOrgProjectSettingsGeneralRoute,
   AuthedOrgProjectSettingsMembersRoute: AuthedOrgProjectSettingsMembersRoute,

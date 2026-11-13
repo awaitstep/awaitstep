@@ -48,7 +48,7 @@ export const ProjectPool: Story = {
         tone="warn"
         title="Variables"
         count={5}
-        caption="2 project · 3 from Acme Inc"
+        caption="variables · 2 set here · 3 from Acme Inc"
       >
         <span className="flex flex-wrap gap-1.5">
           <Badge className="rounded-md font-mono font-normal">SLACK_TOKEN</Badge>
@@ -60,9 +60,9 @@ export const ProjectPool: Story = {
         href="#shared"
         icon={Share2}
         tone="ok"
-        title="Shared library"
+        title="Workflows & functions"
         count={3}
-        caption="items any workspace can use"
+        caption="items shared with every workspace"
       >
         <span className="flex flex-wrap gap-1.5">
           <ScopeChip colour="green">Lead enrichment · Sales</ScopeChip>

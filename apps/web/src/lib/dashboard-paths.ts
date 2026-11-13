@@ -28,7 +28,7 @@ export type OrgDestination = OrgSettingsPage | 'connections' | 'api-keys'
 /** A project's pages, each straight under it: `/{org}/{project}/{page}`, as its menu lists them. */
 export const PROJECT_PAGES = [
   'workspaces',
-  'library',
+  'scripts-nodes',
   'shared',
   'members',
   'connections',
@@ -42,7 +42,7 @@ export const WORKSPACE_PAGES = [
   'overview',
   'workflows',
   'functions',
-  'library',
+  'scripts-nodes',
   'runs',
   'settings',
 ] as const
@@ -113,11 +113,11 @@ export interface LibraryPlaceSlugs extends ProjectSlugs {
   workspace?: string
 }
 
-/** The Library page: `/{org}/{project}/{workspace}/library`, or the project's `/{org}/{project}/library`. */
+/** Scripts & nodes: `/{org}/{project}/{workspace}/scripts-nodes`, or the project's `/{org}/{project}/scripts-nodes`. */
 export function libraryPath(place: LibraryPlaceSlugs): string {
   return place.workspace
-    ? workspacePath({ ...place, workspace: place.workspace }, 'library')
-    : projectPagePath(place, 'library')
+    ? workspacePath({ ...place, workspace: place.workspace }, 'scripts-nodes')
+    : projectPagePath(place, 'scripts-nodes')
 }
 
 /** The Library IDE, opened on an item (and one of its files), or naming a new item, when given. */

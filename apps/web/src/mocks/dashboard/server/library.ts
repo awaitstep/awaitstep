@@ -21,6 +21,11 @@ export const getLibrarySummary = endpoint((ctx, place: LibraryPlace): ApiLibrary
     fromProject: [],
     marketplace: [],
     counts: { module: 0, node: 0, marketplace: 0 },
-    viewerCan: { create: libraryCreateCapability(role) },
+    viewerCan: {
+      create: libraryCreateCapability(role),
+      toProject: workspace
+        ? libraryCreateCapability(inheritedWorkspaceRole(projectRoleOf(db, ctx, project!)))
+        : { allowed: false, reason: 'These are the project’s own' },
+    },
   }
 })

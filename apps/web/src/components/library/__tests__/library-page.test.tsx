@@ -13,6 +13,7 @@ import { salesSummary } from './fixtures/library-rows'
 const api = vi.hoisted(() => ({
   getSummary: vi.fn(),
   duplicateItem: vi.fn(),
+  moveToProject: vi.fn(),
   deleteItem: vi.fn(),
   createItem: vi.fn(),
   updateItem: vi.fn(),
@@ -46,7 +47,7 @@ afterEach(() => {
 describe('Library page', () => {
   it('lists own rows with version, draft and used-by, and the project’s read-only', async () => {
     renderPage()
-    const own = await screen.findByRole('table', { name: 'Library items in Sales' })
+    const own = await screen.findByRole('table', { name: 'Scripts and nodes in Sales' })
     const lead = within(own).getByText('Lead scoring').closest('tr')!
     expect(lead).toHaveTextContent('v1.4.2')
     expect(lead).toHaveTextContent('3 consumers')
@@ -55,12 +56,12 @@ describe('Library page', () => {
     expect(quote).toHaveTextContent('Not used yet')
     expect(within(own).getByText('Lead scoring')).toHaveAttribute(
       'href',
-      '/acme/project-101/sales/library/code?item=lead',
+      '/acme/project-101/sales/scripts-nodes/code?item=lead',
     )
 
-    const shared = screen.getByRole('table', { name: 'Library items from Project 101' })
+    const shared = screen.getByRole('table', { name: 'Scripts and nodes from Project 101' })
     const addr = within(shared).getByText('Normalise address')
-    expect(addr).toHaveAttribute('href', '/acme/project-101/library/code?item=addr')
+    expect(addr).toHaveAttribute('href', '/acme/project-101/scripts-nodes/code?item=addr')
     expect(within(shared).queryByRole('button', { name: /Actions for/ })).not.toBeInTheDocument()
     expect(
       screen.getByText('Workflows pick up the latest published version on their next deploy.'),
@@ -70,7 +71,7 @@ describe('Library page', () => {
 
   it('filters both tables by kind, with counts of the own rows', async () => {
     renderPage()
-    await screen.findByRole('table', { name: 'Library items in Sales' })
+    await screen.findByRole('table', { name: 'Scripts and nodes in Sales' })
     const kind = screen.getByRole('group', { name: 'Kind' })
     expect(within(kind).getByRole('button', { name: /All/ })).toHaveTextContent('3')
     expect(within(kind).getByRole('button', { name: /Modules/ })).toHaveTextContent('2')
@@ -94,7 +95,10 @@ describe('Library page', () => {
     api.getSummary.mockResolvedValue(
       salesSummary({
         ...empty,
-        viewerCan: { create: { allowed: false, reason: 'Changing library items needs an Editor' } },
+        viewerCan: {
+          create: { allowed: false, reason: 'Changing library items needs an Editor' },
+          toProject: { allowed: false, reason: 'Changing library items needs an Editor' },
+        },
       }),
     )
     renderPage()
@@ -140,16 +144,65 @@ describe('Library page', () => {
     expect(within(dialog).getByRole('textbox', { name: /Name/ })).toHaveValue('Lead scoring copy')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Duplicate' }))
     expect(api.duplicateItem).toHaveBeenCalledWith('lead', { name: 'Lead scoring copy' })
-    expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/library/code?item=lead-2')
+    expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/scripts-nodes/code?item=lead-2')
+  })
+
+  it('copies an own item to the project under its name and opens the copy in the project’s IDE', async () => {
+    api.duplicateItem.mockResolvedValue({ id: 'lead-p' })
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Lead scoring' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Copy to project' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Copy Lead scoring to Project 101' })
+    expect(within(dialog).getByRole('textbox', { name: /Name/ })).toHaveValue('Lead scoring')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Copy' }))
+    expect(api.duplicateItem).toHaveBeenCalledWith('lead', { name: 'Lead scoring', to: 'project' })
+    expect(goTo).toHaveBeenCalledWith('/acme/project-101/scripts-nodes/code?item=lead-p')
+  })
+
+  it('moves an own item to the project after asking, and shows the API’s refusal', async () => {
+    api.moveToProject.mockRejectedValue(
+      new ProjectFileConflictError(
+        'It imports "dates" from this workspace only: move it to the project first',
+        null,
+      ),
+    )
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Lead scoring' }))
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Move to project' }))
+    const dialog = await screen.findByRole('alertdialog', {
+      name: 'Move Lead scoring to Project 101?',
+    })
+    expect(dialog).toHaveTextContent('Every workspace in Project 101 can use it')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Move' }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'It imports "dates" from this workspace only',
+    )
+    expect(api.moveToProject).toHaveBeenCalledWith('lead')
+  })
+
+  it('offers no copy or move to someone who can’t add to the project', async () => {
+    const summary = salesSummary()
+    api.getSummary.mockResolvedValue({
+      ...summary,
+      viewerCan: {
+        ...summary.viewerCan,
+        toProject: { allowed: false, reason: 'Only the project’s members can add to its library' },
+      },
+    })
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Actions for Lead scoring' }))
+    expect(await screen.findByRole('menuitem', { name: 'Duplicate' })).toBeVisible()
+    expect(screen.queryByRole('menuitem', { name: 'Copy to project' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Move to project' })).toBeNull()
   })
 
   it('has one way into the IDE in the top bar, where new items are named', async () => {
     renderPage()
-    await screen.findByRole('table', { name: 'Library items in Sales' })
+    await screen.findByRole('table', { name: 'Scripts and nodes in Sales' })
     const topBar = screen.getByRole('banner', { name: 'Top bar' })
     expect(within(topBar).getByRole('link', { name: 'Open IDE' })).toHaveAttribute(
       'href',
-      '/acme/project-101/sales/library/code',
+      '/acme/project-101/sales/scripts-nodes/code',
     )
     expect(within(topBar).queryByRole('link', { name: /New/ })).toBeNull()
     expect(within(topBar).queryByRole('button', { name: /New/ })).toBeNull()
@@ -161,7 +214,7 @@ describe('Library page', () => {
     )
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: 'New node' }))
-    expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/library/code?new=node')
+    expect(goTo).toHaveBeenCalledWith('/acme/project-101/sales/scripts-nodes/code?new=node')
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
@@ -169,7 +222,14 @@ describe('Library page', () => {
     api.getSummary.mockResolvedValue(
       salesSummary({
         fromProject: [],
-        marketplace: [{ nodeId: 'stripe', name: 'Stripe', version: '4.2.0' }],
+        marketplace: [
+          {
+            nodeId: 'stripe',
+            name: 'Stripe',
+            version: '4.2.0',
+            icon: 'https://raw.githubusercontent.com/x/stripe/icon.svg',
+          },
+        ],
       }),
     )
     renderPage(project)
@@ -177,6 +237,11 @@ describe('Library page', () => {
     expect(screen.getByRole('heading', { name: 'From the marketplace' })).toBeVisible()
     const market = screen.getByRole('table', { name: 'Installed marketplace nodes' })
     expect(within(market).getByText('Stripe').closest('tr')).toHaveTextContent('v4.2.0')
+    // The node's own logo, not the generic tile.
+    expect(within(market).getByText('Stripe').closest('tr')!.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://raw.githubusercontent.com/x/stripe/icon.svg',
+    )
     expect(api.getSummary).toHaveBeenCalledWith(project)
   })
 })

@@ -37,14 +37,17 @@ export interface ApiLibraryRow {
   publishedAt: string | null
   usedBy: number
   updatedAt: string
+  /** A node's icon.svg content hash, for its image URL; null without one. */
+  iconHash: string | null
 }
 
 export interface ApiLibrarySummary {
   own: ApiLibraryRow[]
   fromProject: ApiLibraryRow[]
-  marketplace: { nodeId: string; name: string; version: string }[]
+  marketplace: { nodeId: string; name: string; version: string; icon: string | null }[]
   counts: { module: number; node: number; marketplace: number }
-  viewerCan: { create: Allowed }
+  /** `toProject`: may copy or move this workspace's items to the project's library. */
+  viewerCan: { create: Allowed; toProject: Allowed }
 }
 
 export interface ApiLibraryItem {
@@ -187,8 +190,20 @@ export const libraryApi = {
     return request(itemPath(id), { method: 'PATCH', body: JSON.stringify(changes) })
   },
 
-  duplicateItem(id: string, data: { name: string; slug?: string }): Promise<ApiLibraryItem> {
+  /** A copy beside the item, or with `to: 'project'` in the project's library. */
+  duplicateItem(
+    id: string,
+    data: { name: string; slug?: string; to?: 'project' },
+  ): Promise<ApiLibraryItem> {
     return request(`${itemPath(id)}/duplicate`, { method: 'POST', body: JSON.stringify(data) })
+  },
+
+  /** Hands a workspace's item to the project's library, keeping its id and history. */
+  moveToProject(id: string): Promise<ApiLibraryItem> {
+    return request(`${itemPath(id)}/move`, {
+      method: 'POST',
+      body: JSON.stringify({ to: 'project' }),
+    })
   },
 
   deleteItem(id: string): Promise<void> {

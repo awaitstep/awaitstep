@@ -75,7 +75,7 @@ export function NewWorkspaceDialog({
     members.data && plural(projectAdmins(members.data).length, 'admin'),
     setup.data && plural(setup.data.projectKeys, 'project key'),
     setup.data && plural(inheritedVariables(setup.data), 'variable'),
-    'Shared library',
+    'shared workflows and functions',
   ].filter((item) => typeof item === 'string')
 
   function handleSubmit(event: SubmitEvent) {

@@ -1,4 +1,5 @@
 import type { ApiLibraryRow } from '../../../lib/library-api'
+import { libraryIconUrl } from '../../../lib/library/icon-urls'
 import { timeAgoOrDay } from '../../../lib/time'
 import { Badge } from '../../ui/badge'
 import { DataTable, type DataColumn } from '../../ui/data-table'
@@ -16,6 +17,8 @@ interface LibraryTableProps {
   /** Rows owned elsewhere (the project's, in a workspace): no menu, an origin column. */
   readOnly?: boolean
   canEdit?: boolean
+  /** Own rows may be copied or moved to the project's library. */
+  canToProject?: boolean
   onOpen?: (row: ApiLibraryRow) => void
   onAction?: (action: LibraryRowAction, row: ApiLibraryRow) => void
 }
@@ -23,7 +26,10 @@ interface LibraryTableProps {
 function NameCell({ row, href }: { row: ApiLibraryRow; href: string }) {
   return (
     <span className="flex min-w-0 items-center gap-3">
-      <LibraryKindTile kind={row.kind} />
+      <LibraryKindTile
+        kind={row.kind}
+        iconSrc={row.iconHash ? libraryIconUrl(row.id, row.iconHash) : undefined}
+      />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="flex min-w-0 items-center gap-2">
           <ShellLink
@@ -57,6 +63,7 @@ export function LibraryTable({
   hrefOf,
   readOnly = false,
   canEdit = false,
+  canToProject = false,
   onOpen,
   onAction,
 }: LibraryTableProps) {
@@ -98,7 +105,13 @@ export function LibraryTable({
         align: 'right',
         cell: (row) =>
           onOpen && onAction ? (
-            <LibraryRowMenu row={row} canEdit={canEdit} onOpen={onOpen} onAction={onAction} />
+            <LibraryRowMenu
+              row={row}
+              canEdit={canEdit}
+              canToProject={canToProject}
+              onOpen={onOpen}
+              onAction={onAction}
+            />
           ) : null,
       },
     )

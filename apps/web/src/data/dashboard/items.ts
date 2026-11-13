@@ -89,7 +89,7 @@ export function useSharedWithWorkspace(slugs: WorkspaceSlugs, kind?: ItemKind) {
   })
 }
 
-/** Project settings → Shared library. */
+/** Project settings → Workflows & functions. */
 export function useProjectShared(org: string, project: string) {
   const source = useDataSource()
   const ctx = useMockContext()
@@ -150,7 +150,7 @@ export function useSetShared(slugs: WorkspaceSlugs) {
   })
 }
 
-/** Project settings → Shared library: Unshare on any workspace's item, as its own workspace would. */
+/** Project settings → Workflows & functions: Unshare on any workspace's item, as its own workspace would. */
 export function useUnshareItem(org: string, project: string) {
   const write = useShareWrite()
   const client = useQueryClient()

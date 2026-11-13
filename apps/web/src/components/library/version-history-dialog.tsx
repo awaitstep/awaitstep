@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { X } from 'lucide-react'
 import { useLibraryUsages, useLibraryVersions } from '../../data/dashboard/library'
 import { failureLine } from '../../lib/action-toast'
 import type { LibraryPlaceSlugs } from '../../lib/dashboard-paths'
@@ -6,7 +7,8 @@ import type { ApiLibraryVersion, LibraryKind } from '../../lib/library-api'
 import { plural } from '../../lib/plural'
 import { timeAgoOrDay } from '../../lib/time'
 import { Button } from '../ui/button'
-import { ModalDialog } from '../ui/modal-dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '../ui/dialog'
+import { OverlayFooter } from '../ui/overlay-parts'
 import { LibraryKindTile } from './parts/library-kind-tile'
 import { RestoreVersionConfirm } from './history/restore-version-confirm'
 import { VersionCompare } from './history/version-compare'
@@ -31,9 +33,9 @@ interface VersionHistoryDialogProps {
   publish?: HistoryPublish
 }
 
-function publishedLine(version: ApiLibraryVersion): string {
+function selectedLine(version: ApiLibraryVersion): string {
   const by = version.publishedBy ? ` by ${version.publishedBy.name}` : ''
-  return `Published${by} ${timeAgoOrDay(version.publishedAt)}`
+  return `Selected v${version.version} · published${by} ${timeAgoOrDay(version.publishedAt)}`
 }
 
 /**
@@ -59,6 +61,7 @@ export function VersionHistoryDialog({
   const [picked, setPicked] = useState<string | null>(null)
   const selected = list.find((v) => v.version === picked) ?? list[1] ?? list[0] ?? null
   const [confirming, setConfirming] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   function handleRestored(version: string) {
     setConfirming(false)
@@ -74,6 +77,29 @@ export function VersionHistoryDialog({
 
   function handleOpenChange(open: boolean) {
     if (!open) onClose()
+  }
+
+  // Focus starts on the dialog, not on Close (28i shows no ring there), and
+  // moves to the selected version once the list is in: that's what you came for.
+  function focusSelectedRow(): boolean {
+    const row = contentRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    row?.focus()
+    return !!row
+  }
+
+  function handleOpenAutoFocus(event: Event) {
+    event.preventDefault()
+    if (!focusSelectedRow()) contentRef.current?.focus()
+  }
+
+  const listLoaded = !!versions.data && list.length > 0
+  useEffect(() => {
+    // A DOM focus move after the rows render; only while focus is still on the dialog itself.
+    if (listLoaded && document.activeElement === contentRef.current) focusSelectedRow()
+  }, [listLoaded])
+
+  function handleRestore() {
+    setConfirming(true)
   }
 
   if (versions.data && list.length === 0) {
@@ -92,12 +118,12 @@ export function VersionHistoryDialog({
   let body
   if (versions.isError) {
     body = (
-      <p role="alert" className="text-xs text-status-error">
+      <p role="alert" className="px-4 py-3 text-xs text-status-error">
         {failureLine(versions.error, 'Couldn’t load the versions')}
       </p>
     )
   } else if (!versions.data || !selected) {
-    body = <p className="text-xs text-muted-foreground">Loading versions…</p>
+    body = <p className="px-4 py-3 text-xs text-muted-foreground">Loading versions…</p>
   } else {
     body = (
       <VersionCompare
@@ -112,37 +138,48 @@ export function VersionHistoryDialog({
 
   return (
     <>
-      <ModalDialog
-        open
-        onOpenChange={handleOpenChange}
-        size="xl"
-        leading={<LibraryKindTile kind={item.kind} />}
-        title={`${item.name} · version history`}
-        description={countLine}
-        footerStart={
-          selected ? (
-            <span className="text-xs text-muted-foreground">
-              v{selected.version} · {publishedLine(selected)}
-            </span>
-          ) : undefined
-        }
-        actions={
-          <>
+      <Dialog open onOpenChange={handleOpenChange}>
+        <DialogContent
+          ref={contentRef}
+          layout="sectioned"
+          size="2xl"
+          className="h-[580px]"
+          onOpenAutoFocus={handleOpenAutoFocus}
+          {...(countLine ? {} : { 'aria-describedby': undefined })}
+        >
+          <div className="flex h-13 shrink-0 items-center gap-2.5 border-b border-border px-4">
+            <LibraryKindTile kind={item.kind} />
+            {/* The board shows the name alone; the dialog is still named for what it is. */}
+            <DialogTitle className="text-sm" aria-label={`${item.name} · version history`}>
+              {item.name}
+            </DialogTitle>
+            {countLine && <DialogDescription className="text-xs">{countLine}</DialogDescription>}
+            <DialogClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="ml-auto size-7 text-muted-foreground"
+                aria-label="Close"
+              >
+                <X aria-hidden="true" />
+              </Button>
+            </DialogClose>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col">{body}</div>
+          <OverlayFooter start={selected ? selectedLine(selected) : undefined}>
             {onOpenReadOnly && selected && (
-              <Button type="button" variant="outline" onClick={handleOpenReadOnly}>
+              <Button type="button" variant="outline" size="sm" onClick={handleOpenReadOnly}>
                 Open read-only
               </Button>
             )}
             {canEdit && selected && (
-              <Button type="button" onClick={() => setConfirming(true)}>
+              <Button type="button" size="sm" onClick={handleRestore}>
                 Restore v{selected.version}
               </Button>
             )}
-          </>
-        }
-      >
-        {body}
-      </ModalDialog>
+          </OverlayFooter>
+        </DialogContent>
+      </Dialog>
       {confirming && selected && (
         <RestoreVersionConfirm
           place={place}

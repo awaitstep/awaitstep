@@ -42,6 +42,17 @@ function PoolSkeleton() {
   )
 }
 
+/** "5 variables · 2 set here · 3 from Acme": the parts that are not zero. */
+function variablesCaption(
+  variables: { total: number; own: number; inherited: number },
+  orgName: string,
+): string {
+  const parts = [pluralNoun(variables.total, 'variable')]
+  if (variables.own > 0 && variables.inherited > 0) parts.push(`${variables.own} set here`)
+  if (variables.inherited > 0) parts.push(`${variables.inherited} from ${orgName}`)
+  return parts.join(' · ')
+}
+
 function MoreChip({ count }: { count: number }) {
   if (count <= 0) return null
   return <Badge className="font-normal text-muted-foreground">+{count}</Badge>
@@ -160,7 +171,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
   } else {
     const { admins, variables, shared, projectKeys } = summary.data
     // The count is the big number; the caption carries only its noun.
-    const sharedCaption = `${pluralNoun(shared.count, 'item')} any workspace can use`
+    const sharedCaption = `${pluralNoun(shared.count, 'item')} shared with every workspace`
     poolBody = (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <ProjectPoolCard
@@ -169,7 +180,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           tone="info"
           title="Members & keys"
           count={admins.count}
-          caption="admins can open every workspace"
+          caption={`${pluralNoun(admins.count, 'admin')} can open every workspace`}
         >
           <span className="flex items-center gap-2.5">
             <AvatarStack people={admins.people} />
@@ -182,7 +193,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           tone="warn"
           title="Variables"
           count={variables.total}
-          caption={`${variables.own} project · ${variables.inherited} from ${org.name}`}
+          caption={variablesCaption(variables, org.name)}
         >
           <span className="flex flex-wrap gap-1.5">
             {variables.first.map((name) => (
@@ -197,7 +208,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
           href={projectPagePath(slugs, 'shared')}
           icon={Share2}
           tone="ok"
-          title="Shared library"
+          title="Workflows & functions"
           count={shared.count}
           caption={sharedCaption}
         >

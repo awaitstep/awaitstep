@@ -89,7 +89,7 @@ export function LibraryIdeHeader({
     <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-card px-3 text-sm">
       <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2">
         <ShellLink href={libraryHref} className="text-muted-foreground hover:text-foreground">
-          Library
+          Scripts & nodes
         </ShellLink>
         {item && (
           <>

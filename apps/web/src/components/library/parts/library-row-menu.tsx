@@ -14,19 +14,29 @@ import {
 } from '../../ui/dropdown-menu'
 import { importPathOf } from '../library-format'
 
-export type LibraryRowAction = 'history' | 'rename' | 'duplicate' | 'delete'
+export type LibraryRowAction =
+  'history' | 'rename' | 'duplicate' | 'copy-to-project' | 'move-to-project' | 'delete'
 
 interface LibraryRowMenuProps {
   row: ApiLibraryRow
   /** The viewer may change the item: Rename, Duplicate and Delete show. */
   canEdit: boolean
+  /** The viewer may also add to the project's library: Copy and Move to project show. */
+  canToProject?: boolean
   onOpen: (row: ApiLibraryRow) => void
   onAction: (action: LibraryRowAction, row: ApiLibraryRow) => void
 }
 
 /** A row's `…` menu (28g): open it, its history, the edits, and its import path. */
-export function LibraryRowMenu({ row, canEdit, onOpen, onAction }: LibraryRowMenuProps) {
+export function LibraryRowMenu({
+  row,
+  canEdit,
+  canToProject = false,
+  onOpen,
+  onAction,
+}: LibraryRowMenuProps) {
   const importPath = importPathOf(row)
+  const toProject = canEdit && canToProject && row.owner.kind === 'workspace'
 
   function handleCopy() {
     if (!importPath) return
@@ -52,6 +62,14 @@ export function LibraryRowMenu({ row, canEdit, onOpen, onAction }: LibraryRowMen
     onAction('duplicate', row)
   }
 
+  function handleCopyToProject() {
+    onAction('copy-to-project', row)
+  }
+
+  function handleMoveToProject() {
+    onAction('move-to-project', row)
+  }
+
   function handleDelete() {
     onAction('delete', row)
   }
@@ -75,6 +93,12 @@ export function LibraryRowMenu({ row, canEdit, onOpen, onAction }: LibraryRowMen
         <DropdownMenuItem onSelect={handleHistory}>Version history</DropdownMenuItem>
         {canEdit && <DropdownMenuItem onSelect={handleRename}>Rename</DropdownMenuItem>}
         {canEdit && <DropdownMenuItem onSelect={handleDuplicate}>Duplicate</DropdownMenuItem>}
+        {toProject && (
+          <>
+            <DropdownMenuItem onSelect={handleCopyToProject}>Copy to project</DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleMoveToProject}>Move to project</DropdownMenuItem>
+          </>
+        )}
         {importPath && <DropdownMenuItem onSelect={handleCopy}>Copy import path</DropdownMenuItem>}
         {canEdit && (
           <>

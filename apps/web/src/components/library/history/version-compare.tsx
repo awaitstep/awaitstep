@@ -25,7 +25,10 @@ interface VersionCompareProps {
   onSelect: (version: string) => void
 }
 
-/** The kept versions beside what changed from the selected one to the current (28i). */
+/**
+ * 28i's two panes: the kept versions on the left, and on the right what
+ * changed from the selected one to the current, under a compare bar.
+ */
 export function VersionCompare({
   itemId,
   versions,
@@ -45,29 +48,43 @@ export function VersionCompare({
   const running = stillRunningLine(stillRunning(usages, selected.version), selected.version)
 
   return (
-    <div className="grid min-h-0 gap-4 md:grid-cols-[200px_1fr]">
-      <VersionList
-        versions={versions}
-        selected={selected.version}
-        inUse={(v) => stillRunning(usages, v) > 0}
-        onSelect={onSelect}
-      />
-      <div className="flex min-w-0 flex-col gap-3">
-        {comparing ? (
-          <>
-            <p className="text-xs text-muted-foreground">
-              v{selected.version} → v{current.version} (current){' '}
-              <span className="text-status-success">+{totals.added}</span>{' '}
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="max-h-48 shrink-0 overflow-y-auto border-b border-border p-2 md:max-h-none md:w-[276px] md:border-b-0 md:border-r">
+        <VersionList
+          versions={versions}
+          selected={selected.version}
+          inUse={(v) => stillRunning(usages, v) > 0}
+          onSelect={onSelect}
+        />
+      </div>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex h-11 shrink-0 items-center gap-2.5 border-b border-border px-4 font-mono text-xs">
+          {comparing ? (
+            <>
+              <span className="text-foreground/80">
+                v{selected.version} → v{current.version} (current)
+              </span>
+              <span className="ml-auto text-status-success">+{totals.added}</span>
               <span className="text-status-error">−{totals.removed}</span>
+            </>
+          ) : (
+            <span className="text-foreground/80">v{current.version} (current)</span>
+          )}
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+          {comparing ? (
+            <VersionDiffList
+              diffs={diffs}
+              loading={!currentDetail.data || !selectedDetail.data}
+              fill
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              This is the current version. Pick an older one to see what changed since.
             </p>
-            <VersionDiffList diffs={diffs} loading={!currentDetail.data || !selectedDetail.data} />
-          </>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            This is the current version. Pick an older one to see what changed since.
-          </p>
-        )}
-        {running && <p className="text-xs text-muted-foreground">{running}</p>}
+          )}
+          {running && <p className="text-xs text-status-warning">{running}</p>}
+        </div>
       </div>
     </div>
   )

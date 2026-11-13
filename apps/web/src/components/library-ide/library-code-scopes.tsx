@@ -10,7 +10,7 @@ interface OpenTarget {
   new?: LibraryKind
 }
 
-/** `/{org}/{project}/{workspace}/library/code`: a workspace's Library IDE. */
+/** `/{org}/{project}/{workspace}/scripts-nodes/code`: a workspace's Scripts & nodes IDE. */
 export function WorkspaceLibraryCode({
   slugs,
   open,
@@ -36,7 +36,7 @@ export function WorkspaceLibraryCode({
   )
 }
 
-/** `/{org}/{project}/library/code`: the project's own Library IDE. */
+/** `/{org}/{project}/scripts-nodes/code`: the project's own Scripts & nodes IDE. */
 export function ProjectLibraryCode({
   slugs,
   open,

@@ -14,21 +14,28 @@ interface DuplicateLibraryItemDialogProps {
   place: LibraryPlaceSlugs
   item: { id: string; kind: LibraryKind; name: string }
   onClose: () => void
+  /** The project's name when the copy goes to its library instead of beside the item. */
+  toProject?: string
   /** The page opens the copy in the IDE; the IDE selects it in place. */
   onDuplicated?: (item: { id: string }) => void
 }
 
-/** A copy beside the item, unpublished at 1.0.0, then opened in the IDE. */
+/**
+ * A copy beside the item, or in the project's library, unpublished at 1.0.0,
+ * then opened in the IDE where it lives.
+ */
 export function DuplicateLibraryItemDialog({
   place,
   item,
   onClose,
+  toProject,
   onDuplicated,
 }: DuplicateLibraryItemDialogProps) {
   const formId = useId()
   const goTo = useGoTo()
   const duplicate = useDuplicateLibraryItem(place)
-  const [name, setName] = useState(`${item.name} copy`)
+  // In the project the name is free to stay; beside the item it can't.
+  const [name, setName] = useState(toProject ? item.name : `${item.name} copy`)
   const trimmed = name.trim()
   const busy = duplicate.isPending
 
@@ -36,11 +43,12 @@ export function DuplicateLibraryItemDialog({
     event.preventDefault()
     if (busy || !trimmed) return
     duplicate.mutate(
-      { id: item.id, name: trimmed },
+      { id: item.id, name: trimmed, ...(toProject && { to: 'project' as const }) },
       {
         onSuccess: (copy) => {
+          const home = toProject ? { org: place.org, project: place.project } : place
           if (onDuplicated) onDuplicated(copy)
-          else goTo(libraryCodePath(place, { item: copy.id }))
+          else goTo(libraryCodePath(home, { item: copy.id }))
           onClose()
         },
       },
@@ -62,15 +70,19 @@ export function DuplicateLibraryItemDialog({
       onOpenChange={handleOpenChange}
       size="md"
       leading={<LibraryKindTile kind={item.kind} />}
-      title={`Duplicate ${item.name}`}
-      description="The copy starts at 1.0.0 and isn’t published."
+      title={toProject ? `Copy ${item.name} to ${toProject}` : `Duplicate ${item.name}`}
+      description={
+        toProject
+          ? 'Every workspace can use the copy. It starts at 1.0.0 and isn’t published.'
+          : 'The copy starts at 1.0.0 and isn’t published.'
+      }
       actions={
         <>
           <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
           <Button type="submit" form={formId} loading={busy} disabled={!trimmed}>
-            Duplicate
+            {toProject ? 'Copy' : 'Duplicate'}
           </Button>
         </>
       }
@@ -82,7 +94,10 @@ export function DuplicateLibraryItemDialog({
           </FormField>
           {duplicate.error && (
             <p role="alert" className="text-xs text-status-error">
-              {failureLine(duplicate.error, 'Couldn’t duplicate it')}
+              {failureLine(
+                duplicate.error,
+                toProject ? 'Couldn’t copy it' : 'Couldn’t duplicate it',
+              )}
             </p>
           )}
         </fieldset>

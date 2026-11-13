@@ -138,13 +138,37 @@ export function useUpdateLibraryItem(place: LibraryPlace) {
 export function useDuplicateLibraryItem(place: LibraryPlace) {
   const client = useQueryClient()
   return useMutation({
-    meta: { toast: defineToast({ success: 'Duplicated', error: SHOWN_INLINE }) },
-    mutationFn: (input: { id: string; name: string; slug?: string }) =>
+    meta: {
+      toast: defineToast<{ to?: 'project' }>({
+        success: (input) => (input.to ? 'Copied to the project' : 'Duplicated'),
+        error: SHOWN_INLINE,
+      }),
+    },
+    mutationFn: (input: { id: string; name: string; slug?: string; to?: 'project' }) =>
       libraryApi.duplicateItem(input.id, {
         name: input.name,
         ...(input.slug && { slug: input.slug }),
+        ...(input.to && { to: input.to }),
       }),
     onSuccess: () => invalidateLibrary(client, place),
+  })
+}
+
+/**
+ * Moves a workspace's item to the project's library. Every workspace's
+ * palette and module reach changes with it, as after a publish.
+ */
+export function useMoveLibraryItemToProject(place: LibraryPlace) {
+  const client = useQueryClient()
+  return useMutation({
+    meta: { toast: defineToast({ success: 'Moved to the project', error: SHOWN_INLINE }) },
+    mutationFn: (id: string) => libraryApi.moveToProject(id),
+    onSuccess: async (_data, id) => {
+      await Promise.all([
+        invalidateLibrary(client, place, id),
+        invalidateWorkflowLibraryReads(client),
+      ])
+    },
   })
 }
 
@@ -170,7 +194,34 @@ export function usePublishLibraryItem(place: LibraryPlace) {
       }),
     },
     mutationFn: (id: string): Promise<ApiLibraryPublished> => libraryApi.publish(id),
-    onSuccess: (_data, id) => invalidateLibrary(client, place, id),
+    onSuccess: async (_data, id) => {
+      await Promise.all([
+        invalidateLibrary(client, place, id),
+        invalidateWorkflowLibraryReads(client),
+      ])
+    },
+  })
+}
+
+/**
+ * What a publish changes outside the Library: every workflow's palette,
+ * code preview, bundled modules and "redeploy to pick it up" lines. By
+ * prefix, since any workflow in reach may use the item.
+ */
+function invalidateWorkflowLibraryReads(client: QueryClient): Promise<unknown> {
+  const prefixes = new Set([
+    'workflow-custom-nodes',
+    'workflow-custom-node-templates',
+    'workflow-source',
+  ])
+  return client.invalidateQueries({
+    predicate: (query) => {
+      const [first, second] = query.queryKey
+      return (
+        (typeof first === 'string' && prefixes.has(first)) ||
+        (first === 'dash' && second === 'workflow-summary')
+      )
+    },
   })
 }
 

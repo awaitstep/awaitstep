@@ -47,7 +47,7 @@ export function libraryFileClient(
       return libraryApi.deleteFile(itemId, itemPath, ifMatch)
     },
     convertHandlers() {
-      return Promise.reject(new ApiError('The Library has no handlers to convert', 400))
+      return Promise.reject(new ApiError('Scripts & nodes has no handlers to convert', 400))
     },
   }
 }

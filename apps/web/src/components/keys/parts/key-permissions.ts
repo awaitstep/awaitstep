@@ -50,7 +50,7 @@ const RESOURCE_LABEL: Record<KeyResource, string> = {
   workflows: 'Workflows & functions',
   runs: 'Runs',
   variables: 'Variables',
-  library: 'Library',
+  library: 'Scripts & nodes',
   audit: 'Audit log',
 }
 

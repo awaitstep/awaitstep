@@ -9,13 +9,22 @@ const LINE_CLASS = {
 } as const
 
 /** Per-file changes between two versions, each with its +/− counts (28i). */
-export function VersionDiffList({ diffs, loading }: { diffs: FileDiff[]; loading: boolean }) {
+export function VersionDiffList({
+  diffs,
+  loading,
+  fill = false,
+}: {
+  diffs: FileDiff[]
+  loading: boolean
+  /** The parent scrolls (the history pane); otherwise the list caps its own height. */
+  fill?: boolean
+}) {
   if (loading) return <p className="text-xs text-muted-foreground">Loading the changes…</p>
   if (diffs.length === 0) {
     return <p className="text-xs text-muted-foreground">No code changed between them.</p>
   }
   return (
-    <div className="flex max-h-[50vh] flex-col gap-3 overflow-auto">
+    <div className={cn('flex flex-col gap-3', !fill && 'max-h-[50vh] overflow-auto')}>
       {diffs.map((diff) => (
         <section
           key={diff.path}

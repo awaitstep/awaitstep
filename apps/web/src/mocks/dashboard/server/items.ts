@@ -101,7 +101,7 @@ export const listSharedWith = endpoint(
   },
 )
 
-/** Project settings → Shared library: everything shared in the project, with who uses it. */
+/** Project settings → Workflows & functions: everything shared in the project, with who uses it. */
 export const listProjectShared = endpoint(
   (ctx, orgSlug: string, projectSlug: string): SharedItem[] => {
     const db = getDb()

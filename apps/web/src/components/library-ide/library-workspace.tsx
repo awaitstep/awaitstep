@@ -173,9 +173,9 @@ export function LibraryWorkspaceView({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
         <LibraryGuards ws={ws} />
-        <p className="text-sm font-medium text-foreground">The Library IDE needs a wider window.</p>
+        <p className="text-sm font-medium text-foreground">Scripts & nodes needs a wider window.</p>
         <p className="text-xs text-muted-foreground">
-          Widen the window, or manage items from the Library page.
+          Widen the window, or manage items from the Scripts & nodes page.
         </p>
       </div>
     )

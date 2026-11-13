@@ -1,4 +1,5 @@
 import type { ApiLibrarySummary } from '../../../lib/library-api'
+import { marketplaceIconUrl } from '../../../lib/library/icon-urls'
 import { DataTable, type DataColumn } from '../../ui/data-table'
 import { LibraryKindTile } from './library-kind-tile'
 
@@ -10,7 +11,7 @@ const COLUMNS: DataColumn<MarketplaceRow>[] = [
     header: 'Name',
     cell: (row) => (
       <span className="flex min-w-0 items-center gap-3">
-        <LibraryKindTile kind="node" />
+        <LibraryKindTile kind="node" iconSrc={marketplaceIconUrl(row.icon)} />
         <span className="truncate text-sm font-semibold text-foreground">{row.name}</span>
       </span>
     ),

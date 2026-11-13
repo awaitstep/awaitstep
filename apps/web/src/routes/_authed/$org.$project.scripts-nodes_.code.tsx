@@ -6,7 +6,7 @@ import { parseLibraryCodeSearch } from '../../lib/library/code-search'
 const page: DashboardPage = { kind: 'editor' }
 
 // The project's Library IDE, full screen.
-export const Route = createFileRoute('/_authed/$org/$project/library_/code')({
+export const Route = createFileRoute('/_authed/$org/$project/scripts-nodes_/code')({
   staticData: { dashboardPage: page },
   head: () => pageHead(page),
   validateSearch: parseLibraryCodeSearch,

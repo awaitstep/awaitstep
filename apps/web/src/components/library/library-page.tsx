@@ -38,6 +38,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
   const [dialog, setDialog] = useState<LibraryDialog | null>(null)
   const inWorkspace = place.workspace !== undefined
   const canCreate = summary.data?.viewerCan.create.allowed ?? false
+  const canToProject = summary.data?.viewerCan.toProject.allowed ?? false
   const projectPlace = { org: place.org, project: place.project }
 
   // New items are named in the IDE's tree, where they open next.
@@ -116,13 +117,14 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
           caption={inWorkspace ? 'Editable here · bundled into what imports them' : 'Editable here'}
         >
           <LibraryTable
-            caption={`Library items in ${placeName}`}
+            caption={`Scripts and nodes in ${placeName}`}
             rows={own}
             empty={
               data.own.length === 0 ? `Nothing in ${placeName} yet.` : 'Nothing of this kind here.'
             }
             hrefOf={ownHref}
             canEdit={canCreate}
+            canToProject={canToProject}
             onOpen={handleOpen}
             onAction={handleAction}
           />
@@ -134,7 +136,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
               <span className="flex-1 text-xs text-muted-foreground">Read-only here</span>
             </div>
             <LibraryTable
-              caption={`Library items from ${projectName}`}
+              caption={`Scripts and nodes from ${projectName}`}
               rows={fromProject}
               empty={`Nothing in ${projectName}’s library yet.`}
               hrefOf={projectHref}
@@ -169,7 +171,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
       </TopBarContent>
       <PageBody>
         <PageIntro
-          title="Library"
+          title="Scripts & nodes"
           description={
             inWorkspace
               ? 'Code this workspace owns, plus the project’s.'
@@ -182,6 +184,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
         <LibraryDialogs
           place={place}
           placeName={placeName}
+          projectName={projectName}
           dialog={dialog}
           canEdit={canCreate}
           onClose={handleCloseDialog}

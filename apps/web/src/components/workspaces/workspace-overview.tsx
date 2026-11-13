@@ -121,7 +121,7 @@ export function WorkspaceOverview({
   const workflows = overview.counts.workflows
   const failingTone = attention.length > 0 ? 'danger' : undefined
   const workflowsHref = workspacePath(slugs, 'workflows')
-  const libraryHref = workspacePath(slugs, 'library')
+  const libraryHref = workspacePath(slugs, 'scripts-nodes')
   const nothingShared = shared.out.length === 0 && shared.in.length === 0
 
   return (
@@ -273,7 +273,7 @@ export function WorkspaceOverview({
           caption={nothingShared ? undefined : `${shared.out.length} out · ${shared.in.length} in`}
           action={
             <ShellLink href={libraryHref} className="text-xs font-medium text-status-success">
-              {nothingShared ? 'Library' : 'See all'}
+              {nothingShared ? 'Scripts & nodes' : 'See all'}
             </ShellLink>
           }
         >

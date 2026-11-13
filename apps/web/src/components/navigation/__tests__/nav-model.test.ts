@@ -105,7 +105,7 @@ describe('panel', () => {
       'Overview',
       'Workflows',
       'Functions',
-      'Library',
+      'Scripts & nodes',
       'Runs',
       'Workspace settings',
     ])
@@ -119,8 +119,8 @@ describe('panel', () => {
     if (panel.mode !== 'project') throw new Error(panel.mode)
     expect(panel.items.map((i) => [i.label, i.href])).toEqual([
       ['Workspaces', '/acme/project-101/workspaces'],
-      ['Library', '/acme/project-101/library'],
-      ['Shared library', '/acme/project-101/shared'],
+      ['Scripts & nodes', '/acme/project-101/scripts-nodes'],
+      ['Workflows & functions', '/acme/project-101/shared'],
       ['Members', '/acme/project-101/members'],
       ['Connections', '/acme/project-101/connections'],
       ['API keys', '/acme/project-101/api-keys'],

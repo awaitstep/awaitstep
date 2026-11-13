@@ -39,7 +39,15 @@ function NodeMark({ name, icon }: { name: string; icon?: string }) {
 
   if (!icon || failed) return <>{initialsOf(name)}</>
   // The registry's logos are one-colour SVGs, drawn dark: inverted on the dark theme, as on the canvas.
-  return <img src={icon} alt="" className="size-5 dark:invert" onError={handleError} />
+  return (
+    <img
+      src={icon}
+      alt=""
+      referrerPolicy="no-referrer"
+      className="size-5 dark:invert"
+      onError={handleError}
+    />
+  )
 }
 
 function describeVersion(node: OrgNode): string {

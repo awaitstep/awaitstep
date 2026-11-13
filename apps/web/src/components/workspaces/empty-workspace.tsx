@@ -109,7 +109,7 @@ export function EmptyWorkspace({
         </AvailableCard>
         <AvailableCard
           // The board links Workflows, which is this page while it's empty; the
-          // project's Shared library lists the same items.
+          // project's shared workflows and functions lists the same items.
           href={projectPagePath(slugs, 'shared')}
           icon={Share2}
           tone="ok"

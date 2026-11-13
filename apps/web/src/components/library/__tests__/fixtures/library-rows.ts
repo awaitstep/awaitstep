@@ -14,6 +14,7 @@ export function row(over: Partial<ApiLibraryRow> & Pick<ApiLibraryRow, 'id'>): A
     publishedAt: '2026-11-01T00:00:00.000Z',
     usedBy: 0,
     updatedAt: '2026-11-10T00:00:00.000Z',
+    iconHash: null,
     ...over,
   }
 }
@@ -36,7 +37,7 @@ export function salesSummary(over: Partial<ApiLibrarySummary> = {}): ApiLibraryS
     ],
     marketplace: [],
     counts: { module: 2, node: 1, marketplace: 0 },
-    viewerCan: { create: { allowed: true } },
+    viewerCan: { create: { allowed: true }, toProject: { allowed: true } },
     ...over,
   }
 }

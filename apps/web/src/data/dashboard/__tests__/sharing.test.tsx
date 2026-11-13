@@ -99,7 +99,7 @@ describe('share writes on the API', () => {
     expect(JSON.parse(init.body as string)).toEqual({ shared: true })
   })
 
-  it('unshares from the Shared library in the item’s own workspace', async () => {
+  it('unshares from the project’s Workflows & functions page in the item’s own workspace', async () => {
     const wrapper = setup([])
     const { result } = renderHook(() => useUnshareItem(p101.org, p101.project), { wrapper })
     await result.current.mutateAsync({ workspace: 'it', itemId: 'wf-1' })
@@ -110,7 +110,7 @@ describe('share writes on the API', () => {
 })
 
 describe('share reads on the API', () => {
-  it('reads the project’s Shared library by the project’s id', async () => {
+  it('reads the project’s shared workflows and functions by the project’s id', async () => {
     respond({ data: [SHARED], nextCursor: null })
     const wrapper = setup([[p101, SCOPE]])
     const { result } = renderHook(() => useProjectShared(p101.org, p101.project), { wrapper })

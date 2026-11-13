@@ -2,7 +2,7 @@ import type { ApiSharedItem, ApiSharing } from '../../../lib/dashboard-api'
 import type { SharedItem, Sharing } from '../../../types/dashboard/items'
 
 // Shares as the API answers them → the rows the Workflows switch, the
-// overview's "Shared with" card and the project's Shared library render.
+// overview's "Shared with" card and the project's shared workflows and functions render.
 
 export function toSharing(sharing: ApiSharing | null): Sharing | null {
   return sharing ? { sharedAt: sharing.sharedAt, sharedBy: sharing.sharedBy } : null

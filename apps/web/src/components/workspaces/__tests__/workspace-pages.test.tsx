@@ -120,7 +120,7 @@ describe('an empty workspace', () => {
     expect(within(start).getByText('Nothing here yet')).toBeInTheDocument()
     expect(within(start).getByRole('button', { name: /Start from blank/ })).toBeVisible()
     const reuse = within(start).getByRole('link', { name: /Reuse what the project shares/ })
-    expect(reuse).toHaveAttribute('href', '/acme/project-101/support/library')
+    expect(reuse).toHaveAttribute('href', '/acme/project-101/support/scripts-nodes')
     expect(reuse).toHaveTextContent(
       'Project 101 already shares 3 items with this workspace. Call them instead of rebuilding.',
     )
@@ -140,9 +140,9 @@ describe('an empty workspace', () => {
       '/acme/project-101/connections',
     )
     expect(row('Shared')).toHaveTextContent('3 shared in · 0 shared out')
-    expect(within(row('Shared')).getByRole('link', { name: 'Library' })).toHaveAttribute(
+    expect(within(row('Shared')).getByRole('link', { name: 'Scripts & nodes' })).toHaveAttribute(
       'href',
-      '/acme/project-101/support/library',
+      '/acme/project-101/support/scripts-nodes',
     )
   })
 

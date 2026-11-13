@@ -98,7 +98,7 @@ describe('sharing', () => {
     ])
   })
 
-  it('lists the project’s shared library with who uses each item', async () => {
+  it('lists the project’s shared workflows and functions with who uses each item', async () => {
     const shared = await items.listProjectShared(ama, 'acme', 'project-101')
     expect(shared.map((s) => [s.name, s.from.name, s.usedBy.map((w) => w.name)])).toEqual([
       ['Lead enrichment', 'Sales', ['IT']],

@@ -101,7 +101,12 @@ export const workspaceItems = [
   { key: 'overview', href: `${WORKSPACE}/overview`, icon: LayoutGrid, label: 'Overview' },
   { key: 'workflows', href: `${WORKSPACE}/workflows`, icon: Workflow, label: 'Workflows' },
   { key: 'functions', href: `${WORKSPACE}/functions`, icon: Code, label: 'Functions' },
-  { key: 'library', href: `${WORKSPACE}/library`, icon: Library, label: 'Library' },
+  {
+    key: 'scripts-nodes',
+    href: `${WORKSPACE}/scripts-nodes`,
+    icon: Library,
+    label: 'Scripts & nodes',
+  },
   { key: 'runs', href: `${WORKSPACE}/runs`, icon: CirclePlay, label: 'Runs' },
   { key: 'wsettings', href: `${WORKSPACE}/settings`, icon: Settings, label: 'Workspace settings' },
 ]
@@ -137,7 +142,7 @@ export function WorkspacePanel({ active }: { active?: string }) {
 
 const projectItems = [
   { key: 'workspaces', href: `${PROJECT}/workspaces`, icon: Layers, label: 'Workspaces' },
-  { key: 'shared', href: `${PROJECT}/shared`, icon: Share2, label: 'Shared library' },
+  { key: 'shared', href: `${PROJECT}/shared`, icon: Share2, label: 'Workflows & functions' },
   { key: 'members', href: `${PROJECT}/members`, icon: Users, label: 'Members' },
   { key: 'keys', href: `${PROJECT}/api-keys`, icon: KeyRound, label: 'API keys' },
   { key: 'variables', href: `${PROJECT}/variables`, icon: Braces, label: 'Variables' },

@@ -27,7 +27,7 @@ describe('ContextPanel modes', () => {
       'Overview',
       'Workflows',
       'Functions',
-      'Library',
+      'Scripts & nodes',
       'Runs',
       'Workspace settings',
       'Project',
@@ -47,7 +47,14 @@ describe('ContextPanel modes', () => {
       within(panel)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Workspaces', 'Shared library', 'Members', 'API keys', 'Variables', 'Settings'])
+    ).toEqual([
+      'Workspaces',
+      'Workflows & functions',
+      'Members',
+      'API keys',
+      'Variables',
+      'Settings',
+    ])
   })
 
   it('org-settings mode: the org as a plain header, not a switcher', () => {

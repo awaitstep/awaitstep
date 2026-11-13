@@ -118,7 +118,7 @@ export function WorkspaceStart({
 }: WorkspaceStartProps) {
   const viewer = useViewer()
   const connections = useProjectConnections(slugs.org, slugs.project)
-  const libraryHref = workspacePath(slugs, 'library')
+  const libraryHref = workspacePath(slugs, 'scripts-nodes')
   const deploys = connections.data
     ? deploysSentence(
         connections.data.workspaces.find((row) => row.workspaceId === workspace.id),
@@ -180,7 +180,7 @@ export function WorkspaceStart({
         >
           {deploysLine}
         </SummaryRow>
-        <SummaryRow icon={Share2} label="Shared" href={libraryHref} action="Library">
+        <SummaryRow icon={Share2} label="Shared" href={libraryHref} action="Scripts & nodes">
           {sharedSentence(sharedIn.length, workspace.counts.sharedOut)}
         </SummaryRow>
       </ul>

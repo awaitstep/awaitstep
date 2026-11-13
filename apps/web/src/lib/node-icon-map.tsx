@@ -100,8 +100,17 @@ export function getNodeVisuals(nodeId: string, iconUrl?: string): NodeVisuals {
   if (Object.hasOwn(iconMap, nodeId)) return iconMap[nodeId]!
   if (iconUrl) {
     return {
-      icon: <img src={iconUrl} alt="" className="h-2.5 w-2.5 dark:invert" />,
-      paletteIcon: <img src={iconUrl} alt="" className="h-4 w-4 dark:invert" />,
+      icon: (
+        <img
+          src={iconUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="h-2.5 w-2.5 dark:invert"
+        />
+      ),
+      paletteIcon: (
+        <img src={iconUrl} alt="" referrerPolicy="no-referrer" className="h-4 w-4 dark:invert" />
+      ),
       accent: 'bg-node-custom/10 text-node-custom',
     }
   }

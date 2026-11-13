@@ -16,7 +16,7 @@ beforeEach(() => resetDashboardData(new Date()))
 
 const rowOf = (name: string) => screen.getByRole('link', { name }).closest('tr') as HTMLElement
 
-describe('project Shared library', () => {
+describe('project Workflows & functions', () => {
   it('lists what workspaces shared, with where from, who calls it and when', async () => {
     renderWithDashboardData(<SharedLibraryPage slugs={p101} />)
     await screen.findByRole('link', { name: 'Provision account' })
