@@ -61,6 +61,7 @@ export type {
   RuntimeHints,
   NodeDefinition,
 } from './node-definition.js'
+export { missingRequiredFields } from './required-fields.js'
 
 export {
   workflowNodeSchema,
