@@ -213,6 +213,39 @@ describe('Add → Custom node', () => {
   })
 })
 
+describe('Add → Custom node with required fields', () => {
+  it('waits for every required field, naming what is left', async () => {
+    const user = userEvent.setup()
+    const { onCreateStep } = setup()
+    await openCustom(user)
+    await user.click(screen.getByRole('button', { name: /Say hello/ }))
+    expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled()
+    expect(screen.getByText('Fill in Who to greet')).toBeInTheDocument()
+    // No "Required" on a field nobody has touched; Enter doesn't insert.
+    expect(screen.queryByText('Required')).toBeNull()
+    await user.type(targetInput(), '{Enter}')
+    expect(onCreateStep).not.toHaveBeenCalled()
+    // Typed and cleared: it says so.
+    await user.type(targetInput(), 'x{Backspace}')
+    await user.tab()
+    expect(await screen.findByText('Required')).toBeInTheDocument()
+    await user.type(targetInput(), 'ops')
+    await user.tab()
+    await waitFor(() => expect(screen.queryByText('Required')).toBeNull())
+    expect(screen.getByRole('button', { name: 'Insert' })).toBeEnabled()
+    expect(screen.queryByText(/^Fill in/)).toBeNull()
+  })
+
+  it('counts blank text as empty', async () => {
+    const user = userEvent.setup()
+    setup()
+    await openCustom(user)
+    await user.click(screen.getByRole('button', { name: /Say hello/ }))
+    await user.type(targetInput(), '   ')
+    expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled()
+  })
+})
+
 describe('Add → Custom node on a branch arm', () => {
   it('keeps the arm chosen from a row menu while the node is picked and filled in', async () => {
     loadGraph()

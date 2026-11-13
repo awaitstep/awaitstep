@@ -1,12 +1,11 @@
 import { type ReactNode } from 'react'
 import { FlaskConical, Maximize2, X } from 'lucide-react'
-import { isBuiltinNodeType, type NodeDefinition, type WorkflowNode } from '@awaitstep/ir'
+import { isBuiltinNodeType } from '@awaitstep/ir'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { useLastRunSteps } from '../../hooks/use-last-run-steps'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
-import { DynamicFields } from '../canvas/dynamic-fields'
 import { openUsedFile, runStepQuickTest } from '../../lib/ide/step-actions'
 import {
   stepSettings,
@@ -18,6 +17,7 @@ import {
 } from '../../lib/ide/step-summary'
 import { timeAgoOrDay } from '../../lib/time'
 import { useIdeStore } from '../../stores/ide-store'
+import { NodeFieldsEditor } from './node-fields-editor'
 import { useStepSync } from './step-sync-context'
 
 const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
@@ -27,9 +27,9 @@ const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
 }
 
 /**
- * What the selected step is and how it last did, read-only. Its code is
- * edited in its source file; its settings are changed on the canvas, which
- * owns the graph — saving them from here would be a second way to write it.
+ * What the selected step is and how it last did. A step's code is edited in
+ * its source file and its settings on the canvas; a custom or marketplace
+ * node's fields can also be changed and saved here (`NodeFieldsEditor`).
  * The panel mounts only while a step is selected, so the run requests it
  * makes start and stop with it.
  */
@@ -161,7 +161,9 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
           <LastRun nodeId={nodeId} data={lastRun} versions={sync.versions} />
         </Field>
       </dl>
-      {template && definition && <TemplateNodeSettings node={node} definition={definition} />}
+      {template && definition && (
+        <NodeFieldsEditor workflowId={workflowId} node={node} definition={definition} />
+      )}
       <div className="flex gap-2 px-3 pb-2.5">
         <ActionButton
           icon={<FlaskConical className="h-3 w-3" />}
@@ -178,44 +180,12 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         <ActionButton
           icon={<Maximize2 className="h-3 w-3" />}
           onClick={handleEditOnCanvas}
-          title="Open the canvas on this step, where its settings can be changed"
+          title="Open the canvas on this step, to change its name and settings there"
         >
           Edit on canvas
         </ActionButton>
       </div>
     </section>
-  )
-}
-
-function noFieldChange() {}
-
-/**
- * A custom or marketplace node's fields, read-only: the canvas owns the
- * graph, so they are changed there ("Edit on canvas"). How it runs (retries,
- * timeout, or Inline) is already in the rows above.
- */
-function TemplateNodeSettings({
-  node,
-  definition,
-}: {
-  node: WorkflowNode
-  definition: NodeDefinition
-}) {
-  if (Object.keys(definition.configSchema).length === 0) return null
-  return (
-    <fieldset
-      disabled
-      aria-label="Node settings"
-      className="min-w-0 space-y-3 border-t border-border/60 px-3 py-2.5"
-    >
-      <DynamicFields
-        configSchema={definition.configSchema}
-        data={node.data}
-        onChange={noFieldChange}
-        nodeId={node.id}
-        readOnly
-      />
-    </fieldset>
   )
 }
 

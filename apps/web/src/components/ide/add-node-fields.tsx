@@ -19,12 +19,14 @@ interface AddNodeFieldsProps {
   onChangeNode: () => void
   /** A save is in flight: nothing here can change until it settles. */
   busy: boolean
+  /** Required fields to mark "Required": edited and left empty. */
+  missing: readonly string[]
 }
 
 /**
  * The picked custom node, as a canvas drop would start it: its name, its
- * fields (required ones marked) and whether it runs Inline. Required fields
- * left empty are reported by validation and Deploy, as on the canvas.
+ * fields (required ones marked) and whether it runs Inline. Insert waits
+ * until the required ones are filled.
  */
 export function AddNodeFields({
   definition,
@@ -35,6 +37,7 @@ export function AddNodeFields({
   onFieldChange,
   onChangeNode,
   busy,
+  missing,
 }: AddNodeFieldsProps) {
   const { customNodes } = useNodeRegistry()
   const visuals = getNodeVisuals(definition.id, definition.icon)
@@ -91,6 +94,7 @@ export function AddNodeFields({
           configSchema={definition.configSchema}
           data={data}
           onChange={onFieldChange}
+          errors={Object.fromEntries(missing.map((fieldId) => [fieldId, 'Required']))}
         />
       )}
 

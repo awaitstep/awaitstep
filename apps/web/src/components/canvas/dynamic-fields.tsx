@@ -17,6 +17,8 @@ interface DynamicFieldsProps {
   nodeId?: string
   /** The code editors show without accepting edits; a disabled fieldset covers the native controls. */
   readOnly?: boolean
+  /** A message to show under a field, by field id ("Required"). */
+  errors?: Readonly<Record<string, string>>
 }
 
 export function DynamicFields({
@@ -25,6 +27,7 @@ export function DynamicFields({
   onChange,
   nodeId,
   readOnly = false,
+  errors,
 }: DynamicFieldsProps) {
   return (
     <div className="space-y-4">
@@ -36,6 +39,7 @@ export function DynamicFields({
           onChange={(value) => onChange(fieldId, value)}
           nodeId={nodeId}
           readOnly={readOnly}
+          error={errors?.[fieldId]}
         />
       ))}
     </div>
@@ -50,6 +54,7 @@ interface DynamicFieldProps {
   /** Given to the control, so a `<Label htmlFor>` can name it (see `fieldTakesId`). */
   id?: string
   readOnly?: boolean
+  error?: string
 }
 
 /** Whether `FieldRenderer` puts `id` on a single control a label can point at. */
@@ -74,7 +79,7 @@ export function fieldTakesId(field: ConfigField): boolean {
   }
 }
 
-function DynamicField({ field, value, onChange, nodeId, readOnly }: DynamicFieldProps) {
+function DynamicField({ field, value, onChange, nodeId, readOnly, error }: DynamicFieldProps) {
   const id = useId()
   const controlId = fieldTakesId(field) ? id : undefined
   return (
@@ -93,6 +98,11 @@ function DynamicField({ field, value, onChange, nodeId, readOnly }: DynamicField
         id={controlId}
         readOnly={readOnly}
       />
+      {error && (
+        <p role="alert" className="text-xs text-destructive">
+          {error}
+        </p>
+      )}
       {field.description && <p className="text-xs text-muted-foreground/60">{field.description}</p>}
     </div>
   )

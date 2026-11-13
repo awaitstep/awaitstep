@@ -67,7 +67,7 @@ describe('a custom node in Code', () => {
     )
   })
 
-  it('shows its retries, its fields read-only, and Edit on canvas', async () => {
+  it('shows its retries, its fields read-only without edit rights, and Edit on canvas', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
@@ -77,13 +77,13 @@ describe('a custom node in Code', () => {
       </QueryClientProvider>,
     )
     expect(screen.getByText('Custom node · v1.0.1')).toBeInTheDocument()
-    const settings = screen.getByRole('group', { name: 'Node settings' })
-    expect(settings).toBeDisabled()
+    // Outside a workspace that may edit, the fields are shown, not changed.
+    expect(screen.getByRole('form', { name: 'Node settings' })).toBeInTheDocument()
     expect(screen.getByDisplayValue('ops')).toBeDisabled()
     expect(screen.getByDisplayValue('Hi')).toBeDisabled()
-    // How it runs is in the rows above the fields, once.
+    expect(screen.getByRole('switch', { name: 'Inline — no step' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
     expect(screen.getByText('Retries').nextElementSibling).toHaveTextContent('2 retries')
-    expect(screen.queryByRole('switch')).toBeNull()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Edit on canvas' }))
     expect(switchView).toHaveBeenCalledWith('canvas', { version: undefined, node: 'hello' })
   })

@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import type { Edge } from '@xyflow/react'
-import type { WorkflowMetadata, WorkflowNode } from '@awaitstep/ir'
+import {
+  NodeRegistry,
+  type NodeDefinition,
+  type WorkflowMetadata,
+  type WorkflowNode,
+} from '@awaitstep/ir'
 import { validateWorkflowForPublish } from '../validate-workflow'
 import type { FlowNode } from '../../stores/workflow-store'
 
@@ -681,6 +686,70 @@ describe('validateWorkflowForPublish', () => {
   })
 
   // ── canPublish ──
+
+  describe('a custom or marketplace node’s required fields', () => {
+    const anthropic = {
+      id: 'anthropic',
+      name: 'Anthropic',
+      version: '1.0.0',
+      description: 'AI',
+      category: 'AI',
+      author: 'awaitstep',
+      license: 'MIT',
+      providers: ['cloudflare'],
+      configSchema: {
+        action: { type: 'select', label: 'Action', required: true, options: ['chat'] },
+        message: { type: 'textarea', label: 'User Message', required: true },
+        apiKey: { type: 'secret', label: 'API key', required: true, envVarName: 'ANTHROPIC_KEY' },
+      },
+      outputSchema: {},
+    } as unknown as NodeDefinition
+    const registry = new NodeRegistry()
+    registry.register(anthropic)
+
+    function node(data: Record<string, unknown>) {
+      return makeFlowNode({
+        id: 'ai',
+        type: 'anthropic',
+        name: 'Ask Claude',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data,
+      })
+    }
+
+    it('warns for each empty one, without stopping a save', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [node({ message: ' ' })],
+        [],
+        registry,
+      )
+      expect(
+        result.issues.filter((i) => i.nodeId === 'ai').map((i) => [i.severity, i.message]),
+      ).toEqual([
+        ['warning', 'Action is required'],
+        ['warning', 'User Message is required'],
+      ])
+      expect(result.canPublish).toBe(true)
+    })
+
+    it('says nothing once they are filled, or for a secret read from the environment', () => {
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [node({ action: 'chat', message: 'hi' })],
+        [],
+        registry,
+      )
+      expect(result.issues.filter((i) => i.nodeId === 'ai')).toEqual([])
+    })
+
+    it('says nothing without the node definitions', () => {
+      const result = validateWorkflowForPublish(makeMetadata(), [node({})], [])
+      expect(result.issues.filter((i) => i.nodeId === 'ai')).toEqual([])
+    })
+  })
 
   describe('canPublish', () => {
     it('is true for a clean workflow', () => {

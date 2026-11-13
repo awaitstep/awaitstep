@@ -32,6 +32,7 @@ import { SideBar } from './side-bar'
 import { SideBarTabs } from './side-bar-tabs'
 import { StatusBar } from './status-bar'
 import { StepsView } from './steps-view'
+import { NodeEditProvider } from './node-edit-context'
 import { StepSyncProvider } from './step-sync-context'
 
 // React Flow and every node component would otherwise load on each visit to
@@ -385,7 +386,9 @@ export function WorkspaceLayout({
       graphVersionId={version?.id ?? null}
       codeVersionId={source.versionId ?? null}
     >
-      {view}
+      <NodeEditProvider canEdit={canEdit} saveNodeFields={projectFiles.saveNodeFields}>
+        {view}
+      </NodeEditProvider>
     </StepSyncProvider>
   )
 }

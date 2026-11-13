@@ -56,7 +56,25 @@ export interface NewTemplateNode {
   data: Record<string, unknown>
 }
 
+export type SaveNodeFieldsOutcome =
+  | { status: 'saved' }
+  | { status: 'refused'; reason: string }
+  | { status: 'graph-conflict' }
+  | { status: 'failed'; reason: string }
+
 export interface StepCreator {
+  /**
+   * Saves one node's field edits as the next version, through the same queue
+   * and conflict refusal as `create`. Only the fields that differ between
+   * `base` (the data the edits started from) and `edited` are written, onto
+   * the node as the version to save holds it: a field changed meanwhile by
+   * someone else is kept unless this edit changed it too.
+   */
+  saveNodeFields(
+    nodeId: string,
+    edited: Record<string, unknown>,
+    base: Record<string, unknown>,
+  ): Promise<SaveNodeFieldsOutcome>
   /**
    * Adds a step — or, given `template`, a custom node — to the loaded version
    * and saves it as the next version, never a file write. On success a new
@@ -89,6 +107,15 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
   const newId = deps.newId ?? newNodeId
 
   return {
+    async saveNodeFields(nodeId, edited, base) {
+      return deps.exclusive(async (): Promise<SaveNodeFieldsOutcome> => {
+        try {
+          return await saveFieldsOnce(nodeId, edited, base)
+        } catch {
+          return { status: 'failed', reason: 'Couldn’t save the node.' }
+        }
+      })
+    },
     async create(placement, name, providedId, template) {
       return deps.exclusive(async (): Promise<CreateStepOutcome> => {
         try {
@@ -130,45 +157,12 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
     })
     if (!inserted.ok) return { status: 'refused', reason: inserted.reason }
 
-    let saved: SavedVersion
-    try {
-      saved = await client.createVersion(workflowId, {
-        ir: withoutFileSnapshot(inserted.ir),
-        baseGraphHash: version.graphHash,
-      })
-    } catch (err) {
-      if (err instanceof VersionConflictError) {
-        deps.forget()
-        if (isCurrent()) {
-          const store = getStore()
-          const existing = store.graphConflict
-          if (existing !== null && existing.paths.length > 0) {
-            // A step save's draft notice is the more actionable one: keep it
-            // and say the create failed separately.
-            deps.notify.error('Nothing was created', {
-              description: 'The canvas changed this workflow. Try again.',
-            })
-          } else {
-            // Not a toast: the workspace notice explains, and the refetch
-            // marks every draft whose node moved too.
-            store.setGraphConflict({
-              currentVersionId: err.currentVersionId,
-              currentGraphHash: err.currentGraphHash,
-              paths: [],
-            })
-          }
-        }
-        await refresh()
-        return { status: 'graph-conflict' }
-      }
-      return { status: 'failed', reason: failureLine(err, `Couldn’t create the ${noun}`) }
-    }
-
-    if (isCurrent()) getStore().setGraphConflict(null)
-    const next = loadVersionDocument({ version: saved, graphHash: saved.graphHash })
-    if (next) deps.remember(version.graphHash, next)
-    else deps.forget()
-    await refresh().catch(() => undefined)
+    const posted = await postVersion(version, inserted.ir, {
+      failure: `Couldn’t create the ${noun}`,
+      refused: 'Nothing was created',
+    })
+    if (posted.status !== 'saved') return posted
+    const saved = posted.version
     const path = template ? null : stepSourcePath(nodeId)
     // The file is a view of the saved version: open it only once the
     // workspace has read that version back. A refetch that did not land
@@ -186,4 +180,108 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
     }
     return { status: 'created', nodeId, path, opened: landed }
   }
+
+  async function saveFieldsOnce(
+    nodeId: string,
+    edited: Record<string, unknown>,
+    base: Record<string, unknown>,
+  ): Promise<SaveNodeFieldsOutcome> {
+    if (!isCurrent()) return { status: 'failed', reason: 'This workspace is no longer open.' }
+    if (!deps.canEdit()) return { status: 'refused', reason: deps.readOnlyReason() }
+    const version = getVersion()
+    if (!version) return { status: 'failed', reason: 'This workflow has no saved version yet.' }
+    if (!version.doc.nodes.some((node) => node.id === nodeId)) {
+      return { status: 'refused', reason: 'That node is not in this version any more.' }
+    }
+    const ir = {
+      ...version.doc,
+      nodes: version.doc.nodes.map((node) =>
+        node.id === nodeId ? { ...node, data: withEdits(node.data, edited, base) } : node,
+      ),
+    }
+    const posted = await postVersion(version, ir, {
+      failure: 'Couldn’t save the node',
+      refused: 'Nothing was saved',
+    })
+    if (posted.status !== 'saved') return posted
+    // The panel shows the saved values once the workspace reads the version
+    // back; one that didn't would look as if the save were undone.
+    const landed = getCachedVersion()?.graphHash === posted.version.graphHash
+    if (!landed && isCurrent()) {
+      deps.notify.error('Saved the node, but the workspace didn’t reload', {
+        description: 'Reload the page to see it.',
+      })
+    }
+    return { status: 'saved' }
+  }
+
+  // Posts `ir` as the next version on the base the workspace loaded. A canvas
+  // save that landed meanwhile is the graph-conflict refusal; on success the
+  // written version is remembered and the workspace refetched.
+  async function postVersion(
+    version: LoadedVersion,
+    ir: LoadedVersion['doc'],
+    // The general failure line, and the toast title when the canvas got there first.
+    words: { failure: string; refused: string },
+  ): Promise<
+    | { status: 'saved'; version: SavedVersion }
+    | { status: 'graph-conflict' }
+    | { status: 'failed'; reason: string }
+  > {
+    let saved: SavedVersion
+    try {
+      saved = await client.createVersion(workflowId, {
+        ir: withoutFileSnapshot(ir),
+        baseGraphHash: version.graphHash,
+      })
+    } catch (err) {
+      if (err instanceof VersionConflictError) {
+        deps.forget()
+        if (isCurrent()) {
+          const store = getStore()
+          const existing = store.graphConflict
+          if (existing !== null && existing.paths.length > 0) {
+            // A step save's draft notice is the more actionable one: keep it
+            // and say this write failed separately.
+            deps.notify.error(words.refused, {
+              description: 'The canvas changed this workflow. Try again.',
+            })
+          } else {
+            // Not a toast: the workspace notice explains, and the refetch
+            // marks every draft whose node moved too.
+            store.setGraphConflict({
+              currentVersionId: err.currentVersionId,
+              currentGraphHash: err.currentGraphHash,
+              paths: [],
+            })
+          }
+        }
+        await refresh()
+        return { status: 'graph-conflict' }
+      }
+      return { status: 'failed', reason: failureLine(err, words.failure) }
+    }
+
+    if (isCurrent()) getStore().setGraphConflict(null)
+    const next = loadVersionDocument({ version: saved, graphHash: saved.graphHash })
+    if (next) deps.remember(version.graphHash, next)
+    else deps.forget()
+    await refresh().catch(() => undefined)
+    return { status: 'saved', version: saved }
+  }
+}
+
+/** `current` with the fields `edited` changed from `base` applied: set, or removed when unset. */
+export function withEdits(
+  current: Record<string, unknown>,
+  edited: Record<string, unknown>,
+  base: Record<string, unknown>,
+): Record<string, unknown> {
+  const next = { ...current }
+  for (const key of new Set([...Object.keys(base), ...Object.keys(edited)])) {
+    if (JSON.stringify(edited[key]) === JSON.stringify(base[key])) continue
+    if (edited[key] === undefined) delete next[key]
+    else next[key] = edited[key]
+  }
+  return next
 }

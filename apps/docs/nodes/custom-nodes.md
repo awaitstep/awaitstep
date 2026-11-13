@@ -35,16 +35,23 @@ Custom nodes can be placed from the Code view as well as from the canvas:
 2. Pick a node. Your Library's nodes come first, with their version, then
    installed marketplace nodes. Org admins can open **Browse marketplace** to
    install one without leaving the dialog.
-3. Fill in its fields (required ones are marked), choose whether it runs
-   **Inline**, and choose where it goes: after or before a step, or on a branch
-   from the map.
+3. Fill in its fields, choose whether it runs **Inline**, and choose where it
+   goes: after or before a step, or on a branch from the map. **Insert** waits
+   until every required field (marked \*) is filled; the footer says which are
+   left.
 
 **Insert** saves one new version with the node and its connections. Later steps
 can read its value by name, for example <code v-pre>{{say_hello.result}}</code>.
 
 The node has no source file of its own; its code lives in the Library or the
-registry. Selecting it shows its fields read-only. Use **Edit on canvas** to
-change them.
+registry. Selecting it in **Steps** shows its fields: change them there and
+press **Save** (one new version), or **Discard**. Unsaved changes wait while you
+look at other nodes. Its name is changed on the canvas (**Edit on canvas**).
+
+A required field left empty, on the canvas or in Code, shows as a warning
+("Who to greet is required"). The workflow still saves, but Deploy refuses it
+until the field is filled. A secret read from an environment variable is
+checked by Deploy's environment check instead.
 
 ## The NodeDefinition
 

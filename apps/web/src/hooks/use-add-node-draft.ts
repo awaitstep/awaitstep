@@ -13,6 +13,8 @@ export interface AddNodeDraft {
   /** Custom node chosen but none picked yet: the list shows. */
   picking: boolean
   fields: Record<string, unknown>
+  /** Fields the person has changed since the node was picked. */
+  touched: ReadonlySet<string>
   /** The name for the current kind: a step and a node keep their own. */
   name: string
   setName: (name: string) => void
@@ -35,6 +37,7 @@ export function useAddNodeDraft(): AddNodeDraft {
   const [kind, setKindState] = useState<AddKind>('step')
   const [picked, setPicked] = useState<NodeDefinition | null>(null)
   const [fields, setFields] = useState<Record<string, unknown>>({})
+  const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
   const [stepName, setStepName] = useState('')
   const [nodeName, setNodeName] = useState('')
   const fieldsRef = useRef<Record<string, unknown>>({})
@@ -56,6 +59,7 @@ export function useAddNodeDraft(): AddNodeDraft {
       pickedRef.current = definition
       setPicked(definition)
       writeFields(configDefaults(definition.configSchema))
+      setTouched(new Set())
       setNodeName(definition.name)
     },
     [writeFields],
@@ -72,6 +76,7 @@ export function useAddNodeDraft(): AddNodeDraft {
       if (value === undefined) delete next[fieldId]
       else next[fieldId] = value
       writeFields(next)
+      setTouched((current) => (current.has(fieldId) ? current : new Set(current).add(fieldId)))
     },
     [writeFields],
   )
@@ -80,6 +85,7 @@ export function useAddNodeDraft(): AddNodeDraft {
     setKind('step')
     unpick()
     writeFields({})
+    setTouched(new Set())
     setStepName('')
     setNodeName('')
   }, [setKind, unpick, writeFields])
@@ -95,6 +101,7 @@ export function useAddNodeDraft(): AddNodeDraft {
     picked,
     picking: kind === 'custom' && picked === null,
     fields,
+    touched,
     name: kind === 'step' ? stepName : nodeName,
     setName: kind === 'step' ? setStepName : setNodeName,
     setKind,

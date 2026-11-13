@@ -38,7 +38,7 @@ export function diagnosticProblems(diagnostics: readonly SourceDiagnostic[]): Pr
       endLine: position?.line ?? 1,
       endColumn: position?.column ?? 1,
       message: diagnostic.message,
-      severity: 'error' as ProblemSeverity,
+      severity: (diagnostic.severity ?? 'error') as ProblemSeverity,
       source: diagnostic.source === 'compile' ? 'compile' : 'workflow',
       ...(diagnostic.nodeId !== undefined && { nodeId: diagnostic.nodeId }),
     }

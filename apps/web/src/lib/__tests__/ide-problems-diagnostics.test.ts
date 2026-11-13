@@ -47,4 +47,12 @@ describe('diagnosticProblems', () => {
   it('returns nothing for a healthy workflow', () => {
     expect(diagnosticProblems([])).toEqual([])
   })
+
+  it('keeps a warning a warning (a required field left empty)', () => {
+    const [problem] = diagnosticProblems([
+      { source: 'ir', nodeId: 'n', message: 'Ask: Action is required', severity: 'warning' },
+    ])
+    expect(problem!.severity).toBe('warning')
+    expect(diagnosticProblems([{ source: 'ir', message: 'x' }])[0]!.severity).toBe('error')
+  })
 })

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { computeVarNames, sanitizeIdentifier } from '@awaitstep/codegen'
 import type { StepPlacement } from '@awaitstep/codegen'
-import type { WorkflowNode } from '@awaitstep/ir'
+import { missingRequiredFields, type WorkflowNode } from '@awaitstep/ir'
 import { useAddNodeDraft, type AddKind } from '../../hooks/use-add-node-draft'
 import type { CreateStepOutcome, NewTemplateNode } from '../../lib/ide/step-create'
 import type { PlacementChoice } from '../../lib/ide/step-placements'
@@ -200,8 +200,19 @@ export function StepFlowDialog({
   const triggerLabel = kind === 'script' ? 'HTTP request' : `POST /${workflowName || 'workflow'}`
   const fileStem = uniqueStepId(name, nodes, takenStepIds)
   const mapSummary = effectiveMapChoice?.label ?? 'Choose a place'
+  const missing =
+    draft.kind === 'custom' && picked
+      ? missingRequiredFields(picked.configSchema, draft.fields)
+      : []
+  const missingLabels = missing.map((fieldId) => picked?.configSchema[fieldId]?.label ?? fieldId)
+  const missingNotice = missing.length > 0 ? `Fill in ${listLabels(missingLabels)}` : null
   const canInsert =
-    !busy && !picking && name.trim() !== '' && activePlacement !== null && previewName !== null
+    !busy &&
+    !picking &&
+    missing.length === 0 &&
+    name.trim() !== '' &&
+    activePlacement !== null &&
+    previewName !== null
   const noun = draft.kind === 'step' ? 'step' : 'node'
 
   function handleNameChange(next: string) {
@@ -307,6 +318,8 @@ export function StepFlowDialog({
       setError('Choose a node to add.')
       return
     }
+    // Insert is disabled meanwhile; this only guards a submit that slips through.
+    if (missing.length > 0) return
     if (trimmed === '') {
       setError(`Enter a ${noun} name.`)
       return
@@ -348,6 +361,7 @@ export function StepFlowDialog({
         data={draft.fields}
         error={error}
         busy={busy}
+        missing={missing.filter((fieldId) => draft.touched.has(fieldId))}
         onNameChange={handleNameChange}
         onFieldChange={draft.setField}
         onChangeNode={handleChangeNode}
@@ -419,6 +433,7 @@ export function StepFlowDialog({
           <StepFlowFooter
             mode={picking ? 'fast' : mode}
             picking={picking}
+            notice={missingNotice}
             name={name}
             side={side}
             fastChoiceName={fastChoice?.nodeName ?? null}
@@ -431,4 +446,10 @@ export function StepFlowDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+// "Action", "Action and User Message", "Action, Model and User Message".
+function listLabels(labels: readonly string[]): string {
+  if (labels.length <= 1) return labels[0] ?? ''
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`
 }

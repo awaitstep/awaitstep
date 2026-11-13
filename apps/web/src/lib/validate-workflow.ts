@@ -1,6 +1,8 @@
 import type { Edge } from '@xyflow/react'
 import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
 import {
+  isBuiltinNodeType,
+  missingRequiredFields,
   validateExpressionRefs,
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
   type NodeRegistry,
@@ -260,6 +262,14 @@ export function validateWorkflowForPublish(
     // Missing node definition check
     if (!BUILTIN_TYPES.has(ir.type) && nodeRegistry && !nodeRegistry.has(ir.type)) {
       add('error', id, name, `Node type "${ir.type}" isn’t installed.`)
+    }
+
+    // A custom or marketplace node's required fields. A warning, so saving
+    // goes on while it's being filled in; the server refuses Deploy and Check.
+    const definition = isBuiltinNodeType(ir.type) ? undefined : nodeRegistry?.get(ir.type)
+    for (const fieldId of missingRequiredFields(definition?.configSchema, ir.data)) {
+      const label = definition?.configSchema[fieldId]?.label ?? fieldId
+      add('warning', id, name, `${label} is required`)
     }
 
     // Script-incompatibility check — scripts run in a fetch handler with no

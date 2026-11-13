@@ -3,7 +3,7 @@ import type { ArtifactIR } from '@awaitstep/ir'
 import { contentHash } from '@awaitstep/ir'
 import { VersionConflictError, type SavedVersion } from '../api-client'
 import { loadVersionDocument } from '../ide/node-source'
-import { createStepCreator, type StepCreateDeps } from '../ide/step-create'
+import { createStepCreator, withEdits, type StepCreateDeps } from '../ide/step-create'
 import { createStepSaver } from '../ide/step-save'
 import { useIdeStore } from '../../stores/ide-store'
 
@@ -571,5 +571,106 @@ describe('createStepCreator — a custom node', () => {
       { description: 'Reload the page to see it.' },
     )
     expect(useIdeStore.getState().selectedNodeId).toBeNull()
+  })
+})
+
+describe('createStepCreator — saving a node’s fields', () => {
+  it('posts one version where only that node’s data changed', async () => {
+    const h = harness()
+    const outcome = await createStepCreator(h.deps).saveNodeFields('mail', { to: 'ops' }, {})
+    expect(outcome).toEqual({ status: 'saved' })
+    const { ir, baseGraphHash } = posted(h.createVersion)
+    expect(baseGraphHash).toBe('g-3')
+    expect(ir.nodes.find((n) => n.id === 'mail')!.data).toEqual({ code: MAIL_CODE, to: 'ops' })
+    expect(ir.nodes.find((n) => n.id === 'fetch')).toEqual(doc.nodes[0])
+    expect(ir.edges).toEqual(doc.edges)
+    expect(h.refresh).toHaveBeenCalled()
+  })
+
+  it('is refused like Add when the canvas saved a newer version', async () => {
+    const h = harness()
+    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
+    const outcome = await createStepCreator(h.deps).saveNodeFields('mail', { to: 'ops' }, {})
+    expect(outcome).toEqual({ status: 'graph-conflict' })
+    expect(useIdeStore.getState().graphConflict).toMatchObject({ currentGraphHash: 'g-9' })
+  })
+
+  it('refuses a node that is gone, and a workspace that can’t edit, posting nothing', async () => {
+    const gone = harness()
+    expect(await createStepCreator(gone.deps).saveNodeFields('nope', {}, {})).toEqual({
+      status: 'refused',
+      reason: 'That node is not in this version any more.',
+    })
+    const viewer = harness(doc, 'g-3', { canEdit: () => false })
+    expect(await createStepCreator(viewer.deps).saveNodeFields('mail', {}, {})).toEqual({
+      status: 'refused',
+      reason: 'Older versions are read-only.',
+    })
+    expect(gone.createVersion).not.toHaveBeenCalled()
+    expect(viewer.createVersion).not.toHaveBeenCalled()
+  })
+})
+
+describe('saving a node’s fields over a version that moved', () => {
+  it('keeps a field the canvas changed meanwhile, writing only what this edit changed', async () => {
+    const custom = {
+      ...doc,
+      nodes: [
+        ...doc.nodes,
+        {
+          id: 'hello',
+          type: 'custom:hello',
+          name: 'Say hello',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { target: 'ops', greeting: 'Hi' },
+        },
+      ],
+    }
+    const h = harness(custom)
+    // The canvas saved a new greeting after the panel's draft was started.
+    const moved = {
+      ...custom,
+      nodes: custom.nodes.map((n) =>
+        n.id === 'hello' ? { ...n, data: { target: 'ops', greeting: 'Hello there' } } : n,
+      ),
+    }
+    h.show(moved, 'g-4')
+    await createStepCreator(h.deps).saveNodeFields(
+      'hello',
+      { target: 'sales', greeting: 'Hi' },
+      { target: 'ops', greeting: 'Hi' },
+    )
+    const { ir, baseGraphHash } = posted(h.createVersion)
+    expect(baseGraphHash).toBe('g-4')
+    expect(ir.nodes.find((n) => n.id === 'hello')!.data).toEqual({
+      target: 'sales',
+      greeting: 'Hello there',
+    })
+  })
+
+  it('says so when the workspace didn’t read the saved version back', async () => {
+    const h = harness()
+    h.refetchFails = true
+    expect(await createStepCreator(h.deps).saveNodeFields('mail', { to: 'ops' }, {})).toEqual({
+      status: 'saved',
+    })
+    expect(h.notify.error).toHaveBeenCalledWith('Saved the node, but the workspace didn’t reload', {
+      description: 'Reload the page to see it.',
+    })
+  })
+})
+
+describe('withEdits', () => {
+  it('applies set, changed and removed fields, leaving the rest as they are now', () => {
+    expect(
+      withEdits({ a: 1, b: 9, c: 3, d: 4 }, { a: 2, b: 2, d: 4 }, { a: 1, b: 2, c: 3, d: 4 }),
+    ).toEqual({ a: 2, b: 9, d: 4 })
+  })
+
+  it('compares structured values by content', () => {
+    expect(withEdits({ list: [1, 2] }, { list: [1, 2] }, { list: [1, 2] })).toEqual({
+      list: [1, 2],
+    })
   })
 })

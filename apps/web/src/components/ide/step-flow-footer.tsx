@@ -11,6 +11,8 @@ interface StepFlowFooterProps {
   onCancel: () => void
   /** Custom node chosen, none picked yet. */
   picking?: boolean
+  /** What still stops Insert ("Fill in Action and User Message"), in place of the summary. */
+  notice?: string | null
 }
 
 export function StepFlowFooter({
@@ -23,10 +25,13 @@ export function StepFlowFooter({
   canInsert,
   onCancel,
   picking = false,
+  notice = null,
 }: StepFlowFooterProps) {
   return (
     <div className="mt-auto flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-3">
-      {picking ? (
+      {notice ? (
+        <p className="min-w-0 truncate text-xs text-muted-foreground">{notice}</p>
+      ) : picking ? (
         <p className="min-w-0 truncate text-xs text-muted-foreground">Choose a node to add</p>
       ) : mode === 'fast' ? (
         <p className="min-w-0 truncate text-xs text-muted-foreground">

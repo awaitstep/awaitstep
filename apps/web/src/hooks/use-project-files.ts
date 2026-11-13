@@ -11,6 +11,7 @@ import {
   createStepCreator,
   type CreateStepOutcome,
   type NewTemplateNode,
+  type SaveNodeFieldsOutcome,
 } from '../lib/ide/step-create'
 import { createStepSaver } from '../lib/ide/step-save'
 import { useIdeStore } from '../stores/ide-store'
@@ -50,6 +51,12 @@ export interface ProjectFilesController extends ProjectFileActions {
     nodeId?: string,
     template?: NewTemplateNode,
   ) => Promise<CreateStepOutcome>
+  /** Saves one node's field values as one new version. */
+  saveNodeFields: (
+    nodeId: string,
+    edited: Record<string, unknown>,
+    base: Record<string, unknown>,
+  ) => Promise<SaveNodeFieldsOutcome>
 }
 
 /**
@@ -223,6 +230,11 @@ export function useProjectFiles({
         nodeId?: string,
         template?: NewTemplateNode,
       ) => track(() => stepCreator.create(placement, name, nodeId, template)),
+      saveNodeFields: (
+        nodeId: string,
+        edited: Record<string, unknown>,
+        base: Record<string, unknown>,
+      ) => track(() => stepCreator.saveNodeFields(nodeId, edited, base)),
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()
