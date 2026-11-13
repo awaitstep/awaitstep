@@ -12,8 +12,26 @@ import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './sche
 import { validateDependencySpecs } from './dependencies.js'
 import { validateProjectFiles } from './project-files.js'
 
-/** Names a loop item cannot take: the step module's own parameters and the loop's other binding. */
-const LOOP_ITEM_TAKEN = new Set(['env', 'event', 'inputs', 'step', 'ctx', 'index'])
+/**
+ * Names a loop item cannot take: the step module's own parameters, the
+ * loop's other bindings, and the names a loop body uses (the item would hide
+ * them there). A `$` name is refused too: step module imports are `$<name>`.
+ */
+const LOOP_ITEM_TAKEN = new Set([
+  'env',
+  'event',
+  'inputs',
+  'step',
+  'ctx',
+  'index',
+  'flow',
+  'stepArgs',
+  'waitForEventOrTimeout',
+  '_loop_i',
+  '_output',
+  'err',
+  'Promise',
+])
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)
@@ -234,11 +252,14 @@ export function validateNodeData(
     const itemVar = node.data.itemVar
     if (
       itemVar !== undefined &&
-      (typeof itemVar !== 'string' || !isIdentifierName(itemVar) || LOOP_ITEM_TAKEN.has(itemVar))
+      (typeof itemVar !== 'string' ||
+        !isIdentifierName(itemVar) ||
+        itemVar.startsWith('$') ||
+        LOOP_ITEM_TAKEN.has(itemVar))
     ) {
       errors.push({
         path: `nodes.${node.id}.data.itemVar`,
-        message: `Loop "${node.name}" item name must be a plain identifier that is not a keyword or one of env, event, inputs, step, ctx, index`,
+        message: `Loop "${node.name}" item name must be a plain identifier that is not a keyword, does not start with $, and is not one of ${[...LOOP_ITEM_TAKEN].join(', ')}`,
         nodeId: node.id,
       })
     }

@@ -94,12 +94,22 @@ describe('validateNodeData', () => {
 })
 
 describe('validateNodeData: a loop item name is a plain identifier', () => {
-  it('accepts an identifier and refuses a pattern, a keyword and a name the step module already has', () => {
+  it('accepts an identifier and refuses a pattern, a keyword and a name generated code already uses', () => {
     const loop = (itemVar: unknown) =>
       validateNodeData(makeNode('loop', { loopType: 'forEach', collection: 'rows', itemVar }))
     expect(loop('row')).toEqual([])
     expect(loop(undefined)).toEqual([])
-    for (const bad of ['(?:a+)+!', '[key, value]', 'class', 'inputs', 'index', 'a b', 42]) {
+    const taken = ['inputs', 'index', 'flow', 'stepArgs', 'waitForEventOrTimeout', '_loop_i', 'err']
+    const hidesGenerated = ['_output', 'Promise', '$Process_item']
+    for (const bad of [
+      '(?:a+)+!',
+      '[key, value]',
+      'class',
+      ...taken,
+      ...hidesGenerated,
+      'a b',
+      42,
+    ]) {
       const errors = loop(bad)
       expect(errors, String(bad)).toHaveLength(1)
       expect(errors[0]!.path).toBe('nodes.n1.data.itemVar')
