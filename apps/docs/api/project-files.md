@@ -133,6 +133,33 @@ import { retry } from '#app/lib/retry'
 return { attempts: retry }
 ```
 
+## Library modules and custom nodes
+
+Code you reuse across workflows lives in the workspace's or the project's
+Library, not in a workflow. `GET /project` reports how to import it as
+`library`: `{ "importPrefix": "#modules/", "bundleDir": "modules/" }`.
+
+```ts
+// steps/score-lead.ts, or any file of yours
+import { score } from '#modules/lead-scoring'
+```
+
+- A workflow imports its own workspace's modules and the project's. When
+  both have a module with that slug, the workspace's wins.
+- A deploy always bundles the **latest published** version of every module
+  and custom node the workflow uses, at `modules/<slug>/…`. Unpublished
+  changes never ship. Redeploying an older workflow version also takes the
+  latest library code.
+- `modules/` is reserved for this. A workflow cannot write files there.
+- `GET /workflows/:id/source` lists the bundled modules as `library`, each
+  with the version it carries. Their files are read-only here: change them in
+  the Library and publish.
+- `GET /workflows/:id/custom-nodes` lists the custom nodes the workflow can
+  place. Each one's node type is `custom:<itemId>`; put that in the IR's
+  `nodes[].type`.
+- `source/check` reports a module or node that is missing, unpublished, or
+  out of this workspace's reach, as a `library` diagnostic.
+
 ## Handler modules
 
 What starts a workflow is part of the workflow definition; the code that runs
@@ -234,7 +261,8 @@ once.
 
 ## Generated files
 
-The canvas owns `worker.ts`, `nodes/*` and `wrangler.*`: they are generated
+The canvas owns `worker.ts`, `nodes/*` and `wrangler.*` (and the Library
+owns `modules/*`): they are generated
 from the graph on every read and every deploy, so a write to one is refused
 and an edit would be overwritten regardless. Your own files live in the
 project, which is everything above — put the code there and import it with

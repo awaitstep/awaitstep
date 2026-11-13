@@ -251,7 +251,7 @@ describe('library routes', () => {
     const gus = await (await call('u-gus', `/library/items/${id}`)).json()
     expect(gus.viewerCan.edit).toEqual({
       allowed: false,
-      reason: 'From the project’s library. Only project members change it',
+      reason: 'From the project’s scripts & nodes. Only project members change it',
     })
     const project = await (await call('u-gus', `/library/summary?projectId=p-101`)).json()
     expect(project.own).toMatchObject([{ id }])

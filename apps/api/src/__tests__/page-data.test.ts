@@ -123,6 +123,7 @@ describe('page summaries', () => {
       'deployCount',
       'lastSuccessfulDeploy',
       'latestDeploy',
+      'libraryUpdates',
       'runs',
       'versionCount',
     ])

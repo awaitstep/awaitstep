@@ -35,6 +35,8 @@ export function buildNodeRegistry(data: RegistryFile): AppNodeRegistry {
       if (!byProvider) return undefined
       return provider ? byProvider.get(provider) : byProvider.values().next().value
     },
+    // The node's node.json runtime hints: its durable step's default retries and timeout.
+    getRuntime: (nodeType: string) => registry.get(nodeType)?.runtime,
   }
 
   return { registry, templateResolver, templates: data.templates }
@@ -84,6 +86,7 @@ export function createMergedNodeRegistry(
       if (!provider) return Object.values(byProvider)[0]
       return Object.hasOwn(byProvider, provider) ? byProvider[provider] : undefined
     },
+    getRuntime: (nodeType: string) => registry.get(nodeType)?.runtime,
   }
 
   return { registry, templateResolver, templates: mergedTemplates }

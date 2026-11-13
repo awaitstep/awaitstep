@@ -33,7 +33,7 @@ import { createMergedNodeRegistry } from './node-registry.js'
 import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies } from './dependencies.js'
 import { dependenciesWithLibrary, validateWithLibrary } from './library-prepare.js'
-import { foldLibrary } from './library-fold.js'
+import { foldLibrary, type BundledLibraryModule } from './library-fold.js'
 import { placeOf, resolveAndValidateEnvVars } from './env-resolve.js'
 import {
   TOO_COMPLEX,
@@ -84,6 +84,8 @@ export interface WorkflowContext {
   library: DeploymentLibraryVersion[]
   /** Bundle paths that are library code folded in, never the workflow's own files. */
   libraryPaths: readonly string[]
+  /** The library modules folded in, which the source view labels. */
+  libraryModules: BundledLibraryModule[]
 }
 
 /**
@@ -582,6 +584,7 @@ export async function prepareWorkflow(
     projectFileRows: loadedFiles.map(({ path, hash }) => ({ path, hash })),
     library: libraryFold.library,
     libraryPaths: libraryFold.paths,
+    libraryModules: libraryFold.modules,
   }
 }
 

@@ -286,7 +286,7 @@ What the project has set up, for its empty pages: `cloudflareConnected` (a conne
 
 ### <span class="api-method get">GET</span> <span class="api-endpoint">/projects/:id/shared</span> <span class="api-scope">session only</span>
 
-The project's Shared library: every workflow and function shared to it, newest share first, with `kind`, `cursor` and `limit` query parameters. Each item has `id`, `name`, `kind`, `version` (deployed, or null), `sharedAt`, `sharedBy`, `from` (its workspace: `id`, `slug`, `name`, `colour`), `usedBy`, `canOpen` (whether you can open `from`) and `unshare` (whether you may unshare it, and why not). Items from workspaces you can't open are listed too, by name only.
+The project's Workflows & functions page: every workflow and function shared to the project, newest share first, with `kind`, `cursor` and `limit` query parameters. Each item has `id`, `name`, `kind`, `version` (deployed, or null), `sharedAt`, `sharedBy`, `from` (its workspace: `id`, `slug`, `name`, `colour`), `usedBy`, `canOpen` (whether you can open `from`) and `unshare` (whether you may unshare it, and why not). Items from workspaces you can't open are listed too, by name only.
 
 ---
 

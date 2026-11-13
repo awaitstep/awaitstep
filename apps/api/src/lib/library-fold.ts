@@ -27,6 +27,15 @@ export interface CustomNodeEntry {
   template: string
 }
 
+/** A module folded into the bundle, as the workflow IDE labels its files. */
+export interface BundledLibraryModule {
+  itemId: string
+  slug: string
+  /** The workflow's workspace owns it, or the project does. */
+  owner: 'workspace' | 'project'
+  version: string
+}
+
 /** One manifest's dependencies, with who asked for them. */
 export interface DependencySource {
   label: string
@@ -44,6 +53,8 @@ export interface LibraryFold {
   paths: string[]
   /** The module slugs folded in, which the deploy manifest maps as `#modules/<slug>`. */
   moduleSlugs: string[]
+  /** The modules folded in, by slug. */
+  modules: BundledLibraryModule[]
   diagnostics: SourceDiagnostic[]
 }
 
@@ -101,6 +112,7 @@ export async function foldLibrary(
     library: [],
     paths: [],
     moduleSlugs: [],
+    modules: [],
     diagnostics: [],
   }
   if (roots.slugs.length === 0 && roots.nodeItemIds.length === 0) return none
@@ -247,6 +259,21 @@ export async function foldLibrary(
     }
   }
 
+  const modules: BundledLibraryModule[] = items
+    .filter(
+      (item) =>
+        item.kind === 'module' &&
+        item.version !== null &&
+        folded.some((f) => f.path.startsWith(libraryBundlePath(item.slug, ''))),
+    )
+    .map((item) => ({
+      itemId: item.id,
+      slug: item.slug,
+      owner: item.workspaceId === null ? ('project' as const) : ('workspace' as const),
+      version: item.version!,
+    }))
+    .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
+
   return {
     ir:
       folded.length === 0
@@ -256,13 +283,8 @@ export async function foldLibrary(
     dependencySources,
     library,
     paths: folded.map((file) => file.path),
-    moduleSlugs: [
-      ...new Set(
-        items
-          .filter((item) => folded.some((f) => f.path.startsWith(libraryBundlePath(item.slug, ''))))
-          .map((item) => item.slug),
-      ),
-    ].sort(),
+    moduleSlugs: modules.map((module) => module.slug),
+    modules,
     diagnostics,
   }
 }

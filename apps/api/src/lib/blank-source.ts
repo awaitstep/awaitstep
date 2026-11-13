@@ -20,6 +20,7 @@ export interface BlankSource {
   primary: null
   files: { path: string; source: string; role: string; hash: string }[]
   manifest: null
+  library: []
   requirements: []
   diagnostics: SourceDiagnostic[]
 }
@@ -84,6 +85,7 @@ export async function readBlankSource(
     primary: null,
     files: bundled.map((file) => ({ ...file, hash: contentHash(file.source) })),
     manifest: null,
+    library: [],
     requirements: [],
     diagnostics: await projectFileDiagnostics(bundled),
   }

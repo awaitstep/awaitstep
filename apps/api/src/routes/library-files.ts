@@ -62,6 +62,28 @@ libraryFiles.get('/items/:id/project', async (c) => {
   })
 })
 
+/**
+ * A node's icon.svg as an image, for `<img>` on the Scripts & nodes page.
+ * The SVG was checked on write (`libraryIconError`) and is checked again
+ * here; it is served under a policy that runs nothing and loads nothing,
+ * so opening the URL directly cannot run script on this origin.
+ */
+libraryFiles.get('/items/:id/icon', async (c) => {
+  const found = c.get('libraryItem')!
+  if (found.item.kind !== 'node') return c.json({ error: 'Not found' }, 404)
+  const file = await c.get('db').getLibraryFile(found.item.id, LIBRARY_NODE_ICON_PATH)
+  if (!file || libraryIconError(file.source)) return c.json({ error: 'Not found' }, 404)
+  const tag = etag(file.hash)
+  if (c.req.header('If-None-Match') === tag) return c.body(null, 304)
+  return c.body(file.source, 200, {
+    'Content-Type': 'image/svg+xml',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    'X-Content-Type-Options': 'nosniff',
+    'Cache-Control': 'private, max-age=86400',
+    ETag: tag,
+  })
+})
+
 libraryFiles.get('/items/:id/files/:path{.+}', async (c) => {
   const db = c.get('db')
   const found = c.get('libraryItem')!

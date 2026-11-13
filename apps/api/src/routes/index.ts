@@ -45,6 +45,7 @@ import { providers } from './providers.js'
 import { versions } from './versions.js'
 import { source } from './source.js'
 import { projectFiles } from './project-files.js'
+import { workflowCustomNodes } from './workflow-custom-nodes.js'
 import { createConnectionRoutes } from './connections.js'
 import {
   createCloudflareOAuthRoutes,
@@ -263,6 +264,8 @@ export function createRouter(
   router.use('/workflows/:workflowId/source/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/project/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/files/*', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/custom-nodes', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/custom-nodes/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-config/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deploy-connections', requireWorkflowAccess)
@@ -418,12 +421,14 @@ export function createRouter(
     '/library/items/:id/versions',
     '/library/items/:id/versions/:version',
     '/library/items/:id/usages',
+    '/library/items/:id/icon',
   ]) {
     router.get(path, key('library', 'read'))
   }
   router.post('/library/items/:id/check', key('library', 'read'))
   router.post('/library/items', key('library', 'write'))
   router.post('/library/items/:id/duplicate', key('library', 'write'))
+  router.post('/library/items/:id/move', key('library', 'write'))
   router.patch('/library/items/:id', key('library', 'write'))
   router.put('/library/items/:id/files/*', key('library', 'write'))
   router.post('/library/items/:id/versions', key('library', 'write'))
@@ -449,6 +454,13 @@ export function createRouter(
     '/test-sessions/:sessionId/stream',
   ]) {
     router.get(path, key('workflows', 'read'))
+  }
+  // A workflow's custom nodes are Library code: a key needs to read both.
+  for (const path of [
+    '/workflows/:workflowId/custom-nodes',
+    '/workflows/:workflowId/custom-nodes/templates',
+  ]) {
+    router.get(path, key('workflows', 'read'), key('library', 'read'))
   }
   // Checks and previews: read-only by design, whatever their method.
   router.post('/workflows/:workflowId/source/check', key('workflows', 'read'))
@@ -588,6 +600,7 @@ export function createRouter(
   router.post('/api-keys', apiKeyCreateLimit)
   router.post('/library/items', writeLimit)
   router.post('/library/items/:id/duplicate', writeLimit)
+  router.post('/library/items/:id/move', writeLimit)
   router.patch('/library/items/:id', writeLimit)
   router.delete('/library/items/:id', writeLimit)
   router.post('/library/items/:id/versions', writeLimit)
@@ -651,6 +664,7 @@ export function createRouter(
   router.route('/workflows', versions)
   router.route('/workflows', source)
   router.route('/workflows', projectFiles)
+  router.route('/workflows', workflowCustomNodes)
   router.route('/workflows', deploy)
   router.route('/workflows', functionCall)
   router.route('/run', externalRun)

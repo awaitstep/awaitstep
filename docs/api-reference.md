@@ -513,7 +513,7 @@ A project the caller can't open answers `404`.
 
 ### `GET /projects/:id/shared`
 
-Session only (an API key answers `403`). The project's Shared library:
+Session only (an API key answers `403`). The project's Workflows & functions page:
 every workflow and function shared to the project, newest share first.
 Anyone who can open the project reads it, including items whose workspace
 they cannot open — the item's name and its workspace's name and colour are
@@ -747,8 +747,12 @@ shared: { out, in } }` for a workspace's Overview. People come from
   Workspace Settings' tab pills; a tab's list loads when it opens.
 - `GET /workflows/:id/summary` — `{ currentVersion, versionCount,
 lastSuccessfulDeploy, latestDeploy, deployCount, runs: { counts, total,
-byHour } }` for a workflow page's band, header and tabs. The full versions,
-  deployments and runs lists stay on their own tabs.
+byHour }, libraryUpdates }` for a workflow page's band, header and tabs. The full versions,
+  deployments and runs lists stay on their own tabs. `libraryUpdates` lists
+  each library item an account's live deployment bundled at an older version
+  than the latest published one, one entry per item and account:
+  `{ itemId, name, kind, latest, runs, accountId, accountName }`. The next
+  deploy to that account bundles `latest`.
 - `GET /resources/counts?org=` — `{ installedNodes, variables }` for
   Resources' two tab pills.
 
@@ -1243,7 +1247,13 @@ The array is empty for a healthy workflow and always present. Only a
 failure that leaves no source to return — generation itself throwing — is
 still an error response, and it carries the diagnostics collected before it.
 
-Returns `{ versionId, entry, primary, files, requirements, manifest, diagnostics }`.
+Returns `{ versionId, entry, primary, files, requirements, manifest, library, diagnostics }`.
+
+`library` lists the Library modules folded in under `modules/<slug>/`, each
+at the published version this bundle carries:
+`[{ itemId, slug, owner: "workspace" | "project", version }]`. Their
+files carry no `hash`: they are read-only here and changed in the Library.
+A module that is imported but not published is not listed; check reports it.
 
 `primary` is the file to open first — a workflow bundle's portable
 definition (`awaitstep/workflow.ts`) rather than the provider bootstrap at
@@ -1255,7 +1265,7 @@ refuses a target that cannot satisfy them.
 
 **A workflow with no saved version** (no `versionId` query and nothing saved yet) still
 answers `200`: there is no graph to generate from, so
-`{ "versionId": null, "entry": null, "primary": null, "files": [...], "manifest": null, "requirements": [], "diagnostics": [] }`
+`{ "versionId": null, "entry": null, "primary": null, "files": [...], "manifest": null, "library": [], "requirements": [], "diagnostics": [] }`
 where `files` are the project files only, each with its `hash`, and no generated
 file appears. `diagnostics` still judges those files (a file that does not parse, a
 `package.json` the write rules would refuse, an import that leaves the project), and is empty
@@ -1524,7 +1534,7 @@ know whether anything changed before reading or writing.
 
 **Permission:** `workflows:read`
 
-Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "awaitstep/**", "modules/**", "wrangler.*"], rootConfigFiles, extensions, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }], version: { id, graphHash } | null }`. `version` is the latest version's identity (see `GET /workflows/:id/full`), so one poll also notices a save made elsewhere; it is `null` while the workflow has no version.
+Returns `{ importPrefix: "#app/", generated: ["worker.*", "nodes/**", "awaitstep/**", "modules/**", "wrangler.*"], rootConfigFiles, extensions, library: { importPrefix: "#modules/", bundleDir: "modules/" }, limits: { maxFiles, maxFileBytes, maxTotalBytes }, files: [{ path, hash, size, updatedAt }], version: { id, graphHash } | null }`. `version` is the latest version's identity (see `GET /workflows/:id/full`), so one poll also notices a save made elsewhere; it is `null` while the workflow has no version.
 
 ### `GET /workflows/:workflowId/files/:path`
 
@@ -1630,13 +1640,17 @@ Returns:
 {
   "own": [Row],
   "fromProject": [Row],
-  "marketplace": [{ "nodeId", "name", "version" }],
+  "marketplace": [{ "nodeId", "name", "version", "icon" }],
   "counts": { "module", "node", "marketplace" },
-  "viewerCan": { "create": { "allowed", "reason?" } }
+  "viewerCan": { "create": { "allowed", "reason?" }, "toProject": { "allowed", "reason?" } }
 }
 ```
 
-- `Row` is `{ id, kind, slug, name, description, owner: { kind, id, name }, latestVersion, publishedAt, usedBy, updatedAt }`.
+- `viewerCan.toProject` says whether the caller may copy or move the workspace's items to the project's library. It needs a project member, never a workspace key, and is refused in the project view.
+
+- `Row` is `{ id, kind, slug, name, description, owner: { kind, id, name }, latestVersion, publishedAt, usedBy, updatedAt, iconHash }`.
+- `iconHash` is the content hash of a node's `icon.svg` (working copy), or `null` without one; `GET /library/items/:id/icon?v=<iconHash>` serves it.
+- A marketplace row's `icon` is the logo URL from the node's definition, or `null`.
 - `latestVersion` is `null` for a draft that was never published.
 - In a workspace view, `own` is the workspace's items and `fromProject` is the project's. In the project view, `own` is the project's items and `fromProject` is empty.
 - `marketplace` lists the organization's installed nodes and appears in the project view only.
@@ -1703,11 +1717,11 @@ Each refusal is `409`:
 
 ### `POST /library/items/:id/duplicate`
 
-Copies the item into a new one beside it, with the same owner and kind. The copy starts unpublished at `1.0.0`.
+Copies the item into a new one beside it, with the same owner and kind, or into the project's library. The copy starts unpublished at `1.0.0`.
 
 **Permission:** `library:write`
 
-Body: `{ name, slug? }`. `slug` defaults to the name, slugified.
+Body: `{ name, slug?, to? }`. `slug` defaults to the name, slugified. With `to: "project"` the copy goes to the project's library: the caller must also be a project member, and a workspace key is refused (`403`). On an item the project already owns, `to` changes nothing.
 
 | Kind     | What is copied                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1715,6 +1729,22 @@ Body: `{ name, slug? }`. `slug` defaults to the name, slugified.
 | `node`   | The newest code: the open draft folder, otherwise the latest published version. It goes into `1.0.0/`, with `node.json` taking the new slug as `id`, the new name and version `1.0.0`. The icon comes along. |
 
 Returns `201` with the new item. A slug already used for that kind by the same owner is `409`. A full library is `422`.
+
+### `POST /library/items/:id/move`
+
+Moves a workspace's item to the project's library. It stays the same item, with the same id, versions and history. Workflows that place it and code that imports it keep working, and every workspace in the project can use it.
+
+**Permission:** `library:write`. The caller must be an Editor of the item's workspace and a project member. A workspace key is refused (`403`).
+
+Body: `{ "to": "project" }`.
+
+Returns `200` with the item, now owned by the project.
+
+| Status | When                                                                                                                         |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `409`  | The project already owns it, or the project's library has an item of that kind and slug.                                     |
+| `409`  | It imports modules only its workspace has: `{ error, slugs }`. A project item can't reach them, so move those modules first. |
+| `422`  | The project's library is full.                                                                                               |
 
 ### `DELETE /library/items/:id`
 
@@ -1818,6 +1848,14 @@ Copies a version's code into the working copy as the next patch after the latest
 - **Node:** a new unpublished folder is created. Any open one is replaced, and `node.json` carries the new version.
 
 Returns `{ restoredFrom, version }`.
+
+### `GET /library/items/:id/icon`
+
+A node's `icon.svg` (its working copy) as an image, for `<img>`. `404` for a module, a node without an icon, or an item the caller cannot open.
+
+**Permission:** `library:read`
+
+Responds `image/svg+xml` with `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox`, `X-Content-Type-Options: nosniff`, an `ETag` (`If-None-Match` answers `304`) and `Cache-Control: private, max-age=86400`. Add `?v=<iconHash>` from the summary so an edited icon is fetched again.
 
 ### `GET /library/items/:id/usages`
 
@@ -3023,6 +3061,38 @@ Get a single node definition.
 | Param    | In   | Required | Description  |
 | -------- | ---- | -------- | ------------ |
 | `nodeId` | path | yes      | Node type ID |
+
+### `GET /workflows/:workflowId/custom-nodes`
+
+The Library custom nodes this workflow can place: its workspace's and its
+project's nodes that have a published version, each at its latest version.
+Unpublished nodes and other workspaces' nodes are never listed. A workspace
+API key gets its workspace's own nodes only, not the project's, as on every
+Library route. `GET /nodes` stays organization-wide and does not include them.
+
+**Permission:** `workflows:read` and `library:read`
+
+Returns `[{ itemId, owner: "workspace" | "project", version, definition }]`.
+`definition` is the version's `node.json` with its defaults filled in, its
+`id` set to `custom:<itemId>` (the node type a workflow's IR uses), and
+`icon`, when the node has an `icon.svg`, as a `data:image/svg+xml;base64,` URL.
+A version whose `node.json` no longer parses is left out.
+
+### `GET /workflows/:workflowId/custom-nodes/templates`
+
+The templates of the custom nodes named in `types`, by node type, in the
+shape `GET /nodes/templates` uses:
+`{ "custom:<itemId>": { "cloudflare": "<template.ts>" } }`. Only nodes the
+listing above would return come back; anything else named is left out.
+
+**Permission:** `workflows:read` and `library:read`
+
+| Param        | In    | Required | Description                                                             |
+| ------------ | ----- | -------- | ----------------------------------------------------------------------- |
+| `workflowId` | path  | yes      | Workflow ID                                                             |
+| `types`      | query | no       | Comma-separated `custom:<itemId>` types, at most 100; none returns `{}` |
+
+More than 100 types returns `400`.
 
 ---
 

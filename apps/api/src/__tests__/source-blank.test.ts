@@ -54,6 +54,7 @@ describe('the source of a workflow with no saved version (mock database)', () =>
       primary: null,
       files: [],
       manifest: null,
+      library: [],
       requirements: [],
       diagnostics: [],
     })

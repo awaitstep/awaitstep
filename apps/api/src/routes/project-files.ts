@@ -8,6 +8,8 @@ import {
 } from '@awaitstep/codegen'
 import {
   GENERATED_PATH_RULES,
+  LIBRARY_BUNDLE_DIR,
+  LIBRARY_MODULE_IMPORT_PREFIX,
   MAX_PROJECT_FILES,
   MAX_PROJECT_FILE_BYTES,
   MAX_PROJECT_TOTAL_BYTES,
@@ -50,6 +52,9 @@ const CONVENTIONS = {
   generated: GENERATED_PATH_RULES,
   rootConfigFiles: PROJECT_ROOT_CONFIG_FILES,
   extensions: PROJECT_FILE_EXTENSIONS,
+  // Library modules are imported by slug and bundled under this folder at
+  // their latest published version; the folder is not the workflow's to write.
+  library: { importPrefix: LIBRARY_MODULE_IMPORT_PREFIX, bundleDir: `${LIBRARY_BUNDLE_DIR}/` },
   limits: {
     maxFiles: MAX_PROJECT_FILES,
     maxFileBytes: MAX_PROJECT_FILE_BYTES,

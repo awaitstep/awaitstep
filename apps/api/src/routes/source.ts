@@ -83,6 +83,9 @@ source.get('/:workflowId/source', async (c) => {
       projectPaths.has(f.path) ? { ...f, hash: contentHash(f.source) } : f,
     ),
     manifest: prepared.bundle.manifest ?? null,
+    // The library modules under `modules/<slug>/`, each at the published
+    // version this bundle carries: read-only here, edited in the Library.
+    library: prepared.libraryModules,
     // What the workflow needs beyond pure orchestration, so a client can
     // warn about a provider-specific workflow before a deploy.
     requirements: prepared.requirements,

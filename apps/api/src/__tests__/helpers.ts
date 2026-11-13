@@ -2229,6 +2229,7 @@ const mockDb: DatabaseAdapter = {
         updatedAt: '2026-01-01T00:00:00.000Z',
       },
       organizationId: TEST_ORG_ID,
+      projectName: 'Default',
       owner: { kind: 'workspace' as const, id: TEST_WORKSPACE_ID, name: 'Default' },
       latestVersion: null,
       latestSeq: 0,
@@ -2242,6 +2243,9 @@ const mockDb: DatabaseAdapter = {
   },
   async updateLibraryItem() {
     return notMocked('updateLibraryItem')
+  },
+  async moveLibraryItemToProject() {
+    return notMocked('moveLibraryItemToProject')
   },
   async deleteLibraryItemIfUnused() {
     return notMocked('deleteLibraryItemIfUnused')
@@ -2311,6 +2315,12 @@ const mockDb: DatabaseAdapter = {
   },
   async resolveLibraryBundle() {
     return { items: [], truncated: false, oversize: false }
+  },
+  async listWorkflowCustomNodes() {
+    return []
+  },
+  async listWorkflowCustomNodeTemplates() {
+    return []
   },
   async getLibraryUsages() {
     return notMocked('getLibraryUsages')
