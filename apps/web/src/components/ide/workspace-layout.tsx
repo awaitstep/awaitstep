@@ -193,7 +193,7 @@ export function WorkspaceLayout({
 
   const view = (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
-      <SearchRunner files={files} projectPaths={projectPaths} />
+      <SearchRunner files={files} projectPaths={projectPaths} libraryPaths={data.libraryPaths} />
       <IdeHeader
         workflowId={workflowId}
         workflowName={fullData.workflow.name}
@@ -235,6 +235,7 @@ export function WorkspaceLayout({
                     <FileExplorer
                       tabs={<SideBarTabs view="explorer" />}
                       project={trees.project}
+                      library={trees.library}
                       generated={trees.generated}
                       dirty={dirty}
                       unsavedPaths={reviewOrder(dirty)}
@@ -269,6 +270,7 @@ export function WorkspaceLayout({
                   files={files}
                   dirty={dirty}
                   editabilityOf={editabilityOf}
+                  libraryFiles={data.libraryFiles}
                   onChange={handleEditorChange}
                   onRevertFile={handleRevertFile}
                   virtualPaths={virtualPaths}

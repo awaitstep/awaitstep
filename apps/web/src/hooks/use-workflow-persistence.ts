@@ -1,3 +1,5 @@
+import type { WorkflowNode } from '@awaitstep/ir'
+import { stepCodeErrorsMessage, stepsWithCodeErrors } from '../stores/step-code-errors-store'
 import { useCallback, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { actionToast, failureLine } from '../lib/action-toast'
@@ -209,6 +211,15 @@ export function useWorkflowPersistence(opts: {
     [markClean, queryClient, workflowId, setWorkflowId, isNew, scope, setRefusal],
   )
 
+  // A step whose code Monaco shows errors in holds the save back, named in a
+  // toast, as Code's Save holds back a file with errors.
+  function holdsCodeErrors(nodes: { data: { irNode: WorkflowNode } }[]): boolean {
+    const held = stepsWithCodeErrors(nodes.map((n) => n.data.irNode))
+    if (held.length === 0) return false
+    actionToast.error(stepCodeErrorsMessage(held))
+    return true
+  }
+
   const saveMutation = useMutation({
     // The toolbar's save status keeps the reason too, but only on hover and
     // only from a wide screen, so the toast carries it as well.
@@ -248,6 +259,7 @@ export function useWorkflowPersistence(opts: {
       return false
     }
     const state = useWorkflowStore.getState()
+    if (holdsCodeErrors(state.nodes)) return false
     const settings = {
       workflowEnvVars: state.workflowEnvVars,
     }
@@ -288,6 +300,8 @@ export function useWorkflowPersistence(opts: {
   const saveSilent = useCallback(async (): Promise<AutoSaveOutcome> => {
     if (isConflicted()) return 'conflict'
     const state = useWorkflowStore.getState()
+    // Code that would not compile is not saved, even in the background; Save says why.
+    if (stepsWithCodeErrors(state.nodes.map((n) => n.data.irNode)).length > 0) return 'skipped'
     const result = validateWorkflowForPublish(
       state.metadata,
       state.nodes,
@@ -354,6 +368,7 @@ export function useWorkflowPersistence(opts: {
       return
     }
     if (isDirty || isNew) {
+      if (holdsCodeErrors(useWorkflowStore.getState().nodes)) return
       // Deploying would first save this canvas over Code's version.
       if (isConflicted()) {
         actionToast.error(SAVE_CONFLICT_MESSAGE)

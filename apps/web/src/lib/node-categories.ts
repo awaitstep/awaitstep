@@ -1,4 +1,4 @@
-import type { Category } from '@awaitstep/ir'
+import { CUSTOM_NODE_TYPE_PREFIX, type Category } from '@awaitstep/ir'
 import {
   Blocks,
   MessageSquare,
@@ -120,4 +120,32 @@ export function filterNodes<T extends { name: string; description: string; tags?
       item.description.toLowerCase().includes(lower) ||
       item.tags?.some((t) => t.toLowerCase().includes(lower)),
   )
+}
+
+/** One group of the Add node palette. */
+export interface PaletteGroup<T> {
+  key: SuperCategory | 'custom'
+  label: string
+  nodes: T[]
+}
+
+/** A Library custom node's type: `custom:<itemId>`. */
+export function isCustomNodeType(id: string): boolean {
+  return id.startsWith(CUSTOM_NODE_TYPE_PREFIX)
+}
+
+/**
+ * The palette's groups: the workflow's Library custom nodes first, as one
+ * group whatever their category, then the rest by category.
+ */
+export function paletteGroups<T extends { id: string; category: string }>(
+  items: T[],
+): PaletteGroup<T>[] {
+  const custom = items.filter((item) => isCustomNodeType(item.id))
+  const groups: PaletteGroup<T>[] =
+    custom.length > 0 ? [{ key: 'custom', label: 'Custom nodes', nodes: custom }] : []
+  for (const [key, nodes] of groupByCategory(items.filter((item) => !isCustomNodeType(item.id)))) {
+    groups.push({ key, label: getSuperCategoryMeta(key).label, nodes })
+  }
+  return groups
 }

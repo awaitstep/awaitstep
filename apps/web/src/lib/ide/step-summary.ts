@@ -1,4 +1,4 @@
-import type { StepConfig } from '@awaitstep/ir'
+import { isBuiltinNodeType, type RuntimeHints, type StepConfig } from '@awaitstep/ir'
 import { appliedStepSettings } from '@awaitstep/codegen'
 import type { RunStep, VersionSummary } from '../api-client'
 import { formatDurationMs } from '../time'
@@ -58,6 +58,13 @@ export interface StepSettings {
 export interface StepSettingsOptions {
   /** `'script'` for a function, whose steps run on the in-request host. */
   kind?: 'workflow' | 'script'
+  /** A template node's node.json runtime hints: its default retries and timeout. */
+  runtime?: RuntimeHints
+}
+
+/** A step, or a custom or marketplace node: Inline when switched to run with no step. */
+function runsInline(node: SummaryNode): boolean {
+  return (node.type === 'step' || !isBuiltinNodeType(node.type)) && node.data.inline === true
 }
 
 /**
@@ -70,15 +77,18 @@ export interface StepSettingsOptions {
  * In a function a step runs on the in-request host, which retries and times
  * out only when asked — so an unset policy reads as none, not as a default —
  * and the other node kinds run without a step boundary at all. A durable HTTP
- * node is a step there too, so its policy reads the same way.
+ * node is a step there too, as is a custom or marketplace node that is not
+ * Inline, so their policies read the same way.
  */
 export function stepSettings(node: SummaryNode, options?: StepSettingsOptions): StepSettings {
-  if (node.type === 'step' && node.data.inline === true) {
+  if (runsInline(node)) {
     return { retries: 'Not used — runs inline', timeout: 'Not used — runs inline' }
   }
-  const applied = appliedStepSettings(node)
+  const applied = appliedStepSettings(node, options?.runtime)
   const runsAsStep =
-    node.type === 'step' || (node.type === 'http_request' && node.data.durable === true)
+    node.type === 'step' ||
+    !isBuiltinNodeType(node.type) ||
+    (node.type === 'http_request' && node.data.durable === true)
   if (options?.kind === 'script') {
     if (!runsAsStep) {
       const unused = 'Not used in a function'
@@ -163,7 +173,7 @@ export interface NodeMetaOptions {
 /** A short line for the Steps list: "retries 3", or "timeout 30s", or nothing. */
 export function stepMeta(node: SummaryNode, options?: StepSettingsOptions): string | null {
   const settings = stepSettings(node, options)
-  const applied = appliedStepSettings(node)
+  const applied = appliedStepSettings(node, options?.runtime)
   const parts: string[] = []
   const limit = applied.config?.retries?.limit
   if (limit !== undefined && settings.retries !== null && !settings.retries.startsWith('Not')) {

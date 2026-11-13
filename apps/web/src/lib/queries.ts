@@ -28,6 +28,23 @@ export function createQueries(client: ApiClient) {
           queryFn: () => client.getWorkflowFull(workflowId, versionId),
           retry: false,
         }),
+      // Always stale, so coming back to the tab refetches: a node published in
+      // the Library tab shows up (the 30s default would hide it).
+      customNodes: (workflowId: string) =>
+        queryOptions({
+          queryKey: ['workflow-custom-nodes', workflowId] as const,
+          queryFn: () => client.listWorkflowCustomNodes(workflowId),
+          staleTime: 0,
+          refetchOnWindowFocus: true,
+        }),
+      /** `types`: the `custom:<itemId>` types the graph places, sorted. */
+      customNodeTemplates: (workflowId: string, types: readonly string[]) =>
+        queryOptions({
+          queryKey: ['workflow-custom-node-templates', workflowId, types] as const,
+          queryFn: () => client.getWorkflowCustomNodeTemplates(workflowId, types),
+          staleTime: 0,
+          refetchOnWindowFocus: true,
+        }),
       source: (workflowId: string, versionId?: string) =>
         queryOptions({
           queryKey: ['workflow-source', workflowId, versionId] as const,

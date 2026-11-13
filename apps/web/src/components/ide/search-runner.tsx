@@ -9,6 +9,8 @@ interface SearchRunnerProps {
   files: ReadonlyMap<string, GeneratedFile>
   /** Which of those files the project owns; the rest is generated. */
   projectPaths: ReadonlySet<string>
+  /** Library modules' files: searched always, listed as Library. */
+  libraryPaths?: ReadonlySet<string>
 }
 
 /**
@@ -16,14 +18,17 @@ interface SearchRunnerProps {
  * results follow your edits even with the side bar hidden. The Search view
  * only displays them.
  */
-export function SearchRunner({ files, projectPaths }: SearchRunnerProps) {
+export function SearchRunner({ files, projectPaths, libraryPaths }: SearchRunnerProps) {
   const includeGenerated = useIdeSearchStore((s) => s.includeGenerated)
   // Generated files are left out of the request, not just the list: the
-  // worker is sent less to copy and less to read.
+  // worker is sent less to copy and less to read. Library code is code you
+  // import, so it is searched whether or not generated files are.
   const searchable = useMemo(
     () =>
-      toSearchFiles(files.values(), projectPaths).filter((f) => includeGenerated || !f.generated),
-    [files, projectPaths, includeGenerated],
+      toSearchFiles(files.values(), projectPaths, libraryPaths).filter(
+        (f) => includeGenerated || !f.generated || f.library,
+      ),
+    [files, projectPaths, libraryPaths, includeGenerated],
   )
   useWorkspaceSearch(searchable)
   return null

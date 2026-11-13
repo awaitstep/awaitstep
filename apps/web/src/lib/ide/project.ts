@@ -23,26 +23,55 @@ import {
 } from '@awaitstep/ir'
 import { basename, dirname, normalizeBundlePath } from './file-tree'
 
-export type FileOwner = 'project' | 'generated' | 'step'
+export type FileOwner = 'project' | 'library' | 'generated' | 'step'
 
 export interface WorkspaceFiles {
   project: GeneratedFile[]
+  /** Library modules the bundle carries: read-only, changed in the Library. */
+  library: GeneratedFile[]
   generated: GeneratedFile[]
 }
 
-/** Partitions the loaded bundle into what the project owns and what the canvas generated. */
+const NO_PATHS: ReadonlySet<string> = new Set()
+
+/** Partitions the loaded bundle into what the project owns, the Library's modules and what the canvas generated. */
 export function splitWorkspaceFiles(
   files: Iterable<GeneratedFile>,
   projectPaths: ReadonlySet<string>,
+  libraryPaths: ReadonlySet<string> = NO_PATHS,
 ): WorkspaceFiles {
-  const split: WorkspaceFiles = { project: [], generated: [] }
+  const split: WorkspaceFiles = { project: [], library: [], generated: [] }
   for (const file of files) {
     // A step's module is emitted at the step's own path, which the explorer
     // already shows as the step's source; the bundle copy is not listed twice.
     if (isStepSourcePath(file.path) && !projectPaths.has(file.path)) continue
-    split[projectPaths.has(file.path) ? 'project' : 'generated'].push(file)
+    const group = projectPaths.has(file.path)
+      ? 'project'
+      : libraryPaths.has(file.path)
+        ? 'library'
+        : 'generated'
+    split[group].push(file)
   }
   return split
+}
+
+/**
+ * The bundle paths that are Library code, each with the module it belongs
+ * to: the files under `modules/<slug>/` of a module the source lists.
+ */
+export function libraryFilesOf<M extends { slug: string }>(
+  paths: Iterable<string>,
+  modules: readonly M[],
+): Map<string, M> {
+  const byPath = new Map<string, M>()
+  if (modules.length === 0) return byPath
+  const bySlug = new Map(modules.map((module) => [module.slug, module]))
+  for (const path of paths) {
+    const match = /^modules\/([^/]+)\//.exec(path)
+    const module = match ? bySlug.get(match[1]!) : undefined
+    if (module) byPath.set(path, module)
+  }
+  return byPath
 }
 
 /**
@@ -65,6 +94,8 @@ export interface OwnerSets {
   projectPaths: ReadonlySet<string>
   /** The paths with a row in the project-file table. */
   storedPaths: ReadonlySet<string>
+  /** Library modules' files in the bundle. */
+  libraryPaths?: ReadonlySet<string>
 }
 
 /**
@@ -77,7 +108,8 @@ export interface OwnerSets {
  */
 export function fileOwner(path: string, sets: OwnerSets): FileOwner {
   if (isStepSourcePath(path) && !sets.storedPaths.has(path)) return 'step'
-  return sets.projectPaths.has(path) ? 'project' : 'generated'
+  if (sets.projectPaths.has(path)) return 'project'
+  return sets.libraryPaths?.has(path) ? 'library' : 'generated'
 }
 
 interface LegacySettings {
@@ -149,7 +181,7 @@ export function newFileError(raw: string, existing: Iterable<string>): string | 
   return projectHandlersConflict(path, paths)
 }
 
-export type ExplorerSection = 'project' | 'generated'
+export type ExplorerSection = 'project' | 'library' | 'generated'
 
 export interface ExplorerSelection {
   path: string
@@ -175,7 +207,7 @@ export function resolveTargetFolder(input: {
 }): string {
   const { selected, activePath, projectPaths } = input
   if (selected) {
-    if (selected.section === 'generated' || inStepFolder(selected.path)) return ''
+    if (selected.section !== 'project' || inStepFolder(selected.path)) return ''
     return selected.kind === 'dir' ? selected.path : dirname(selected.path)
   }
   return activePath && projectPaths.has(activePath) && !inStepFolder(activePath)

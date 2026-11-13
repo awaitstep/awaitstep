@@ -10,6 +10,7 @@ import {
   type WorkflowNode,
 } from '@awaitstep/ir'
 import { outputFieldToType } from '@awaitstep/codegen'
+import { nodeIdsByVarName } from './upstream'
 
 /** Expression refs share the parser's WORD charset — ids outside it (e.g.
  * hyphenated imports) exist but cannot be referenced. */
@@ -198,6 +199,7 @@ export interface ExpressionIssue {
  */
 export function analyzeIssues(text: string, ctx: ExpressionEditorContext): ExpressionIssue[] {
   const allIds = new Set(ctx.nodes.map((n) => n.id))
+  const idByName = nodeIdsByVarName(ctx.nodes)
   const issues: ExpressionIssue[] = []
   for (const span of scanExpressions(text)) {
     const spanText = text.slice(span.start, span.end)
@@ -206,6 +208,7 @@ export function analyzeIssues(text: string, ctx: ExpressionEditorContext): Expre
       ctx.nodeId,
       ctx.upstream as Set<string>,
       allIds,
+      idByName,
     )) {
       issues.push({ start: span.start, end: span.end, message: error.message })
     }

@@ -1,3 +1,6 @@
+/** Where the API is served, relative to the app's own origin. */
+export const API_BASE = '/api'
+
 /**
  * One encoded path segment. An empty value, `.` and `..` are refused: an empty
  * one drops its segment, and encoding leaves dots alone, which the URL parser

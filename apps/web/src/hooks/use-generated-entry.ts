@@ -45,7 +45,8 @@ export function useGeneratedEntry(): GeneratedEntry {
         runtimeProvider: s.runtimeProvider,
       })),
     )
-  const templateResolver = useNodeTemplates()
+  const nodeTypes = useMemo(() => nodes.map((node) => node.data.irNode.type), [nodes])
+  const templateResolver = useNodeTemplates(nodeTypes)
 
   return useMemo<GeneratedEntry>(() => {
     if (nodes.length === 0) return { path: null, source: null, error: null }

@@ -55,6 +55,14 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
   // The API calls the newest live deploy when no account is named.
   const notCallable = workflow.kind === 'script' && overview.live[0]?.callable === false
   const liveVersionIds = new Set(overview.live.flatMap((l) => (l.versionId ? [l.versionId] : [])))
+  // Redeploy what that account runs: the deploy then bundles the latest Library
+  // code. None where a deploy would be refused: a locked live version, or an
+  // account Deploy no longer offers.
+  function redeployHref(accountId: string): string | undefined {
+    if (overview.lockedOn(accountId) || !overview.offeredIds.has(accountId)) return undefined
+    const versionId = overview.live.find((l) => l.id === accountId)?.versionId
+    return versionId ? links.deployVersion(versionId, accountId) : links.deploy
+  }
 
   return (
     <>
@@ -64,6 +72,8 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
         live={live}
         latest={latest}
         runs24h={runs24h}
+        libraryUpdates={overview.summary?.libraryUpdates}
+        {...(canDeploy && { redeployHref })}
       />
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">

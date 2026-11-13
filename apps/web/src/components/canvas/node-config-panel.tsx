@@ -20,10 +20,18 @@ import { cn } from '../../lib/utils'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useShallow } from 'zustand/react/shallow'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
+import { isCustomNodeType } from '../../lib/node-categories'
+import { TemplateExecution } from './template-execution'
+import {
+  CustomNodeSourceLine,
+  CustomNodeUnavailable,
+  CustomNodesLoadFailed,
+} from './custom-node-source'
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 import type { WorkflowNode, BranchCondition } from '@awaitstep/ir'
+import { isBuiltinNodeType } from '@awaitstep/ir'
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 
@@ -110,7 +118,7 @@ function NodeConfigBody() {
     })),
   )
   const { updateNodeField, renameNode, removeNode, selectNode } = useWorkflowStore()
-  const { registry } = useNodeRegistry()
+  const { registry, customNodes, customNodesStatus } = useNodeRegistry()
   // 'collapsed' is 'fields' after a visit to the enlarged editor, so focus returns to Enlarge.
   const [editorView, setEditorView] = useState<'fields' | 'enlarged' | 'collapsed'>('fields')
   const nameId = useId()
@@ -182,6 +190,12 @@ function NodeConfigBody() {
 
   const definition = registry.get(irNode.type)
   const visuals = getNodeVisuals(irNode.type, definition?.icon)
+  const customSource = customNodes.get(irNode.type)
+  // A Library node missing from the registry: unavailable once the list is
+  // known (unpublished, or another workspace's), else still loading or failed.
+  const missingCustom = !definition && isCustomNodeType(irNode.type)
+  const unavailableCustom = missingCustom && customNodesStatus === 'ready'
+  const customUnknown = missingCustom && customNodesStatus !== 'ready'
 
   // Merged at write time by the store: a debounced edit landing after a
   // reload must not put this render's snapshot of the node back.
@@ -233,9 +247,11 @@ function NodeConfigBody() {
           </div>
           <div>
             <span className="text-sm font-semibold text-foreground">Edit node</span>
-            <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground/60">
-              {definition?.name ?? irNode.type}
-            </span>
+            {!missingCustom && (
+              <span className="ml-2 rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-muted-foreground/60">
+                {definition?.name ?? irNode.type}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -264,6 +280,9 @@ function NodeConfigBody() {
       <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
         {/* A disabled fieldset disables every control in it, so a read-only version is read-only here too. */}
         <fieldset disabled={readOnly} className="min-w-0 space-y-4">
+          {customSource && <CustomNodeSourceLine source={customSource} />}
+          {unavailableCustom && <CustomNodeUnavailable />}
+          {customUnknown && customNodesStatus === 'error' && <CustomNodesLoadFailed />}
           <Field label="Name" htmlFor={nameId}>
             <Input
               id={nameId}
@@ -350,9 +369,16 @@ function NodeConfigBody() {
                   The run pauses durably and resumes after the delay. No code, no retries.
                 </Hint>
               )}
+              {!isBuiltinNodeType(irNode.type) && (
+                <TemplateExecution
+                  node={irNode}
+                  runtime={definition.runtime}
+                  onChange={updateData}
+                />
+              )}
               <ExportFields node={irNode} kind={kind} scope={scope} onChange={updateData} />
             </>
-          ) : (
+          ) : missingCustom ? null : (
             <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
               <Info className="mt-0.5 h-3 w-3 shrink-0" />
               <span>

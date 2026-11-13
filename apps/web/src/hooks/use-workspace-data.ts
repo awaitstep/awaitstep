@@ -15,6 +15,7 @@ import {
   fileOwner,
   projectUsage,
   splitWorkspaceFiles,
+  libraryFilesOf,
   storedFiles as storedOf,
   virtualSeedFiles,
 } from '../lib/ide/project'
@@ -124,10 +125,20 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   const usage = useMemo(() => projectUsage(storedFiles.values()), [storedFiles])
   const dirty = useMemo(() => new Set(dirtyPaths(baseline, drafts)), [baseline, drafts])
   // Trees only depend on which files exist, so a keystroke never rebuilds them.
+  // The Library modules the bundle carries, by file: read-only here.
+  const libraryFiles = useMemo(
+    () => libraryFilesOf(baseline.keys(), source?.library ?? []),
+    [baseline, source],
+  )
+  const libraryPaths = useMemo(() => new Set(libraryFiles.keys()), [libraryFiles])
   const trees = useMemo(() => {
-    const split = splitWorkspaceFiles(baseline.values(), projectPaths)
-    return { project: buildFileTree(split.project), generated: buildFileTree(split.generated) }
-  }, [baseline, projectPaths])
+    const split = splitWorkspaceFiles(baseline.values(), projectPaths, libraryPaths)
+    return {
+      project: buildFileTree(split.project),
+      library: buildFileTree(split.library),
+      generated: buildFileTree(split.generated),
+    }
+  }, [baseline, projectPaths, libraryPaths])
 
   // One problem list for the dock and the status bar: server findings first,
   // since they explain the editor markers after them. A step whose path is
@@ -151,8 +162,8 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     : null
 
   const ownerOf = useMemo(
-    () => (path: string) => fileOwner(path, { projectPaths, storedPaths }),
-    [projectPaths, storedPaths],
+    () => (path: string) => fileOwner(path, { projectPaths, storedPaths, libraryPaths }),
+    [projectPaths, storedPaths, libraryPaths],
   )
 
   function editabilityOf(path: string) {
@@ -183,6 +194,8 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     usage,
     dirty,
     trees,
+    libraryFiles,
+    libraryPaths,
     problemGroups,
     problemCounts,
     savedAt,

@@ -1,3 +1,18 @@
+import { computeVarNames } from '@awaitstep/codegen'
+
+/**
+ * Node ids by the variable name generated code gives each node (codegen's
+ * own rule), so `{{sample_step.result}}` is read as the node a step's code
+ * reaches as `inputs.sample_step`.
+ */
+export function nodeIdsByVarName(
+  nodes: readonly { id: string; name: string }[],
+): Map<string, string> {
+  const byName = new Map<string, string>()
+  for (const [id, name] of computeVarNames([...nodes])) byName.set(name, id)
+  return byName
+}
+
 /**
  * Upstream sets under the same semantics codegen and expression validation
  * use: every node TOPOLOGICALLY EARLIER than a node counts as upstream (its

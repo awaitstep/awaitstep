@@ -122,7 +122,11 @@ describe('useProjectLanguageService', () => {
     )
     const options = lastCompilerOptions(fake)
     expect(options.baseUrl).toBe(workflowModelPath('wf', ''))
-    expect(options.paths).toEqual({ '#app/*': ['*'], '#awaitstep/*': ['awaitstep/*'] })
+    expect(options.paths).toEqual({
+      '#app/*': ['*'],
+      '#awaitstep/*': ['awaitstep/*'],
+      '#modules/*': ['modules/*', 'modules/*/index.ts'],
+    })
     expect(options.strict).toBe(true)
     // The JavaScript service gets the same program.
     expect(fake.javascriptDefaults.setCompilerOptions).toHaveBeenLastCalledWith(options)

@@ -43,10 +43,14 @@ import {
   type RowActions,
 } from './file-explorer-rows'
 
+const NO_NODES: TreeNode[] = []
+
 interface FileExplorerProps {
   /** The side bar's view switch, shown in the header. */
   tabs?: ReactNode
   project: TreeNode[]
+  /** Library modules the bundle carries; the section shows only when there are some. */
+  library?: TreeNode[]
   generated: TreeNode[]
   dirty: ReadonlySet<string>
   /** The unsaved files in review order, listed above the tree while there are any. */
@@ -78,6 +82,7 @@ interface FileExplorerProps {
 export function FileExplorer({
   tabs,
   project,
+  library = NO_NODES,
   generated,
   dirty,
   unsavedPaths,
@@ -155,6 +160,9 @@ export function FileExplorer({
     return flattenTreeRows(
       [
         { id: 'project', label: 'Project', nodes: project },
+        ...(library.length > 0
+          ? [{ id: 'library' as const, label: 'Scripts & nodes', nodes: library }]
+          : []),
         { id: 'generated', label: 'Generated', nodes: generated },
       ],
       collapsed,
@@ -163,7 +171,7 @@ export function FileExplorer({
         isEditable: (node) => canEdit && !virtual.has(node.path) && !isStep(node),
       },
     )
-  }, [project, generated, collapsed, create, target, canEdit, virtual, stepPaths])
+  }, [project, library, generated, collapsed, create, target, canEdit, virtual, stepPaths])
 
   const createAnchor =
     rows.find((r) => r.kind === 'dir' && r.section === 'project' && r.path === target) ??

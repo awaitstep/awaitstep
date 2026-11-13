@@ -855,3 +855,40 @@ describe('validateWorkflowForPublish', () => {
     })
   })
 })
+
+describe('expression references by node name', () => {
+  function graph(value: string) {
+    const step = makeStepNode('0of2ji3lqt72', {
+      name: 'sample step',
+      code: 'export default async function sample_step() { return { result: "ok" } }',
+    })
+    const hello = makeFlowNode({
+      id: 'h',
+      type: 'custom:abc',
+      name: 'say hello',
+      position: { x: 0, y: 100 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { name: value },
+    })
+    return validateWorkflowForPublish(
+      makeMetadata(),
+      [step, hello],
+      [makeEdge('0of2ji3lqt72', 'h')],
+    )
+  }
+
+  const expressionErrors = (value: string) =>
+    graph(value).issues.filter((i) => i.message.startsWith('Expression references'))
+
+  it('accepts the name a step’s code reads, as well as the node id', () => {
+    expect(expressionErrors('{{sample_step.result}}')).toEqual([])
+    expect(expressionErrors('{{0of2ji3lqt72.result}}')).toEqual([])
+  })
+
+  it('still refuses a name no node has', () => {
+    expect(expressionErrors('{{nope.result}}')[0]?.message).toBe(
+      'Expression references nonexistent node "nope"',
+    )
+  })
+})

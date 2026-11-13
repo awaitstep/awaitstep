@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { basename, dirname } from '../../lib/ide/file-tree'
-import type { SearchHit, SearchResults } from '../../lib/ide/search'
+import type { FileHits, SearchHit, SearchResults } from '../../lib/ide/search'
 import { flattenResults, resultKeyIntent, type ResultRow } from '../../lib/ide/search-results'
 import { cn } from '../../lib/utils'
 
@@ -28,19 +28,18 @@ export function SearchResultsList({
   const listRef = useRef<HTMLDivElement>(null)
 
   const rows = useMemo(() => flattenResults(results, collapsed), [results, collapsed])
-  // Your files, then generated ones: each a labelled group inside the tree.
+  // Your files, then Library code, then generated: each a labelled group inside the tree.
   const groups = useMemo(() => {
-    return [false, true]
-      .map((generated) => ({
-        generated,
-        hits: results.files
-          .filter((f) => f.generated === generated)
-          .reduce((sum, f) => sum + f.hits.length, 0),
-        rows: rows.filter((r) => r.generated === generated),
-      }))
-      .filter((group) => group.rows.length > 0)
+    const groupOf = new Map(results.files.map((f) => [f.path, resultGroup(f)]))
+    return RESULT_GROUPS.map((group) => ({
+      group,
+      hits: results.files
+        .filter((f) => resultGroup(f) === group)
+        .reduce((sum, f) => sum + f.hits.length, 0),
+      rows: rows.filter((r) => groupOf.get(r.path) === group),
+    })).filter((group) => group.rows.length > 0)
   }, [results, rows])
-  const hasGenerated = results.files.some((f) => f.generated)
+  const hasOthers = results.files.some((f) => f.generated)
   const tabKey = rows.some((r) => r.key === focusedKey) ? focusedKey : (rows[0]?.key ?? null)
 
   function focusRow(key: string) {
@@ -106,12 +105,8 @@ export function SearchResultsList({
       className="min-h-0 flex-1 overflow-auto pb-2"
     >
       {groups.map((group) => (
-        <div
-          key={group.generated ? 'generated' : 'yours'}
-          role="group"
-          aria-label={group.generated ? 'Generated files, read-only' : 'Your files'}
-        >
-          {hasGenerated && <SectionHeading generated={group.generated} hits={group.hits} />}
+        <div key={group.group} role="group" aria-label={GROUP_LABEL[group.group]}>
+          {hasOthers && <SectionHeading group={group.group} hits={group.hits} />}
           {group.rows.map((row) => (
             <ResultRowView
               key={row.key}
@@ -128,14 +123,35 @@ export function SearchResultsList({
   )
 }
 
-function SectionHeading({ generated, hits }: { generated: boolean; hits: number }) {
+type ResultGroup = 'yours' | 'library' | 'generated'
+
+const RESULT_GROUPS: ResultGroup[] = ['yours', 'library', 'generated']
+
+const GROUP_LABEL: Record<ResultGroup, string> = {
+  yours: 'Your files',
+  library: 'Script and node files, read-only',
+  generated: 'Generated files, read-only',
+}
+
+const GROUP_HEADING: Record<ResultGroup, string> = {
+  yours: 'Your files',
+  library: 'Scripts & nodes · read-only',
+  generated: 'Generated · read-only',
+}
+
+function resultGroup(file: FileHits): ResultGroup {
+  if (!file.generated) return 'yours'
+  return file.library ? 'library' : 'generated'
+}
+
+function SectionHeading({ group, hits }: { group: ResultGroup; hits: number }) {
   // The group carries the name for assistive tech; the heading is for the eye.
   return (
     <div
       aria-hidden="true"
       className="px-3 pb-1 pt-3 text-3xs font-semibold uppercase tracking-wider text-muted-foreground"
     >
-      {generated ? 'Generated · read-only' : 'Your files'} · {hits}
+      {GROUP_HEADING[group]} · {hits}
     </div>
   )
 }

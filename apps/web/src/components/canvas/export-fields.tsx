@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import type { WorkflowNode } from '@awaitstep/ir'
 import {
-  EXPORTABLE_NODE_TYPES,
+  isExportableNodeType,
   isExportedName,
   isExportedNode,
   isValidExportKey,
@@ -42,7 +42,7 @@ export function ExportFields({ node, kind, scope, onChange }: ExportFieldsProps)
 
   // A workflow has no response and a sleep has no value: only a function, and
   // only a kind whose value can be returned at all.
-  if (kind !== 'script' || !EXPORTABLE_NODE_TYPES.has(node.type)) return null
+  if (kind !== 'script' || !isExportableNodeType(node.type)) return null
 
   function handleExportChange(checked: boolean) {
     onChange('export', checked)

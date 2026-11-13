@@ -10,9 +10,10 @@ import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
 import { CodeEditor } from '../ui/code-editor'
 import { Label } from '../ui/label'
-import { Switch } from '../ui/switch'
 import { DynamicFields, FieldRenderer, fieldTakesId } from './dynamic-fields'
 import { ExportFields } from './export-fields'
+import { InlineSwitch } from './inline-switch'
+import { useStepCodeErrorsStore } from '../../stores/step-code-errors-store'
 
 type Kind = NonNullable<StepSettingsOptions['kind']>
 
@@ -68,7 +69,6 @@ export function StepFields({
 }: StepFieldsProps) {
   const [executionOpen, setExecutionOpen] = useState(true)
   const idBase = useId()
-  const inlineId = `${idBase}-inline`
   const inline = node.data.inline === true
   const moduleProblem = stepModuleProblem(node, scope.varName)
   const rest = Object.fromEntries(
@@ -77,6 +77,11 @@ export function StepFields({
 
   function handleCodeChange(value: string) {
     onChange('code', value)
+  }
+
+  // What Monaco found in the code, so a save can hold it back as Code's Save does.
+  function handleValidate(errors: number, text: string) {
+    useStepCodeErrorsStore.getState().record(node.id, text, errors)
   }
 
   function handleToggleExecution() {
@@ -112,6 +117,7 @@ export function StepFields({
           <CodeEditor
             value={stepCode(node)}
             onChange={handleCodeChange}
+            onValidate={handleValidate}
             debounceMs={300}
             language="typescript"
             height="160px"
@@ -173,20 +179,7 @@ export function StepFields({
         </button>
         {executionOpen && (
           <div className="mt-3 space-y-3">
-            <div className="flex items-center gap-2.5">
-              <Switch
-                id={inlineId}
-                checked={inline}
-                onCheckedChange={handleInlineChange}
-                label="Inline — no step"
-              />
-              <label htmlFor={inlineId} className="min-w-0 cursor-pointer">
-                <div className="text-xs text-foreground">Inline — no step</div>
-                <div className="text-2xs text-muted-foreground/60">
-                  Runs in the body. No retries, timeout or durability.
-                </div>
-              </label>
-            </div>
+            <InlineSwitch checked={inline} onChange={handleInlineChange} />
             {!inline && <ExportFields node={node} kind={kind} scope={scope} onChange={onChange} />}
             {!inline && (
               <div className="grid grid-cols-2 gap-2.5">
@@ -249,6 +242,11 @@ export function StepEnlargedEditor({
     onChange('code', value)
   }
 
+  // What Monaco found in the code, so a save can hold it back as Code's Save does.
+  function handleValidate(errors: number, text: string) {
+    useStepCodeErrorsStore.getState().record(node.id, text, errors)
+  }
+
   return (
     <div className="flex h-full flex-col w-[100%]">
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-3">
@@ -293,6 +291,7 @@ export function StepEnlargedEditor({
         <CodeEditor
           value={stepCode(node)}
           onChange={handleCodeChange}
+          onValidate={handleValidate}
           debounceMs={300}
           language="typescript"
           height="100%"

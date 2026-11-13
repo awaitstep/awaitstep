@@ -7,16 +7,19 @@ import { nodeTypes } from '../canvas/nodes'
 import { LabeledEdge } from '../canvas/labeled-edge'
 import type { FlowNode } from '../../stores/workflow-store'
 import { useRunOverlayStore, type StepStatus } from '../../stores/run-overlay-store'
+import { NodeRegistryProvider } from '../../contexts/node-registry-context'
 
 const edgeTypes = { smoothstep: LabeledEdge }
 
 interface RunCanvasPreviewProps {
+  /** The run's workflow: its marketplace and Library nodes draw with their own icons. */
+  workflowId?: string
   ir: string
   /** Per-node run status; node chrome reads it through the overlay store. */
   nodeStatuses?: Record<string, StepStatus>
 }
 
-export function RunCanvasPreview({ ir, nodeStatuses }: RunCanvasPreviewProps) {
+export function RunCanvasPreview({ workflowId, ir, nodeStatuses }: RunCanvasPreviewProps) {
   const setOverlay = useRunOverlayStore((s) => s.setOverlay)
   const clearOverlay = useRunOverlayStore((s) => s.clearOverlay)
 
@@ -55,21 +58,23 @@ export function RunCanvasPreview({ ir, nodeStatuses }: RunCanvasPreviewProps) {
   }, [ir])
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes as NodeTypes}
-      edgeTypes={edgeTypes}
-      fitView
-      nodesDraggable={false}
-      nodesConnectable={false}
-      elementsSelectable={false}
-      panOnDrag
-      zoomOnScroll
-      proOptions={{ hideAttribution: true }}
-      className="!bg-[oklch(0.11_0_0)]"
-    >
-      <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="oklch(0.25 0 0)" />
-    </ReactFlow>
+    <NodeRegistryProvider workflowId={workflowId}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={nodeTypes as NodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        panOnDrag
+        zoomOnScroll
+        proOptions={{ hideAttribution: true }}
+        className="!bg-[oklch(0.11_0_0)]"
+      >
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="oklch(0.25 0 0)" />
+      </ReactFlow>
+    </NodeRegistryProvider>
   )
 }

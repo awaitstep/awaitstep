@@ -18,6 +18,9 @@ export const VIEW_ONLY_MESSAGE = 'You can view this workflow but not edit it.'
 
 const EDITABLE: Editability = { readOnly: false, message: null }
 
+/** Why a Library module's file is read-only in a workflow. */
+export const LIBRARY_FILE_MESSAGE = 'From Scripts & nodes. Change it there and publish.'
+
 /** Why an older version cannot be edited; shown whichever file is open. */
 export const OLDER_VERSION_MESSAGE = 'Older versions are read-only. Open the latest to edit.'
 
@@ -41,10 +44,14 @@ export function workspaceEditability(ctx: WorkspaceContext): Editability {
 /**
  * Per-file editability: project files and step sources follow the
  * workspace (a step's code is saved as a version, like a canvas edit);
+ * Library modules are changed in the Library, never here;
  * generated files never accept edits (the canvas would overwrite them on
  * the next save) — put the code in a project file instead.
  */
 export function fileEditability(owner: FileOwner, workspace: Editability): Editability {
+  if (owner === 'library') {
+    return { readOnly: true, message: LIBRARY_FILE_MESSAGE }
+  }
   if (owner === 'generated') {
     return {
       readOnly: true,

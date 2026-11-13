@@ -101,6 +101,7 @@ function RunView({
       />
       <div className="grid items-stretch gap-[18px] lg:grid-cols-[1.15fr_1fr]">
         <RunPathCard
+          workflowId={workflowId}
           ir={telemetry.ir}
           nodeStatuses={telemetry.nodeStatuses}
           whereabouts={whereabouts}

@@ -19,6 +19,7 @@ import { NodeBase } from './node-base'
 import type { FlowNode } from '../../stores/workflow-store'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
+import { isCustomNodeType } from '../../lib/node-categories'
 import type { BranchCondition } from '@awaitstep/ir'
 
 export const StepNode = memo(function StepNode({ data, selected }: NodeProps<FlowNode>) {
@@ -248,9 +249,12 @@ export const CustomNodeComponent = memo(function CustomNodeComponent({
   selected,
 }: NodeProps<FlowNode>) {
   const node = data.irNode
-  const { registry } = useNodeRegistry()
+  const { registry, customNodesStatus } = useNodeRegistry()
   const def = registry.get(node.type)
-  const isMissing = !def
+  // A Library node reads as one; its `custom:<id>` type means nothing to a person.
+  const library = isCustomNodeType(node.type)
+  // Not in the registry: a Library node only counts as missing once its list is known.
+  const isMissing = !def && (!library || customNodesStatus === 'ready')
   const visuals = getNodeVisuals(node.type, def?.icon)
   return (
     <NodeBase
@@ -260,7 +264,7 @@ export const CustomNodeComponent = memo(function CustomNodeComponent({
       selected={selected}
       warning={isMissing}
     >
-      {node.type}
+      {library ? (isMissing ? 'Unavailable' : 'Custom node') : node.type}
     </NodeBase>
   )
 })

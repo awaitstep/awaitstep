@@ -628,3 +628,25 @@ describe('step sources', () => {
     expect(await screen.findByText('In the project root')).toBeInTheDocument()
   })
 })
+
+describe('the Library section', () => {
+  const library = buildFileTree([
+    { path: 'modules/lead-scoring/index.ts', role: 'module' },
+    { path: 'modules/lead-scoring/score.ts', role: 'module' },
+  ])
+
+  it('lists the bundled modules read-only between the project and generated files', () => {
+    setup({ library })
+    const sections = screen
+      .getAllByRole('treeitem')
+      .filter((row) => /^(Project|Scripts & nodes|Generated)/.test(row.textContent ?? ''))
+      .map((row) => row.textContent?.match(/^(Project|Scripts & nodes|Generated)/)?.[0])
+    expect(sections).toEqual(['Project', 'Scripts & nodes', 'Generated'])
+    expect(item('score.ts')).toBeInTheDocument()
+  })
+
+  it('is absent when the bundle carries no Library module', () => {
+    setup()
+    expect(screen.queryByRole('treeitem', { name: /^Scripts & nodes/ })).toBeNull()
+  })
+})

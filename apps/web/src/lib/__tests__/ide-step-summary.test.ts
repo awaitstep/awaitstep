@@ -240,6 +240,38 @@ describe('stepSettings in a function', () => {
   })
 })
 
+describe('stepSettings for a custom or marketplace node', () => {
+  const runtime = { defaultRetries: 3, defaultTimeout: '30 seconds' }
+
+  it('reads its node.json hints, as its generated step carries them', () => {
+    const custom = node({ type: 'custom:abc' })
+    expect(stepSettings(custom, { runtime })).toEqual({
+      retries: '3 retries · exponential from 5s',
+      timeout: '30s',
+    })
+    expect(stepMeta(custom, { runtime })).toBe('retries 3 · timeout 30s')
+  })
+
+  it('is a step in a function too, which retries only with hints', () => {
+    // Before: "Not used in a function", while the code ran flow.step with retries 3.
+    const custom = node({ type: 'github-issue' })
+    expect(stepSettings(custom, { kind: 'script', runtime })).toEqual({
+      retries: '3 retries · exponential from 5s',
+      timeout: '30s',
+    })
+    expect(stepSettings(custom, { kind: 'script' })).toEqual({
+      retries: 'None — runs once',
+      timeout: 'None',
+    })
+  })
+
+  it('takes no policy when Inline', () => {
+    const inline = node({ type: 'custom:abc', data: { inline: true } })
+    expect(stepSettings(inline, { runtime }).retries).toMatch(/^Not used/)
+    expect(stepMeta(inline, { runtime })).toBeNull()
+  })
+})
+
 describe('stepMeta', () => {
   it('shows what was set, and the default policy for a step', () => {
     expect(stepMeta(node())).toBe('retries 2')

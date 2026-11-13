@@ -15,6 +15,8 @@ import { useIdeStore } from '../../stores/ide-store'
 import { EditorPlaceholder } from './editor-placeholder'
 import { CompareView } from './compare-view'
 import { EditorFileBanner } from './editor-file-banner'
+import { LibraryFileBanner } from './library-file-banner'
+import type { BundledLibraryModule } from '../../lib/api-client'
 import { EmptyFileHint, ScheduleBanner } from './new-file-notices'
 import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
 import { importSpecifier } from '../../lib/ide/project'
@@ -34,6 +36,8 @@ interface EditorGroupProps {
   files: ReadonlyMap<string, GeneratedFile>
   dirty: ReadonlySet<string>
   editabilityOf: (path: string) => Editability
+  /** Library modules' files in the bundle, each with its module. */
+  libraryFiles?: ReadonlyMap<string, BundledLibraryModule>
   onChange: (path: string, source: string) => void
   /** Drops one file's unsaved edits (the tab menu's Revert file). */
   onRevertFile: (path: string) => void
@@ -57,6 +61,7 @@ export function EditorGroup({
   files,
   dirty,
   editabilityOf,
+  libraryFiles,
   onChange,
   onRevertFile,
   virtualPaths,
@@ -100,6 +105,7 @@ export function EditorGroup({
   const activeFilePath = filePathOfTab(activePath)
   const activeFile = activeFilePath ? files.get(activeFilePath) : undefined
   const editability = activeFilePath ? editabilityOf(activeFilePath) : null
+  const activeLibraryModule = activeFilePath ? libraryFiles?.get(activeFilePath) : undefined
   const activeKind = activePath ? tabKind(activePath) : null
 
   // A reveal lands once the editor shows the requested file and the wrapper
@@ -215,7 +221,10 @@ export function EditorGroup({
         </div>
         <RunButton {...run} />
       </div>
-      {activeFile && editability && (
+      {activeLibraryModule && activeFile && (
+        <LibraryFileBanner path={activeFile.path} module={activeLibraryModule} />
+      )}
+      {activeFile && editability && !activeLibraryModule && (
         <EditorFileBanner
           path={activeFile.path}
           editability={editability}

@@ -292,3 +292,29 @@ describe('formatHitCount', () => {
     expect(formatHitCount(4, false)).toBe('4')
   })
 })
+
+describe('Library files in search', () => {
+  it('marks Library modules read-only and as Library, and orders them between yours and generated', async () => {
+    const { searchFiles, toSearchFiles } = await import('../ide/search')
+    const files = toSearchFiles(
+      [
+        { path: 'worker.ts', source: 'score()' },
+        { path: 'modules/lead-scoring/index.ts', source: 'export const score = 1' },
+        { path: 'lib/a.ts', source: 'score()' },
+      ],
+      new Set(['lib/a.ts']),
+      new Set(['modules/lead-scoring/index.ts']),
+    )
+    expect(files.find((f) => f.path.startsWith('modules/'))).toMatchObject({
+      generated: true,
+      library: true,
+    })
+    expect(files.find((f) => f.path === 'worker.ts')?.library).toBeUndefined()
+    const found = searchFiles(files, /score/g)
+    expect(found.files.map((f) => [f.path, f.library ?? false])).toEqual([
+      ['lib/a.ts', false],
+      ['modules/lead-scoring/index.ts', true],
+      ['worker.ts', false],
+    ])
+  })
+})

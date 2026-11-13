@@ -41,8 +41,9 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
 
   if (!node || !info) return null
 
-  const settings = stepSettings(node, { kind })
-  const visuals = getNodeVisuals(node.type, registry.get(node.type)?.icon)
+  const definition = registry.get(node.type)
+  const settings = stepSettings(node, { kind, runtime: definition?.runtime })
+  const visuals = getNodeVisuals(node.type, definition?.icon)
   const leader = info.coalescedInto ? nodes.get(info.coalescedInto) : undefined
   const leaderFile = info.coalescedInto
     ? (map.byNode.get(info.coalescedInto)?.filePath ?? null)

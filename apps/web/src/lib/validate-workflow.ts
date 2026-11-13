@@ -6,7 +6,7 @@ import {
   type NodeRegistry,
 } from '@awaitstep/ir'
 import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
-import { computeUpstreamSets } from './expressions/upstream'
+import { computeUpstreamSets, nodeIdsByVarName } from './expressions/upstream'
 import { z } from 'zod'
 
 export type IssueSeverity = 'error' | 'warning'
@@ -238,6 +238,7 @@ export function validateWorkflowForPublish(
   // ── Expression validation setup (topo-sort for upstream tracking) ──
   const allNodeIds = new Set(nodes.map((n) => n.id))
   const upstreamSets = computeUpstreamSets(nodes, edges)
+  const idByName = nodeIdsByVarName(nodes.map((n) => ({ id: n.id, name: n.data.irNode.name })))
 
   // ── Per-node ──
   const BUILTIN_TYPES = new Set([
@@ -451,7 +452,7 @@ export function validateWorkflowForPublish(
       if (typeof v === 'string') stringsToCheck.push(v)
     }
     for (const s of stringsToCheck) {
-      const exprErrors = validateExpressionRefs(s, id, upstream, allNodeIds)
+      const exprErrors = validateExpressionRefs(s, id, upstream, allNodeIds, idByName)
       for (const err of exprErrors) {
         add('error', id, name, err.message)
       }

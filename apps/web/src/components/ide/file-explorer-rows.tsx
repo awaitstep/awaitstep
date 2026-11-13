@@ -166,7 +166,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
               onOpenChange={handleMenuOpenChange}
             />
           )}
-          {row.section === 'generated' && (
+          {row.section !== 'project' && (
             <span className="ml-auto inline-flex items-center gap-1 text-2xs font-normal normal-case tracking-normal text-muted-foreground">
               <Lock className="h-2.5 w-2.5" />
               read-only

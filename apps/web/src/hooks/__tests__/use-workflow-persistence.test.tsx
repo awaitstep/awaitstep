@@ -536,3 +536,51 @@ describe('the first save of a new workflow', () => {
     expect(useWorkflowStore.getState().graphHash).toBe('g2')
   })
 })
+
+const { useStepCodeErrorsStore } = await import('../../stores/step-code-errors-store')
+
+describe('a step whose code has errors', () => {
+  beforeEach(() => useStepCodeErrorsStore.setState({ checked: new Map() }))
+
+  it('holds back Save, naming the step, while its current code has errors', async () => {
+    drawStep('g1')
+    useStepCodeErrorsStore.getState().record('n1', 'return 1;', 2)
+    const { result } = mount(true)
+    let saved = true
+    await act(async () => {
+      saved = await result.current.saveNow()
+    })
+    expect(saved).toBe(false)
+    expect(mocks.createVersion).not.toHaveBeenCalled()
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      '“Step” has 2 errors in its code, so the workflow wasn’t saved',
+    )
+  })
+
+  it('skips autosave quietly', async () => {
+    drawStep('g1')
+    useStepCodeErrorsStore.getState().record('n1', 'return 1;', 1)
+    const { result } = mount(true)
+    let outcome: unknown
+    await act(async () => {
+      outcome = await result.current.saveSilent()
+    })
+    expect(outcome).toBe('skipped')
+    expect(mocks.createVersion).not.toHaveBeenCalled()
+    expect(mocks.toastError).not.toHaveBeenCalled()
+  })
+
+  it('saves once the errors are gone, or when the record is for code the step no longer holds', async () => {
+    drawStep('g1')
+    mocks.createVersion.mockResolvedValue({ id: 'v2', graphHash: 'g2' })
+    // Checked while the code was different: stale, so it holds nothing back.
+    useStepCodeErrorsStore.getState().record('n1', 'return {', 1)
+    const { result } = mount(true)
+    let saved = false
+    await act(async () => {
+      saved = await result.current.saveNow()
+    })
+    expect(saved).toBe(true)
+    expect(mocks.createVersion).toHaveBeenCalledTimes(1)
+  })
+})

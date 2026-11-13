@@ -4,8 +4,8 @@ import type { NodeType } from '@awaitstep/ir'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
-import { getNodeVisuals } from '../../lib/node-icon-map'
-import { groupByCategory, filterNodes, getSuperCategoryMeta } from '../../lib/node-categories'
+import { filterNodes, paletteGroups } from '../../lib/node-categories'
+import { PaletteRow } from './node-palette-row'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 
@@ -40,7 +40,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
   const open = useCanvasLayoutStore((s) => s.paletteOpen)
   const setOpen = useCanvasLayoutStore((s) => s.setPaletteOpen)
   const [searchTerm, setSearchTerm] = useState('')
-  const { registry } = useNodeRegistry()
+  const { registry, customNodes } = useNodeRegistry()
   const definitions = registry.getAll()
   const kind = useWorkflowStore((s) => s.kind)
   // Installs from the marketplace dialog refresh the registry on close; the
@@ -52,13 +52,8 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
         ? definitions.filter((d) => !SCRIPT_INCOMPATIBLE_NODE_TYPES.has(d.id))
         : definitions
     const items = searchTerm ? filterNodes(compatibleDefs, searchTerm) : compatibleDefs
-    return groupByCategory(items)
+    return paletteGroups(items)
   }, [definitions, searchTerm, kind])
-
-  const onDragStart = (event: React.DragEvent, nodeType: NodeType) => {
-    event.dataTransfer.setData('application/awaitstep-node-type', nodeType)
-    event.dataTransfer.effectAllowed = 'move'
-  }
 
   function handleToggle() {
     if (open) {
@@ -135,56 +130,28 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
           </div>
 
           <div className="max-h-[28rem] overflow-y-auto px-1.5">
-            {[...filteredGrouped.entries()].map(([superCat, nodes]) => {
-              const meta = getSuperCategoryMeta(superCat)
-              return (
-                <div key={superCat}>
-                  <div className="sticky -top-px z-10 flex items-center justify-between bg-card px-2 pb-1 pt-2">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      {meta.label}
-                    </span>
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {nodes.length}
-                    </span>
-                  </div>
-                  {nodes.map((def) => {
-                    const visuals = getNodeVisuals(def.id, def.icon)
-                    return (
-                      <div
-                        key={def.id}
-                        draggable
-                        onDragStart={(e) => onDragStart(e, def.id as NodeType)}
-                        onClick={() => onAddNode(def.id as NodeType)}
-                        className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
-                      >
-                        <div
-                          className={cn(
-                            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
-                            visuals.accent,
-                          )}
-                        >
-                          {visuals.paletteIcon}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-medium text-foreground">{def.name}</span>
-                            {!BUILTIN_IDS.has(def.id) && (
-                              <span className="rounded bg-node-sub/15 px-1 py-px text-2xs font-medium text-node-sub">
-                                Custom
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs leading-tight text-muted-foreground">
-                            {def.description}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+            {filteredGrouped.map((group) => (
+              <div key={group.key}>
+                <div className="sticky -top-px z-10 flex items-center justify-between bg-card px-2 pb-1 pt-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {group.label}
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {group.nodes.length}
+                  </span>
                 </div>
-              )
-            })}
-            {filteredGrouped.size === 0 && (
+                {group.nodes.map((def) => (
+                  <PaletteRow
+                    key={def.id}
+                    definition={def}
+                    source={customNodes.get(def.id)}
+                    builtin={BUILTIN_IDS.has(def.id)}
+                    onAdd={onAddNode}
+                  />
+                ))}
+              </div>
+            ))}
+            {filteredGrouped.length === 0 && (
               <div className="py-6 text-center text-xs text-muted-foreground">
                 No nodes match your search
               </div>

@@ -5,6 +5,8 @@ import type { RunHour } from '../../../types/dashboard/workspaces'
 import { CopyCommand } from '../../ui/copy-command'
 import { NOT_CALLABLE } from '../function-call'
 import { HourBars } from '../../workspaces/parts/hour-bars'
+import type { ApiWorkflowLibraryUpdate } from '../../../lib/dashboard-api'
+import { LibraryUpdates } from './library-updates'
 
 export interface BandLive {
   /** The account's id. */
@@ -26,6 +28,10 @@ interface StatusBandProps {
   latest: { version: number; at: string } | undefined
   /** Runs in the last 24 hours, by result and hour by hour, and whether it ever ran; when known. */
   runs24h?: { all: number; failed: number; byHour: RunHour[]; ranEver?: boolean }
+  /** Library items an account runs behind their latest published version. */
+  libraryUpdates?: ApiWorkflowLibraryUpdate[]
+  /** Where Redeploy goes for an account; absent for someone who can't deploy. */
+  redeployHref?: (accountId: string) => string | undefined
 }
 
 const LABEL = 'text-2xs font-medium uppercase tracking-wider text-muted-foreground'
@@ -36,22 +42,33 @@ const COLUMN = 'flex min-w-0 flex-col gap-2 px-5 py-4'
  * 24a/24f): what is live, how the API runs it, and the day's runs hour by
  * hour. Both kinds read the same.
  */
-export function StatusBand({ workflowId, notCallable, live, latest, runs24h }: StatusBandProps) {
+export function StatusBand({
+  workflowId,
+  notCallable,
+  live,
+  latest,
+  runs24h,
+  libraryUpdates = [],
+  redeployHref,
+}: StatusBandProps) {
   return (
     <section
       aria-label="Status"
-      className="flex flex-wrap divide-border rounded-2xl border border-border bg-card md:flex-nowrap md:divide-x"
+      className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card"
     >
-      <div className={cn(COLUMN, 'basis-[260px] grow-[1.3]')}>
-        <LiveColumn live={live} latest={latest} />
+      <div className="flex flex-wrap divide-border md:flex-nowrap md:divide-x">
+        <div className={cn(COLUMN, 'basis-[260px] grow-[1.3]')}>
+          <LiveColumn live={live} latest={latest} />
+        </div>
+        <div className={cn(COLUMN, 'basis-[240px] grow')}>
+          <span className={LABEL}>Trigger</span>
+          <TriggerColumn workflowId={workflowId} live={live.length > 0} notCallable={notCallable} />
+        </div>
+        <div className={cn(COLUMN, 'basis-[240px] grow')}>
+          <RunsColumn runs24h={runs24h} />
+        </div>
       </div>
-      <div className={cn(COLUMN, 'basis-[240px] grow')}>
-        <span className={LABEL}>Trigger</span>
-        <TriggerColumn workflowId={workflowId} live={live.length > 0} notCallable={notCallable} />
-      </div>
-      <div className={cn(COLUMN, 'basis-[240px] grow')}>
-        <RunsColumn runs24h={runs24h} />
-      </div>
+      <LibraryUpdates updates={libraryUpdates} {...(redeployHref && { redeployHref })} />
     </section>
   )
 }

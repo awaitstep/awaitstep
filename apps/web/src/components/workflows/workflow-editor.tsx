@@ -19,7 +19,7 @@ interface WorkflowEditorProps {
 export function WorkflowEditor({ workflowId, search, localDev }: WorkflowEditorProps) {
   const { view, version, file, node, template, kind, open } = search
   return (
-    <NodeRegistryProvider>
+    <NodeRegistryProvider workflowId={workflowId}>
       {view === 'ide' ? (
         <ClientOnly fallback={<IdeSkeleton />}>
           <Suspense fallback={<IdeSkeleton />}>

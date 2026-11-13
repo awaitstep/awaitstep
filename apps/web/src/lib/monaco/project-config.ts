@@ -1,5 +1,9 @@
 import { AWAITSTEP_IMPORT_PREFIX, AWAITSTEP_MODULE_DIR } from '@awaitstep/codegen'
-import { PROJECT_IMPORT_PREFIX } from '@awaitstep/ir'
+import {
+  LIBRARY_BUNDLE_DIR,
+  LIBRARY_MODULE_IMPORT_PREFIX,
+  PROJECT_IMPORT_PREFIX,
+} from '@awaitstep/ir'
 import { parseJsonc } from '../jsonc'
 import { workflowModelPath } from './setup'
 
@@ -8,7 +12,9 @@ import { workflowModelPath } from './setup'
  * `baseUrl` is the workflow's model root, so `#app/<path>` and
  * `#awaitstep/<path>` map onto the model `<root>/<path>` exactly as the
  * deployed package.json `imports` map does, and relative imports between
- * generated modules resolve the same way. TypeScript's path utilities treat
+ * generated modules resolve the same way. `#modules/<slug>` maps onto the
+ * Library modules the bundle carries under `modules/<slug>/`, as the deploy
+ * maps it. TypeScript's path utilities treat
  * `scheme://authority/` as a root, so a workflow's files can never resolve
  * into another workflow's.
  */
@@ -21,6 +27,10 @@ export function projectRootOptions(workflowId: string): {
     paths: {
       [`${PROJECT_IMPORT_PREFIX}*`]: ['*'],
       [`${AWAITSTEP_IMPORT_PREFIX}*`]: [`${AWAITSTEP_MODULE_DIR}*`],
+      [`${LIBRARY_MODULE_IMPORT_PREFIX}*`]: [
+        `${LIBRARY_BUNDLE_DIR}/*`,
+        `${LIBRARY_BUNDLE_DIR}/*/index.ts`,
+      ],
     },
   }
 }

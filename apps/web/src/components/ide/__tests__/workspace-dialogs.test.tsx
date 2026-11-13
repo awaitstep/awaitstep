@@ -25,6 +25,8 @@ function projectFilesStub(overrides: Partial<Record<string, unknown>> = {}) {
     saveFile: vi.fn().mockResolvedValue(true),
     saveFiles: vi.fn((paths: string[]) => Promise.resolve(paths.map(() => true))),
     convertHandlers: vi.fn().mockResolvedValue(null),
+    // A failed save asks this; without it the close dialog's handler throws after the test ends.
+    isHeldBack: vi.fn().mockReturnValue(false),
     ...overrides,
   } as unknown as ProjectFilesController & Record<string, ReturnType<typeof vi.fn>>
 }

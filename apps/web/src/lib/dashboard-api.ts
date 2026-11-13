@@ -287,7 +287,7 @@ export interface ApiSharing {
   sharedBy: { id: string; name: string }
 }
 
-/** An item shared to the project, as the Shared library and "Shared with" lists read it. */
+/** An item shared to the project, as the Workflows & functions and "Shared with" lists read it. */
 export interface ApiSharedItem extends ApiSharing {
   id: string
   name: string
@@ -372,6 +372,19 @@ export interface ApiWorkflowPageSummary {
     total: number
     byHour: RunHour[]
   }
+  /** Library items an account runs behind their latest published version. */
+  libraryUpdates: ApiWorkflowLibraryUpdate[]
+}
+
+/** One "redeploy to pick it up" line: a module by its slug, a node by its name. */
+export interface ApiWorkflowLibraryUpdate {
+  itemId: string
+  name: string
+  kind: 'module' | 'node'
+  latest: string
+  runs: string
+  accountId: string
+  accountName: string
 }
 
 export interface ApiWorkspaceOverview {

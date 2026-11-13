@@ -9,8 +9,10 @@ export interface SearchOptions {
 export interface SearchFile {
   path: string
   source: string
-  /** Canvas output rather than project code; listed in its own group. */
+  /** Not the project's to edit (canvas output or Library code); never replaced in. */
   generated: boolean
+  /** A Library module the bundle carries: read-only, listed in its own group. */
+  library?: boolean
 }
 
 export interface SearchHit {
@@ -28,6 +30,7 @@ export interface SearchHit {
 export interface FileHits {
   path: string
   generated: boolean
+  library?: boolean
   hits: SearchHit[]
 }
 
@@ -143,15 +146,22 @@ export function searchFiles(
   pattern: RegExp,
   limit = MAX_SEARCH_HITS,
 ): SearchResults {
-  const ordered = [...files].sort(
-    (a, b) => Number(a.generated) - Number(b.generated) || a.path.localeCompare(b.path, 'en'),
-  )
+  // Your files, then Library code, then the canvas's.
+  const rank = (file: SearchFile) => (!file.generated ? 0 : file.library ? 1 : 2)
+  const ordered = [...files].sort((a, b) => rank(a) - rank(b) || a.path.localeCompare(b.path, 'en'))
   const found: FileHits[] = []
   let total = 0
   let capped = false
   for (const file of ordered) {
     const { hits, full } = searchFile(file, pattern, limit - total)
-    if (hits.length > 0) found.push({ path: file.path, generated: file.generated, hits })
+    if (hits.length > 0) {
+      found.push({
+        path: file.path,
+        generated: file.generated,
+        ...(file.library && { library: true }),
+        hits,
+      })
+    }
     total += hits.length
     if (full) {
       capped = true
@@ -169,17 +179,25 @@ export function runSearch(files: readonly SearchFile[], options: SearchOptions):
   return { kind: 'results', results: searchFiles(files, built.pattern) }
 }
 
-/** Where the project's own files end and generated ones begin: one rule for the panel and the rename count. */
+/**
+ * Where the project's own files end and the rest begin: one rule for the
+ * panel and the rename count. Library modules are read-only like generated
+ * files, and marked so the panel lists them as Library.
+ */
 export function toSearchFiles(
   files: Iterable<{ path: string; source: string }>,
   projectPaths: ReadonlySet<string>,
+  libraryPaths: ReadonlySet<string> = NO_PATHS,
 ): SearchFile[] {
   return [...files].map((f) => ({
     path: f.path,
     source: f.source,
     generated: !projectPaths.has(f.path),
+    ...(!projectPaths.has(f.path) && libraryPaths.has(f.path) && { library: true }),
   }))
 }
+
+const NO_PATHS: ReadonlySet<string> = new Set()
 
 /**
  * The options a rename follow-up searches with: a regex that finds the old

@@ -21,7 +21,12 @@ interface CodeEditorProps {
   path?: string
   /** Shows the code without accepting edits (a read-only version). */
   readOnly?: boolean
+  /** Monaco's error count for the text it just checked, each time it checks. */
+  onValidate?: (errors: number, text: string) => void
 }
+
+/** Monaco's MarkerSeverity.Error. */
+const ERROR_SEVERITY = 8
 
 const editorOptions = { ...BASE_EDITOR_OPTIONS, padding: { top: 6, bottom: 6 } }
 
@@ -36,6 +41,7 @@ export function CodeEditor({
   debounceMs,
   path,
   readOnly = false,
+  onValidate,
 }: CodeEditorProps) {
   const monacoTheme = useMonacoTheme()
   const [mounted, setMounted] = useState(false)
@@ -63,12 +69,26 @@ export function CodeEditor({
   // A pending edit is written, not dropped, when the editor goes away or loses focus.
   useEffect(() => () => debouncedOnChange?.flush(), [debouncedOnChange])
 
+  const editorRef = useRef<{ getValue: () => string } | null>(null)
+  const onValidateRef = useRef(onValidate)
+  onValidateRef.current = onValidate
+
   const handleMount = useCallback(
-    (editor: { onDidBlurEditorText: (listener: () => void) => unknown }) => {
+    (editor: {
+      onDidBlurEditorText: (listener: () => void) => unknown
+      getValue: () => string
+    }) => {
+      editorRef.current = editor
       editor.onDidBlurEditorText(() => debouncedOnChange?.flush())
     },
     [debouncedOnChange],
   )
+
+  const handleValidate = useCallback((markers: readonly { severity: number }[]) => {
+    const text = editorRef.current?.getValue()
+    if (text === undefined) return
+    onValidateRef.current?.(markers.filter((m) => m.severity === ERROR_SEVERITY).length, text)
+  }, [])
 
   const handleChange = useCallback(
     (v: string) => {
@@ -139,6 +159,7 @@ export function CodeEditor({
               path={path}
               onChange={(v) => handleChange(v ?? '')}
               onMount={handleMount}
+              onValidate={handleValidate}
               theme={monacoTheme}
               beforeMount={configureMonaco}
               options={{ ...FULLSCREEN_EDITOR_OPTIONS, readOnly }}
@@ -181,6 +202,7 @@ export function CodeEditor({
           path={path}
           onChange={(v) => handleChange(v ?? '')}
           onMount={handleMount}
+          onValidate={handleValidate}
           theme={monacoTheme}
           beforeMount={configureMonaco}
           options={{ ...editorOptions, readOnly }}

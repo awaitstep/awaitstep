@@ -57,4 +57,31 @@ describe('CanvasLanguageService', () => {
     // Before the files arrived the hook was already mounted, with nothing to install.
     expect((service.calls[0]![1] as Map<string, unknown>).size).toBe(0)
   })
+
+  it('adds the Library modules the bundle carries, and no other hash-less file', async () => {
+    source.get.mockResolvedValue({
+      versionId: 'v2',
+      files: [
+        { path: 'worker.ts', source: 'generated', role: 'entry' },
+        { path: 'lib/x.ts', source: 'export const x = 1', role: 'module', hash: 'hx' },
+        { path: 'modules/lead-scoring/index.ts', source: 'export const score = 1', role: 'module' },
+        { path: 'modules/other/index.ts', source: 'export const o = 1', role: 'module' },
+      ],
+      library: [{ itemId: 'i1', slug: 'lead-scoring', owner: 'workspace', version: '1.4.2' }],
+      diagnostics: [],
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <CanvasLanguageService workflowId="wf" />
+      </QueryClientProvider>,
+    )
+    await waitFor(() => {
+      const last = service.calls.at(-1)!
+      expect([...(last[1] as Map<string, unknown>).keys()]).toEqual([
+        'lib/x.ts',
+        'modules/lead-scoring/index.ts',
+      ])
+    })
+  })
 })

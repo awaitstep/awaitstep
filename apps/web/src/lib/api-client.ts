@@ -2,6 +2,7 @@ import type {
   ConnectionSummary as ApiConnectionSummary,
   DeployConnections,
   LiveDeployment,
+  NodeDefinition,
 } from '@awaitstep/ir'
 import type {
   DeployConfigResponse,
@@ -19,9 +20,9 @@ import type {
   TestSessionRuntime,
 } from '@awaitstep/codegen'
 import { useOrgStore } from '../stores/org-store'
-import { pathSegment } from './api-path'
+import { API_BASE, pathSegment } from './api-path'
 
-export const API_BASE = '/api'
+export { API_BASE }
 
 export interface PaginatedResponse<T> {
   data: T[]
@@ -289,8 +290,27 @@ export interface WorkflowSource {
   manifest: StepManifest | null
   /** Provider-scoped primitives and bindings the workflow needs. */
   requirements?: RuntimeRequirement[]
+  /** The Library modules bundled under `modules/<slug>/`; absent from an older API. */
+  library?: BundledLibraryModule[]
   /** Empty when the workflow is healthy; never absent. */
   diagnostics: SourceDiagnostic[]
+}
+
+/** A Library module a workflow's bundle carries, at the published version it carries. */
+export interface BundledLibraryModule {
+  itemId: string
+  slug: string
+  owner: 'workspace' | 'project'
+  version: string
+}
+
+/** A published custom node a workflow can place: its registry definition and where it comes from. */
+export interface WorkflowCustomNode {
+  itemId: string
+  owner: 'workspace' | 'project'
+  version: string
+  /** `id` is `custom:<itemId>`; `icon` is a data URL when the node has one. */
+  definition: NodeDefinition
 }
 
 /**
@@ -629,6 +649,19 @@ export function createApiClient(scope: () => ApiScope) {
     /** Provider capabilities: handler kinds, queue rules, schedules, binding kinds. */
     getProviders(): Promise<{ providers: ProviderCapabilities[] }> {
       return request('/providers')
+    },
+
+    listWorkflowCustomNodes(id: string): Promise<WorkflowCustomNode[]> {
+      return request(withProject(`/workflows/${pathSegment(id)}/custom-nodes`))
+    },
+
+    /** The templates of the named `custom:<itemId>` types, by type. */
+    getWorkflowCustomNodeTemplates(
+      id: string,
+      types: readonly string[],
+    ): Promise<Record<string, Record<string, string>>> {
+      const query = `?types=${encodeURIComponent(types.join(','))}`
+      return request(withProject(`/workflows/${pathSegment(id)}/custom-nodes/templates${query}`))
     },
 
     getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {

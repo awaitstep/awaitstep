@@ -126,7 +126,7 @@ export function treeFilePaths(nodes: readonly TreeNode[]): string[] {
   )
 }
 
-export type TreeSectionId = 'project' | 'generated'
+export type TreeSectionId = 'project' | 'library' | 'generated'
 
 export interface TreeRow {
   /** Unique across both sections: `section:project`, `project:lib/a.ts`. */
