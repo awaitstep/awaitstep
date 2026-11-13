@@ -11,7 +11,11 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { nodeBundleChecksumInput, nodeDefinitionSchema } from '@awaitstep/ir'
+import {
+  legacyNodeBundleChecksumInput,
+  nodeBundleChecksumInput,
+  nodeDefinitionSchema,
+} from '@awaitstep/ir'
 import type { NodeDefinition, Provider } from '@awaitstep/ir'
 import {
   latestVersion,
@@ -22,9 +26,16 @@ import {
   type NodeSource,
 } from './lib/definition.js'
 
+function sha256(input: string): string {
+  return `sha256:${createHash('sha256').update(input).digest('hex')}`
+}
+
 interface RegistryVersionEntry {
   version: string
+  /** Over `node.json` as written: what released versions verify. */
   checksum: string
+  /** Over the definition with sorted keys: what current versions verify. */
+  stableChecksum: string
   publishedAt: string
   deprecated?: boolean
 }
@@ -120,13 +131,15 @@ async function buildNodeEntry(
       }
     }
 
-    const checksumInput = nodeBundleChecksumInput(definition, templates)
-    const hash = createHash('sha256').update(checksumInput).digest('hex')
-    const checksum = `sha256:${hash}`
+    // `definition` is the object node.json is written from, in its key order:
+    // the legacy checksum must hash exactly what a client will fetch.
+    const checksum = sha256(legacyNodeBundleChecksumInput(definition, templates))
+    const stableChecksum = sha256(nodeBundleChecksumInput(definition, templates))
     const previousEntry = previous.get(`${source.id}@${version.version}`)
     versions.push({
       version: version.version,
       checksum,
+      stableChecksum,
       publishedAt: previousEntry?.publishedAt ?? now,
       deprecated: definition.deprecated,
     })
