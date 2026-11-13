@@ -31,7 +31,13 @@ const validIR = {
   entryNodeId: 'step-1',
 }
 
-async function prepareStoredIr(ir: unknown, provider?: string) {
+async function prepareStoredIr(
+  ir: unknown,
+  provider?: string,
+  options: Partial<
+    Pick<Parameters<typeof prepareWorkflow>[0], 'mode' | 'emptyRequiredFields'>
+  > = {},
+) {
   const version = await mockDb.createVersion({
     id: 'v-1',
     workflowId: 'wf-1',
@@ -45,6 +51,7 @@ async function prepareStoredIr(ir: unknown, provider?: string) {
     organizationId: TEST_ORG_ID,
     projectId: TEST_PROJECT_ID,
     ...(provider && { provider }),
+    ...options,
   })
 }
 
@@ -127,5 +134,78 @@ describe('a strict prepare', () => {
     if (!isPrepareError(prepared)) return
     expect(prepared.status).toBe(400)
     expect(prepared.error).toContain('targets cloudflare')
+  })
+
+  it('refuses a marketplace node with a required field left empty, naming the node and field', async () => {
+    const definition = {
+      id: 'greeter',
+      name: 'Greeter',
+      version: '1.0.0',
+      description: 'Greets',
+      category: 'Utilities',
+      author: 'awaitstep',
+      license: 'MIT',
+      providers: ['cloudflare'],
+      configSchema: {
+        target: { type: 'string', label: 'Who to greet', required: true },
+        key: { type: 'secret', label: 'Key', required: true, envVarName: 'GREETER_KEY' },
+      },
+      outputSchema: {},
+    }
+    await mockDb.installNode({
+      id: 'inst-1',
+      organizationId: TEST_ORG_ID,
+      nodeId: 'greeter',
+      version: '1.0.0',
+      bundle: JSON.stringify({
+        definition,
+        templates: {
+          cloudflare: 'export default async function (ctx) { return ctx.config.target }',
+        },
+        bundledAt: '2026-01-01T00:00:00Z',
+        checksum: 'sha256:' + '0'.repeat(64),
+      }),
+      installedBy: TEST_USER_ID,
+    })
+    const greet = (data: Record<string, unknown>) => ({
+      ...validIR,
+      nodes: [
+        ...validIR.nodes,
+        {
+          id: 'greet',
+          type: 'greeter',
+          name: 'Say hi',
+          position: { x: 200, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data,
+        },
+      ],
+      edges: [{ id: 'e', source: 'step-1', target: 'greet' }],
+    })
+
+    const refused = await prepareStoredIr(greet({ target: '  ' }))
+    expect(isPrepareError(refused) && refused.error).toBe('Say hi: Who to greet is required')
+    expect(isPrepareError(refused) && refused.status).toBe(400)
+
+    // Filled in, the field passes; the secret is left to the environment check.
+    const filled = await prepareStoredIr(greet({ target: 'ops' }))
+    expect(isPrepareError(filled) && filled.error).toMatch(/environment var/)
+    expect(isPrepareError(filled) && filled.error).not.toMatch(/is required/)
+
+    // A test or local run goes on; the env check is what stops this one.
+    const run = await prepareStoredIr(greet({ target: '' }), undefined, {
+      emptyRequiredFields: 'allow',
+    })
+    expect(isPrepareError(run) && run.error).not.toMatch(/is required/)
+
+    // The source view and Check list it as a warning.
+    const read = await prepareStoredIr(greet({ target: '' }), undefined, { mode: 'read' })
+    expect(isPrepareError(read) ? read.error : read.diagnostics).toContainEqual({
+      source: 'ir',
+      nodeId: 'greet',
+      message: 'Say hi: Who to greet is required',
+      severity: 'warning',
+    })
   })
 })

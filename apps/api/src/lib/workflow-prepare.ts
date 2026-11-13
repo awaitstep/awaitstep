@@ -20,8 +20,14 @@ import {
   mergeRequirements,
 } from '@awaitstep/codegen'
 import { collectCompileErrors } from '@awaitstep/codegen/transpile'
-import type { ArtifactIR, ProjectFile } from '@awaitstep/ir'
-import { CUSTOM_NODE_TYPE_PREFIX, loadArtifact, parsePackageManifest } from '@awaitstep/ir'
+import type { ArtifactIR, NodeDefinition, ProjectFile } from '@awaitstep/ir'
+import {
+  CUSTOM_NODE_TYPE_PREFIX,
+  isBuiltinNodeType,
+  loadArtifact,
+  missingRequiredFields,
+  parsePackageManifest,
+} from '@awaitstep/ir'
 import type {
   DatabaseAdapter,
   DeploymentLibraryVersion,
@@ -134,6 +140,12 @@ export interface WorkflowPrepareInput {
   organizationId: string
   projectId: string
   nodeRegistry?: AppNodeRegistry
+  /**
+   * A custom or marketplace node's required field left empty: `'refuse'`
+   * (the default, for a deploy) fails a strict prepare; `'allow'` lets a
+   * test or local run go on, as the editors only warn.
+   */
+  emptyRequiredFields?: 'refuse' | 'allow'
   versionId?: string
   /** Pre-fetched version row — skips the lookup (must match versionId). */
   version?: WorkflowVersion
@@ -265,6 +277,24 @@ export async function prepareWorkflow(
     installedNodes,
     libraryFold.customNodes,
   )
+
+  // A custom or marketplace node's required fields: the editors warn while
+  // they're filled in; nothing ships with one empty.
+  const unfilled = requiredFieldProblems(ir, (type) => nodeRegistry.registry.get(type))
+  if (unfilled.length > 0) {
+    if (!lenient && input.emptyRequiredFields !== 'allow') {
+      const [first, ...rest] = unfilled
+      return {
+        error: first!.message,
+        status: 400,
+        ...(rest.length > 0 && { details: unfilled }),
+        diagnostics: unfilled,
+        checked,
+        finding: true,
+      }
+    }
+    if (lenient) diagnostics.push(...unfilled)
+  }
 
   // The artifact can name its runtime itself, which is what lets a canvas or
   // local test work with no deployment connection. A caller that names a
@@ -606,4 +636,25 @@ export function isPrepareError(
   result: WorkflowContext | WorkflowPrepareError,
 ): result is WorkflowPrepareError {
   return 'error' in result
+}
+
+// "<Node>: <Field> is required" for each custom or marketplace node field left empty.
+function requiredFieldProblems(
+  ir: ArtifactIR,
+  definitionOf: (type: string) => NodeDefinition | undefined,
+): PrepareDiagnostic[] {
+  const problems: PrepareDiagnostic[] = []
+  for (const node of ir.nodes) {
+    if (isBuiltinNodeType(node.type)) continue
+    const schema = definitionOf(node.type)?.configSchema
+    for (const fieldId of missingRequiredFields(schema, node.data)) {
+      problems.push({
+        source: 'ir',
+        nodeId: node.id,
+        message: `${node.name}: ${schema?.[fieldId]?.label ?? fieldId} is required`,
+        severity: 'warning',
+      })
+    }
+  }
+  return problems
 }

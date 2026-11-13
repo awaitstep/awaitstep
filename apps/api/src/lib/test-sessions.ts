@@ -154,6 +154,8 @@ export async function startTestSession(
     organizationId: input.organizationId,
     projectId,
     ...(input.nodeRegistry && { nodeRegistry: input.nodeRegistry }),
+    // A test run goes on with a required field empty; only Deploy refuses.
+    emptyRequiredFields: 'allow',
   })
   if (isPrepareError(prepared)) {
     return {

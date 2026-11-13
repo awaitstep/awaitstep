@@ -28,6 +28,8 @@ localDev.post('/:workflowId/local-dev/start', async (c) => {
     organizationId: c.get('organizationId'),
     projectId: c.get('projectId'),
     nodeRegistry: c.get('nodeRegistry'),
+    // A local run goes on with a required field empty; only Deploy refuses.
+    emptyRequiredFields: 'allow',
   })
 
   if (isPrepareError(prepared)) {

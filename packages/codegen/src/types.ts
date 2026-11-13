@@ -91,6 +91,8 @@ export interface SourceDiagnostic {
   nodeId?: string
   /** The bundle file, for diagnostics about a file. */
   path?: string
+  /** A finding that doesn't stop a build on its own (a required field left empty); unset is an error. */
+  severity?: 'warning'
 }
 
 export interface ProviderConfig {
