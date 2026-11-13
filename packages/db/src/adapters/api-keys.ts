@@ -15,6 +15,7 @@ import type {
 import { atomicallyReturning } from './atomic.js'
 import {
   aliasedFrom,
+  fieldOf,
   idList,
   isoText,
   jsonArrayOf,
@@ -427,10 +428,12 @@ export class ApiKeysAdapter {
     return {
       key: k,
       createdByName: u ? u.name : sql<string | null>`null`,
-      projectScopes: this.projectScopeSetJson(k.id, restrict?.projectId),
-      workspaceScopes: this.workspaceScopeSetJson(k.id, restrict?.workspaceId),
-      projectCount: this.totalProjectCount(k.id),
-      workspaceCount: this.totalWorkspaceCount(k.id),
+      // fieldOf: without the creator join the statement is single-table, and
+      // drizzle would leave `k.id` bare inside these subqueries.
+      projectScopes: fieldOf(this.projectScopeSetJson(k.id, restrict?.projectId)),
+      workspaceScopes: fieldOf(this.workspaceScopeSetJson(k.id, restrict?.workspaceId)),
+      projectCount: fieldOf(this.totalProjectCount(k.id)),
+      workspaceCount: fieldOf(this.totalWorkspaceCount(k.id)),
     }
   }
 

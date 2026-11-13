@@ -5,6 +5,9 @@ import type {
   LibraryBundleRoots,
   LibraryBundleLimits,
   WorkflowLibraryUses,
+  WorkflowCustomNode,
+  WorkflowCustomNodeTemplate,
+  WorkflowCustomNodeReach,
   LibraryConsumerPlace,
   LibraryConsumers,
   LibraryFile,
@@ -15,6 +18,7 @@ import type {
   LibraryOwnerScope,
   LibraryOwnerTree,
   LibraryItemUpdateOutcome,
+  LibraryMoveOutcome,
   LibraryKind,
   LibraryVersionFile,
   LibrarySummary,
@@ -1222,6 +1226,12 @@ export interface DatabaseAdapter {
   ): Promise<LibraryItemUpdateOutcome>
   /** False when something uses the item (the check is in the statement) or it is gone. */
   deleteLibraryItemIfUnused(itemId: string): Promise<boolean>
+  /** Hands a workspace's item to its project, keeping its id and history (see `LibraryMoveOutcome`). */
+  moveLibraryItemToProject(
+    itemId: string,
+    workspaceId: string,
+    maxPerOwner: number,
+  ): Promise<LibraryMoveOutcome>
   getLibrarySummary(scope: LibrarySummaryScope): Promise<LibrarySummary>
   listLibraryFiles(itemId: string): Promise<LibraryFile[]>
   listLibraryFileSummaries(itemId: string): Promise<LibraryFileSummary[]>
@@ -1279,6 +1289,17 @@ export interface DatabaseAdapter {
     roots: LibraryBundleRoots,
     limits: LibraryBundleLimits,
   ): Promise<LibraryBundle>
+  /** The published custom nodes the workflow can place within `reach`, each at its latest version. */
+  listWorkflowCustomNodes(
+    workflowId: string,
+    reach: WorkflowCustomNodeReach,
+  ): Promise<WorkflowCustomNode[]>
+  /** The templates of those nodes among `itemIds`, for the code preview. */
+  listWorkflowCustomNodeTemplates(
+    workflowId: string,
+    itemIds: string[],
+    reach: WorkflowCustomNodeReach,
+  ): Promise<WorkflowCustomNodeTemplate[]>
   /** What the item uses and who uses it, as the caller may see them. */
   getLibraryUsages(userId: string, itemId: string): Promise<LibraryUsages>
   /** Who uses the item, as the caller may see them. */

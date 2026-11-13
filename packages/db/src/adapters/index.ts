@@ -5,6 +5,9 @@ import type {
   LibraryBundleRoots,
   LibraryBundleLimits,
   WorkflowLibraryUses,
+  WorkflowCustomNode,
+  WorkflowCustomNodeTemplate,
+  WorkflowCustomNodeReach,
   LibraryConsumerPlace,
   LibraryConsumers,
   LibraryFile,
@@ -15,6 +18,7 @@ import type {
   LibraryOwnerScope,
   LibraryOwnerTree,
   LibraryItemUpdateOutcome,
+  LibraryMoveOutcome,
   LibraryKind,
   LibraryVersionFile,
   LibrarySummary,
@@ -220,6 +224,7 @@ import { LibraryFilesAdapter } from './library-files.js'
 import { LibraryItemsAdapter } from './library-items.js'
 import { LibraryUsagesAdapter } from './library-usages.js'
 import { LibraryBundleAdapter } from './library-bundle.js'
+import { LibraryCustomNodesAdapter } from './library-custom-nodes.js'
 import { LibraryVersionsAdapter } from './library-versions.js'
 
 export interface SchemaRef {
@@ -312,6 +317,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   private _libraryVersions: LibraryVersionsAdapter
   private _libraryUsages: LibraryUsagesAdapter
   private _libraryBundle: LibraryBundleAdapter
+  private _libraryCustomNodes: LibraryCustomNodesAdapter
   private _scope: ScopeAdapter
   private _summaries: SummaryAdapter
   private _access: AccessAdapter
@@ -362,6 +368,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         envVarWorkspaces: schema.envVarWorkspaces,
         installedNodes: schema.installedNodes,
         connections: schema.connections,
+        libraryItems: schema.libraryItems,
+        libraryVersions: schema.libraryVersions,
+        deploymentLibraryVersions: schema.deploymentLibraryVersions,
       },
       this._dialect,
     )
@@ -568,6 +577,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._dialect,
     )
     this._libraryBundle = new LibraryBundleAdapter(db, this._dialect)
+    this._libraryCustomNodes = new LibraryCustomNodesAdapter(db, this._dialect)
     this._libraryItems = new LibraryItemsAdapter(
       db,
       { ...libraryTables, ...tables },
@@ -2021,6 +2031,13 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   deleteLibraryItemIfUnused(itemId: string): Promise<boolean> {
     return this._libraryItems.deleteIfUnused(itemId)
   }
+  moveLibraryItemToProject(
+    itemId: string,
+    workspaceId: string,
+    maxPerOwner: number,
+  ): Promise<LibraryMoveOutcome> {
+    return this._libraryItems.moveToProject(itemId, workspaceId, maxPerOwner)
+  }
   getLibrarySummary(scope: LibrarySummaryScope): Promise<LibrarySummary> {
     return this._libraryItems.summary(scope)
   }
@@ -2105,6 +2122,19 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     limits: LibraryBundleLimits,
   ): Promise<LibraryBundle> {
     return this._libraryBundle.resolve(roots, limits)
+  }
+  listWorkflowCustomNodes(
+    workflowId: string,
+    reach: WorkflowCustomNodeReach,
+  ): Promise<WorkflowCustomNode[]> {
+    return this._libraryCustomNodes.forWorkflow(workflowId, reach)
+  }
+  listWorkflowCustomNodeTemplates(
+    workflowId: string,
+    itemIds: string[],
+    reach: WorkflowCustomNodeReach,
+  ): Promise<WorkflowCustomNodeTemplate[]> {
+    return this._libraryCustomNodes.templatesForWorkflow(workflowId, itemIds, reach)
   }
   getLibraryUsages(userId: string, itemId: string): Promise<LibraryUsages> {
     return this._libraryUsages.usages(userId, itemId)

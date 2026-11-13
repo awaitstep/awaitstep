@@ -483,7 +483,9 @@ describe.each([
       organizationId: 'org-acme',
       nodeId: 'slack',
       version: '2.0.0',
-      bundle: JSON.stringify({ definition: { name: 'Slack' } }),
+      bundle: JSON.stringify({
+        definition: { name: 'Slack', icon: 'https://x.test/slack.svg' },
+      }),
       installedBy: 'u-ama',
       installedAt: T0,
       updatedAt: T0,
@@ -518,7 +520,9 @@ describe.each([
     })
     expect(project.own.map((r) => r.id)).toEqual(['p-mod'])
     expect(project.fromProject).toEqual([])
-    expect(project.marketplace).toEqual([{ nodeId: 'slack', name: 'Slack', version: '2.0.0' }])
+    expect(project.marketplace).toEqual([
+      { nodeId: 'slack', name: 'Slack', version: '2.0.0', icon: 'https://x.test/slack.svg' },
+    ])
     expect(project.counts).toEqual({ module: 1, node: 0, marketplace: 1 })
   })
 

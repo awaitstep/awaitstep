@@ -26,6 +26,8 @@ export interface LibraryOwner {
 export interface LibraryItemAccess extends GrantRows {
   item: LibraryItem
   organizationId: string
+  /** The project's name: the owner a move or a copy to the project names. */
+  projectName: string
   owner: LibraryOwner
   latestVersion: string | null
   /** The latest version's publish order (0: none): what a publish must still find to land. */
@@ -59,6 +61,18 @@ export type LibraryItemUpdateOutcome =
   | { ok: false; reason: 'slug-taken' }
   /** Something uses the module whose slug would change. */
   | { ok: false; reason: 'in-use'; consumers: LibraryConsumers }
+  | { ok: false; reason: 'missing' }
+
+/** Moving a workspace's item to its project's library. */
+export type LibraryMoveOutcome =
+  | { ok: true; item: LibraryItem }
+  /** The project already has an item of this kind and slug. */
+  | { ok: false; reason: 'slug-taken' }
+  /** The project's library holds as many items as it may. */
+  | { ok: false; reason: 'full' }
+  /** It imports modules the project's library has none of: a project item could not reach them. */
+  | { ok: false; reason: 'unresolved'; slugs: string[] }
+  /** Gone, or no longer in the workspace the caller was judged on. */
   | { ok: false; reason: 'missing' }
 
 export interface LibraryFile {
@@ -206,12 +220,16 @@ export interface LibrarySummaryRow {
   usedBy: number
   /** The later of the item's own change and its newest file write. */
   updatedAt: string
+  /** A node's icon.svg content hash, for its image URL; null without one (and for a module). */
+  iconHash: string | null
 }
 
 export interface LibraryMarketplaceRow {
   nodeId: string
   name: string
   version: string
+  /** The node's logo URL from its definition, or null. */
+  icon: string | null
 }
 
 export interface LibrarySummary {
@@ -316,6 +334,34 @@ export interface LibraryBundle {
   /** The items' files together pass a limit; every item then comes back without its files. */
   oversize: boolean
 }
+
+/**
+ * A published custom node in a workflow's reach, for its palette: the
+ * latest version's `node.json` and icon as stored (the caller validates
+ * the manifest), never its other files.
+ */
+export interface WorkflowCustomNode {
+  itemId: string
+  /** The workflow's workspace owns it, or the project does. */
+  owner: 'workspace' | 'project'
+  version: string
+  manifest: string | null
+  icon: string | null
+}
+
+/** A published custom node's template, for the code preview, with what it is checked by. */
+export interface WorkflowCustomNodeTemplate {
+  itemId: string
+  version: string
+  manifest: string | null
+  template: string | null
+}
+
+/**
+ * Whose nodes a caller reaches from a workflow: its workspace's and the
+ * project's (a member, a project key), or its workspace's only (a workspace key).
+ */
+export type WorkflowCustomNodeReach = 'workspace-and-project' | 'workspace-only'
 
 /** One library version a deployment bundled. */
 export interface DeploymentLibraryVersion {

@@ -8,6 +8,7 @@ import type {
   SharedSummaryItem,
   SummaryPerson,
   WorkflowDeploySummary,
+  WorkflowLibraryUpdate,
   WorkflowPageSummary,
   WorkspaceAttentionItem,
   WorkspacePageOverview,
@@ -25,6 +26,7 @@ import {
 } from './json-array.js'
 import { FAILED_RUN_STATUSES, OverviewFields, type OverviewTables } from './overview-fields.js'
 import { reachesProject, reachesWorkspace } from './variable-reach.js'
+import { liveOnItsAccount } from './live-deployment.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -39,6 +41,9 @@ export interface SummaryTables extends OverviewTables {
   envVarWorkspaces: AnyTable
   installedNodes: AnyTable
   connections: AnyTable
+  libraryItems: AnyTable
+  libraryVersions: AnyTable
+  deploymentLibraryVersions: AnyTable
 }
 
 const ORG_ADMINS = sql.raw(`('owner', 'admin')`)
@@ -238,7 +243,16 @@ export class SummaryAdapter {
     )
 
     const rows = await this.db
-      .select({ adminCount, admins, projectKeys, total, own, firstName, sharedCount, shared })
+      .select({
+        adminCount: fieldOf(adminCount),
+        admins,
+        projectKeys: fieldOf(projectKeys),
+        total,
+        own: fieldOf(own),
+        firstName,
+        sharedCount: fieldOf(sharedCount),
+        shared,
+      })
       .from(p)
       .where(and(eq(p.id, projectId), eq(p.organizationId, organizationId)))
       .limit(1)
@@ -457,6 +471,7 @@ export class SummaryAdapter {
     }
     const rows = await this.db
       .select({
+        libraryUpdates: this.libraryUpdates(wf, p),
         currentVersion: version,
         versionCount: sql`(select count(*) from ${aliasedFrom(v)} where ${v.workflowId} = ${wf.id})`,
         lastSuccessfulDeploy: lastSuccess,
@@ -493,7 +508,39 @@ export class SummaryAdapter {
         total: Number(row.runTotal),
         byHour: readJsonArray(row.byHour),
       },
+      libraryUpdates: readJsonArray<WorkflowLibraryUpdate>(row.libraryUpdates),
     }
+  }
+
+  /**
+   * Each account's live deployment, the library versions it bundled, and
+   * the item's latest published version where the two differ. Items stay
+   * within the workflow's reach (its project, its workspace or the
+   * project's own), so a workflow moved to another workspace does not name
+   * the old workspace's items; a deleted item or account drops out.
+   */
+  private libraryUpdates(wf: AnyTable, p: AnyTable): SQL {
+    const d = aliasedTable(this.t.deployments, 'wfld')
+    const newer = aliasedTable(this.t.deployments, 'wfln')
+    const c = aliasedTable(this.t.connections, 'wflc')
+    const dl = aliasedTable(this.t.deploymentLibraryVersions, 'wfdl')
+    const i = aliasedTable(this.t.libraryItems, 'wfli')
+    const v = aliasedTable(this.t.libraryVersions, 'wflv')
+    const v2 = aliasedTable(this.t.libraryVersions, 'wflv2')
+    const inner = sql`select ${i.id} as item_id, case when ${i.kind} = 'module' then ${i.slug} else ${i.name} end as name, ${i.kind} as kind, ${v.version} as latest, ${dl.version} as runs, ${c.id} as account_id, ${c.name} as account_name from ${aliasedFrom(d)} inner join ${aliasedFrom(c)} on ${c.id} = ${d.connectionId} and ${c.organizationId} = ${p.organizationId} inner join ${aliasedFrom(dl)} on ${dl.deploymentId} = ${d.id} inner join ${aliasedFrom(i)} on ${i.id} = ${dl.itemId} and ${i.projectId} = ${wf.projectId} and coalesce(${i.workspaceId}, '') in (coalesce(${wf.workspaceId}, ''), '') inner join ${aliasedFrom(v)} on ${v.itemId} = ${i.id} and ${v.seq} = (select max(${v2.seq}) from ${aliasedFrom(v2)} where ${v2.itemId} = ${i.id}) where ${d.workflowId} = ${wf.id} and ${liveOnItsAccount(d, newer)} and ${v.version} <> ${dl.version}`
+    return this.jsonList(
+      [
+        ['itemId', sql`x.item_id`],
+        ['name', sql`x.name`],
+        ['kind', sql`x.kind`],
+        ['latest', sql`x.latest`],
+        ['runs', sql`x.runs`],
+        ['accountId', sql`x.account_id`],
+        ['accountName', sql`x.account_name`],
+      ],
+      inner,
+      sql`x.name, x.item_id, x.account_name, x.account_id`,
+    )
   }
 
   /** Resources' two tab pills: installed nodes and the organization's variables. */
@@ -504,7 +551,7 @@ export class SummaryAdapter {
     const installedNodes = sql`(select count(*) from ${aliasedFrom(i)} where ${i.organizationId} = ${o.id})`
     const variables = sql`(select count(*) from ${aliasedFrom(v)} where ${v.organizationId} = ${o.id} and ${v.projectId} is null)`
     const rows = await this.db
-      .select({ installedNodes, variables })
+      .select({ installedNodes: fieldOf(installedNodes), variables: fieldOf(variables) })
       .from(o)
       .where(eq(o.id, organizationId))
       .limit(1)

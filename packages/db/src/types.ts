@@ -1201,6 +1201,24 @@ export interface WorkflowDeploySummary {
   createdAt: string
 }
 
+/**
+ * A library item one of the workflow's accounts runs at an older version
+ * than the latest published one: the Overview's "redeploy to pick it up"
+ * line, one per item and account.
+ */
+export interface WorkflowLibraryUpdate {
+  itemId: string
+  /** How the line names it: a module by its slug, a node by its name. */
+  name: string
+  kind: 'module' | 'node'
+  /** The latest published version, which the next deploy bundles. */
+  latest: string
+  /** The version that account's live deployment bundled. */
+  runs: string
+  accountId: string
+  accountName: string
+}
+
 /** A workflow's page summary: current version, deploys and runs, one statement. */
 export interface WorkflowPageSummary {
   currentVersion: { id: string; version: number; locked: number; createdAt: string } | null
@@ -1213,6 +1231,8 @@ export interface WorkflowPageSummary {
     total: number
     byHour: RunHour[]
   }
+  /** Library items whose latest published version some account does not run yet. */
+  libraryUpdates: WorkflowLibraryUpdate[]
 }
 
 /** The org home's "Failing now" tile: a count and the first row behind it. */

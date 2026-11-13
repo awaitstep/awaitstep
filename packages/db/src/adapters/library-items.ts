@@ -6,6 +6,7 @@ import type {
   LibraryItemAccess,
   LibraryItemUpdateOutcome,
   LibraryMarketplaceRow,
+  LibraryMoveOutcome,
   LibraryOwner,
   LibrarySummary,
   LibrarySummaryRow,
@@ -14,7 +15,14 @@ import type {
 } from '../library-types.js'
 import { atomicallyReturning } from './atomic.js'
 import { insertWhereQuery } from './insert-where.js'
-import { aliasedFrom, fieldOf, jsonArrayOf, readJsonArray, type Dialect } from './json-array.js'
+import {
+  aliasedFrom,
+  fieldOf,
+  jsonArrayOf,
+  jsonArrayOfValues,
+  readJsonArray,
+  type Dialect,
+} from './json-array.js'
 import type { LibraryFields, LibraryTables } from './library-fields.js'
 import type { LibraryFilesAdapter } from './library-files.js'
 import type { LibraryUsagesAdapter } from './library-usages.js'
@@ -53,6 +61,7 @@ export class LibraryItemsAdapter {
       .select({
         ...this.fields.itemColumns(i),
         organizationId: p.organizationId,
+        projectName: p.name,
         owner: this.fields.ownerJson(i),
         latestVersion: this.fields.latestVersion(i),
         latestSeq: this.fields.latestSeq(i),
@@ -71,6 +80,7 @@ export class LibraryItemsAdapter {
     if (!row) return null
     const {
       organizationId,
+      projectName,
       owner,
       latestVersion,
       latestSeq,
@@ -82,6 +92,7 @@ export class LibraryItemsAdapter {
     return {
       item: item as LibraryItem,
       organizationId,
+      projectName,
       owner: readOwner(owner),
       latestVersion: latestVersion ?? null,
       latestSeq: Number(latestSeq ?? 0),
@@ -173,6 +184,71 @@ export class LibraryItemsAdapter {
     return retried ? { ok: false, reason: 'missing' } : this.update(userId, itemId, changes, true)
   }
 
+  /**
+   * Hands a workspace's item to its project, keeping its id, versions and
+   * history, in one conditional UPDATE: while it is still in `workspaceId`,
+   * the project has room, and every module it imports resolves from the
+   * project (a project item sees only the project's modules). A taken slug
+   * is the unique index's. When nothing matched, the reason is read afterwards.
+   */
+  async moveToProject(
+    itemId: string,
+    workspaceId: string,
+    maxPerOwner: number,
+    retried = false,
+  ): Promise<LibraryMoveOutcome> {
+    const i = this.t.libraryItems
+    const held = aliasedTable(i, 'lmh')
+    const room = sql`(select count(*) from ${aliasedFrom(held)} where ${held.projectId} = ${i.projectId} and ${held.workspaceId} is null) < ${maxPerOwner}`
+    const unresolved = (c: AnyDb) => {
+      const u = aliasedTable(this.t.libraryUsages, 'lmu')
+      const m = aliasedTable(i, 'lmm')
+      return sql`select ${u.slug} as slug from ${aliasedFrom(u)} where ${u.consumerItemId} = ${c.id} and ${u.slug} is not null and not exists (select 1 from ${aliasedFrom(m)} where ${m.projectId} = ${c.projectId} and ${m.workspaceId} is null and ${m.kind} = 'module' and ${m.slug} = ${u.slug} and ${m.id} <> ${c.id})`
+    }
+    let rows: LibraryItem[]
+    try {
+      rows = await this.db
+        .update(i)
+        .set({ workspaceId: null, updatedAt: new Date().toISOString() })
+        .where(
+          and(
+            eq(i.id, itemId),
+            eq(i.workspaceId, workspaceId),
+            room,
+            sql`not exists (${unresolved(i)})`,
+          ),
+        )
+        .returning(this.fields.itemColumns(i))
+    } catch (error) {
+      if (isUniqueViolation(error)) return { ok: false, reason: 'slug-taken' }
+      throw error
+    }
+    if (rows[0]) return { ok: true, item: rows[0] }
+
+    const c = aliasedTable(i, 'lmc')
+    const r = aliasedTable(i, 'lmr')
+    const missingSlugs = sql`(select ${jsonArrayOfValues(this.dialect, sql`x.slug`, sql`x.slug`)} from (${unresolved(c)}) x)`
+    const found = await this.db
+      .select({
+        unresolved: fieldOf(missingSlugs),
+        held: fieldOf(
+          sql`(select count(*) from ${aliasedFrom(r)} where ${r.projectId} = ${c.projectId} and ${r.workspaceId} is null)`,
+        ),
+      })
+      .from(c)
+      .where(and(eq(c.id, itemId), eq(c.workspaceId, workspaceId)))
+      .limit(1)
+    const row = found[0]
+    if (!row) return { ok: false, reason: 'missing' }
+    const slugs = readJsonArray<string>(row.unresolved)
+    if (slugs.length > 0) return { ok: false, reason: 'unresolved', slugs }
+    if (Number(row.held) >= maxPerOwner) return { ok: false, reason: 'full' }
+    // Nothing refuses it now: what did went away in between, so once more.
+    return retried
+      ? { ok: false, reason: 'missing' }
+      : this.moveToProject(itemId, workspaceId, maxPerOwner, true)
+  }
+
   /** Deletes the item unless something uses it; false when it is used (or gone). */
   async deleteIfUnused(itemId: string): Promise<boolean> {
     const i = this.t.libraryItems
@@ -181,6 +257,12 @@ export class LibraryItemsAdapter {
       .where(and(eq(i.id, itemId), sql`not ${this.usages.used(i)}`))
       .returning({ id: i.id })
     return rows.length > 0
+  }
+
+  /** A node's icon.svg content hash in its working copy, or null: the page's image URL keys on it. */
+  private iconHash(i: AnyDb): SQL {
+    const f = aliasedTable(this.t.libraryItemFiles, 'lsif')
+    return sql`(select ${f.hash} from ${aliasedFrom(f)} where ${f.itemId} = ${i.id} and ${f.path} = 'icon.svg')`
   }
 
   private rowJson(i: AnyDb): SQL {
@@ -197,6 +279,7 @@ export class LibraryItemsAdapter {
         publishedAt: this.fields.latestPublishedAt(i),
         usedBy: this.fields.usedByCount(i),
         updatedAt: this.fields.updatedAt(i),
+        iconHash: this.iconHash(i),
       },
       sql`${i.name}`,
     )
@@ -229,9 +312,13 @@ export class LibraryItemsAdapter {
       this.dialect === 'pg'
         ? sql`coalesce((${n.bundle})::json->'definition'->>'name', ${n.nodeId})`
         : sql`coalesce(json_extract(${n.bundle}, '$.definition.name'), ${n.nodeId})`
+    const nodeIcon =
+      this.dialect === 'pg'
+        ? sql`(${n.bundle})::json->'definition'->>'icon'`
+        : sql`json_extract(${n.bundle}, '$.definition.icon')`
     const marketplace =
       scope.level === 'project'
-        ? sql`(select ${jsonArrayOf(this.dialect, { nodeId: n.nodeId, name: nodeName, version: n.version }, sql`${n.nodeId}`)} from ${n} where ${n.organizationId} = ${scope.organizationId})`
+        ? sql`(select ${jsonArrayOf(this.dialect, { nodeId: n.nodeId, name: nodeName, version: n.version, icon: nodeIcon }, sql`${n.nodeId}`)} from ${n} where ${n.organizationId} = ${scope.organizationId})`
         : sql`null`
     const marketplaceCount =
       scope.level === 'project'

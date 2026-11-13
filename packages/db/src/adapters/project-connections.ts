@@ -358,7 +358,10 @@ export class ProjectConnectionsAdapter {
         .select({
           id: dc.id,
           name: dc.name,
-          had: sql<unknown>`exists (select 1 from ${aliasedFrom(has)} where ${has.projectId} = ${input.projectId} and ${has.connectionId} = ${dc.id})`,
+          // fieldOf: with no join the outer `dc.id` would reach the driver as a bare `id`.
+          had: fieldOf(
+            sql<unknown>`exists (select 1 from ${aliasedFrom(has)} where ${has.projectId} = ${input.projectId} and ${has.connectionId} = ${dc.id})`,
+          ),
         })
         .from(dc)
         .where(and(sql`${dc.id} in ${list}`, eq(dc.organizationId, input.organizationId))),

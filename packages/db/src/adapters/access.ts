@@ -35,6 +35,7 @@ import { atomically, atomicallyReturning } from './atomic.js'
 import { boundFields } from './insert-where.js'
 import {
   aliasedFrom,
+  fieldOf,
   idList,
   jsonArrayOf,
   nestedJson,
@@ -738,7 +739,10 @@ export class AccessAdapter {
       .returning({
         ...getTableColumns(wm),
         personName: this.personLabel(data.userId),
-        workspaceName: sql<string>`(select ${named.name} from ${aliasedFrom(named)} where ${named.id} = ${wm.workspaceId})`,
+        // fieldOf: a single-table returning would leave the outer `wm.workspaceId` bare.
+        workspaceName: fieldOf(
+          sql<string>`(select ${named.name} from ${aliasedFrom(named)} where ${named.id} = ${wm.workspaceId})`,
+        ),
       })
     return rows as (NamedWorkspaceMember & { workspaceName: string })[]
   }

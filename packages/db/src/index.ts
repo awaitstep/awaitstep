@@ -47,6 +47,7 @@ export type {
   WorkspaceAttentionItem,
   WorkspaceRecentRun,
   WorkflowDeploySummary,
+  WorkflowLibraryUpdate,
   FailingSummary,
   SharedSummaryItem,
   SummaryPerson,
@@ -227,6 +228,7 @@ export type {
   LibraryOwnerTree,
   LibraryOwnerTreeItem,
   LibraryItemUpdateOutcome,
+  LibraryMoveOutcome,
   LibraryKind,
   LibraryMarketplaceRow,
   LibraryOwner,
@@ -246,4 +248,7 @@ export type {
   RestoreLibraryVersionData,
   UpdateLibraryItemData,
   UpsertLibraryFileData,
+  WorkflowCustomNode,
+  WorkflowCustomNodeTemplate,
+  WorkflowCustomNodeReach,
 } from './library-types.js'
