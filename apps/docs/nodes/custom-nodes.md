@@ -26,6 +26,26 @@ nodes/<node_id>/                    registry/nodes/<node_id>/
 Local nodes are always used at their current version. Remote nodes keep the
 version recorded in the workflow IR until someone updates the node.
 
+## Adding a custom node from Code
+
+Custom nodes can be placed from the Code view as well as from the canvas:
+
+1. In the side bar's **Steps** view, click **Add** (or a step's **New step
+   after…** menu) and choose **Custom node**.
+2. Pick a node. Your Library's nodes come first, with their version, then
+   installed marketplace nodes. Org admins can open **Browse marketplace** to
+   install one without leaving the dialog.
+3. Fill in its fields (required ones are marked), choose whether it runs
+   **Inline**, and choose where it goes: after or before a step, or on a branch
+   from the map.
+
+**Insert** saves one new version with the node and its connections. Later steps
+can read its value by name, for example <code v-pre>{{say_hello.result}}</code>.
+
+The node has no source file of its own; its code lives in the Library or the
+registry. Selecting it shows its fields read-only. Use **Edit on canvas** to
+change them.
+
 ## The NodeDefinition
 
 Every node is a `NodeDefinition`:

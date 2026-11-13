@@ -9,6 +9,7 @@ import {
   summarizeNodeRun,
   versionLabel,
   type SummaryNode,
+  templateNodeMeta,
 } from '../ide/step-summary'
 
 function node(overrides: Partial<SummaryNode> = {}): SummaryNode {
@@ -54,7 +55,7 @@ describe('nodeMeta', () => {
     expect(nodeMeta(node({ type: 'sleep_until' }))).toBe('sleep until a time')
     expect(nodeMeta(node({ type: 'break' }))).toBe('break')
     expect(nodeMeta(node({ type: 'sub_script' }))).toBe('sub-script')
-    expect(nodeMeta(node({ type: 'ollama' }))).toBe('ollama')
+    expect(nodeMeta(node({ type: 'ollama' }))).toBe('Marketplace node')
     expect(nodeMeta(node({ type: 'sleep', data: { duration: 90_000 } }))).toBe('sleep 1m 30s')
   })
 
@@ -413,4 +414,36 @@ describe('stepsForNode with prototype-named node ids', () => {
       expect(stepsForNode(steps, {}, id).map((s) => s.id)).toEqual(['s1'])
     },
   )
+})
+
+describe('templateNodeMeta', () => {
+  const node = (type: string, data: Record<string, unknown> = {}) => ({ id: 'n', type, data })
+
+  it('names a Library node with its published version', () => {
+    expect(templateNodeMeta(node('custom:a'), { library: { version: '1.0.1' } })).toBe(
+      'Custom node · v1.0.1',
+    )
+  })
+
+  it('names a marketplace node with its registry version, and says when it runs inline', () => {
+    expect(templateNodeMeta(node('resend', { inline: true }), { registryVersion: '2.0.0' })).toBe(
+      'Marketplace node · v2.0.0 · inline',
+    )
+  })
+
+  it('leaves the version out while it is not known', () => {
+    expect(templateNodeMeta(node('custom:a'), { registryVersion: '9.9.9' })).toBe('Custom node')
+  })
+})
+
+describe('nodeMeta for a custom or marketplace node', () => {
+  it('reads as the node kind and version, not its raw type', () => {
+    expect(
+      nodeMeta(
+        { id: 'n', type: 'custom:abc', data: {} },
+        { template: { library: { version: '1.0.1' } } },
+      ),
+    ).toBe('Custom node · v1.0.1')
+    expect(nodeMeta({ id: 'n', type: 'resend', data: {} })).toBe('Marketplace node')
+  })
 })

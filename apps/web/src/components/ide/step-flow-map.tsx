@@ -80,7 +80,7 @@ export function StepFlowMap({
   placement,
   onSelect,
 }: StepFlowMapProps) {
-  const { registry } = useNodeRegistry()
+  const { registry, customNodes } = useNodeRegistry()
   const roots = useMemo(() => buildTree(rows), [rows])
   const containerIds = useMemo(
     () => new Set(rows.map((row) => row.parentId).filter((id): id is string => id !== null)),
@@ -203,6 +203,10 @@ export function StepFlowMap({
         : nodeMeta(node, {
             kind,
             arms: armsByNode.get(row.nodeId) ?? 0,
+            template: {
+              library: customNodes.get(node.type),
+              registryVersion: registry.get(node.type)?.version,
+            },
           })
     return (
       <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">

@@ -13,7 +13,7 @@ import { selectStep } from '../../lib/ide/step-actions'
 import { nodeMeta, stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
 import { stepsKeyIntent } from '../../lib/ide/steps-keys'
 import { escapeCss } from '../../lib/ide/css-escape'
-import type { CreateStepOutcome } from '../../lib/ide/step-create'
+import type { CreateStepOutcome, NewTemplateNode } from '../../lib/ide/step-create'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { useIdeStepsStore } from '../../stores/ide-steps-store'
@@ -32,11 +32,12 @@ interface StepsViewProps {
   canEdit: boolean
   /** Why editing is refused right now (a read-only version, a Viewer), or null. */
   readOnlyMessage: string | null
-  /** Adds the step and opens its file, or says why it was refused. */
+  /** Adds the step (or, given `template`, a custom node) and opens or selects it, or says why it was refused. */
   onCreateStep: (
     placement: StepPlacement,
     name: string,
     nodeId?: string,
+    template?: NewTemplateNode,
   ) => Promise<CreateStepOutcome>
 }
 
@@ -66,7 +67,7 @@ export function StepsView({
     reachable,
     takenStepIds,
   } = useStepSync()
-  const { registry } = useNodeRegistry()
+  const { registry, customNodes } = useNodeRegistry()
   const { activePath, selectedNodeId, focusRequested } = useIdeStore(
     useShallow((s) => ({
       activePath: s.activePath,
@@ -198,9 +199,13 @@ export function StepsView({
     placement: StepPlacement,
     name: string,
     nodeId: string,
+    template?: NewTemplateNode,
   ): Promise<CreateStepOutcome> {
-    const outcome = await onCreateStep(placement, name, nodeId)
-    if (outcome.status === 'created' && outcome.opened) {
+    // A step's create keeps its three-argument call; only a custom node adds the template.
+    const outcome = template
+      ? await onCreateStep(placement, name, nodeId, template)
+      : await onCreateStep(placement, name, nodeId)
+    if (outcome.status === 'created' && outcome.opened && outcome.path !== null) {
       useIdeStore.getState().requestEditorFocus()
     }
     return outcome
@@ -226,10 +231,11 @@ export function StepsView({
               type="button"
               onClick={() => handleOpenPicker()}
               disabled={!canEdit}
-              aria-label="New step"
+              aria-label="Add"
+              data-steps-add
               title={
                 canEdit
-                  ? 'New step'
+                  ? 'Add a step or custom node'
                   : (readOnlyMessage ?? 'You can view this workflow but not edit it.')
               }
               className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
@@ -275,6 +281,10 @@ export function StepsView({
                 : nodeMeta(summary, {
                     kind,
                     arms: outgoing.filter((edge) => edge.label !== 'then').length,
+                    template: {
+                      library: customNodes.get(node.type),
+                      registryVersion: registry.get(node.type)?.version,
+                    },
                   })
             return (
               <StepRowItem

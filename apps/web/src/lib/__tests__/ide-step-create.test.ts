@@ -499,3 +499,77 @@ describe('createStepCreator with a caller-chosen id', () => {
     })
   })
 })
+
+describe('createStepCreator — a custom node', () => {
+  const HELLO = { type: 'custom:item_1', data: { greeting: '{{fetch_user.result}}' } }
+
+  it('posts one version with the node, its edges and its fields, then selects it', async () => {
+    const h = harness()
+    const outcome = await createStepCreator(h.deps).create(
+      { after: 'fetch' },
+      'Say hello',
+      undefined,
+      HELLO,
+    )
+    expect(outcome).toEqual({ status: 'created', nodeId: 'newstep00000', path: null, opened: true })
+    const { ir, baseGraphHash } = posted(h.createVersion)
+    expect(baseGraphHash).toBe('g-3')
+    expect(ir.nodes[2]).toMatchObject({
+      id: 'newstep00000',
+      type: 'custom:item_1',
+      name: 'Say hello',
+      data: { greeting: '{{fetch_user.result}}' },
+    })
+    expect(ir.nodes[2]!.data.code).toBeUndefined()
+    expect(ir.edges.map((e) => [e.source, e.target])).toEqual([
+      ['fetch', 'newstep00000'],
+      ['newstep00000', 'mail'],
+    ])
+    expect(useIdeStore.getState().selectedNodeId).toBe('newstep00000')
+    expect(useIdeStore.getState().activePath).toBeNull()
+  })
+
+  it('is refused like a step when the canvas saved a newer version, writing nothing', async () => {
+    const h = harness()
+    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
+    const outcome = await createStepCreator(h.deps).create(
+      { after: 'fetch' },
+      'Say hello',
+      undefined,
+      HELLO,
+    )
+    expect(outcome).toEqual({ status: 'graph-conflict' })
+    expect(useIdeStore.getState().graphConflict).toMatchObject({ currentGraphHash: 'g-9' })
+    expect(useIdeStore.getState().selectedNodeId).toBeNull()
+  })
+
+  it('refuses a builtin that keeps its canvas flow, posting nothing', async () => {
+    const h = harness()
+    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Fork', undefined, {
+      type: 'branch',
+      data: {},
+    })
+    expect(outcome).toEqual({
+      status: 'refused',
+      reason: 'Only a step or a custom node can be added here.',
+    })
+    expect(h.createVersion).not.toHaveBeenCalled()
+  })
+
+  it('says the workspace did not reload without opening anything', async () => {
+    const h = harness()
+    h.refetchFails = true
+    const outcome = await createStepCreator(h.deps).create(
+      { after: 'fetch' },
+      'Say hello',
+      undefined,
+      HELLO,
+    )
+    expect(outcome).toMatchObject({ status: 'created', path: null, opened: false })
+    expect(h.notify.error).toHaveBeenCalledWith(
+      'Created the node, but the workspace didn’t reload',
+      { description: 'Reload the page to see it.' },
+    )
+    expect(useIdeStore.getState().selectedNodeId).toBeNull()
+  })
+})

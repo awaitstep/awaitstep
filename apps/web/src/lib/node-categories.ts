@@ -1,4 +1,4 @@
-import { CUSTOM_NODE_TYPE_PREFIX, type Category } from '@awaitstep/ir'
+import { CUSTOM_NODE_TYPE_PREFIX, isBuiltinNodeType, type Category } from '@awaitstep/ir'
 import {
   Blocks,
   MessageSquare,
@@ -148,4 +148,15 @@ export function paletteGroups<T extends { id: string; category: string }>(
     groups.push({ key, label: getSuperCategoryMeta(key).label, nodes })
   }
   return groups
+}
+
+/**
+ * What Code's Add → Custom node lists: the palette's groups without the
+ * builtins, so Library nodes come first and marketplace nodes follow by
+ * category, as the canvas palette shows them.
+ */
+export function templateNodeGroups<T extends { id: string; category: string }>(
+  items: T[],
+): PaletteGroup<T>[] {
+  return paletteGroups(items.filter((item) => !isBuiltinNodeType(item.id)))
 }

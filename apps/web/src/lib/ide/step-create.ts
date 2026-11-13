@@ -1,6 +1,6 @@
 import { customAlphabet } from 'nanoid'
 import { stepSourcePath } from '@awaitstep/ir'
-import { insertStep, type StepPlacement } from '@awaitstep/codegen'
+import { insertNode, type StepPlacement } from '@awaitstep/codegen'
 import { failureLine } from '../action-toast'
 import { VersionConflictError, type SavedVersion } from '../api-client'
 import type { IdeSessionState } from '../../stores/ide-store'
@@ -44,22 +44,32 @@ export interface StepCreateDeps {
 }
 
 export type CreateStepOutcome =
-  | { status: 'created'; nodeId: string; path: string; opened: boolean }
+  /** `path`: the new step's file; null for a custom node, which has none of its own. */
+  | { status: 'created'; nodeId: string; path: string | null; opened: boolean }
   | { status: 'refused'; reason: string }
   | { status: 'graph-conflict' }
   | { status: 'failed'; reason: string }
 
+/** A custom or marketplace node to add instead of a step: its type and field values. */
+export interface NewTemplateNode {
+  type: string
+  data: Record<string, unknown>
+}
+
 export interface StepCreator {
   /**
-   * Adds a step to the loaded version and saves it as the next version —
-   * never a file write. On success the new `steps/<id>.ts` is opened; a
-   * refusal (an unknown node, a branch without a chosen arm) writes nothing.
+   * Adds a step — or, given `template`, a custom node — to the loaded version
+   * and saves it as the next version, never a file write. On success a new
+   * step's `steps/<id>.ts` is opened, and a custom node (which has no source
+   * file) is selected so its details show; a refusal (an unknown node, a
+   * branch without a chosen arm) writes nothing.
    */
   create(
     placement: StepPlacement,
     name: string,
     /** A caller-chosen id, used to make the file name match the typed name. */
     nodeId?: string,
+    template?: NewTemplateNode,
   ): Promise<CreateStepOutcome>
 }
 
@@ -79,13 +89,13 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
   const newId = deps.newId ?? newNodeId
 
   return {
-    async create(placement, name, providedId) {
+    async create(placement, name, providedId, template) {
       return deps.exclusive(async (): Promise<CreateStepOutcome> => {
         try {
-          return await createOnce(placement, name, providedId)
+          return await createOnce(placement, name, providedId, template)
         } catch {
           // A bug's own message is no reason a person can act on.
-          return { status: 'failed', reason: 'Couldn’t create the step.' }
+          return { status: 'failed', reason: `Couldn’t create the ${template ? 'node' : 'step'}.` }
         }
       })
     },
@@ -95,7 +105,9 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
     placement: StepPlacement,
     name: string,
     providedId?: string,
+    template?: NewTemplateNode,
   ): Promise<CreateStepOutcome> {
+    const noun = template ? 'node' : 'step'
     // Queued work starts later than its call: by then the person may have
     // left for another workflow, whose session the shared store now holds.
     if (!isCurrent()) return { status: 'failed', reason: 'This workspace is no longer open.' }
@@ -110,7 +122,12 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
     }
 
     const nodeId = providedId ?? newId()
-    const inserted = insertStep(version.doc, placement, { id: nodeId, name })
+    const inserted = insertNode(version.doc, placement, {
+      id: nodeId,
+      name,
+      type: template?.type ?? 'step',
+      ...(template && { data: template.data }),
+    })
     if (!inserted.ok) return { status: 'refused', reason: inserted.reason }
 
     let saved: SavedVersion
@@ -144,7 +161,7 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
         await refresh()
         return { status: 'graph-conflict' }
       }
-      return { status: 'failed', reason: failureLine(err, 'Couldn’t create the step') }
+      return { status: 'failed', reason: failureLine(err, `Couldn’t create the ${noun}`) }
     }
 
     if (isCurrent()) getStore().setGraphConflict(null)
@@ -152,19 +169,20 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
     if (next) deps.remember(version.graphHash, next)
     else deps.forget()
     await refresh().catch(() => undefined)
-    const path = stepSourcePath(nodeId)
+    const path = template ? null : stepSourcePath(nodeId)
     // The file is a view of the saved version: open it only once the
     // workspace has read that version back. A refetch that did not land
     // (React Query resolves even when its request fails) would open a tab
-    // with nothing behind it, so say so instead.
+    // with nothing behind it, so say so instead. A custom node has no file:
+    // selecting it shows its details, which need the version read back too.
     const landed = getCachedVersion()?.graphHash === saved.graphHash
     if (isCurrent()) {
-      if (landed) getStore().openFile(path)
-      else {
-        deps.notify.error('Created the step, but the workspace didn’t reload', {
-          description: 'Reload the page to open its file.',
+      if (!landed) {
+        deps.notify.error(`Created the ${noun}, but the workspace didn’t reload`, {
+          description: path ? 'Reload the page to open its file.' : 'Reload the page to see it.',
         })
-      }
+      } else if (path) getStore().openFile(path)
+      else getStore().selectNode(nodeId)
     }
     return { status: 'created', nodeId, path, opened: landed }
   }

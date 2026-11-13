@@ -7,7 +7,11 @@ import type { StepPlacement } from '@awaitstep/codegen'
 import { loadVersionDocument } from '../lib/ide/node-source'
 import type { FileOwner } from '../lib/ide/project'
 import { createProjectFileActions, type ProjectFileActions } from '../lib/ide/project-actions'
-import { createStepCreator, type CreateStepOutcome } from '../lib/ide/step-create'
+import {
+  createStepCreator,
+  type CreateStepOutcome,
+  type NewTemplateNode,
+} from '../lib/ide/step-create'
 import { createStepSaver } from '../lib/ide/step-save'
 import { useIdeStore } from '../stores/ide-store'
 import { useApi, useQueries } from '../contexts/api-client-context'
@@ -39,11 +43,12 @@ export interface ProjectFilesController extends ProjectFileActions {
   busy: boolean
   /** Refetches the workspace's files and settings. */
   refresh: () => Promise<void>
-  /** Adds a step to the loaded version and saves it as one new version. */
+  /** Adds a step (or, given `template`, a custom node) to the loaded version and saves it as one new version. */
   createStep: (
     placement: StepPlacement,
     name: string,
     nodeId?: string,
+    template?: NewTemplateNode,
   ) => Promise<CreateStepOutcome>
 }
 
@@ -212,8 +217,12 @@ export function useProjectFiles({
       renameFile: (from: string, to: string) => track(() => actions.renameFile(from, to)),
       deleteFile: (path: string) => track(() => actions.deleteFile(path)),
       deleteFolder: (dir: string) => track(() => actions.deleteFolder(dir)),
-      createStep: (placement: StepPlacement, name: string, nodeId?: string) =>
-        track(() => stepCreator.create(placement, name, nodeId)),
+      createStep: (
+        placement: StepPlacement,
+        name: string,
+        nodeId?: string,
+        template?: NewTemplateNode,
+      ) => track(() => stepCreator.create(placement, name, nodeId, template)),
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()

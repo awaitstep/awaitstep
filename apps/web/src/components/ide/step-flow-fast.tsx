@@ -21,6 +21,8 @@ interface StepFlowFastProps {
   onSideChange: (side: FlowSide) => void
   onAnchorChange: (choice: PlacementChoice) => void
   onOpenMap: () => void
+  /** Shown in place of the step name: Add → Custom node's picked node and fields. */
+  nodeForm?: React.ReactNode
 }
 
 /** The quick path: one name, after/before, one step. Branches live on the map. */
@@ -54,6 +56,7 @@ export function StepFlowFast({
   onSideChange,
   onAnchorChange,
   onOpenMap,
+  nodeForm,
 }: StepFlowFastProps) {
   const { registry } = useNodeRegistry()
 
@@ -72,21 +75,23 @@ export function StepFlowFast({
   }
 
   return (
-    <div className="space-y-4 px-5 pt-4">
-      <FormField
-        label={<span className="sr-only">Step name</span>}
-        hint={`Saved as steps/${fileStem}.ts`}
-        error={error}
-      >
-        <StepNameInput
-          autoFocus
-          aria-label="Step name"
-          value={name}
-          maxLength={256}
-          onChange={handleNameChange}
-          placeholder="notify_ops"
-        />
-      </FormField>
+    <div className="space-y-4 px-5 pb-4 pt-4">
+      {nodeForm ?? (
+        <FormField
+          label={<span className="sr-only">Step name</span>}
+          hint={`Saved as steps/${fileStem}.ts`}
+          error={error}
+        >
+          <StepNameInput
+            autoFocus
+            aria-label="Step name"
+            value={name}
+            maxLength={256}
+            onChange={handleNameChange}
+            placeholder="notify_ops"
+          />
+        </FormField>
+      )}
 
       <FieldGroup
         legend={
@@ -130,7 +135,7 @@ export function StepFlowFast({
             />
           ) : (
             <p className="rounded-md border border-border px-2.5 py-2 text-2xs text-muted-foreground">
-              No step can take a new step on this side. Pick on the map instead.
+              Nothing can be added on this side. Pick on the map instead.
             </p>
           )}
         </div>

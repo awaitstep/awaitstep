@@ -1,5 +1,6 @@
 import type { NodeDefinition, NodeType } from '@awaitstep/ir'
 import { cn } from '../../lib/utils'
+import { Button } from '../ui/button'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { isCustomNodeType } from '../../lib/node-categories'
 import type { CustomNodeSource } from '../../contexts/node-registry-context'
@@ -10,13 +11,21 @@ interface PaletteRowProps {
   source: CustomNodeSource | undefined
   builtin: boolean
   onAdd: (type: NodeType) => void
+  /** `pick`: a button to choose the node (Code's Add), not a row to drag onto the canvas. */
+  mode?: 'palette' | 'pick'
 }
 
 /**
  * One node in the Add node palette (28k): a Library node shows its version,
  * and "Project" when the project owns it; a marketplace node says so.
  */
-export function PaletteRow({ definition, source, builtin, onAdd }: PaletteRowProps) {
+export function PaletteRow({
+  definition,
+  source,
+  builtin,
+  onAdd,
+  mode = 'palette',
+}: PaletteRowProps) {
   const visuals = getNodeVisuals(definition.id, definition.icon)
   const type = definition.id as NodeType
   const chip = source
@@ -36,13 +45,8 @@ export function PaletteRow({ definition, source, builtin, onAdd }: PaletteRowPro
     onAdd(type)
   }
 
-  return (
-    <div
-      draggable
-      onDragStart={handleDragStart}
-      onClick={handleClick}
-      className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
-    >
+  const content = (
+    <>
       <div
         className={cn(
           'flex h-7 w-7 shrink-0 items-center justify-center rounded-md',
@@ -76,6 +80,30 @@ export function PaletteRow({ definition, source, builtin, onAdd }: PaletteRowPro
           v{source.version}
         </span>
       )}
+    </>
+  )
+
+  if (mode === 'pick') {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={handleClick}
+        className="h-auto w-full justify-start gap-2.5 rounded-lg px-2 py-1.5 text-left font-normal hover:bg-muted/60"
+      >
+        {content}
+      </Button>
+    )
+  }
+
+  return (
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      onClick={handleClick}
+      className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
+    >
+      {content}
     </div>
   )
 }

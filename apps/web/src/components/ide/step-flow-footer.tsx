@@ -9,6 +9,8 @@ interface StepFlowFooterProps {
   busy: boolean
   canInsert: boolean
   onCancel: () => void
+  /** Custom node chosen, none picked yet. */
+  picking?: boolean
 }
 
 export function StepFlowFooter({
@@ -20,10 +22,13 @@ export function StepFlowFooter({
   busy,
   canInsert,
   onCancel,
+  picking = false,
 }: StepFlowFooterProps) {
   return (
     <div className="mt-auto flex shrink-0 items-center justify-between gap-3 border-t border-border px-5 py-3">
-      {mode === 'fast' ? (
+      {picking ? (
+        <p className="min-w-0 truncate text-xs text-muted-foreground">Choose a node to add</p>
+      ) : mode === 'fast' ? (
         <p className="min-w-0 truncate text-xs text-muted-foreground">
           <span className="font-mono text-foreground">{name.trim() || 'new_step'}</span>
           {' → '}

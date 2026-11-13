@@ -11,13 +11,7 @@ import {
   type OnEdgesChange,
   type Connection,
 } from '@xyflow/react'
-import type {
-  ResourceDeclaration,
-  WorkflowNode,
-  NodeType,
-  WorkflowMetadata,
-  ConfigField,
-} from '@awaitstep/ir'
+import type { ResourceDeclaration, WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
 import { fallbackPosition } from '../lib/hydrate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
@@ -25,6 +19,7 @@ import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflo
 import { customAlphabet } from 'nanoid'
 import { computeVarNames, followStepFunctionNames, stepModuleTemplate } from '@awaitstep/codegen'
 import { buildIRFromState } from '../lib/build-ir'
+import { configDefaults } from '../lib/node-defaults'
 import { stepCodeForInline } from '../lib/step-inline'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
@@ -243,17 +238,6 @@ interface WorkflowState {
   setWorkflowId: (id: string | null) => void
   markClean: () => void
   reset: () => void
-}
-
-function configDefaults(schema?: Record<string, ConfigField>): Record<string, unknown> {
-  if (!schema) return {}
-  const data: Record<string, unknown> = {}
-  for (const [key, field] of Object.entries(schema)) {
-    if (field.default !== undefined) {
-      data[key] = field.default
-    }
-  }
-  return data
 }
 
 function createDefaultNode(

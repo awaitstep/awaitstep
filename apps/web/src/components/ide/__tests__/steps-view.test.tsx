@@ -11,7 +11,7 @@ import { FILES, irNode, loadGraph, SyncHarness } from './fixtures/step-sync'
 const switchView = vi.fn()
 vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
 vi.mock('../../../contexts/node-registry-context', () => ({
-  useNodeRegistry: () => ({ registry: { get: () => undefined } }),
+  useNodeRegistry: () => ({ registry: { get: () => undefined }, customNodes: new Map() }),
 }))
 
 function setup(
@@ -233,7 +233,7 @@ describe('StepsView', () => {
     loadGraph([irNode('a', 'A'), irNode('b', 'B')], [{ id: 'e1', source: 'a', target: 'b' }])
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: 'Step name' })).toHaveFocus()
     await user.click(screen.getByRole('combobox', { name: 'Place it' }))
@@ -253,7 +253,7 @@ describe('StepsView', () => {
     loadGraph([irNode('a', 'A'), irNode('b', 'B')], [{ id: 'e1', source: 'a', target: 'b' }])
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.click(screen.getByRole('tab', { name: 'Before' }))
     await user.click(screen.getByRole('combobox', { name: 'Place it' }))
     await user.click(await screen.findByRole('option', { name: 'B' }))
@@ -272,7 +272,7 @@ describe('StepsView', () => {
   it('picks a branch on the map', async () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.click(screen.getByRole('button', { name: /Pick on the map/ }))
     expect(screen.getByText('Where should it go?')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Into paid' }))
@@ -291,7 +291,7 @@ describe('StepsView', () => {
   it('submits the map with Enter from the name field', async () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.click(screen.getByRole('button', { name: /Pick on the map/ }))
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Notify')
     expect(screen.getByText('steps/notify.ts')).toBeInTheDocument()
@@ -343,7 +343,7 @@ describe('StepsView', () => {
     loadGraph([], [])
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     expect(screen.getByText('Where should it go?')).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Start')
     await user.click(screen.getByRole('button', { name: 'Insert' }))
@@ -355,7 +355,7 @@ describe('StepsView', () => {
   it('keeps the fast Insert disabled until a name is typed', async () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled()
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), '   ')
     expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled()
@@ -379,7 +379,7 @@ describe('StepsView', () => {
         />
       </SyncHarness>,
     )
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Charge')
     await user.click(screen.getByRole('button', { name: 'Insert' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -393,13 +393,13 @@ describe('StepsView', () => {
     loadGraph([irNode('a', 'A'), irNode('b', 'B')], [{ id: 'e1', source: 'a', target: 'b' }])
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Draft')
     await user.click(screen.getByRole('tab', { name: 'Before' }))
     await user.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(useIdeStepsStore.getState().picker).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     expect(screen.getByRole('textbox', { name: 'Step name' })).toHaveValue('')
     expect(screen.getByRole('tab', { name: 'After' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('combobox', { name: 'Place it' })).toHaveTextContent('A')
@@ -426,7 +426,7 @@ describe('StepsView', () => {
         />
       </SyncHarness>,
     )
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Charge')
     await user.click(screen.getByRole('button', { name: 'Insert' }))
     expect(screen.getByRole('button', { name: 'Inserting…' })).toBeDisabled()
@@ -462,7 +462,7 @@ describe('StepsView', () => {
       </SyncHarness>
     )
     const view = render(ui(true))
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     view.rerender(ui(false))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
@@ -481,7 +481,7 @@ describe('StepsView', () => {
     useIdeStepsStore.getState().openPicker('b')
     setup()
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText(/No step can take a new step on this side/)).toBeInTheDocument()
+    expect(screen.getByText(/Nothing can be added on this side/)).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Charge')
     expect(screen.getByRole('button', { name: 'Insert' })).toBeDisabled()
   })
@@ -491,7 +491,7 @@ describe('StepsView', () => {
     const user = userEvent.setup()
     const files = new Map([...FILES, ['steps/notify_ops.ts', { source: '' }]])
     const { onCreateStep } = setup({ files })
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Notify ops')
     expect(screen.getByText('Saved as steps/notify_ops_2.ts')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Insert' }))
@@ -510,7 +510,7 @@ describe('StepsView', () => {
     )
     const user = userEvent.setup()
     setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.click(screen.getByRole('tab', { name: 'Before' }))
     await user.click(screen.getByRole('combobox', { name: 'Place it' }))
     expect(await screen.findByRole('option', { name: 'A' })).toBeInTheDocument()
@@ -521,7 +521,7 @@ describe('StepsView', () => {
   it('shows the ghost on the map’s default position', async () => {
     const user = userEvent.setup()
     setup()
-    await user.click(screen.getByRole('button', { name: 'New step' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.click(screen.getByRole('button', { name: /Pick on the map/ }))
     expect(screen.getByText('lands here')).toBeInTheDocument()
     expect(screen.getByText('After Validate order')).toBeInTheDocument()
@@ -556,7 +556,7 @@ describe('StepsView', () => {
 
   it('keeps the create controls, disabled with the reason, when the workspace cannot edit', () => {
     setup({}, false, 'Older versions are read-only.')
-    expect(screen.getByRole('button', { name: 'New step' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
     const menus = screen.getAllByRole('button', { name: /New step after/ })
     expect(menus.length).toBeGreaterThan(0)
     for (const menu of menus) {

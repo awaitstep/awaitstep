@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { computeVarNames, sanitizeIdentifier } from '@awaitstep/codegen'
 import type { StepPlacement } from '@awaitstep/codegen'
 import type { WorkflowNode } from '@awaitstep/ir'
-import type { CreateStepOutcome } from '../../lib/ide/step-create'
+import { useAddNodeDraft, type AddKind } from '../../hooks/use-add-node-draft'
+import type { CreateStepOutcome, NewTemplateNode } from '../../lib/ide/step-create'
 import type { PlacementChoice } from '../../lib/ide/step-placements'
 import type { StepRow } from '../../lib/ide/step-order'
 import {
@@ -14,8 +15,11 @@ import {
   uniqueStepId,
   type FlowSide,
 } from '../../lib/ide/step-flow-choices'
+import { escapeCss } from '../../lib/ide/css-escape'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { Dialog, DialogContent } from '../ui/dialog'
+import { AddNodeFields } from './add-node-fields'
+import { AddNodeList } from './add-node-list'
 import { StepFlowFast } from './step-flow-fast'
 import { StepFlowFooter } from './step-flow-footer'
 import { StepFlowHeader } from './step-flow-header'
@@ -34,16 +38,23 @@ interface StepFlowDialogProps {
   reachable: ReadonlySet<string>
   takenStepIds: ReadonlySet<string>
   kind: 'workflow' | 'script'
-  onCreate: (placement: StepPlacement, name: string, nodeId: string) => Promise<CreateStepOutcome>
+  onCreate: (
+    placement: StepPlacement,
+    name: string,
+    nodeId: string,
+    template?: NewTemplateNode,
+  ) => Promise<CreateStepOutcome>
   onClose: () => void
 }
 
 type Mode = 'fast' | 'map'
 
 /**
- * Add a step: the fast path places it after/before one step; the map is for
- * branches, where a + on the flow picks the spot. The name, header, footer,
- * fast form and map each live in their own file.
+ * Add a step or a custom node: the fast path places it after/before one step;
+ * the map is for branches, where a + on the flow picks the spot. A custom
+ * node is picked from the palette's list first, then named and filled in.
+ * The name, header, footer, fast form, node list and map each live in their
+ * own file.
  */
 export function StepFlowDialog({
   open,
@@ -59,7 +70,8 @@ export function StepFlowDialog({
   onCreate,
   onClose,
 }: StepFlowDialogProps) {
-  const [name, setName] = useState('')
+  const draft = useAddNodeDraft()
+  const { name, picked, picking, reset: resetDraft } = draft
   const [mode, setMode] = useState<Mode>('fast')
   const [side, setSide] = useState<FlowSide>('after')
   const [anchorId, setAnchorId] = useState<string | null>(null)
@@ -71,6 +83,8 @@ export function StepFlowDialog({
   // A created step's editor focus must not be replaced by the Steps row when
   // the dialog's close auto-focus runs.
   const restoreFocus = useRef(true)
+  // A custom node added by this open: the close focuses its Steps row.
+  const createdNodeId = useRef<string | null>(null)
 
   const edgeById = useMemo(() => new Map(edges.map((edge) => [edge.id, edge])), [edges])
   const allChoices = useMemo(
@@ -106,7 +120,8 @@ export function StepFlowDialog({
     wasOpen.current = true
     generation.current += 1
     restoreFocus.current = true
-    setName('')
+    createdNodeId.current = null
+    resetDraft()
     setError(null)
     setBusy(false)
     setMode('fast')
@@ -169,6 +184,7 @@ export function StepFlowDialog({
     befores,
     allChoices,
     rows.length,
+    resetDraft,
   ])
 
   const previewName = useMemo(() => {
@@ -184,10 +200,27 @@ export function StepFlowDialog({
   const triggerLabel = kind === 'script' ? 'HTTP request' : `POST /${workflowName || 'workflow'}`
   const fileStem = uniqueStepId(name, nodes, takenStepIds)
   const mapSummary = effectiveMapChoice?.label ?? 'Choose a place'
-  const canInsert = !busy && name.trim() !== '' && activePlacement !== null && previewName !== null
+  const canInsert =
+    !busy && !picking && name.trim() !== '' && activePlacement !== null && previewName !== null
+  const noun = draft.kind === 'step' ? 'step' : 'node'
 
   function handleNameChange(next: string) {
-    setName(next)
+    draft.setName(next)
+    setError(null)
+  }
+
+  function handleKindChange(next: AddKind) {
+    draft.setKind(next)
+    setError(null)
+  }
+
+  function handleChangeNode() {
+    draft.unpick()
+    setError(null)
+  }
+
+  function handleMapSelect(next: StepPlacement) {
+    setMapPlacement(next)
     setError(null)
   }
 
@@ -251,43 +284,75 @@ export function StepFlowDialog({
   function handleCloseAutoFocus(event: Event) {
     event.preventDefault()
     if (!restoreFocus.current) return
+    const created = createdNodeId.current
     requestAnimationFrame(() => {
-      const row = document.querySelector<HTMLElement>(
-        '[role="tree"][aria-label="Steps"] [tabindex="0"]',
-      )
-      const add = document.querySelector<HTMLElement>('[aria-label="New step"]')
+      const tree = '[role="tree"][aria-label="Steps"]'
+      const row =
+        (created !== null
+          ? document.querySelector<HTMLElement>(`${tree} [data-step-id="${escapeCss(created)}"]`)
+          : null) ?? document.querySelector<HTMLElement>(`${tree} [tabindex="0"]`)
+      const add = document.querySelector<HTMLElement>('[data-steps-add]')
       ;(row ?? add)?.focus()
     })
   }
 
   async function handleSubmit(event: React.FormEvent) {
+    // React bubbles a submit through portals: one from a dialog opened over
+    // this one (the marketplace) must not insert.
+    if (event.target !== event.currentTarget) return
     event.preventDefault()
     if (busy) return
     const trimmed = name.trim()
+    if (picking) {
+      setError('Choose a node to add.')
+      return
+    }
     if (trimmed === '') {
-      setError('Enter a step name.')
+      setError(`Enter a ${noun} name.`)
       return
     }
     if (activePlacement === null) {
-      setError('Choose where the step goes.')
+      setError(`Choose where the ${noun} goes.`)
       return
     }
     const run = generation.current
     setBusy(true)
     setError(null)
-    const outcome = await onCreate(activePlacement, trimmed, fileStem)
+    const outcome = await onCreate(activePlacement, trimmed, fileStem, draft.template())
     if (generation.current !== run) return
     if (outcome.status === 'created' || outcome.status === 'graph-conflict') {
-      if (outcome.status === 'created' && outcome.opened) restoreFocus.current = false
+      // A new step's file takes focus. A custom node has none: it is selected,
+      // so its Steps row is the one the close focuses.
+      if (outcome.status === 'created' && outcome.opened) {
+        if (outcome.path !== null) restoreFocus.current = false
+        else createdNodeId.current = outcome.nodeId
+      }
       closeDialog()
       return
     }
     setBusy(false)
     setError(outcome.reason)
+    const nameLabel = noun === 'step' ? 'Step name' : 'Node name'
     requestAnimationFrame(() =>
-      document.querySelector<HTMLInputElement>('input[aria-label="Step name"]')?.focus(),
+      document.querySelector<HTMLInputElement>(`input[aria-label="${nameLabel}"]`)?.focus(),
     )
   }
+
+  // The picked custom node's name, fields and Inline switch; it replaces the
+  // step name in the fast form and sits under the map otherwise.
+  const nodeForm =
+    draft.kind === 'custom' && picked ? (
+      <AddNodeFields
+        definition={picked}
+        name={name}
+        data={draft.fields}
+        error={error}
+        busy={busy}
+        onNameChange={handleNameChange}
+        onFieldChange={draft.setField}
+        onChangeNode={handleChangeNode}
+      />
+    ) : undefined
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : requestClose())}>
@@ -297,7 +362,9 @@ export function StepFlowDialog({
       >
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <StepFlowHeader
-            mode={mode}
+            mode={picking ? 'fast' : mode}
+            kind={draft.kind}
+            onKindChange={handleKindChange}
             busy={busy}
             fileStem={fileStem}
             name={name}
@@ -305,21 +372,26 @@ export function StepFlowDialog({
             onClose={requestClose}
             onBack={openFast}
           />
-          {mode === 'fast' ? (
-            <StepFlowFast
-              name={name}
-              error={error}
-              side={side}
-              fastChoice={fastChoice}
-              fastChoices={fastChoices}
-              fileStem={fileStem}
-              onNameChange={handleNameChange}
-              onSideChange={chooseSide}
-              onAnchorChange={chooseAnchor}
-              onOpenMap={openMap}
-            />
+          {picking ? (
+            <AddNodeList onPick={draft.pick} error={error} />
+          ) : mode === 'fast' ? (
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <StepFlowFast
+                name={name}
+                error={error}
+                side={side}
+                fastChoice={fastChoice}
+                fastChoices={fastChoices}
+                fileStem={fileStem}
+                onNameChange={handleNameChange}
+                onSideChange={chooseSide}
+                onAnchorChange={chooseAnchor}
+                onOpenMap={openMap}
+                nodeForm={nodeForm}
+              />
+            </div>
           ) : (
-            <>
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="max-h-[52vh] min-h-[240px] overflow-y-auto px-4 py-3">
                 <StepFlowMap
                   rows={rows}
@@ -332,22 +404,21 @@ export function StepFlowDialog({
                   choices={allChoices}
                   triggerLabel={triggerLabel}
                   placement={effectiveMapPlacement}
-                  onSelect={(next) => {
-                    setMapPlacement(next)
-                    setError(null)
-                  }}
+                  onSelect={handleMapSelect}
                 />
               </div>
-              {error !== null && (
+              {nodeForm && <div className="border-t border-border px-4 py-3">{nodeForm}</div>}
+              {error !== null && nodeForm === undefined && (
                 <p role="alert" className="px-4 pb-2 text-2xs text-destructive">
                   {error}
                 </p>
               )}
-            </>
+            </div>
           )}
 
           <StepFlowFooter
-            mode={mode}
+            mode={picking ? 'fast' : mode}
+            picking={picking}
             name={name}
             side={side}
             fastChoiceName={fastChoice?.nodeName ?? null}

@@ -1,4 +1,9 @@
-import { isBuiltinNodeType, type RuntimeHints, type StepConfig } from '@awaitstep/ir'
+import {
+  CUSTOM_NODE_TYPE_PREFIX,
+  isBuiltinNodeType,
+  type RuntimeHints,
+  type StepConfig,
+} from '@awaitstep/ir'
 import { appliedStepSettings } from '@awaitstep/codegen'
 import type { RunStep, VersionSummary } from '../api-client'
 import { formatDurationMs } from '../time'
@@ -120,6 +125,7 @@ function hasTimeout(config: StepConfig | undefined): boolean {
  */
 export function nodeMeta(node: SummaryNode, options: NodeMetaOptions = {}): string | null {
   if (node.type === 'step') return stepMeta(node, options.kind ? { kind: options.kind } : undefined)
+  if (!isBuiltinNodeType(node.type)) return templateNodeMeta(node, options.template)
   const arms = options.arms ?? 0
   const armLine = arms > 0 ? `${arms} ${arms === 1 ? 'arm' : 'arms'}` : null
   switch (node.type) {
@@ -157,6 +163,27 @@ export function nodeMeta(node: SummaryNode, options: NodeMetaOptions = {}): stri
   }
 }
 
+export interface TemplateNodeMetaOptions {
+  /** A Library node's published version in this workflow; unset for a marketplace node. */
+  library?: { version: string }
+  /** The registry definition's version, for a marketplace node. */
+  registryVersion?: string
+}
+
+/**
+ * The Steps list line for a custom or marketplace node: "Custom node ·
+ * v1.0.1", "Marketplace node · v2.0.0", with "inline" when it runs without a
+ * step. It has no source file of its own, so the line names no file.
+ */
+export function templateNodeMeta(node: SummaryNode, options: TemplateNodeMetaOptions = {}): string {
+  const library = node.type.startsWith(CUSTOM_NODE_TYPE_PREFIX)
+  const version = library ? options.library?.version : options.registryVersion
+  const parts = [library ? 'Custom node' : 'Marketplace node']
+  if (version) parts.push(`v${version}`)
+  if (node.data.inline === true) parts.push('inline')
+  return parts.join(' · ')
+}
+
 /** A non-blank string, trimmed; blank and non-string values fall back. */
 function text(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback
@@ -168,6 +195,8 @@ export interface NodeMetaOptions {
   kind?: 'workflow' | 'script'
   /** Connections leaving the node, excluding a container's `then` continuation. */
   arms?: number
+  /** A custom or marketplace node's versions; see `templateNodeMeta`. */
+  template?: TemplateNodeMetaOptions
 }
 
 /** A short line for the Steps list: "retries 3", or "timeout 30s", or nothing. */

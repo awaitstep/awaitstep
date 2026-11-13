@@ -1,15 +1,18 @@
 import { type ReactNode } from 'react'
 import { FlaskConical, Maximize2, X } from 'lucide-react'
+import { isBuiltinNodeType, type NodeDefinition, type WorkflowNode } from '@awaitstep/ir'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { useLastRunSteps } from '../../hooks/use-last-run-steps'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
+import { DynamicFields } from '../canvas/dynamic-fields'
 import { openUsedFile, runStepQuickTest } from '../../lib/ide/step-actions'
 import {
   stepSettings,
   stepsForNode,
   summarizeNodeRun,
+  templateNodeMeta,
   versionLabel,
   type LastRunSummary,
 } from '../../lib/ide/step-summary'
@@ -33,7 +36,7 @@ const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
 export function StepInspector({ nodeId }: { nodeId: string }) {
   const sync = useStepSync()
   const { workflowId, map, nodes, kind, linkVersion } = sync
-  const { registry } = useNodeRegistry()
+  const { registry, customNodes } = useNodeRegistry()
   const switchView = useSwitchView(workflowId)
   const node = nodes.get(nodeId)
   const info = map.byNode.get(nodeId)
@@ -44,6 +47,13 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
   const definition = registry.get(node.type)
   const settings = stepSettings(node, { kind, runtime: definition?.runtime })
   const visuals = getNodeVisuals(node.type, definition?.icon)
+  const template = !isBuiltinNodeType(node.type)
+  const label = template
+    ? templateNodeMeta(node, {
+        library: customNodes.get(node.type),
+        registryVersion: definition?.version,
+      })
+    : kindLabel(node.type)
   const leader = info.coalescedInto ? nodes.get(info.coalescedInto) : undefined
   const leaderFile = info.coalescedInto
     ? (map.byNode.get(info.coalescedInto)?.filePath ?? null)
@@ -103,7 +113,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
             {visuals.icon}
           </span>
           <h3 className="min-w-0 truncate text-xs font-semibold text-foreground">{node.name}</h3>
-          <span className="shrink-0 text-2xs text-muted-foreground">{kindLabel(node.type)}</span>
+          <span className="shrink-0 text-2xs text-muted-foreground">{label}</span>
         </div>
         <button
           type="button"
@@ -151,6 +161,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
           <LastRun nodeId={nodeId} data={lastRun} versions={sync.versions} />
         </Field>
       </dl>
+      {template && definition && <TemplateNodeSettings node={node} definition={definition} />}
       <div className="flex gap-2 px-3 pb-2.5">
         <ActionButton
           icon={<FlaskConical className="h-3 w-3" />}
@@ -173,6 +184,38 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         </ActionButton>
       </div>
     </section>
+  )
+}
+
+function noFieldChange() {}
+
+/**
+ * A custom or marketplace node's fields, read-only: the canvas owns the
+ * graph, so they are changed there ("Edit on canvas"). How it runs (retries,
+ * timeout, or Inline) is already in the rows above.
+ */
+function TemplateNodeSettings({
+  node,
+  definition,
+}: {
+  node: WorkflowNode
+  definition: NodeDefinition
+}) {
+  if (Object.keys(definition.configSchema).length === 0) return null
+  return (
+    <fieldset
+      disabled
+      aria-label="Node settings"
+      className="min-w-0 space-y-3 border-t border-border/60 px-3 py-2.5"
+    >
+      <DynamicFields
+        configSchema={definition.configSchema}
+        data={node.data}
+        onChange={noFieldChange}
+        nodeId={node.id}
+        readOnly
+      />
+    </fieldset>
   )
 }
 
