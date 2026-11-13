@@ -1,4 +1,10 @@
-import type { ArtifactIR, Edge, NodeId, WorkflowNode } from '@awaitstep/ir'
+import {
+  isBuiltinNodeType,
+  type ArtifactIR,
+  type Edge,
+  type NodeId,
+  type WorkflowNode,
+} from '@awaitstep/ir'
 import { computeVarNames } from './context.js'
 import { stepModuleTemplate } from './step-module.js'
 
@@ -15,6 +21,17 @@ export interface NewStep {
   id: string
   /** The display name; the module's function is named from it. */
   name: string
+}
+
+/**
+ * A node to place: a `step` (its module code is scaffolded from its name) or
+ * a custom or marketplace template node, which carries its field values and
+ * no code — its code lives in the Library or the registry.
+ */
+export interface NewNode extends NewStep {
+  type: string
+  /** A template node's field values; ignored for a step. */
+  data?: Record<string, unknown>
 }
 
 export type InsertStepResult =
@@ -61,10 +78,29 @@ export function insertStep(
   placement: StepPlacement,
   newStep: NewStep,
 ): InsertStepResult {
+  return insertNode(ir, placement, { ...newStep, type: 'step' })
+}
+
+/**
+ * `insertStep` for any node Code can add: a step, or a custom or marketplace
+ * template node with its field values. Other builtins (branch, loop, sleep…)
+ * keep their canvas-only flows and are refused. Placement, edges, names and
+ * positions follow `insertStep` exactly.
+ */
+export function insertNode(
+  ir: ArtifactIR,
+  placement: StepPlacement,
+  newStep: NewNode,
+): InsertStepResult {
+  const isStep = newStep.type === 'step'
+  if (!isStep && (newStep.type === '' || isBuiltinNodeType(newStep.type))) {
+    return refuse('Only a step or a custom node can be added here.')
+  }
+  const noun = isStep ? 'step' : 'node'
   const name = newStep.name.trim()
-  if (name === '') return refuse('Give the step a name.')
-  if (name.length > 256) return refuse('A step name can be at most 256 characters.')
-  if (newStep.id === '') return refuse('The step needs an id.')
+  if (name === '') return refuse(`Give the ${noun} a name.`)
+  if (name.length > 256) return refuse(`A ${noun} name can be at most 256 characters.`)
+  if (newStep.id === '') return refuse(`The ${noun} needs an id.`)
   if (ir.nodes.some((node) => node.id === newStep.id)) {
     return refuse('A node with that id is already in this version.')
   }
@@ -79,15 +115,27 @@ export function insertStep(
   const names = computeVarNames([...ir.nodes, { id: newStep.id, name }])
   const varName = names.get(newStep.id)!
   if (varName === '') {
-    return refuse('This step’s name needs at least one letter or digit.')
+    return refuse(`This ${noun}’s name needs at least one letter or digit.`)
   }
+  const build = (position: { x: number; y: number }): WorkflowNode =>
+    isStep
+      ? buildNode(newStep.id, name, varName, position)
+      : {
+          id: newStep.id,
+          type: newStep.type,
+          name,
+          position,
+          version: NEW_NODE_VERSION,
+          provider: NEW_NODE_PROVIDER,
+          data: { ...newStep.data },
+        }
   let node: WorkflowNode
   let edges: Edge[]
   let entryNodeId = ir.entryNodeId
 
   if ('first' in placement) {
     if (ir.nodes.length === 0) {
-      node = buildNode(newStep.id, name, varName, { ...FALLBACK_POSITION })
+      node = build({ ...FALLBACK_POSITION })
       edges = [...ir.edges]
       entryNodeId = newStep.id
     } else {
@@ -96,7 +144,7 @@ export function insertStep(
       const position = entry.position
         ? { x: entry.position.x - STEP_X_OFFSET, y: entry.position.y }
         : { ...FALLBACK_POSITION }
-      node = buildNode(newStep.id, name, varName, position)
+      node = build(position)
       edges = [
         ...ir.edges,
         {
@@ -127,11 +175,11 @@ export function insertStep(
       }
     } else if (outgoing.length > 1) {
       return refuse(
-        'This step has more than one outgoing connection. Choose where the new step goes.',
+        `This step has more than one outgoing connection. Choose where the new ${noun} goes.`,
       )
     }
 
-    node = buildNode(newStep.id, name, varName, rightOf(anchor))
+    node = build(rightOf(anchor))
     if (!chosen) {
       edges = [
         ...ir.edges,

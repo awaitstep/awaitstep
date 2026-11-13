@@ -5,6 +5,7 @@ import type { WorkflowNode } from '@awaitstep/ir'
 import {
   appliedStepSettings,
   createGenerationContext,
+  insertNode,
   generateCustomNodeModule,
   generateCustomNodeParts,
   templateImports,
@@ -337,6 +338,32 @@ describe('a custom node field that reads an earlier node', () => {
     const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
     return { result: await runModule(source, { inputs }), source, graph }
   }
+
+  it('binds the earlier value for a node Code placed, as for one dropped on the canvas', async () => {
+    const base = graphWith('unused')
+    const withoutNode = { ...base, nodes: [base.nodes[0]!], edges: [] }
+    const placed = insertNode(
+      withoutNode as never,
+      { after: '0of2ji3lqt72' },
+      {
+        id: 'h',
+        name: 'say hello',
+        type: 'custom:abc',
+        data: { name: '{{sample_step.result}}' },
+      },
+    )
+    if (!placed.ok) throw new Error(placed.reason)
+    const bundle = generateScriptBundle(placed.ir, {
+      templateResolver: {
+        getTemplate: () => 'export default async function (ctx) { return ctx.inputs.name }',
+      },
+    })
+    const source = bundle.files.find((f) => f.path === 'nodes/say_hello.ts')!.source
+    const graph = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
+    expect(graph).toContain('const say_hello = ')
+    expect(graph).toContain('inputs: { sample_step }')
+    expect(await runModule(source, { inputs: { sample_step: { result: 'Ama' } } })).toBe('Ama')
+  })
 
   it('hands the template the earlier value, by node id or by name, keeping its type', async () => {
     for (const ref of ['0of2ji3lqt72', 'sample_step']) {

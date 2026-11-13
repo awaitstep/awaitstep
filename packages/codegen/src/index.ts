@@ -151,8 +151,8 @@ export {
   stepModuleProblem,
   stepModuleProblems,
 } from './step-module.js'
-export { insertStep } from './graph-edit.js'
-export type { InsertStepResult, NewStep, StepPlacement } from './graph-edit.js'
+export { insertNode, insertStep } from './graph-edit.js'
+export type { InsertStepResult, NewNode, NewStep, StepPlacement } from './graph-edit.js'
 export { moduleInputReads, moduleInputNames } from './module-inputs.js'
 export type { ModuleInputReads } from './module-inputs.js'
 export {

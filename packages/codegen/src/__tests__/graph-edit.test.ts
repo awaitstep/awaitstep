@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { validateArtifact, type ArtifactIR, type Edge, type WorkflowNode } from '@awaitstep/ir'
-import { insertStep, type NewStep, type StepPlacement } from '../graph-edit.js'
+import { insertNode, insertStep, type NewStep, type StepPlacement } from '../graph-edit.js'
 import { stepModuleProblems } from '../step-module.js'
 
 function node(
@@ -298,5 +298,92 @@ describe('insertStep — names and positions', () => {
     const next = insert(ir, { after: 'a' })
     expect(validateArtifact(next)).toEqual({ ok: true, value: next })
     expect(stepModuleProblems(next)).toEqual([])
+  })
+})
+
+describe('insertNode — a custom or marketplace node', () => {
+  const HELLO = {
+    id: 'hello0000000',
+    name: 'Say hello',
+    type: 'custom:item_1',
+    data: { greeting: '{{a.result}}' },
+  }
+
+  function placed(ir: ArtifactIR, placement: StepPlacement, next = HELLO) {
+    const result = insertNode(ir, placement, next)
+    if (!result.ok) throw new Error(`expected a document, got: ${result.reason}`)
+    return result
+  }
+
+  it('splices it into X → Y with its fields and no code', () => {
+    const ir = graph([node('a', 'A'), node('b', 'B')], [{ id: 'e1', source: 'a', target: 'b' }])
+    const { ir: next, node: added } = placed(ir, { after: 'a' })
+    expect(added).toMatchObject({
+      id: HELLO.id,
+      type: 'custom:item_1',
+      name: 'Say hello',
+      data: { greeting: '{{a.result}}' },
+    })
+    expect(added.data.code).toBeUndefined()
+    expect(next.edges.map((e) => [e.source, e.target])).toEqual([
+      ['a', HELLO.id],
+      [HELLO.id, 'b'],
+    ])
+    expect(validateArtifact(next).ok).toBe(true)
+  })
+
+  it('goes onto a container arm, keeping the arm label', () => {
+    const ir = graph(
+      [node('loop', 'Loop', 'loop'), node('x', 'X')],
+      [{ id: 'arm', source: 'loop', target: 'x', label: 'body' }],
+    )
+    const { ir: next } = placed(ir, { after: 'loop', edgeId: 'arm' })
+    expect(next.edges[0]).toMatchObject({ source: 'loop', target: HELLO.id, label: 'body' })
+    expect(next.edges[1]).toMatchObject({ source: HELLO.id, target: 'x' })
+  })
+
+  it('becomes the entry when placed first', () => {
+    const ir = graph([node('a', 'A')], [])
+    const { ir: next } = placed(ir, { first: true })
+    expect(next.entryNodeId).toBe(HELLO.id)
+    expect(next.edges).toEqual([{ id: `${HELLO.id}-out`, source: HELLO.id, target: 'a' }])
+  })
+
+  it('leaves every existing node’s name, position and data as it was', () => {
+    const ir = graph([node('a', 'Say hello'), node('b', 'B')], [])
+    const { ir: next } = placed(ir, { after: 'b' })
+    expect(next.nodes.slice(0, 2)).toEqual(ir.nodes)
+  })
+
+  it('does not share the fields object it was given', () => {
+    const ir = graph([node('a', 'A')], [])
+    const data = { greeting: 'hi' }
+    const { node: added } = placed(ir, { after: 'a' }, { ...HELLO, data })
+    expect(added.data).toEqual(data)
+    expect(added.data).not.toBe(data)
+  })
+
+  it('refuses a builtin other than step', () => {
+    const ir = graph([node('a', 'A')], [])
+    expect(insertNode(ir, { after: 'a' }, { ...HELLO, type: 'branch' })).toEqual({
+      ok: false,
+      reason: 'Only a step or a custom node can be added here.',
+    })
+    expect(insertNode(ir, { after: 'a' }, { ...HELLO, type: '' }).ok).toBe(false)
+  })
+
+  it('names the node, not a step, when it refuses', () => {
+    const ir = graph([node('a', 'A')], [])
+    expect(insertNode(ir, { after: 'a' }, { ...HELLO, name: '  ' })).toEqual({
+      ok: false,
+      reason: 'Give the node a name.',
+    })
+  })
+
+  it('still scaffolds module code for a step, ignoring any fields given', () => {
+    const ir = graph([node('a', 'A')], [])
+    const result = insertNode(ir, { after: 'a' }, { ...HELLO, type: 'step' })
+    if (!result.ok) throw new Error(result.reason)
+    expect(result.node.data).toEqual({ code: TEMPLATE('Say_hello') })
   })
 })
