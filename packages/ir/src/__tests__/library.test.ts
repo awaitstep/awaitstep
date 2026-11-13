@@ -144,6 +144,27 @@ describe('custom node manifests', () => {
     expect(errors[0]!.path).toMatch(/^1\.0\.0\/node\.json/)
     expect(validateCustomNodeManifest('{', '1.0.0', 'x').errors[0]!.message).toMatch(/JSON/)
   })
+
+  it('refuses a config field named inline, the placement’s Durable/Inline switch (and export, exportAs)', () => {
+    const parsed = JSON.parse(manifest!.source)
+    const withInline = JSON.stringify({
+      ...parsed,
+      configSchema: { ...parsed.configSchema, inline: { type: 'boolean', label: 'Inline' } },
+    })
+    expect(validateCustomNodeManifest(withInline, '1.0.0', '1.0.0/node.json').errors).toEqual([
+      {
+        path: '1.0.0/node.json.configSchema.inline',
+        message: '"inline" is reserved for how the node runs; rename the field',
+      },
+    ])
+    const withExport = JSON.stringify({
+      ...parsed,
+      configSchema: { ...parsed.configSchema, exportAs: { type: 'string', label: 'Key' } },
+    })
+    expect(validateCustomNodeManifest(withExport, '1.0.0', '1.0.0/node.json').errors[0]!.path).toBe(
+      '1.0.0/node.json.configSchema.exportAs',
+    )
+  })
 })
 
 describe('library item capabilities', () => {
@@ -155,7 +176,7 @@ describe('library item capabilities', () => {
     })
     expect(libraryItemCapabilities(null).edit).toEqual({
       allowed: false,
-      reason: 'From the project’s library. Only project members change it',
+      reason: 'From the project’s scripts & nodes. Only project members change it',
     })
   })
 

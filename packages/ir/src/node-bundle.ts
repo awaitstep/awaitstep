@@ -126,6 +126,13 @@ const runtimeHintsSchema = z
   })
   .strict()
 
+/**
+ * Field names a template node's placement keeps for itself: how it runs
+ * (`inline`) and whether a function returns it (`export`, `exportAs`).
+ * Codegen never passes them to the template, so no node may declare them.
+ */
+export const CUSTOM_NODE_RESERVED_FIELDS = ['inline', 'export', 'exportAs'] as const
+
 export const nodeDefinitionSchema = z
   .object({
     id: z.string().regex(/^[a-z][a-z0-9_-]*$/),
@@ -138,7 +145,17 @@ export const nodeDefinitionSchema = z
     docsUrl: z.string().url().optional(),
     author: z.string().min(1),
     license: z.string().min(1),
-    configSchema: z.record(z.string(), configFieldSchema),
+    configSchema: z.record(z.string(), configFieldSchema).superRefine((fields, ctx) => {
+      for (const reserved of CUSTOM_NODE_RESERVED_FIELDS) {
+        if (Object.hasOwn(fields, reserved)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [reserved],
+            message: `"${reserved}" is reserved for how the node runs; rename the field`,
+          })
+        }
+      }
+    }),
     outputSchema: z.record(z.string(), outputFieldSchema),
     providers: z.array(providerSchema).min(1),
     dependencies: z

@@ -177,6 +177,7 @@ export {
   findExpressions,
   containsExpressions,
   validateExpressionRefs,
+  expressionRefNodeId,
   RESERVED_EXPRESSION_REFS,
   type ParsedExpression,
   type ExpressionAST,
@@ -194,6 +195,7 @@ export {
   nodeBundleChecksumInput,
   nodeBundleSchema,
   nodeDefinitionSchema,
+  CUSTOM_NODE_RESERVED_FIELDS,
   stableStringify,
 } from './node-bundle.js'
 export {

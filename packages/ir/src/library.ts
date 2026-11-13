@@ -282,7 +282,7 @@ export function libraryOwnerRole(
 }
 
 export const LIBRARY_REASONS = {
-  readOnly: 'From the project’s library. Only project members change it',
+  readOnly: 'From the project’s scripts & nodes. Only project members change it',
   needsEditor: 'Changing library items needs an Editor',
   projectMembersOnly: 'Only the project’s members can add to its library',
 } as const

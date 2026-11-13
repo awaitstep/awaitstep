@@ -173,3 +173,32 @@ describe('validateExpressionRefs', () => {
     })
   })
 })
+
+describe('validateExpressionRefs by node name', () => {
+  const all = new Set(['0of2ji3lqt72', 'say1'])
+  const idByName = new Map([
+    ['sample_step', '0of2ji3lqt72'],
+    ['say_hello', 'say1'],
+  ])
+
+  it('accepts a node’s variable name as well as its id', () => {
+    const upstream = new Set(['0of2ji3lqt72'])
+    expect(
+      validateExpressionRefs('{{sample_step.result}}', 'say1', upstream, all, idByName),
+    ).toEqual([])
+    expect(
+      validateExpressionRefs('{{0of2ji3lqt72.result}}', 'say1', upstream, all, idByName),
+    ).toEqual([])
+  })
+
+  it('still refuses a downstream or unknown name, quoting it as written', () => {
+    const upstream = new Set<string>()
+    expect(
+      validateExpressionRefs('{{say_hello.sip}}', '0of2ji3lqt72', upstream, all, idByName)[0]!
+        .message,
+    ).toBe('Expression references downstream node "say_hello"')
+    expect(validateExpressionRefs('{{nope.x}}', 'say1', upstream, all, idByName)[0]!.message).toBe(
+      'Expression references nonexistent node "nope"',
+    )
+  })
+})

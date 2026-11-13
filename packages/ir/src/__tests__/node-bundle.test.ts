@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { nodeBundleChecksumInput, nodeBundleSchema, stableStringify } from '../node-bundle.js'
+import {
+  nodeBundleChecksumInput,
+  nodeBundleSchema,
+  nodeDefinitionSchema,
+  stableStringify,
+} from '../node-bundle.js'
 
 const definition = {
   id: 'example',
@@ -41,6 +46,24 @@ describe('nodeBundleSchema', () => {
       templates: { '../../secret': 'export default async function (ctx) {}' },
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('nodeDefinitionSchema', () => {
+  // Before, only Library nodes were checked: a marketplace node's own `export`
+  // field would have been read as "Return this value" and never reach its template.
+  it('refuses a config field named like a placement setting, for every node', () => {
+    for (const name of ['inline', 'export', 'exportAs']) {
+      const result = nodeDefinitionSchema.safeParse({
+        ...definition,
+        configSchema: { [name]: { type: 'boolean', label: name } },
+      })
+      expect(result.success).toBe(false)
+      expect(result.error?.issues[0]).toMatchObject({
+        path: ['configSchema', name],
+        message: `"${name}" is reserved for how the node runs; rename the field`,
+      })
+    }
   })
 })
 
