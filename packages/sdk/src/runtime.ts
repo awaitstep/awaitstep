@@ -400,6 +400,17 @@ export function durableStep<Env, Payload>(flow: WorkflowContext<Env, Payload>): 
 }
 
 /**
+ * Hands a step module its context unchanged. Generated code calls step
+ * modules through it so a module may declare only what it reads, e.g.
+ * `({ inputs }: { inputs: Input })`: TypeScript rejects extra properties on
+ * an object literal passed straight in, not on a value passed through. A
+ * parameter the context can't satisfy is still an error.
+ */
+export function stepArgs<T>(args: T): T {
+  return args
+}
+
+/**
  * The in-request half of the contract, for a function: a `fetch` handler has
  * no durable runtime, so a step's body runs right here. The host still gives
  * the body what a step has — `ctx.attempt`, the node's retries (delay and

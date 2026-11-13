@@ -77,10 +77,10 @@ describe('generateWorkflowBundle', () => {
     expect(entry).toContain('import $Fetch_data from "#app/steps/fetch.js";')
     expect(entry).toContain('import $Report from "#app/steps/report.js";')
     expect(entry).toContain(
-      'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data({ env, event, inputs: {}, step, ctx }),\n    );',
+      'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx })),\n    );',
     )
     expect(entry).toMatch(
-      /await flow\.step\("report", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(\{ env, event, inputs: \{ Fetch_data \}, step, ctx \}\);/,
+      /await flow\.step\("report", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(stepArgs\(\{ env, event, inputs: \{ Fetch_data \}, step, ctx \}\)\);/,
     )
     // No user code left in the entry to need env rewriting.
     expect(entry).not.toContain('z.object')
@@ -125,7 +125,9 @@ describe('generateWorkflowBundle with containers', () => {
       'awaitstep/runtime.ts',
     ])
     const workflow = workflowSource(bundle)
-    expect(workflow).toContain('$Process_item({ env, event, inputs: { item }, step, ctx })')
+    expect(workflow).toContain(
+      '$Process_item(stepArgs({ env, event, inputs: { item }, step, ctx }))',
+    )
     expect(bundleSource(bundle, 'steps/work.ts')).toContain('return inputs.item.length;')
     expect(bundle.manifest?.steps).toContainEqual(
       expect.objectContaining({ nodeId: 'work', filePath: 'steps/work.ts' }),
@@ -433,7 +435,7 @@ describe('generateWorkflowBundle: what a step after a container can read', () =>
     const bundle = generateWorkflowBundle(graph)
     const workflow = bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!.source
     // `inner` is a const inside the if block; the call after it binds nothing of it.
-    expect(workflow).toContain('$after({ env, event, inputs: {}, step, ctx })')
+    expect(workflow).toContain('$after(stepArgs({ env, event, inputs: {}, step, ctx }))')
     expect(bundle.files.find((f) => f.path === 'steps/after.ts')!.source).not.toContain('inputs;')
   })
 })

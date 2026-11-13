@@ -41,24 +41,6 @@ export function cloudflarePrimitivesModuleFile(): GeneratedFile {
 }
 
 /**
- * The import the portable workflow module needs: the authoring helpers only.
- * Type-only specifiers are erased by the deploy transpile.
- */
-export const WORKFLOW_RUNTIME_IMPORT = `import { defineWorkflow, durableStep } from "${CORE_RUNTIME_IMPORT}";`
-
-/**
- * The import a function's entry needs: the context factory, the `step` adapter
- * its step modules receive, and the in-request host that runs them.
- */
-export const FUNCTION_RUNTIME_IMPORT = `import { createInlineHost, createWorkflowContext, durableStep } from "${CORE_RUNTIME_IMPORT}";`
-
-/** The import for a context that only makes HTTP calls: no host, no step adapter. */
-export const FUNCTION_CONTEXT_IMPORT = `import { createWorkflowContext } from "${CORE_RUNTIME_IMPORT}";`
-
-/** The same import when the graph calls another artifact and needs the platform adapter. */
-export const FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM = `import { createInlineHost, createWorkflowContext, durableStep, type PlatformHost } from "${CORE_RUNTIME_IMPORT}";`
-
-/**
  * The import the provider bootstrap needs: the context factory and the types
  * its host adapter is declared against.
  */

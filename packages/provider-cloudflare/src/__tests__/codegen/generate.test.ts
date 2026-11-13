@@ -26,7 +26,7 @@ describe('generateWorkflow', () => {
   it('generates a simple sequential workflow', () => {
     const code = workflowSource(generateWorkflowBundle(simpleWorkflow as unknown as WorkflowIR))
     expect(code).toMatchInlineSnapshot(`
-      "import { defineWorkflow, durableStep } from "#awaitstep/runtime";
+      "import { defineWorkflow, durableStep, stepArgs } from "#awaitstep/runtime";
       import type { Env } from "#awaitstep/env";
       import $Fetch_data from "#app/steps/step-1.js";
       import $Process_data from "#app/steps/step-2.js";
@@ -52,13 +52,13 @@ describe('generateWorkflow', () => {
           const event = flow.event;
           const step = durableStep(flow);
           await flow.step("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
-            await $Fetch_data({ env, event, inputs: {}, step, ctx });
+            await $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx }));
           });
 
           await flow.sleep("sleep-1", "10 seconds");
 
           await flow.step("step-2", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async (ctx) => {
-            await $Process_data({ env, event, inputs: {}, step, ctx });
+            await $Process_data(stepArgs({ env, event, inputs: {}, step, ctx }));
           });
         },
       });
@@ -250,9 +250,9 @@ describe('generateWorkflow', () => {
     // in scope: the event path its step's value, the timeout path only the
     // wait's payload. The sleep and the inline steps bind nothing, so neither
     // copy may list them.
-    const joinInputs = [...code.matchAll(/\$New_step\(\{ env, event, inputs: \{ ([^}]*) \}/g)].map(
-      (match) => match[1],
-    )
+    const joinInputs = [
+      ...code.matchAll(/\$New_step\(stepArgs\(\{ env, event, inputs: \{ ([^}]*) \}/g),
+    ].map((match) => match[1])
     expect(joinInputs).toHaveLength(2)
     expect(joinInputs).toContain('wait_for_sunny')
     expect(joinInputs).toContain('wait_for_sunny, sunny')
@@ -310,7 +310,7 @@ describe('generateWorkflow', () => {
     }
     const code = programOf(ir)
     expect(code.match(/const Join = await flow\.step\("join"/g)).toHaveLength(2)
-    const inputs = /\$Join2\(\{ env, event, inputs: \{ ([^}]*) \}/.exec(code)
+    const inputs = /\$Join2\(stepArgs\(\{ env, event, inputs: \{ ([^}]*) \}/.exec(code)
     expect(inputs?.[1]).toBe('Side')
   })
 

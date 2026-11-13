@@ -9,6 +9,7 @@ import {
   stepReturnsValue,
   type GenerationContext,
 } from '../internal.js'
+import { STEP_ARGS } from '../../runtime.js'
 import { generateStepConfig } from './config.js'
 
 /**
@@ -131,10 +132,11 @@ export function stepModuleCall(
       : '{}'
   // `env`, `event` and `step` are the aliases the entry's `run` establishes;
   // `ctx` is the callback's attempt, which makes the documented
-  // `ctx.attempt` real inside step code.
+  // `ctx.attempt` real inside step code. `stepArgs` passes them through, so
+  // a module whose parameter type names only what it reads type-checks.
   return {
     varName,
-    call: `{ env, event, inputs: ${inputsArg}, step, ctx }`,
+    call: `${STEP_ARGS}({ env, event, inputs: ${inputsArg}, step, ctx })`,
     hasReturn: stepReturnsValue(code),
   }
 }

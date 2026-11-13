@@ -21,7 +21,11 @@ describe('computeVarNames', () => {
       { id: 'b', name: 'env' },
       { id: 'c', name: 'EXPORT_flow' },
       { id: 'd', name: 'Steps' },
+      { id: 'e', name: 'stepArgs' },
+      { id: 'f', name: 'waitForEventOrTimeout' },
     ])
+    expect(names.get('e')).toBe('stepArgs_node')
+    expect(names.get('f')).toBe('waitForEventOrTimeout_node')
     expect(names.get('a')).toBe('step_node')
     expect(names.get('b')).toBe('env_node')
     expect(names.get('c')).toBe('flow_node')

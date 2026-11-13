@@ -261,11 +261,11 @@ Scripts run inside an `async fetch(request, env)` handler with no durable runtim
 
 ### Steps in a function
 
-A function's steps are steps: every `step` node — top level or inside a branch, try, loop, parallel or race arm — is a module, `nodes/<var>.ts`, exactly the file a workflow's step gets, and `runGraph` runs it through the AwaitStep step primitive:
+A function's steps are steps: every `step` node — top level or inside a branch, try, loop, parallel or race arm — is a module, `steps/<id>.ts`, exactly the file a workflow's step gets, and `runGraph` runs it through the AwaitStep step primitive. The call goes through `stepArgs`, a pass-through, so a module may type its parameter with only what it reads:
 
 ```ts
-import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";
-import $Fetch_user from "./nodes/Fetch_user.js";
+import { createInlineHost, createWorkflowContext, durableStep, stepArgs } from "#awaitstep/runtime";
+import $Fetch_user from "#app/steps/k3j9x_a1b2c3.js";
 
 export async function runGraph(env: Env, event: { payload: unknown }) {
   const flow = createWorkflowContext({
@@ -279,7 +279,7 @@ export async function runGraph(env: Env, event: { payload: unknown }) {
   });
   const step = durableStep(flow);
   const Fetch_user = await flow.step("k3j9x_a1b2c3", (ctx) =>
-    $Fetch_user({ env, event, inputs: {}, step, ctx }),
+    $Fetch_user(stepArgs({ env, event, inputs: {}, step, ctx })),
   );
   …
 }
@@ -287,7 +287,7 @@ export async function runGraph(env: Env, event: { payload: unknown }) {
 
 The host is the in-request one: a step's body runs right there, in the request, with `ctx.attempt`, the node's retries (`retryLimit` counts retries after the first attempt, as on Cloudflare; delay and backoff between them) and its per-attempt timeout — but nothing is persisted, and **nothing retries or times out unless the node sets it** (a durable workflow step retries by default; a request cannot wait minutes). The host caps what a node can ask for: at most 10 attempts, and at most 30 seconds for any one backoff pause or attempt timeout. A timed-out attempt is abandoned, not aborted: with retries, the next attempt may run while it still does, so a body that is not idempotent should not combine the two. The body's `return` is the step's value; a later step that names it receives it as an input, and the node's **Return this value** switch (`data.export`) puts it in the response (below). The `step` object is in scope for parity with a workflow's modules; the canvas refuses a step written inside a step in both kinds, and the host does not police one. `step.sleep`, `step.sleepUntil` and `step.waitForEvent` throw, since a function has no durable runtime to park in. The names the generated body binds or uses — `flow`, `step`, `env`, `event`, `ctx`, `inputs`, `runGraph`, `workflow`, `_output`, `err`, the runtime's own exports — and the runtime's globals (`fetch`, `console`, `crypto`, `Date`, `Response`, `JSON`, `URL`, …) are reserved: a node called one of them gets a `_node` suffix in generated code. A step marked `inline` is the exception: its code is pasted raw into `runGraph`, owns the surrounding scope, and has no retries or timeout.
 
-`GET /source` therefore lists a function's `nodes/*.ts` modules and `awaitstep/runtime.ts` beside `worker.ts`, and its `manifest.steps` names each top-level node and each step inside a container, with `filePath` for every step module. Other node kinds (`http_request`, `sub_script`, custom nodes, containers) run in a function without a step boundary, as before.
+`GET /source` therefore lists a function's `steps/*.ts` modules and `awaitstep/runtime.ts` beside `worker.ts`, and its `manifest.steps` names each top-level node and each step inside a container, with `filePath` for every step module. Other node kinds (`http_request`, `sub_script`, custom nodes, containers) run in a function without a step boundary, as before.
 
 ### A step is a module
 

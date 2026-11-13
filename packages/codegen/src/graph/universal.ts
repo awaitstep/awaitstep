@@ -7,7 +7,12 @@ import { topologicalSort, upstreamVarNames } from '../dag.js'
 import { indent } from '../format.js'
 import type { StepManifest, StepManifestEntry } from '../manifest.js'
 import { contentHash } from '../manifest.js'
-import { RUNTIME_MODULE_PATH } from '../runtime.js'
+import {
+  callsStepModules,
+  functionRuntimeImport,
+  RUNTIME_MODULE_PATH,
+  workflowRuntimeImport,
+} from '../runtime.js'
 import { stepLabel } from '../naming.js'
 import type { GeneratorLookup } from '../node-generator.js'
 import { sanitizeIdentifier } from '../sanitize.js'
@@ -48,13 +53,6 @@ export const UNIVERSAL_WORKFLOW_PATH = 'awaitstep/workflow.ts'
 
 /** The generated `Env` module the workflow module imports. */
 export const UNIVERSAL_ENV_PATH = 'awaitstep/env.ts'
-
-/** The import a universal workflow module uses for the authoring surface. */
-const UNIVERSAL_RUNTIME_IMPORT = 'import { defineWorkflow, durableStep } from "#awaitstep/runtime";'
-
-/** Added only when the graph has a wait node, which runs through it. */
-const UNIVERSAL_RUNTIME_IMPORT_WITH_WAIT =
-  'import { defineWorkflow, durableStep, waitForEventOrTimeout } from "#awaitstep/runtime";'
 
 export interface UniversalGenerateOptions {
   templateResolver?: TemplateResolver
@@ -210,7 +208,7 @@ function generate(ir: WorkflowIR, options: UniversalGenerateOptions): PortableWo
     classDefinitions.size > 0 ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n' : ''
   const hasWait = ir.nodes.some((node) => node.type === 'wait_for_event')
   const workflowSource = `${[
-    hasWait ? UNIVERSAL_RUNTIME_IMPORT_WITH_WAIT : UNIVERSAL_RUNTIME_IMPORT,
+    workflowRuntimeImport({ callsStepModules: callsStepModules(ctx.files), hasWait }),
     'import type { Env } from "#awaitstep/env";',
     ...new Set(workflowImports),
   ].join('\n')}
@@ -317,18 +315,6 @@ function moduleImportFor(file: GeneratedFile): string {
 
 /** The portable graph module a universal function bundle exposes as its entry. */
 export const UNIVERSAL_FUNCTION_PATH = 'awaitstep/function.ts'
-
-/** The import a universal function module uses for its in-request host. */
-const UNIVERSAL_FUNCTION_RUNTIME_IMPORT =
-  'import { createInlineHost, createWorkflowContext, durableStep } from "#awaitstep/runtime";'
-
-/** The same import for a context that only makes HTTP calls: no host, no step adapter. */
-const UNIVERSAL_FUNCTION_CONTEXT_IMPORT =
-  'import { createWorkflowContext } from "#awaitstep/runtime";'
-
-/** The same import when a sub call needs the platform adapter. */
-const UNIVERSAL_FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM =
-  'import { createInlineHost, createWorkflowContext, durableStep, type PlatformHost } from "#awaitstep/runtime";'
 
 /** Kinds whose value is always bound, whether or not anything reads it. */
 const RESULT_CONTAINERS: ReadonlySet<string> = new Set(['parallel', 'race', 'loop'])
@@ -521,11 +507,11 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
       'import type { Env } from "#awaitstep/env";',
       ...(usesFlow
         ? [
-            needsHost
-              ? hasSubCalls
-                ? UNIVERSAL_FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM
-                : UNIVERSAL_FUNCTION_RUNTIME_IMPORT
-              : UNIVERSAL_FUNCTION_CONTEXT_IMPORT,
+            functionRuntimeImport({
+              needsHost,
+              hasSubCalls,
+              callsStepModules: callsStepModules(ctx.files),
+            }),
           ]
         : []),
       ...moduleImports,

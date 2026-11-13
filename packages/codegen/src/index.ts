@@ -113,6 +113,11 @@ export {
   CORE_RUNTIME_IMPORT,
   RUNTIME_MODULE_PATH,
   FUNCTION_MODULE_PATH,
+  STEP_ARGS,
+  callsStepModules,
+  functionRuntimeImport,
+  runtimeImport,
+  workflowRuntimeImport,
 } from './runtime.js'
 export {
   checkRequirements,

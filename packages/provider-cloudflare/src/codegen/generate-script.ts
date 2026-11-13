@@ -37,17 +37,16 @@ import {
   endsWithReturn,
   extractImports,
   collectEnvRefNames,
+  callsStepModules,
   detectKind,
   envFieldName,
+  functionRuntimeImport,
   generateNodeCode,
   resolveNodeExpressions,
   wrapModuleCalls,
 } from '@awaitstep/codegen'
 import {
   CLOUDFLARE_PRIMITIVES_IMPORT,
-  FUNCTION_CONTEXT_IMPORT,
-  FUNCTION_RUNTIME_IMPORT,
-  FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM,
   platformModuleFile,
   cloudflarePrimitivesModuleFile,
   runtimeModuleFile,
@@ -510,11 +509,11 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
     ...new Set([
       ...(usesFlow
         ? [
-            needsHost
-              ? hasSubCalls
-                ? FUNCTION_RUNTIME_IMPORT_WITH_PLATFORM
-                : FUNCTION_RUNTIME_IMPORT
-              : FUNCTION_CONTEXT_IMPORT,
+            functionRuntimeImport({
+              needsHost,
+              hasSubCalls,
+              callsStepModules: callsStepModules(ctx.files),
+            }),
           ]
         : []),
       ...(hasSubCalls ? ['import { createAwaitstepPlatform } from "#awaitstep/platform";'] : []),

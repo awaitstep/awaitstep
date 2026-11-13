@@ -202,9 +202,9 @@ export function detectKind(part: string, label: string): StepKind | undefined {
 const LINE_WIDTH = 100
 
 const MODULE_CALL_LINE =
-  /^([ \t]*)((?:(?:const )?[A-Za-z0-9_]+ = )?await flow\.step\(.*?, \(ctx\) =>) (\$[A-Za-z0-9_]+\(\{ env, event, inputs: \{[^}]*\}, step, ctx \}\))\);$/gm
+  /^([ \t]*)((?:(?:const )?[A-Za-z0-9_]+ = )?await flow\.step\(.*?, \(ctx\) =>) (\$[A-Za-z0-9_]+\(stepArgs\(\{ env, event, inputs: \{[^}]*\}, step, ctx \}\)\))\);$/gm
 const LEAN_CALL_LINE =
-  /^([ \t]*)(await flow\.step\(.*?, async \(ctx\) =>) \{ (await \$[A-Za-z0-9_]+\(\{ env, event, inputs: \{[^}]*\}, step, ctx \}\);) \}\);$/gm
+  /^([ \t]*)(await flow\.step\(.*?, async \(ctx\) =>) \{ (await \$[A-Za-z0-9_]+\(stepArgs\(\{ env, event, inputs: \{[^}]*\}, step, ctx \}\)\);) \}\);$/gm
 
 /**
  * Wraps the module calls that outgrow the line, as a person would format

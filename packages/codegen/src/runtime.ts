@@ -1,3 +1,5 @@
+import type { GeneratedFile } from './types.js'
+
 /**
  * The import prefix every generated bundle uses for AwaitStep runtime modules.
  *
@@ -37,4 +39,50 @@ export const FUNCTION_MODULE_PATH = `${AWAITSTEP_MODULE_DIR}function.ts`
  */
 export const AWAITSTEP_IMPORTS_FIELD: Readonly<Record<string, string>> = {
   [`${AWAITSTEP_IMPORT_PREFIX}*`]: `./${AWAITSTEP_MODULE_DIR}*.js`,
+}
+
+/** The `#awaitstep/runtime` pass-through generated code calls a step module through. */
+export const STEP_ARGS = 'stepArgs'
+
+/** The `#awaitstep/runtime` import of the names a generated module uses. */
+export function runtimeImport(names: readonly string[]): string {
+  return `import { ${names.join(', ')} } from "${CORE_RUNTIME_IMPORT}";`
+}
+
+/** Whether generated code calls a step module, which it does through {@link STEP_ARGS}. */
+export function callsStepModules(files: readonly GeneratedFile[]): boolean {
+  return files.some((file) => file.role === 'module' && file.binding !== undefined)
+}
+
+/** The runtime import a portable workflow module needs. */
+export function workflowRuntimeImport(options: {
+  callsStepModules: boolean
+  hasWait: boolean
+}): string {
+  return runtimeImport([
+    'defineWorkflow',
+    'durableStep',
+    ...(options.callsStepModules ? [STEP_ARGS] : []),
+    ...(options.hasWait ? ['waitForEventOrTimeout'] : []),
+  ])
+}
+
+/**
+ * The runtime import a function's graph module needs. A context that only
+ * makes HTTP calls needs no host and no step adapter; a sub call needs the
+ * platform adapter's type.
+ */
+export function functionRuntimeImport(options: {
+  needsHost: boolean
+  hasSubCalls: boolean
+  callsStepModules: boolean
+}): string {
+  if (!options.needsHost) return runtimeImport(['createWorkflowContext'])
+  return runtimeImport([
+    'createInlineHost',
+    'createWorkflowContext',
+    'durableStep',
+    ...(options.callsStepModules ? [STEP_ARGS] : []),
+    ...(options.hasSubCalls ? ['type PlatformHost'] : []),
+  ])
 }
