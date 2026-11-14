@@ -100,7 +100,8 @@ const my_step = await flow.step('read-payload', async () => {
 
 In the Code view's **Steps** side bar, open a step's **⋯** menu and choose
 **Remove…**. You can also use **Remove** in the step's details, or **Remove
-Step…** in the command palette. The removal is saved as one new version.
+Step…** in the command palette. The step disappears at once, but nothing is
+saved until you save (see [Changes in Code wait for Save](#changes-in-code-wait-for-save)).
 
 - The steps before and after it are connected to each other, so
   `A → removed → B` becomes `A → B`. Inside a loop or a branch, the arm keeps
@@ -124,7 +125,32 @@ Step…** in the command palette. The removal is saved as one new version.
   paths. Add a step to that arm first, or change it on the canvas. The canvas
   flags the same shape on the node and refuses to save it.
 - Unsaved changes in the removed step's file are discarded, and its tab
-  closes.
+  closes. Discarding the removal brings them back.
 
 The canvas removes a node without connecting its neighbours, because there you
 can draw the connection yourself.
+
+## Changes in Code wait for Save
+
+In Code, adding a step or a custom node, removing one, saving a node's fields
+in its details, and creating, renaming or deleting a file in the Explorer all
+wait for Save, like your code edits:
+
+- The change shows at once in the Steps list, the details, the map and the
+  step files. A new step's file opens as a new, unsaved file.
+- **Unsaved changes** lists each one in plain words: under **Graph**, such as
+  Added “fetch user” or Changed retries on “charge”, and under **Files**, such
+  as Created lib/helpers.ts or Renamed a.ts → b.ts. Each has its own
+  **Discard**. ⌘Z in the Steps list discards the last graph change.
+- A file name a rename or delete has freed can't be used again until you save.
+- **Save all** (⌘⌥S) saves every change. ⌘S saves the file in front of you
+  (a new or renamed file included); on a step's file it also saves every
+  graph change.
+- If the save is refused (for example, an arm leading straight into a join),
+  a message gives the reason and your changes stay.
+- If the canvas saved the workflow meanwhile, your changes are replayed on
+  its version. One that no longer applies (its step is gone) is discarded and
+  named in the notice. The rest stay, so save again.
+- Leaving Code, switching to the canvas or another version, or closing the tab
+  asks first. Graph and file changes are never kept across a reload; text you
+  typed in a renamed or deleted file comes back in that file.
