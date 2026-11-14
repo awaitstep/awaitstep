@@ -53,7 +53,7 @@ function variableColumns(org: string, canManage: boolean): DataColumn<OrgVariabl
       cell: (v) => (
         <ShellLink
           href={variableDialogPath({ org }, { kind: 'variable', name: v.name })}
-          className="text-xs font-medium text-status-success hover:underline"
+          className="text-xs font-medium text-status-success "
         >
           Edit
         </ShellLink>

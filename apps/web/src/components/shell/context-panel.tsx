@@ -162,7 +162,7 @@ export function PanelEmpty({ message, action }: PanelEmptyProps) {
   return (
     <div className="flex flex-col gap-2.5 px-4 py-4.5 text-xs text-muted-foreground">
       <p>{message}</p>
-      <ShellLink href={action.href} className="text-primary hover:underline">
+      <ShellLink href={action.href} className="text-primary ">
         {action.label}
       </ShellLink>
     </div>

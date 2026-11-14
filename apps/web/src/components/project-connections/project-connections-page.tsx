@@ -214,7 +214,7 @@ export function ProjectConnectionsPage({
               </span>
               <ShellLink
                 href={orgPath(slugs.org, 'connections')}
-                className="font-medium text-status-success hover:underline"
+                className="font-medium text-status-success "
               >
                 {orgName} connections →
               </ShellLink>

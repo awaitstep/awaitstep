@@ -91,7 +91,7 @@ export function MembersPage({ slugs, adding = false, onCloseAdd }: MembersPagePr
     return (
       <ShellLink
         href={accessEditorPath(slugs.org, { userId })}
-        className="text-xs font-medium text-status-success hover:underline"
+        className="text-xs font-medium text-status-success "
       >
         Edit access
       </ShellLink>

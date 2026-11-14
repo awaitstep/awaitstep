@@ -125,7 +125,7 @@ function TokenPermissions() {
         href={CLOUDFLARE_TOKENS_URL}
         target="_blank"
         rel="noreferrer"
-        className="w-fit text-xs font-medium text-status-success hover:underline"
+        className="w-fit text-xs font-medium text-status-success "
       >
         Open Cloudflare API tokens ↗
       </a>

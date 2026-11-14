@@ -7,5 +7,5 @@
  */
 export const LINKED_ROW = 'relative cursor-pointer transition-colors hover:bg-muted/30'
 export const STRETCHED_LINK =
-  "after:absolute after:inset-0 after:content-[''] hover:underline focus-visible:outline-none focus-visible:after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+  "after:absolute after:inset-0 after:content-['']  focus-visible:outline-none focus-visible:after:rounded-[inherit] focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
 export const ABOVE_LINK = 'relative z-10'

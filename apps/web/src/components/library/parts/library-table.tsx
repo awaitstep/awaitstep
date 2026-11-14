@@ -34,7 +34,7 @@ function NameCell({ row, href }: { row: ApiLibraryRow; href: string }) {
         <span className="flex min-w-0 items-center gap-2">
           <ShellLink
             href={href}
-            className="truncate text-sm font-semibold text-foreground hover:underline"
+            className="truncate text-sm font-semibold text-foreground "
           >
             {row.name}
           </ShellLink>

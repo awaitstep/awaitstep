@@ -181,7 +181,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                     href={info.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="font-mono text-sm text-primary hover:underline"
+                    className="font-mono text-sm text-primary "
                   >
                     {info.url.replace(/^https?:\/\//, '')}
                   </a>

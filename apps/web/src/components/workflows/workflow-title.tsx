@@ -27,7 +27,7 @@ export function WorkflowTitle({ name, kind, version, children, href }: WorkflowT
         <RouterShellLink
           href={href}
           title="Open the overview"
-          className={cn(NAME_CLASS, 'hover:underline')}
+          className={cn(NAME_CLASS, '')}
         >
           {name}
         </RouterShellLink>

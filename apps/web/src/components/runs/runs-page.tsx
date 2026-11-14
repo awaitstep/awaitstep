@@ -53,7 +53,7 @@ function runColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
         <span className="flex min-w-0 flex-col gap-0.5">
           <ShellLink
             href={itemPagePath(slugs, { id: run.workflowId }, 'overview')}
-            className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
+            className="w-fit truncate text-sm font-semibold text-foreground "
           >
             {run.workflowName}
           </ShellLink>
@@ -70,7 +70,7 @@ function runColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
         run.kind === 'workflow' ? (
           <ShellLink
             href={runPath(slugs, { id: run.workflowId }, run.id)}
-            className="font-mono text-2xs text-foreground hover:underline"
+            className="font-mono text-2xs text-foreground "
           >
             {run.id}
           </ShellLink>

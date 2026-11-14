@@ -52,7 +52,7 @@ function ItemCell({ item, slugs }: { item: SharedItem; slugs: ProjectSlugs }) {
         {item.canOpen ? (
           <ShellLink
             href={itemPagePath({ ...slugs, workspace: item.from.slug }, item, 'overview')}
-            className="truncate text-sm font-semibold text-foreground hover:underline"
+            className="truncate text-sm font-semibold text-foreground "
           >
             {item.name}
           </ShellLink>

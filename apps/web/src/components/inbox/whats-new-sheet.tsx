@@ -74,7 +74,7 @@ export function WhatsNewSheet({ org, onClose }: WhatsNewSheetProps) {
           href={RELEASES_URL}
           target="_blank"
           rel="noreferrer"
-          className="text-sm font-medium text-foreground/80 hover:underline"
+          className="text-sm font-medium text-foreground/80 "
         >
           Full changelog
         </a>

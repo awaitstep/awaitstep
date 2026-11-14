@@ -29,7 +29,7 @@ export function LiveLinks({ workflowId, dashboardUrl, kind, providerName }: Live
           href={dashboardUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+          className="flex items-center gap-1 text-xs text-muted-foreground "
         >
           View in the {providerName} dashboard
           <ExternalLink aria-hidden="true" className="size-3" />

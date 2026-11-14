@@ -114,7 +114,7 @@ export function NotificationRow({
           <ShellLink
             href={notification.link.href}
             onClick={handleRead}
-            className="flex w-fit items-center gap-1 text-2xs font-medium text-status-success hover:underline"
+            className="flex w-fit items-center gap-1 text-2xs font-medium text-status-success "
           >
             {notification.link.label}
             <ArrowRight className="size-3" aria-hidden="true" />

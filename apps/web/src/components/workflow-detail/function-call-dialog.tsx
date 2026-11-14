@@ -177,7 +177,7 @@ export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCal
         {shown && (
           <ShellLink
             href={runHref(shown.runId)}
-            className="self-start text-xs font-medium text-primary hover:underline"
+            className="self-start text-xs font-medium text-primary "
           >
             Open this run →
           </ShellLink>

@@ -44,7 +44,7 @@ export function LibraryUpdates({ updates, redeployHref }: LibraryUpdatesProps) {
             {href && (
               <ShellLink
                 href={href}
-                className="shrink-0 text-xs font-medium text-primary hover:underline"
+                className="shrink-0 text-xs font-medium text-primary "
               >
                 Redeploy
               </ShellLink>

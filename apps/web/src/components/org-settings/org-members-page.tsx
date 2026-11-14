@@ -110,7 +110,7 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
     return (
       <ShellLink
         href={accessEditorPath(org, { userId: member.person.id })}
-        className="text-xs font-medium text-status-success hover:underline"
+        className="text-xs font-medium text-status-success "
       >
         Edit access
       </ShellLink>

@@ -45,7 +45,7 @@ function recentColumns(slugs: WorkspaceSlugs): DataColumn<WorkspaceRun>[] {
         <span className="flex min-w-0 flex-col gap-0.5">
           <ShellLink
             href={itemPagePath(slugs, { id: run.workflowId }, 'overview')}
-            className="w-fit truncate text-sm font-semibold text-foreground hover:underline"
+            className="w-fit truncate text-sm font-semibold text-foreground "
           >
             {run.workflowName}
           </ShellLink>

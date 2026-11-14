@@ -61,7 +61,7 @@ export function DeployBody({
     return (
       <p role="alert" className="text-sm text-muted-foreground">
         {reason ?? 'You can’t deploy in this workspace.'}{' '}
-        <RouterShellLink href={links.overview} className="text-status-success hover:underline">
+        <RouterShellLink href={links.overview} className="text-status-success ">
           Back to the overview
         </RouterShellLink>
         .
@@ -78,7 +78,7 @@ export function DeployBody({
         {missing
           ? 'That version isn’t one of this workflow’s.'
           : 'We couldn’t look up that version.'}{' '}
-        <RouterShellLink href={links.deploy} className="text-status-success hover:underline">
+        <RouterShellLink href={links.deploy} className="text-status-success ">
           Deploy the latest instead
         </RouterShellLink>
         .

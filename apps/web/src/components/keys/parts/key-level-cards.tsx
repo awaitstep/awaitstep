@@ -96,7 +96,7 @@ export function KeyLevelCards({ current, links }: KeyLevelCardsProps) {
             {!here && link && (
               <ShellLink
                 href={link.href}
-                className="mt-auto text-xs font-medium text-status-success hover:underline"
+                className="mt-auto text-xs font-medium text-status-success "
               >
                 {link.label} →
               </ShellLink>

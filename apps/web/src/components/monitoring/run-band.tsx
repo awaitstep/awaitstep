@@ -70,7 +70,7 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
           <button
             type="button"
             onClick={handleShowPayload}
-            className="self-start text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="self-start text-xs font-medium text-primary  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             See the payload →
           </button>

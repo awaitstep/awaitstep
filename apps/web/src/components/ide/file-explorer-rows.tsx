@@ -578,7 +578,7 @@ export function ProjectEmptyState({
           <button
             type="button"
             onClick={onCreate}
-            className="text-primary underline-offset-2 hover:underline"
+            className="text-primary underline-offset-2 "
           >
             Create one
           </button>{' '}

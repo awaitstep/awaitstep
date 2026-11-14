@@ -84,7 +84,7 @@ export function WorkspaceVariableTable({
       cell: (v) => (
         <ShellLink
           href={actionHref(v)}
-          className="text-xs font-medium text-status-success hover:underline"
+          className="text-xs font-medium text-status-success "
         >
           {v.source.level === 'workspace' ? 'Edit' : 'Override'}
         </ShellLink>

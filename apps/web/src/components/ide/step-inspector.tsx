@@ -236,7 +236,7 @@ function FileLink({ path }: { path: string }) {
     <button
       type="button"
       onClick={handleClick}
-      className="max-w-full truncate rounded font-mono text-2xs text-primary underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
+      className="max-w-full truncate rounded font-mono text-2xs text-primary underline-offset-2  focus-visible:outline focus-visible:outline-1 focus-visible:outline-primary"
     >
       {path}
     </button>

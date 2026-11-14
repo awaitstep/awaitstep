@@ -36,7 +36,7 @@ export function ReleaseNote({ release }: ReleaseNoteProps) {
       <p className="text-sm leading-relaxed text-muted-foreground">{release.body}</p>
       <ShellLink
         href={release.link.href}
-        className="flex w-fit items-center gap-1 text-xs font-medium text-status-success hover:underline"
+        className="flex w-fit items-center gap-1 text-xs font-medium text-status-success "
       >
         {release.link.label}
         <ArrowRight className="size-3.5" aria-hidden="true" />

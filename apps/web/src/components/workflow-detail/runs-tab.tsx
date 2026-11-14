@@ -119,7 +119,7 @@ function runColumns(
       cell: (run) => (
         <RouterShellLink
           href={runHref(run.id)}
-          className="truncate font-mono text-xs text-foreground hover:underline"
+          className="truncate font-mono text-xs text-foreground "
         >
           {run.id}
         </RouterShellLink>

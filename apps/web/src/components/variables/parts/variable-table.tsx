@@ -31,7 +31,7 @@ function Notes({
       <ShellLink
         key={workspace.id}
         href={overrideHref(workspace)}
-        className="text-status-success hover:underline"
+        className="text-status-success "
       >
         Overridden in {workspace.name}
       </ShellLink>,
@@ -94,7 +94,7 @@ export function VariableTable({
       cell: (v) => (
         <ShellLink
           href={actionHref(v)}
-          className="text-xs font-medium text-status-success hover:underline"
+          className="text-xs font-medium text-status-success "
         >
           {v.setAt.level === 'organization' ? 'Override' : 'Edit'}
         </ShellLink>

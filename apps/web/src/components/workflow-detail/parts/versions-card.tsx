@@ -49,7 +49,7 @@ export function VersionsCard({
               <li key={v.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                 <ShellLink
                   href={versionHref(v.id)}
-                  className="font-mono text-sm font-semibold text-foreground hover:underline"
+                  className="font-mono text-sm font-semibold text-foreground "
                   title="Open this version"
                 >
                   v{v.version}

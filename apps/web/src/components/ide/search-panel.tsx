@@ -120,7 +120,7 @@ export function SearchPanel({ files, active, onEscape }: SearchPanelProps) {
             <button
               type="button"
               onClick={handleIncludeGenerated}
-              className="text-primary underline-offset-2 hover:underline"
+              className="text-primary underline-offset-2 "
             >
               Include generated files
             </button>

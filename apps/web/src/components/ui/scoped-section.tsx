@@ -64,7 +64,7 @@ export function ScopedSection({
         {manage && (
           <ShellLink
             href={manage.href}
-            className="ml-auto text-xs font-medium text-primary hover:underline"
+            className="ml-auto text-xs font-medium text-primary "
           >
             {manage.label}
           </ShellLink>

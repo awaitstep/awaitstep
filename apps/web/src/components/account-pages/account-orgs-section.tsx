@@ -96,7 +96,7 @@ function OnlyOwnerNote({ slug }: { slug: string }) {
       Only owner. Transfer ownership in{' '}
       <ShellLink
         href={orgSettingsPath(slug, 'members')}
-        className="text-status-success hover:underline"
+        className="text-status-success "
       >
         Members
       </ShellLink>{' '}

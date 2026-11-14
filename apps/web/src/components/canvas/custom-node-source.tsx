@@ -20,7 +20,7 @@ export function CustomNodeSourceLine({ source }: { source: CustomNodeSource }) {
           </span>
           <ShellLink
             href={libraryItemHref(scope, source)}
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-primary "
           >
             Open in Scripts & nodes
           </ShellLink>
