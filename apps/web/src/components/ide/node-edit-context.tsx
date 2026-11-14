@@ -4,6 +4,8 @@ import type { SaveNodeFieldsOutcome } from '../../lib/ide/step-create'
 export interface NodeEditValue {
   /** The workspace accepts edits right now (the current version, a role that may edit). */
   canEdit: boolean
+  /** Why editing is refused right now (a read-only version, a Viewer), or null. */
+  readOnlyReason?: string | null
   /** Saves one node's field edits (from `base`) as the next version. */
   saveNodeFields: (
     nodeId: string,
@@ -17,10 +19,14 @@ const NodeEditContext = createContext<NodeEditValue | null>(null)
 /** What Code may change on a node from its details, and how it is saved. */
 export function NodeEditProvider({
   canEdit,
+  readOnlyReason = null,
   saveNodeFields,
   children,
 }: NodeEditValue & { children: ReactNode }) {
-  const value = useMemo(() => ({ canEdit, saveNodeFields }), [canEdit, saveNodeFields])
+  const value = useMemo(
+    () => ({ canEdit, readOnlyReason, saveNodeFields }),
+    [canEdit, readOnlyReason, saveNodeFields],
+  )
   return <NodeEditContext.Provider value={value}>{children}</NodeEditContext.Provider>
 }
 

@@ -105,7 +105,8 @@ function renderPreview(codeVersionId = 'v-12', files?: ReadonlyMap<string, { sou
 
 /** The outline style rules the preview emits, keyed by node id. */
 function outlineOf(id: string): string {
-  const css = document.querySelector('style')?.textContent ?? ''
+  // Every style element: the toast library adds its own to the document.
+  const css = [...document.querySelectorAll('style')].map((style) => style.textContent).join('\n')
   return css.split('\n').find((rule) => rule.includes(`[data-id="${id}"]`)) ?? ''
 }
 

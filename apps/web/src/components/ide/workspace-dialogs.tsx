@@ -7,6 +7,7 @@ import { useIdeStore } from '../../stores/ide-store'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
 import { CloseDirtyDialog } from './close-dirty-dialog'
+import { RemoveNodeDialog } from './remove-node-dialog'
 import { describeConversion, describeFolderDelete } from './workspace-notices'
 
 interface WorkspaceDialogsProps {
@@ -27,7 +28,8 @@ interface WorkspaceDialogsProps {
 
 /**
  * The dialogs that act on project files: rename, delete, convert to handler
- * modules, and the Save / Don't save question for closing unsaved tabs.
+ * modules, remove a node, and the Save / Don't save question for closing
+ * unsaved tabs.
  * Which one is open lives in the session store, so this reads it directly.
  */
 export function WorkspaceDialogs({
@@ -137,6 +139,7 @@ export function WorkspaceDialogs({
         loading={projectFiles.busy || conversionPreview.isPending}
         onConfirm={handleConvert}
       />
+      <RemoveNodeDialog onRemove={projectFiles.removeNode} busy={projectFiles.busy} />
       <CloseDirtyDialog
         saving={projectFiles.busy}
         onSave={handleCloseSave}

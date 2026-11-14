@@ -32,9 +32,10 @@ interface StepRowItemProps {
   onFold: (nodeId: string) => void
   onFocusRow: (nodeId: string) => void
   onCreate: (placement: StepPlacement) => void
+  onRemove: (nodeId: string) => void
 }
 
-/** One row of the Steps list, with its fold control and its create menu. */
+/** One row of the Steps list, with its fold control and its actions menu. */
 export function StepRowItem({
   row,
   name,
@@ -54,6 +55,7 @@ export function StepRowItem({
   onFold,
   onFocusRow,
   onCreate,
+  onRemove,
 }: StepRowItemProps) {
   const Chevron = folded ? ChevronRight : ChevronDown
 
@@ -133,6 +135,7 @@ export function StepRowItem({
         name={name}
         outgoing={outgoing}
         onChoose={onCreate}
+        onRemove={onRemove}
         disabled={!canCreate}
         disabledReason={readOnlyMessage}
       />

@@ -7,6 +7,7 @@ import type { RunStep, RunSummary } from '../../../lib/api-client'
 import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStore } from '../../../stores/ide-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
+import { NodeEditProvider } from '../node-edit-context'
 import { StepInspector } from '../step-inspector'
 import { EDGES, FILES, irNode, loadGraph, NODES, SyncHarness } from './fixtures/step-sync'
 
@@ -25,6 +26,11 @@ vi.mock('../../../lib/api-client', async (importOriginal) => {
     },
   }
 })
+const toastError = vi.hoisted(() => vi.fn())
+vi.mock('../../../lib/action-toast', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  actionToast: { success: vi.fn(), error: toastError, info: vi.fn() },
+}))
 vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
 vi.mock('../../../contexts/node-registry-context', () => ({
   useNodeRegistry: () => ({ registry: { get: () => undefined } }),
@@ -251,5 +257,53 @@ describe('StepInspector', () => {
     renderInspector('charge')
     await waitFor(() => expect(listWorkflowRuns).toHaveBeenCalled())
     expect(getWorkflowRunSteps).not.toHaveBeenCalled()
+  })
+})
+
+describe('StepInspector — Remove', () => {
+  function renderEditable(nodeId: string, canEdit = true) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    return render(
+      <QueryClientProvider client={client}>
+        <SyncHarness>
+          <NodeEditProvider
+            canEdit={canEdit}
+            readOnlyReason={canEdit ? null : 'Older versions are read-only.'}
+            saveNodeFields={vi.fn()}
+          >
+            <StepInspector nodeId={nodeId} />
+          </NodeEditProvider>
+        </SyncHarness>
+      </QueryClientProvider>,
+    )
+  }
+
+  it('opens the remove dialog for the node', async () => {
+    renderEditable('charge')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Remove' }))
+    expect(useIdeStore.getState().dialog).toBe('removeNode')
+    expect(useIdeStore.getState().dialogTarget).toBe('charge')
+  })
+
+  it('says in a toast why a branch can’t be removed here, opening no dialog', async () => {
+    renderEditable('check')
+    const remove = screen.getByRole('button', { name: 'Remove' })
+    expect(remove).toBeEnabled()
+    await userEvent.setup().click(remove)
+    expect(toastError).toHaveBeenCalledWith('Remove it on the canvas — its arms need placing.')
+    expect(useIdeStore.getState().dialog).toBeNull()
+  })
+
+  it('is disabled with the reason on a read-only version', () => {
+    renderEditable('charge', false)
+    expect(screen.getByRole('button', { name: 'Remove' })).toHaveAttribute(
+      'title',
+      'Older versions are read-only.',
+    )
+  })
+
+  it('is not offered outside the workspace', () => {
+    renderInspector('charge')
+    expect(screen.queryByRole('button', { name: 'Remove' })).not.toBeInTheDocument()
   })
 })

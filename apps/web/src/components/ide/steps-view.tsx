@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Map as MapIcon, Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import type { StepPlacement } from '@awaitstep/codegen'
+import { removalBlocker, type StepPlacement } from '@awaitstep/codegen'
+import { requestNodeRemoval } from '../../lib/ide/remove-request'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { highlightFor } from '../../lib/ide/step-map'
@@ -191,6 +192,13 @@ export function StepsView({
     openPicker('after' in placement ? placement.after : null, placement)
   }
 
+  // Checked on click, not per row and render: the toast or the dialog follows.
+  function handleRemove(nodeId: string) {
+    if (!canEdit) return
+    const graph = { nodes: [...nodes.values()], edges: [...edges], entryNodeId: entryNodeId ?? '' }
+    requestNodeRemoval(nodeId, removalBlocker(graph, nodeId))
+  }
+
   function handleToggleMap() {
     useIdeLayoutStore.getState().togglePreview()
   }
@@ -307,6 +315,7 @@ export function StepsView({
                 onFold={handleFold}
                 onFocusRow={setFocusedId}
                 onCreate={handlePlacement}
+                onRemove={handleRemove}
               />
             )
           })}

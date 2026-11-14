@@ -1,5 +1,7 @@
 import { type ReactNode } from 'react'
-import { FlaskConical, Maximize2, X } from 'lucide-react'
+import { FlaskConical, Maximize2, Trash2, X } from 'lucide-react'
+import { removalBlocker } from '@awaitstep/codegen'
+import { requestNodeRemoval } from '../../lib/ide/remove-request'
 import { isBuiltinNodeType } from '@awaitstep/ir'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { useLastRunSteps } from '../../hooks/use-last-run-steps'
@@ -17,6 +19,7 @@ import {
 } from '../../lib/ide/step-summary'
 import { timeAgoOrDay } from '../../lib/time'
 import { useIdeStore } from '../../stores/ide-store'
+import { useNodeEdit } from './node-edit-context'
 import { NodeFieldsEditor } from './node-fields-editor'
 import { useStepSync } from './step-sync-context'
 
@@ -35,7 +38,8 @@ const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
  */
 export function StepInspector({ nodeId }: { nodeId: string }) {
   const sync = useStepSync()
-  const { workflowId, map, nodes, kind, linkVersion } = sync
+  const { workflowId, map, nodes, edges, entryNodeId, kind, linkVersion } = sync
+  const edit = useNodeEdit()
   const { registry, customNodes } = useNodeRegistry()
   const switchView = useSwitchView(workflowId)
   const node = nodes.get(nodeId)
@@ -67,9 +71,21 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
     runStepQuickTest(map, nodeId)
   }
 
+  function handleRemove() {
+    const graph = { nodes: [...nodes.values()], edges: [...edges], entryNodeId: entryNodeId ?? '' }
+    requestNodeRemoval(nodeId, removalBlocker(graph, nodeId))
+  }
+
   function handleEditOnCanvas() {
     void switchView('canvas', { version: linkVersion, node: nodeId })
   }
+
+  // Outside the workspace (a preview) there is no way to save, so no Remove.
+  // Read-only disables it; a node Code can't remove says why when clicked.
+  const readOnlyReason =
+    edit && !edit.canEdit
+      ? (edit.readOnlyReason ?? 'You can view this workflow but not edit it.')
+      : null
 
   // Where the step's code runs: its generated module, or why it has none.
   const moduleDescription =
@@ -184,6 +200,16 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         >
           Edit on canvas
         </ActionButton>
+        {edit && (
+          <ActionButton
+            icon={<Trash2 className="h-3 w-3" />}
+            onClick={handleRemove}
+            disabled={readOnlyReason !== null}
+            title={readOnlyReason ?? 'Remove this node and connect the steps around it'}
+          >
+            Remove
+          </ActionButton>
+        )}
       </div>
     </section>
   )

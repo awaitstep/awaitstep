@@ -674,3 +674,109 @@ describe('withEdits', () => {
     })
   })
 })
+
+describe('createStepCreator — removing a node', () => {
+  const MAIL_PATH = 'steps/mail.ts'
+
+  it('posts one version without the node, the entry moved to the next one', async () => {
+    const h = harness()
+    const outcome = await createStepCreator(h.deps).remove('fetch')
+    expect(outcome).toEqual({ status: 'removed', nodeId: 'fetch' })
+    expect(h.createVersion).toHaveBeenCalledTimes(1)
+    const { ir, baseGraphHash } = posted(h.createVersion)
+    expect(baseGraphHash).toBe('g-3')
+    expect(ir.nodes.map((n) => n.id)).toEqual(['mail'])
+    expect(ir.edges).toEqual([])
+    expect(ir.entryNodeId).toBe('mail')
+  })
+
+  it('closes the removed step’s tab, drops its draft and selects the step before it', async () => {
+    const h = harness()
+    const store = useIdeStore.getState()
+    store.openFile(MAIL_PATH)
+    store.setDraft(MAIL_PATH, MAIL_1, contentHash(MAIL_CODE))
+    store.selectNode('mail')
+    await createStepCreator(h.deps).remove('mail')
+    const after = useIdeStore.getState()
+    expect(after.openPaths).not.toContain(MAIL_PATH)
+    expect(after.drafts[MAIL_PATH]).toBeUndefined()
+    expect(after.selectedNodeId).toBe('fetch')
+  })
+
+  it('selects the step after a removed selected step, and closes its Compare tab', async () => {
+    const h = harness()
+    const store = useIdeStore.getState()
+    store.openFile('steps/fetch.ts')
+    store.openCompare('steps/fetch.ts')
+    store.setReviewPath('steps/fetch.ts')
+    store.selectNode('fetch')
+    await createStepCreator(h.deps).remove('fetch')
+    const after = useIdeStore.getState()
+    expect(after.selectedNodeId).toBe('mail')
+    expect(after.openPaths).toEqual([])
+    expect(after.reviewPath).toBeNull()
+  })
+
+  it('keeps the tab and draft when the canvas saved first, writing nothing', async () => {
+    const h = harness()
+    const store = useIdeStore.getState()
+    store.openFile(MAIL_PATH)
+    store.setDraft(MAIL_PATH, MAIL_1, contentHash(MAIL_CODE))
+    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
+    const outcome = await createStepCreator(h.deps).remove('mail')
+    expect(outcome).toEqual({ status: 'graph-conflict' })
+    expect(useIdeStore.getState().openPaths).toContain(MAIL_PATH)
+    expect(useIdeStore.getState().drafts[MAIL_PATH]).toBeDefined()
+    expect(useIdeStore.getState().graphConflict?.currentGraphHash).toBe('g-9')
+  })
+
+  it('refuses on a workspace that cannot edit, posting nothing', async () => {
+    const h = harness(doc, 'g-3', { canEdit: () => false })
+    const outcome = await createStepCreator(h.deps).remove('mail')
+    expect(outcome).toEqual({ status: 'refused', reason: 'Older versions are read-only.' })
+    expect(h.createVersion).not.toHaveBeenCalled()
+  })
+
+  it('refuses the last node with the reason, posting nothing', async () => {
+    const h = harness({ ...doc, nodes: [doc.nodes[0]!], edges: [] })
+    const outcome = await createStepCreator(h.deps).remove('fetch')
+    expect(outcome.status).toBe('refused')
+    if (outcome.status === 'refused') expect(outcome.reason).toMatch(/at least one node/)
+    expect(h.createVersion).not.toHaveBeenCalled()
+  })
+
+  it('waits for a save in flight and removes from the version it produced', async () => {
+    const h = harness()
+    h.refetchFails = true
+    useIdeStore.getState().setDraft(MAIL_PATH, MAIL_2, contentHash(MAIL_CODE))
+    let finish: (v: SavedVersion) => void = () => {}
+    h.createVersion.mockImplementationOnce(
+      () => new Promise<SavedVersion>((resolve) => (finish = resolve)),
+    )
+    const saving = h.saver.save([MAIL_PATH])
+    const removing = createStepCreator(h.deps).remove('fetch')
+    expect(h.createVersion).toHaveBeenCalledTimes(1)
+    const savedDoc = {
+      ...doc,
+      nodes: doc.nodes.map((n) => (n.id === 'mail' ? { ...n, data: { code: MAIL_2 } } : n)),
+    }
+    finish(versionRow(savedDoc, 'g-after-g-3'))
+    await saving
+    expect((await removing).status).toBe('removed')
+    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
+    expect(h.server().nodes).toEqual([
+      expect.objectContaining({ id: 'mail', data: { code: MAIL_2 } }),
+    ])
+  })
+
+  it('says the workspace didn’t reload when the refetch did not land', async () => {
+    const h = harness()
+    h.refetchFails = true
+    const outcome = await createStepCreator(h.deps).remove('mail')
+    expect(outcome.status).toBe('removed')
+    expect(h.notify.error).toHaveBeenCalledWith(
+      'Removed Send mail, but the workspace didn’t reload',
+      expect.anything(),
+    )
+  })
+})

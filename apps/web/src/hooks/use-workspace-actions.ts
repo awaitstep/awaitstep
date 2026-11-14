@@ -22,6 +22,7 @@ import { useIdeShortcuts } from './use-ide-shortcuts'
 import { useReviewActions } from './use-review-actions'
 import { useReviewCommands } from './use-review-commands'
 import { useSwitchView } from './use-switch-view'
+import { currentRemovalBlocker, requestNodeRemoval } from '../lib/ide/remove-request'
 
 const NO_SHORTCUTS = {}
 
@@ -146,6 +147,13 @@ export function useWorkspaceActions({
         // lead with this step's own connections.
         useIdeLayoutStore.getState().showSideBar('steps')
         useIdeStepsStore.getState().openPicker(nodeId)
+      },
+      removeStep: (nodeId) => {
+        if (!canEdit) {
+          actionToast.error(readOnlyMessage ?? VIEW_ONLY_MESSAGE)
+          return
+        }
+        requestNodeRemoval(nodeId, currentRemovalBlocker(nodeId))
       },
       renameFile: () => {
         const path = useIdeStore.getState().activePath

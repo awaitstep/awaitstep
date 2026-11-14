@@ -124,6 +124,8 @@ vi.mock('../step-sync-context', () => ({
   StepSyncProvider: ({ children }: { children: ReactNode }) => (
     <div data-testid="step-sync">{children}</div>
   ),
+  // The remove dialog reads the graph when it has one; the mocked provider has none.
+  useStepSyncOptional: () => null,
 }))
 vi.mock('../canvas-preview', () => ({ CanvasPreview: () => null }))
 

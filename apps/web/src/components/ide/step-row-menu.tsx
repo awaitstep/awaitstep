@@ -1,10 +1,11 @@
 import { useRef } from 'react'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import type { StepPlacement } from '@awaitstep/codegen'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -28,6 +29,8 @@ interface StepRowMenuProps {
   name: string
   outgoing: readonly StepOutgoingEdge[]
   onChoose: (placement: StepPlacement) => void
+  /** Asks to remove this node: the dialog, or a toast saying why Code can't. */
+  onRemove: (nodeId: string) => void
   /** The workspace cannot edit: the trigger stays in place, disabled, with the reason. */
   disabled: boolean
   disabledReason: string | null
@@ -36,13 +39,15 @@ interface StepRowMenuProps {
 /**
  * The Steps list's row menu. A step with nothing or one connection after it
  * gets one "New step after…"; a branch or container lists one entry per
- * connection, named by its label or the node it leads to.
+ * connection, named by its label or the node it leads to. "Remove…" opens
+ * the remove dialog, or says in a toast why Code can't remove the node.
  */
 export function StepRowMenu({
   nodeId,
   name,
   outgoing,
   onChoose,
+  onRemove,
   disabled,
   disabledReason,
 }: StepRowMenuProps) {
@@ -68,6 +73,12 @@ export function StepRowMenu({
     onChoose(placement)
   }
 
+  // The dialog takes focus itself, as the name row does.
+  function handleRemove() {
+    chosen.current = true
+    onRemove(nodeId)
+  }
+
   // `{ after }` is only truthful for a node with no connection or one plain
   // connection; an arm is spliced before its target, so it needs its own item.
   const only = outgoing.length === 1 ? outgoing[0]! : undefined
@@ -82,11 +93,11 @@ export function StepRowMenu({
           tabIndex={-1}
           disabled={disabled}
           aria-disabled={disabled}
-          aria-label={`New step after ${name}`}
+          aria-label={`Step actions for ${name}`}
           title={
             disabled
               ? (disabledReason ?? 'You can view this workflow but not edit it.')
-              : 'New step after…'
+              : 'Step actions'
           }
           onClick={handleMenuButtonClick}
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-muted/70 hover:text-foreground focus:opacity-100 group-focus-visible:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40 data-[state=open]:opacity-100"
@@ -135,6 +146,14 @@ export function StepRowMenu({
             </DropdownMenuSubContent>
           </DropdownMenuSub>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={handleRemove}
+          className="text-xs text-destructive focus:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Remove…
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

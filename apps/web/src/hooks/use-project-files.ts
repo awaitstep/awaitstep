@@ -13,6 +13,7 @@ import {
   type NewTemplateNode,
   type SaveNodeFieldsOutcome,
 } from '../lib/ide/step-create'
+import type { RemoveNodeOutcome } from '../lib/ide/step-remove'
 import { createStepSaver } from '../lib/ide/step-save'
 import { useIdeStore } from '../stores/ide-store'
 import { useApi, useQueries } from '../contexts/api-client-context'
@@ -57,6 +58,8 @@ export interface ProjectFilesController extends ProjectFileActions {
     edited: Record<string, unknown>,
     base: Record<string, unknown>,
   ) => Promise<SaveNodeFieldsOutcome>
+  /** Removes a node, reconnecting the nodes on either side, as one new version. */
+  removeNode: (nodeId: string) => Promise<RemoveNodeOutcome>
 }
 
 /**
@@ -235,6 +238,7 @@ export function useProjectFiles({
         edited: Record<string, unknown>,
         base: Record<string, unknown>,
       ) => track(() => stepCreator.saveNodeFields(nodeId, edited, base)),
+      removeNode: (nodeId: string) => track(() => stepCreator.remove(nodeId)),
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()

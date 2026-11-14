@@ -54,8 +54,9 @@ export function CommandPalette({
   canStopSession,
   canTriggerSession,
 }: CommandPaletteProps) {
-  const { open, closeDialog, hasActiveFile, openCount } = useIdeStore(
+  const { open, closeDialog, hasActiveFile, openCount, selectedNodeId } = useIdeStore(
     useShallow((s) => ({
+      selectedNodeId: s.selectedNodeId,
       open: s.dialog === 'palette',
       closeDialog: s.closeDialog,
       hasActiveFile: s.activePath !== null,
@@ -83,6 +84,7 @@ export function CommandPalette({
       canEdit,
       editBlockedReason,
       activeStepId,
+      selectedNodeId,
       explorerOpen,
       dockOpen,
       previewOpen,
@@ -109,6 +111,7 @@ export function CommandPalette({
     canEdit,
     editBlockedReason,
     activeStepId,
+    selectedNodeId,
     explorerOpen,
     dockOpen,
     previewOpen,

@@ -11,6 +11,7 @@ function actions(): IdeCommandActions {
     compareFile: vi.fn(),
     newFile: vi.fn(),
     newStep: vi.fn(),
+    removeStep: vi.fn(),
     renameFile: vi.fn(),
     deleteFile: vi.fn(),
     convertHandlers: vi.fn(),
@@ -272,5 +273,31 @@ describe('run and test session commands', () => {
     const command = buildIdeCommands(ctx).find((c) => c.id === 'file.newStep')!
     command.run()
     expect(ctx.actions.newStep).toHaveBeenCalledWith('fetch')
+  })
+
+  it('offers Remove Step for the picked node, else the step whose file is open', () => {
+    expect(enabledById(context())['file.removeStep']).toBe(false)
+    const picked = context({ activeStepId: 'fetch', selectedNodeId: 'mail' })
+    buildIdeCommands(picked)
+      .find((c) => c.id === 'file.removeStep')!
+      .run()
+    expect(picked.actions.removeStep).toHaveBeenCalledWith('mail')
+    const open = context({ activeStepId: 'fetch' })
+    buildIdeCommands(open)
+      .find((c) => c.id === 'file.removeStep')!
+      .run()
+    expect(open.actions.removeStep).toHaveBeenCalledWith('fetch')
+  })
+
+  it('says why Remove Step cannot run on a read-only version', () => {
+    const command = buildIdeCommands(
+      context({
+        selectedNodeId: 'fetch',
+        canEdit: false,
+        editBlockedReason: 'Older versions are read-only.',
+      }),
+    ).find((c) => c.id === 'file.removeStep')
+    expect(command?.enabled).toBe(false)
+    expect(command?.disabledReason).toBe('Older versions are read-only.')
   })
 })

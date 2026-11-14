@@ -386,7 +386,11 @@ export function WorkspaceLayout({
       graphVersionId={version?.id ?? null}
       codeVersionId={source.versionId ?? null}
     >
-      <NodeEditProvider canEdit={canEdit} saveNodeFields={projectFiles.saveNodeFields}>
+      <NodeEditProvider
+        canEdit={canEdit}
+        readOnlyReason={data.workspace?.message ?? null}
+        saveNodeFields={projectFiles.saveNodeFields}
+      >
         {view}
       </NodeEditProvider>
     </StepSyncProvider>

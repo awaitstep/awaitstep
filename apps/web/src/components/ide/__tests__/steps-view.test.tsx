@@ -311,7 +311,7 @@ describe('StepsView', () => {
   it('creates a step after a row-menu choice', async () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step after Validate order' }))
+    await user.click(screen.getByRole('button', { name: 'Step actions for Validate order' }))
     await user.click(await screen.findByRole('menuitem', { name: 'New step after…' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'After A')
@@ -324,7 +324,7 @@ describe('StepsView', () => {
   it('creates in a branch from a row menu’s arm', async () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
-    await user.click(screen.getByRole('button', { name: 'New step after Paid?' }))
+    await user.click(screen.getByRole('button', { name: 'Step actions for Paid?' }))
     await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Into paid' }))
     expect(screen.getByText('Where should it go?')).toBeInTheDocument()
@@ -547,7 +547,7 @@ describe('StepsView', () => {
     )
     const user = userEvent.setup()
     setup()
-    await user.click(screen.getByRole('button', { name: 'New step after Gate' }))
+    await user.click(screen.getByRole('button', { name: 'Step actions for Gate' }))
     await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
     expect(await screen.findByRole('menuitem', { name: 'Before A' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Before B' })).toBeInTheDocument()
@@ -557,7 +557,7 @@ describe('StepsView', () => {
   it('keeps the create controls, disabled with the reason, when the workspace cannot edit', () => {
     setup({}, false, 'Older versions are read-only.')
     expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
-    const menus = screen.getAllByRole('button', { name: /New step after/ })
+    const menus = screen.getAllByRole('button', { name: /Step actions for/ })
     expect(menus.length).toBeGreaterThan(0)
     for (const menu of menus) {
       expect(menu).toBeDisabled()

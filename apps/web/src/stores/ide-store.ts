@@ -14,7 +14,14 @@ import {
   type TabState,
 } from '../lib/ide/tabs'
 
-export type IdeDialog = 'palette' | 'quickOpen' | 'deleteFile' | 'deleteFolder' | 'convertHandlers'
+export type IdeDialog =
+  | 'palette'
+  | 'quickOpen'
+  | 'deleteFile'
+  | 'deleteFolder'
+  | 'convertHandlers'
+  /** The remove-node dialog; `dialogTarget` is the node's id. */
+  | 'removeNode'
 
 export interface RevealTarget {
   path: string
@@ -75,7 +82,7 @@ export interface IdeSessionState extends TabState {
   reveal: RevealTarget | null
   /** At most one modal at a time, so shortcuts can never stack dialogs. */
   dialog: IdeDialog | null
-  /** The file a rename/delete dialog is about. */
+  /** The file a rename/delete dialog is about, or the node the remove dialog is. */
   dialogTarget: string | null
   /** Unsaved editor text per path; compared against the loaded baseline. */
   drafts: Drafts

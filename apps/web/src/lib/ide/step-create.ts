@@ -1,24 +1,11 @@
 import { customAlphabet } from 'nanoid'
 import { stepSourcePath } from '@awaitstep/ir'
 import { insertNode, type StepPlacement } from '@awaitstep/codegen'
-import { failureLine } from '../action-toast'
-import { VersionConflictError, type SavedVersion } from '../api-client'
-import type { IdeSessionState } from '../../stores/ide-store'
-import { loadVersionDocument, withoutFileSnapshot, type LoadedVersion } from './node-source'
+import type { LoadedVersion } from './node-source'
+import { createVersionPoster, type GraphSaveDeps } from './graph-save'
+import { createNodeRemover, type RemoveNodeOutcome } from './step-remove'
 
-export interface StepCreateClient {
-  createVersion(
-    workflowId: string,
-    data: { ir: unknown; baseGraphHash?: string },
-  ): Promise<SavedVersion>
-}
-
-export interface StepCreateDeps {
-  workflowId: string
-  client: StepCreateClient
-  getStore: () => IdeSessionState
-  /** Still the workspace this action was built for; see `ProjectActionDeps.isCurrent`. */
-  isCurrent?: () => boolean
+export interface StepCreateDeps extends GraphSaveDeps {
   /** The version the workspace shows, read at create time; null when there is none. */
   getVersion: () => LoadedVersion | null
   /**
@@ -26,15 +13,8 @@ export interface StepCreateDeps {
    * create can tell whether the refetch after it actually landed.
    */
   getCachedVersion: () => LoadedVersion | null
-  notify: { error(message: string, options?: { description?: string }): void }
   /** Saves already asked for finish first, and later ones wait, so two writes never share a base. */
   exclusive: <T>(work: () => Promise<T>) => Promise<T>
-  /** Records the version this create wrote, so the next save builds on it while the cache lags. */
-  remember: (baseGraphHash: string, version: LoadedVersion) => void
-  /** The server has moved past the base: drop the remembered version. */
-  forget: () => void
-  /** Refetches the workspace once a version has been written (or refused). */
-  refresh: () => Promise<void>
   /** The workspace accepts edits right now (the current version, a role that may edit). */
   canEdit: () => boolean
   /** Why it does not, worded for the person. */
@@ -89,6 +69,13 @@ export interface StepCreator {
     nodeId?: string,
     template?: NewTemplateNode,
   ): Promise<CreateStepOutcome>
+  /**
+   * Removes a node from the loaded version, reconnecting the nodes on either
+   * side (`removeNode`), and saves it as the next version through the same
+   * queue and conflict refusal. A refusal (a container, the last node)
+   * writes nothing.
+   */
+  remove(nodeId: string): Promise<RemoveNodeOutcome>
 }
 
 const newNodeId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
@@ -102,9 +89,20 @@ const newNodeId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
  * has already moved past.
  */
 export function createStepCreator(deps: StepCreateDeps): StepCreator {
-  const { workflowId, client, getStore, getVersion, getCachedVersion, refresh } = deps
+  const { getStore, getVersion, getCachedVersion } = deps
   const isCurrent = deps.isCurrent ?? (() => true)
   const newId = deps.newId ?? newNodeId
+  const postVersion = createVersionPoster(deps)
+  const removeOnce = createNodeRemover({
+    getStore,
+    isCurrent,
+    getVersion,
+    getCachedVersion,
+    notify: deps.notify,
+    canEdit: deps.canEdit,
+    readOnlyReason: deps.readOnlyReason,
+    post: postVersion,
+  })
 
   return {
     async saveNodeFields(nodeId, edited, base) {
@@ -123,6 +121,15 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
         } catch {
           // A bug's own message is no reason a person can act on.
           return { status: 'failed', reason: `Couldn’t create the ${template ? 'node' : 'step'}.` }
+        }
+      })
+    },
+    async remove(nodeId) {
+      return deps.exclusive(async (): Promise<RemoveNodeOutcome> => {
+        try {
+          return await removeOnce(nodeId)
+        } catch {
+          return { status: 'failed', reason: 'Couldn’t remove the node.' }
         }
       })
     },
@@ -213,61 +220,6 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
       })
     }
     return { status: 'saved' }
-  }
-
-  // Posts `ir` as the next version on the base the workspace loaded. A canvas
-  // save that landed meanwhile is the graph-conflict refusal; on success the
-  // written version is remembered and the workspace refetched.
-  async function postVersion(
-    version: LoadedVersion,
-    ir: LoadedVersion['doc'],
-    // The general failure line, and the toast title when the canvas got there first.
-    words: { failure: string; refused: string },
-  ): Promise<
-    | { status: 'saved'; version: SavedVersion }
-    | { status: 'graph-conflict' }
-    | { status: 'failed'; reason: string }
-  > {
-    let saved: SavedVersion
-    try {
-      saved = await client.createVersion(workflowId, {
-        ir: withoutFileSnapshot(ir),
-        baseGraphHash: version.graphHash,
-      })
-    } catch (err) {
-      if (err instanceof VersionConflictError) {
-        deps.forget()
-        if (isCurrent()) {
-          const store = getStore()
-          const existing = store.graphConflict
-          if (existing !== null && existing.paths.length > 0) {
-            // A step save's draft notice is the more actionable one: keep it
-            // and say this write failed separately.
-            deps.notify.error(words.refused, {
-              description: 'The canvas changed this workflow. Try again.',
-            })
-          } else {
-            // Not a toast: the workspace notice explains, and the refetch
-            // marks every draft whose node moved too.
-            store.setGraphConflict({
-              currentVersionId: err.currentVersionId,
-              currentGraphHash: err.currentGraphHash,
-              paths: [],
-            })
-          }
-        }
-        await refresh()
-        return { status: 'graph-conflict' }
-      }
-      return { status: 'failed', reason: failureLine(err, words.failure) }
-    }
-
-    if (isCurrent()) getStore().setGraphConflict(null)
-    const next = loadVersionDocument({ version: saved, graphHash: saved.graphHash })
-    if (next) deps.remember(version.graphHash, next)
-    else deps.forget()
-    await refresh().catch(() => undefined)
-    return { status: 'saved', version: saved }
   }
 }
 

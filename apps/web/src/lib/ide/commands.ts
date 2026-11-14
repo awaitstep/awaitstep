@@ -26,6 +26,8 @@ export interface IdeCommandActions {
   newFile: () => void
   /** Opens the Steps view's name row after the given step. */
   newStep: (nodeId: string) => void
+  /** Opens the remove dialog for the given node. */
+  removeStep: (nodeId: string) => void
   renameFile: () => void
   deleteFile: () => void
   /** Splits the annotation file (handlers.ts) into handler modules. */
@@ -75,6 +77,8 @@ export interface IdeCommandContext {
   editBlockedReason: string | null
   /** The step whose `steps/<id>.ts` is the active file, or null. */
   activeStepId: string | null
+  /** The node picked in the Steps view or the preview, or null. */
+  selectedNodeId?: string | null
   explorerOpen: boolean
   dockOpen: boolean
   previewOpen: boolean
@@ -105,6 +109,8 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
   const blocked = ctx.runBlockedReason
   const reason = blocked === null ? {} : { disabledReason: blocked }
   const newStepReason = ctx.canEdit ? null : ctx.editBlockedReason
+  // The picked node, else the step whose file is open.
+  const removeTarget = ctx.selectedNodeId ?? ctx.activeStepId
   return [
     {
       id: 'file.save',
@@ -166,6 +172,16 @@ export function buildIdeCommands(ctx: IdeCommandContext): IdeCommand[] {
       ...(newStepReason === null ? {} : { disabledReason: newStepReason }),
       run: () => {
         if (ctx.activeStepId !== null) actions.newStep(ctx.activeStepId)
+      },
+    },
+    {
+      id: 'file.removeStep',
+      label: 'Remove Step…',
+      group: 'file',
+      enabled: ctx.canEdit && removeTarget !== null,
+      ...(newStepReason === null ? {} : { disabledReason: newStepReason }),
+      run: () => {
+        if (removeTarget !== null) actions.removeStep(removeTarget)
       },
     },
     {
