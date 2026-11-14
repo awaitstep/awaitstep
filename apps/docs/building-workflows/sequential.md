@@ -95,3 +95,36 @@ const my_step = await flow.step('read-payload', async () => {
   return { orderId: event.payload?.orderId }
 })
 ```
+
+## Removing a step from Code
+
+In the Code view's **Steps** side bar, open a step's **⋯** menu and choose
+**Remove…**. You can also use **Remove** in the step's details, or **Remove
+Step…** in the command palette. The removal is saved as one new version.
+
+- The steps before and after it are connected to each other, so
+  `A → removed → B` becomes `A → B`. Inside a loop or a branch, the arm keeps
+  its label. If the removed step was the first one, the next step becomes the
+  first.
+- Removing the only step in an arm leaves that arm empty.
+- Branches, loops, parallels, try/catch, races and waits can't be removed from
+  Code, because their arms need a new place. Remove… says so in a message;
+  remove them on the canvas.
+- The dialog lists the steps that read the removed step's value, for example
+  <code v-pre>{{say_hello.result}}</code> or `inputs.say_hello`. They show an
+  error until you change them, and Deploy refuses until then.
+- If another step had the same name, its name loses its `_2` suffix. The dialog
+  says so, because references to its old name stop working. References to the
+  removed step by name then read that step instead, without an error, and the
+  dialog lists those separately.
+- If you remove the step at the start of an arm (of a branch, loop, wait,
+  parallel, race or try/catch), and the step after it is also reached another
+  way (a join, or the container's next step), the save is refused. The arm
+  would lead straight into that step, which then wouldn't run on the other
+  paths. Add a step to that arm first, or change it on the canvas. The canvas
+  flags the same shape on the node and refuses to save it.
+- Unsaved changes in the removed step's file are discarded, and its tab
+  closes.
+
+The canvas removes a node without connecting its neighbours, because there you
+can draw the connection yourself.
