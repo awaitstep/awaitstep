@@ -1,6 +1,9 @@
 import { useEffect } from 'react'
 import { actionToast, failureLine } from '../lib/action-toast'
+import type { ArtifactIR } from '@awaitstep/ir'
 import type { DraftUndo } from '../lib/ide/draft-undo'
+import { pruneGraphOps } from '../lib/ide/graph-ops-actions'
+import type { LoadedVersion } from '../lib/ide/node-source'
 import { normalizeBundlePath } from '../lib/ide/file-tree'
 import { buildWorkflowStoreState } from '../lib/hydrate-workflow'
 import type { SourceFile, WorkflowFull, WorkflowSource } from '../lib/api-client'
@@ -62,6 +65,12 @@ interface LifecycleInput {
   workflowId: string
   fileParam: string | undefined
   fullData: WorkflowFull | undefined
+  /** The loaded version as stored, before Code's pending graph edits. */
+  savedVersion: LoadedVersion | null
+  /** An older version is shown: it never holds pending edits, so nothing is pruned against it. */
+  isHistorical: boolean
+  /** The loaded version with the pending graph edits replayed; null without one. */
+  editedDoc: ArtifactIR | null
   fullError: Error | null
   sourceError: Error | null
   source: WorkflowSource | undefined
@@ -85,6 +94,9 @@ export function useWorkspaceLifecycle({
   workflowId,
   fileParam,
   fullData,
+  savedVersion,
+  isHistorical,
+  editedDoc,
   fullError,
   sourceError,
   source,
@@ -99,17 +111,20 @@ export function useWorkspaceLifecycle({
   // Hydrate the canvas store (always read-only here) so Monaco's per-workflow
   // ambient types — typed Env, node outputs, runGraph — apply in the IDE too.
   // Store sync from query data follows the canvas route's established pattern.
+  // The graph is the loaded version with Code's pending edits replayed, so the
+  // Steps list, inspector and map show them before they are saved.
   useEffect(() => {
     if (!fullData?.workflow) return
+    const version =
+      fullData.version && editedDoc && editedDoc !== savedVersion?.doc
+        ? { ...fullData.version, ir: JSON.stringify(editedDoc) }
+        : fullData.version
     useWorkflowStore.getState().setWorkflowId(workflowId)
     useWorkflowStore.setState(
-      buildWorkflowStoreState(
-        fullData.workflow,
-        fullData.version,
-        fullData.version?.version ?? 0,
-        true,
-        { handlerModules: fullData.handlers.modules, graphHash: fullData.graphHash },
-      ),
+      buildWorkflowStoreState(fullData.workflow, version, fullData.version?.version ?? 0, true, {
+        handlerModules: fullData.handlers.modules,
+        graphHash: fullData.graphHash,
+      }),
     )
     // The builder leaves the graph alone when there is no version, so a graph
     // the canvas left in the store (drawn, then discarded to switch here)
@@ -118,7 +133,15 @@ export function useWorkspaceLifecycle({
       useWorkflowStore.setState({ nodes: [], edges: [], selectedNodeId: null })
     }
     clearWorkflowHistory()
-  }, [fullData, workflowId])
+  }, [fullData, workflowId, editedDoc, savedVersion])
+
+  // A version that landed underneath (the canvas saved, a refused save's
+  // refetch) is the new base: pending edits that no longer apply to it go,
+  // and the notice names them; the rest stay pending.
+  useEffect(() => {
+    if (savedVersion && !isHistorical)
+      pruneGraphOps(useIdeStore.getState, savedVersion, actionToast)
+  }, [savedVersion, isHistorical])
 
   useCompareCache(workflowId)
 

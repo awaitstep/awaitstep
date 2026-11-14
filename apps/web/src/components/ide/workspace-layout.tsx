@@ -103,7 +103,8 @@ export function WorkspaceLayout({
     files,
     projectPaths,
     usage,
-    dirty,
+    shownDirty,
+    unsavedCount,
     trees,
     problemGroups,
     problemCounts,
@@ -152,7 +153,6 @@ export function WorkspaceLayout({
   const workspaceLayoutKey = workspaceLayoutKeyFor(explorerOpen, previewOpen)
   const activeIsStoredFile = activePath !== null && storedPaths.has(activePath)
   const activeIsHandlersFile = activePath === PROJECT_HANDLERS_PATH
-  const unsavedPaths = [...dirty]
   const { hasActiveDeployment, hasUndeployedChanges, deployedVersion, currentVersion } =
     deriveDeploymentState(fullData)
   const deployState = {
@@ -185,9 +185,9 @@ export function WorkspaceLayout({
 
   async function handleDeploy() {
     if (!canEdit || !version) return
-    if (dirty.size > 0) {
+    if (unsavedCount > 0) {
       const saved = await projectFiles.saveAll()
-      if (saved < dirty.size) return
+      if (saved < unsavedCount) return
     }
     openDeploy(workflowId)
   }
@@ -203,7 +203,7 @@ export function WorkspaceLayout({
         {...(version && isHistorical && { historicalVersion: readOnlyVersion ?? version.version })}
         {...(linkVersion !== undefined && { versionParam: linkVersion })}
         deployState={deployState}
-        dirtyCount={dirty.size}
+        dirtyCount={unsavedCount}
         canEdit={canEdit}
         {...(access.reason && { viewOnlyReason: access.reason })}
         saving={projectFiles.busy}
@@ -230,6 +230,7 @@ export function WorkspaceLayout({
                       canEdit={canEdit}
                       readOnlyMessage={data.workspace?.message ?? null}
                       onCreateStep={projectFiles.createStep}
+                      onUndoGraphEdit={projectFiles.undoGraphOp}
                     />
                   }
                   explorer={
@@ -238,8 +239,8 @@ export function WorkspaceLayout({
                       project={trees.project}
                       library={trees.library}
                       generated={trees.generated}
-                      dirty={dirty}
-                      unsavedPaths={reviewOrder(dirty)}
+                      dirty={shownDirty}
+                      unsavedPaths={reviewOrder(shownDirty)}
                       onReview={handleReview}
                       virtual={virtualPaths}
                       stepPaths={stepPaths}
@@ -269,7 +270,7 @@ export function WorkspaceLayout({
                 <EditorGroup
                   workflowId={workflowId}
                   files={files}
-                  dirty={dirty}
+                  dirty={shownDirty}
                   editabilityOf={editabilityOf}
                   libraryFiles={data.libraryFiles}
                   onChange={handleEditorChange}
@@ -333,7 +334,7 @@ export function WorkspaceLayout({
         session={status}
         errors={problemCounts.error}
         warnings={problemCounts.warning}
-        unsaved={unsavedPaths}
+        unsaved={unsavedCount}
         canEdit={canEdit}
         activePath={filePathOfTab(activePath)}
         readOnly={filePathOfTab(activePath) !== null && editabilityOf(activePath!).readOnly}
@@ -351,7 +352,7 @@ export function WorkspaceLayout({
         activeIsHandlersFile={activeIsHandlersFile}
         activeDirty={activeDirty}
         activeMovedOnServer={activeMovedOnServer}
-        dirtyCount={dirty.size}
+        dirtyCount={unsavedCount}
         runBlockedReason={session.blockedReason}
         runLabel={runAction.intent.label}
         runEnabled={runAction.intent.kind !== 'busy'}

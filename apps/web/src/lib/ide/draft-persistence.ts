@@ -1,6 +1,8 @@
 import { del, get, keys, set, createStore, type UseStore } from 'idb-keyval'
 import { onSignedOutElsewhere } from '../auth-signal'
 import type { Draft, Drafts } from './drafts'
+import type { PendingFileOp } from './file-ops'
+import { pendingStepPaths, waitingOps, type PendingGraphOp } from './graph-ops'
 
 /** Stored drafts older than this are dropped on read, so a shared browser does not hoard them. */
 export const DRAFT_RETENTION_MS = 14 * 24 * 60 * 60 * 1000
@@ -153,3 +155,44 @@ export function mergeRestoredDrafts(
 
 /** The app's storage: IndexedDB, opened on first use so importing this costs nothing. */
 export const browserDraftStorage: DraftStorage = createIndexedDbDraftStorage()
+
+/**
+ * The drafts a reload may bring back. Pending graph edits and Explorer
+ * changes are never stored, so after a reload they are undone, and each
+ * draft goes back to where its file then is:
+ * - the code of a step only a pending Add puts there, or of a file only a
+ *   pending New File creates, is left out (it would come back as a file
+ *   deleted on the server);
+ * - a renamed file's text is kept at its old path;
+ * - the text a pending removal or delete took off screen is kept, since that
+ *   step or file is back.
+ */
+export function persistedDrafts(state: {
+  drafts: Drafts
+  graphOps: readonly PendingGraphOp[]
+  fileOps?: readonly PendingFileOp[]
+}): Drafts {
+  const fileOps = state.fileOps ?? []
+  const added = [
+    ...pendingStepPaths(state.graphOps),
+    ...fileOps.flatMap((op) => (op.kind === 'create' ? [op.path] : [])),
+  ].filter((path) => path in state.drafts)
+  const moved = fileOps.flatMap((op) => (op.kind === 'move' && op.to in state.drafts ? [op] : []))
+  const stashed = [
+    ...waitingOps(state.graphOps).flatMap((entry) =>
+      entry.stashedDraft ? [entry.stashedDraft] : [],
+    ),
+    ...fileOps.flatMap((op) =>
+      op.kind === 'delete' && op.stashedDraft ? [{ path: op.path, draft: op.stashedDraft }] : [],
+    ),
+  ].filter(({ path }) => !(path in state.drafts))
+  if (added.length === 0 && moved.length === 0 && stashed.length === 0) return state.drafts
+  const kept: Record<string, Draft> = { ...state.drafts }
+  for (const path of added) delete kept[path]
+  for (const op of moved) {
+    kept[op.from] = kept[op.to]!
+    delete kept[op.to]
+  }
+  for (const { path, draft } of stashed) kept[path] = draft
+  return kept
+}

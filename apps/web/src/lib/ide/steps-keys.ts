@@ -50,3 +50,19 @@ export function stepsKeyIntent(
       return null
   }
 }
+
+/** ⌘Z (Ctrl+Z off a Mac): undo, not redo (⇧) and not another modifier's chord. */
+export function isUndoKey(event: {
+  key: string
+  metaKey: boolean
+  ctrlKey: boolean
+  shiftKey: boolean
+  altKey: boolean
+}): boolean {
+  return (
+    event.key.toLowerCase() === 'z' &&
+    (event.metaKey || event.ctrlKey) &&
+    !event.shiftKey &&
+    !event.altKey
+  )
+}

@@ -55,6 +55,7 @@ describe('a custom node in Code', () => {
           onEscape={vi.fn()}
           canEdit
           readOnlyMessage={null}
+          onUndoGraphEdit={vi.fn(() => false)}
           onCreateStep={vi.fn()}
         />
       </SyncHarness>,

@@ -4,6 +4,7 @@ import type { SourceFile } from '../lib/api-client'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import type { DraftUndo } from '../lib/ide/draft-undo'
 import { dirtyPaths } from '../lib/ide/drafts'
+import type { PendingFileOp } from '../lib/ide/file-ops'
 import type { Editability } from '../lib/ide/editability'
 import type { FileOwner } from '../lib/ide/project'
 import { basename } from '../lib/ide/file-tree'
@@ -17,6 +18,7 @@ interface ReviewActionsInput {
   workflowId: string
   files: ReadonlyMap<string, GeneratedFile>
   baseline: ReadonlyMap<string, SourceFile>
+  fileOps: readonly PendingFileOp[]
   canEdit: boolean
   projectFiles: ProjectFilesController
   draftUndo: DraftUndo
@@ -53,7 +55,7 @@ export function activeTargetPath(
 /** Wires the Unsaved changes view, Compare and the outside-change banners to the workspace's writes. */
 export function useReviewActions(input: ReviewActionsInput) {
   const queryClient = useQueryClient()
-  const { workflowId, files, baseline, canEdit, projectFiles, draftUndo } = input
+  const { workflowId, files, baseline, fileOps, canEdit, projectFiles, draftUndo } = input
   const { editabilityOf, ownerOf, onChange } = input
 
   const bindings = useMemo<ReviewBindings>(
@@ -61,6 +63,7 @@ export function useReviewActions(input: ReviewActionsInput) {
       workflowId,
       files,
       baseline,
+      fileOps,
       canEdit,
       busy: projectFiles.busy,
       editabilityOf,
@@ -87,11 +90,14 @@ export function useReviewActions(input: ReviewActionsInput) {
       },
       onRecreate: projectFiles.recreateFile,
       onDiscardDeleted: draftUndo.discardDeleted,
+      onDiscardGraphOp: projectFiles.discardGraphOp,
+      onDiscardFileOp: projectFiles.discardFileOp,
     }),
     [
       workflowId,
       files,
       baseline,
+      fileOps,
       canEdit,
       projectFiles,
       draftUndo,

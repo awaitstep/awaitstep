@@ -4,9 +4,11 @@ import {
   browserDraftStorage,
   loadDrafts,
   mergeRestoredDrafts,
+  persistedDrafts,
   saveDrafts,
 } from '../lib/ide/draft-persistence'
 import { useAuthStore } from '../stores/auth-store'
+import { discardAllGraphOps } from '../lib/ide/graph-ops-actions'
 import { useIdeStore } from '../stores/ide-store'
 
 const WRITE_DELAY_MS = 400
@@ -54,13 +56,28 @@ export function useDraftPersistence({ workflowId, enabled, baseline }: DraftPers
   const [restoredFor, setRestoredFor] = useState<string | null>(null)
   const restoredRef = useRef<string | null>(null)
 
+  // Another account (or none) took over this open tab: the last one's
+  // unsaved code and pending graph edits are not the new one's to see or
+  // save. Whatever the new account may do here, so a Viewer never reads them.
+  const ownerRef = useRef(userId)
+  useEffect(() => {
+    const previous = ownerRef.current
+    if (previous === userId) return
+    ownerRef.current = userId
+    if (previous === null) return
+    discardAllGraphOps(useIdeStore.getState)
+    useIdeStore.getState().replaceFileOps([])
+    useIdeStore.getState().clearDrafts()
+    useIdeStore.getState().setRestoreNotice(null)
+  }, [userId])
+
   useEffect(() => {
     if (!active || !baseline) return
     if (restoredRef.current === userId) return
     const store = useIdeStore.getState()
     if (restoredRef.current !== null) {
-      store.clearDrafts()
-      store.setRestoreNotice(null)
+      // Another account signed in: the effect above has cleared the session;
+      // restore for the new one.
       restoredRef.current = null
       setRestoredFor(null)
     }
@@ -93,7 +110,7 @@ export function useDraftPersistence({ workflowId, enabled, baseline }: DraftPers
         browserDraftStorage,
         userId!,
         workflowId,
-        useIdeStore.getState().drafts,
+        persistedDrafts(useIdeStore.getState()),
         Date.now(),
       ).catch(() => undefined)
     }
@@ -111,7 +128,13 @@ export function useDraftPersistence({ workflowId, enabled, baseline }: DraftPers
 
     write()
     const unsubscribe = useIdeStore.subscribe((state, previous) => {
-      if (state.drafts !== previous.drafts) schedule()
+      if (
+        state.drafts !== previous.drafts ||
+        state.graphOps !== previous.graphOps ||
+        state.fileOps !== previous.fileOps
+      ) {
+        schedule()
+      }
     })
     window.addEventListener('pagehide', flush)
     return () => {

@@ -1,20 +1,21 @@
 import { customAlphabet } from 'nanoid'
 import { stepSourcePath } from '@awaitstep/ir'
-import { insertNode, type StepPlacement } from '@awaitstep/codegen'
+import { applyGraphOp, applyGraphOps, insertNode, type StepPlacement } from '@awaitstep/codegen'
+import type { IdeSessionState } from '../../stores/ide-store'
+import { replayBase } from './graph-ops-actions'
+import { fieldsLabel, insertLabel, newPendingOpId, opsOf, waitingOps } from './graph-ops'
 import type { LoadedVersion } from './node-source'
-import { createVersionPoster, type GraphSaveDeps } from './graph-save'
 import { createNodeRemover, type RemoveNodeOutcome } from './step-remove'
 
-export interface StepCreateDeps extends GraphSaveDeps {
-  /** The version the workspace shows, read at create time; null when there is none. */
-  getVersion: () => LoadedVersion | null
+export interface StepCreateDeps {
+  getStore: () => IdeSessionState
+  /** Still the workspace this action was built for; see `ProjectActionDeps.isCurrent`. */
+  isCurrent?: () => boolean
   /**
-   * The version in the query cache only — not a remembered response — so the
-   * create can tell whether the refetch after it actually landed.
+   * The saved version a save would build on (`StepSaver.currentVersion`):
+   * the pending edits are validated against it with themselves replayed.
    */
-  getCachedVersion: () => LoadedVersion | null
-  /** Saves already asked for finish first, and later ones wait, so two writes never share a base. */
-  exclusive: <T>(work: () => Promise<T>) => Promise<T>
+  getVersion: () => LoadedVersion | null
   /** The workspace accepts edits right now (the current version, a role that may edit). */
   canEdit: () => boolean
   /** Why it does not, worded for the person. */
@@ -25,9 +26,8 @@ export interface StepCreateDeps extends GraphSaveDeps {
 
 export type CreateStepOutcome =
   /** `path`: the new step's file; null for a custom node, which has none of its own. */
-  | { status: 'created'; nodeId: string; path: string | null; opened: boolean }
+  | { status: 'created'; nodeId: string; path: string | null }
   | { status: 'refused'; reason: string }
-  | { status: 'graph-conflict' }
   | { status: 'failed'; reason: string }
 
 /** A custom or marketplace node to add instead of a step: its type and field values. */
@@ -37,30 +37,27 @@ export interface NewTemplateNode {
 }
 
 export type SaveNodeFieldsOutcome =
-  | { status: 'saved' }
+  | { status: 'recorded' }
   | { status: 'refused'; reason: string }
-  | { status: 'graph-conflict' }
   | { status: 'failed'; reason: string }
 
 export interface StepCreator {
   /**
-   * Saves one node's field edits as the next version, through the same queue
-   * and conflict refusal as `create`. Only the fields that differ between
-   * `base` (the data the edits started from) and `edited` are written, onto
-   * the node as the version to save holds it: a field changed meanwhile by
-   * someone else is kept unless this edit changed it too.
+   * Records one node's field edits as a pending graph edit. Only the fields
+   * that differ between `base` (the data the edits started from) and
+   * `edited` are written on save, onto the node as that version holds it.
    */
   saveNodeFields(
     nodeId: string,
     edited: Record<string, unknown>,
     base: Record<string, unknown>,
-  ): Promise<SaveNodeFieldsOutcome>
+  ): SaveNodeFieldsOutcome
   /**
-   * Adds a step — or, given `template`, a custom node — to the loaded version
-   * and saves it as the next version, never a file write. On success a new
-   * step's `steps/<id>.ts` is opened, and a custom node (which has no source
-   * file) is selected so its details show; a refusal (an unknown node, a
-   * branch without a chosen arm) writes nothing.
+   * Adds a step — or, given `template`, a custom node — as a pending graph
+   * edit: it shows at once and is written with the next save. A new step's
+   * `steps/<id>.ts` opens as a new file; a custom node (which has no source
+   * file) is selected so its details show. A refusal (an unknown node, a
+   * branch without a chosen arm) records nothing.
    */
   create(
     placement: StepPlacement,
@@ -68,172 +65,106 @@ export interface StepCreator {
     /** A caller-chosen id, used to make the file name match the typed name. */
     nodeId?: string,
     template?: NewTemplateNode,
-  ): Promise<CreateStepOutcome>
+  ): CreateStepOutcome
   /**
-   * Removes a node from the loaded version, reconnecting the nodes on either
-   * side (`removeNode`), and saves it as the next version through the same
-   * queue and conflict refusal. A refusal (a container, the last node)
-   * writes nothing.
+   * Removes a node as a pending graph edit, reconnecting the nodes on either
+   * side (`removeNode`) on save. A refusal (a container, the last node)
+   * records nothing.
    */
-  remove(nodeId: string): Promise<RemoveNodeOutcome>
+  remove(nodeId: string): RemoveNodeOutcome
 }
 
 const newNodeId = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
 /**
- * How Code adds a step: `insertStep` builds the document — the node, its
- * edges and its module code — and it is posted as one version on the base
- * the workspace loaded, so a canvas save that landed meanwhile is the
- * existing graph-conflict refusal, not a silent overwrite. The create and
- * the step saver share one queue, so neither can post on a base the other
- * has already moved past.
+ * How Code edits the graph: each edit is checked against the document on
+ * screen (the saved version with the pending edits replayed) and recorded
+ * as one more pending edit. Nothing is posted; the next save writes every
+ * pending edit and step draft as one version (`createStepSaver`).
  */
 export function createStepCreator(deps: StepCreateDeps): StepCreator {
-  const { getStore, getVersion, getCachedVersion } = deps
+  const { getStore, getVersion } = deps
   const isCurrent = deps.isCurrent ?? (() => true)
   const newId = deps.newId ?? newNodeId
-  const postVersion = createVersionPoster(deps)
-  const removeOnce = createNodeRemover({
-    getStore,
-    isCurrent,
-    getVersion,
-    getCachedVersion,
-    notify: deps.notify,
-    canEdit: deps.canEdit,
-    readOnlyReason: deps.readOnlyReason,
-    post: postVersion,
-  })
 
-  return {
-    async saveNodeFields(nodeId, edited, base) {
-      return deps.exclusive(async (): Promise<SaveNodeFieldsOutcome> => {
-        try {
-          return await saveFieldsOnce(nodeId, edited, base)
-        } catch {
-          return { status: 'failed', reason: 'Couldn’t save the node.' }
-        }
-      })
-    },
-    async create(placement, name, providedId, template) {
-      return deps.exclusive(async (): Promise<CreateStepOutcome> => {
-        try {
-          return await createOnce(placement, name, providedId, template)
-        } catch {
-          // A bug's own message is no reason a person can act on.
-          return { status: 'failed', reason: `Couldn’t create the ${template ? 'node' : 'step'}.` }
-        }
-      })
-    },
-    async remove(nodeId) {
-      return deps.exclusive(async (): Promise<RemoveNodeOutcome> => {
-        try {
-          return await removeOnce(nodeId)
-        } catch {
-          return { status: 'failed', reason: 'Couldn’t remove the node.' }
-        }
-      })
-    },
-  }
-
-  async function createOnce(
-    placement: StepPlacement,
-    name: string,
-    providedId?: string,
-    template?: NewTemplateNode,
-  ): Promise<CreateStepOutcome> {
-    const noun = template ? 'node' : 'step'
-    // Queued work starts later than its call: by then the person may have
-    // left for another workflow, whose session the shared store now holds.
-    if (!isCurrent()) return { status: 'failed', reason: 'This workspace is no longer open.' }
-    if (!deps.canEdit()) return { status: 'refused', reason: deps.readOnlyReason() }
-
+  /** The saved version and the document on screen, or why there is none to edit. */
+  function editable():
+    | { ok: true; version: LoadedVersion; doc: LoadedVersion['doc'] }
+    | { ok: false; outcome: { status: 'refused' | 'failed'; reason: string } } {
+    if (!isCurrent()) {
+      return {
+        ok: false,
+        outcome: { status: 'failed', reason: 'This workspace is no longer open.' },
+      }
+    }
+    if (!deps.canEdit()) {
+      return { ok: false, outcome: { status: 'refused', reason: deps.readOnlyReason() } }
+    }
     const version = getVersion()
     if (!version) {
       return {
-        status: 'failed',
-        reason: 'Open this workflow on the canvas and save it once, then try again.',
+        ok: false,
+        outcome: {
+          status: 'failed',
+          reason: 'Open this workflow on the canvas and save it once, then try again.',
+        },
       }
     }
-
-    const nodeId = providedId ?? newId()
-    const inserted = insertNode(version.doc, placement, {
-      id: nodeId,
-      name,
-      type: template?.type ?? 'step',
-      ...(template && { data: template.data }),
-    })
-    if (!inserted.ok) return { status: 'refused', reason: inserted.reason }
-
-    const posted = await postVersion(version, inserted.ir, {
-      failure: `Couldn’t create the ${noun}`,
-      refused: 'Nothing was created',
-    })
-    if (posted.status !== 'saved') return posted
-    const saved = posted.version
-    const path = template ? null : stepSourcePath(nodeId)
-    // The file is a view of the saved version: open it only once the
-    // workspace has read that version back. A refetch that did not land
-    // (React Query resolves even when its request fails) would open a tab
-    // with nothing behind it, so say so instead. A custom node has no file:
-    // selecting it shows its details, which need the version read back too.
-    const landed = getCachedVersion()?.graphHash === saved.graphHash
-    if (isCurrent()) {
-      if (!landed) {
-        deps.notify.error(`Created the ${noun}, but the workspace didn’t reload`, {
-          description: path ? 'Reload the page to open its file.' : 'Reload the page to see it.',
-        })
-      } else if (path) getStore().openFile(path)
-      else getStore().selectNode(nodeId)
-    }
-    return { status: 'created', nodeId, path, opened: landed }
+    const pending = getStore().graphOps
+    const doc = applyGraphOps(replayBase(version, pending), opsOf(waitingOps(pending))).ir
+    return { ok: true, version, doc }
   }
 
-  async function saveFieldsOnce(
-    nodeId: string,
-    edited: Record<string, unknown>,
-    base: Record<string, unknown>,
-  ): Promise<SaveNodeFieldsOutcome> {
-    if (!isCurrent()) return { status: 'failed', reason: 'This workspace is no longer open.' }
-    if (!deps.canEdit()) return { status: 'refused', reason: deps.readOnlyReason() }
-    const version = getVersion()
-    if (!version) return { status: 'failed', reason: 'This workflow has no saved version yet.' }
-    if (!version.doc.nodes.some((node) => node.id === nodeId)) {
-      return { status: 'refused', reason: 'That node is not in this version any more.' }
-    }
-    const ir = {
-      ...version.doc,
-      nodes: version.doc.nodes.map((node) =>
-        node.id === nodeId ? { ...node, data: withEdits(node.data, edited, base) } : node,
-      ),
-    }
-    const posted = await postVersion(version, ir, {
-      failure: 'Couldn’t save the node',
-      refused: 'Nothing was saved',
-    })
-    if (posted.status !== 'saved') return posted
-    // The panel shows the saved values once the workspace reads the version
-    // back; one that didn't would look as if the save were undone.
-    const landed = getCachedVersion()?.graphHash === posted.version.graphHash
-    if (!landed && isCurrent()) {
-      deps.notify.error('Saved the node, but the workspace didn’t reload', {
-        description: 'Reload the page to see it.',
+  const removeOnce = createNodeRemover({ getStore, editable })
+
+  return {
+    saveNodeFields(nodeId, edited, base) {
+      const state = editable()
+      if (!state.ok) return state.outcome
+      const node = state.doc.nodes.find((n) => n.id === nodeId)
+      if (!node) return { status: 'refused', reason: 'That node is not in this version any more.' }
+      const op = { kind: 'fields' as const, nodeId, edited, base }
+      if (!applyGraphOp(state.doc, op).ok) {
+        return { status: 'refused', reason: 'That node is not in this version any more.' }
+      }
+      getStore().addGraphOp({
+        id: newPendingOpId(),
+        op,
+        label: fieldsLabel(node.name, edited, base),
       })
-    }
-    return { status: 'saved' }
-  }
-}
+      return { status: 'recorded' }
+    },
 
-/** `current` with the fields `edited` changed from `base` applied: set, or removed when unset. */
-export function withEdits(
-  current: Record<string, unknown>,
-  edited: Record<string, unknown>,
-  base: Record<string, unknown>,
-): Record<string, unknown> {
-  const next = { ...current }
-  for (const key of new Set([...Object.keys(base), ...Object.keys(edited)])) {
-    if (JSON.stringify(edited[key]) === JSON.stringify(base[key])) continue
-    if (edited[key] === undefined) delete next[key]
-    else next[key] = edited[key]
+    create(placement, name, providedId, template) {
+      const state = editable()
+      if (!state.ok) return state.outcome
+      const nodeId = providedId ?? newId()
+      const node = {
+        id: nodeId,
+        name,
+        type: template?.type ?? 'step',
+        ...(template && { data: template.data }),
+      }
+      const inserted = insertNode(state.doc, placement, node)
+      if (!inserted.ok) return { status: 'refused', reason: inserted.reason }
+
+      // A step keeps the scaffold it opened with: replayed where the names
+      // differ (a discard before it, a canvas save under it), a fresh one
+      // would change the text a draft of it was started from.
+      const recorded = template ? node : { ...node, data: { code: inserted.node.data.code } }
+      getStore().addGraphOp({
+        id: newPendingOpId(),
+        op: { kind: 'insert', placement, node: recorded },
+        label: insertLabel(inserted.node.name),
+      })
+      const path = template ? null : stepSourcePath(nodeId)
+      if (path) getStore().openFile(path)
+      else getStore().selectNode(nodeId)
+      return { status: 'created', nodeId, path }
+    },
+
+    remove(nodeId) {
+      return removeOnce(nodeId)
+    },
   }
-  return next
 }

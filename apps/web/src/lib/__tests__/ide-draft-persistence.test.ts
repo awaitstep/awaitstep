@@ -5,6 +5,7 @@ import {
   draftKey,
   loadDrafts,
   mergeRestoredDrafts,
+  persistedDrafts,
   sweepExpiredDrafts,
   saveDrafts,
   type DraftStorage,
@@ -132,5 +133,46 @@ describe('suspendDraftWrites', () => {
     fresh.suspendDraftWrites()
     await fresh.saveDrafts(storage, 'u1', 'wf1', drafts, 1)
     expect(storage.data.size).toBe(0)
+  })
+})
+
+describe('persistedDrafts', () => {
+  const drafts = {
+    'steps/new.ts': { source: 'new code', baseHash: 'h1' },
+    'steps/old.ts': { source: 'old code', baseHash: 'h2' },
+  }
+
+  it('leaves out the code of a step only a pending edit adds', () => {
+    const graphOps = [
+      {
+        id: 'op-1',
+        op: {
+          kind: 'insert' as const,
+          placement: { after: 'a' },
+          node: { id: 'new', name: 'New', type: 'step' },
+        },
+        label: 'Added “New”',
+      },
+    ]
+    expect(persistedDrafts({ drafts, graphOps })).toEqual({
+      'steps/old.ts': drafts['steps/old.ts'],
+    })
+  })
+
+  it('keeps the code a pending removal took off screen, since a reload brings the step back', () => {
+    const stashed = { source: 'mine', baseHash: 'h3' }
+    const graphOps = [
+      {
+        id: 'op-1',
+        op: { kind: 'remove' as const, nodeId: 'gone' },
+        label: 'Removed “Gone”',
+        stashedDraft: { path: 'steps/gone.ts', draft: stashed },
+      },
+    ]
+    expect(persistedDrafts({ drafts, graphOps })['steps/gone.ts']).toEqual(stashed)
+  })
+
+  it('keeps every draft when nothing is pending', () => {
+    expect(persistedDrafts({ drafts, graphOps: [] })).toBe(drafts)
   })
 })

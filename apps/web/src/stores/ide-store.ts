@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import { guardClose, type CloseRequest } from '../lib/ide/close-guard'
 import { liveDrafts, type Draft, type Drafts } from '../lib/ide/drafts'
+import type { PendingFileOp } from '../lib/ide/file-ops'
+import type { DroppedPendingOp, PendingGraphOp } from '../lib/ide/graph-ops'
 import {
   REVIEW_TAB_ID,
   closeAllTabs,
@@ -70,6 +72,8 @@ export interface GraphConflict {
   currentVersionId: string | null
   currentGraphHash: string | null
   paths: readonly string[]
+  /** Pending graph edits the new version no longer takes; they were discarded. */
+  dropped?: readonly DroppedPendingOp[]
 }
 
 export interface CursorPosition {
@@ -103,6 +107,19 @@ export interface IdeSessionState extends TabState {
    * save succeeds; the drafts themselves are kept.
    */
   graphConflict: GraphConflict | null
+  /**
+   * Graph edits made in Code (Add, Remove, a node's field Save) waiting for
+   * the next save, in the order they were made. The document on screen is
+   * the loaded version with these replayed; nothing is written until Save.
+   * Session only: never persisted, so a reload (after the guard) drops them.
+   */
+  graphOps: readonly PendingGraphOp[]
+  /**
+   * Project-file changes made in Code's Explorer (New File, Rename, Delete)
+   * waiting for the next save, one entry per file. Session only, like
+   * `graphOps`: a reload (after the guard) drops them.
+   */
+  fileOps: readonly PendingFileOp[]
   /**
    * Files whose "changed on the server" banner was dismissed, with the
    * server hash they were dismissed at: a further change brings it back.
@@ -161,6 +178,11 @@ export interface IdeSessionState extends TabState {
   setConflict: (path: string, conflict: SaveConflict) => void
   clearConflict: (path: string) => void
   setGraphConflict: (conflict: GraphConflict | null) => void
+  addGraphOp: (op: PendingGraphOp) => void
+  /** Replaces the pending graph edits (a discard, a save that wrote some of them). */
+  replaceGraphOps: (ops: readonly PendingGraphOp[]) => void
+  clearGraphOps: () => void
+  replaceFileOps: (ops: readonly PendingFileOp[]) => void
   dismissOutside: (path: string, serverHash: string | null) => void
   setRestoreNotice: (notice: RestoreNotice | null) => void
   setCursor: (cursor: CursorPosition) => void
@@ -194,6 +216,8 @@ const initialSession = {
   reviewInline: false,
   conflicts: {} as Readonly<Record<string, SaveConflict>>,
   graphConflict: null as GraphConflict | null,
+  graphOps: [] as readonly PendingGraphOp[],
+  fileOps: [] as readonly PendingFileOp[],
   dismissedOutside: {} as Readonly<Record<string, string | null>>,
   editorHandle: null as EditorHandle | null,
   selectedNodeId: null as string | null,
@@ -277,6 +301,12 @@ export const useIdeStore = create<IdeSessionState>()((set, get) => ({
   setGraphConflict: (graphConflict) => {
     if (get().graphConflict !== graphConflict) set({ graphConflict })
   },
+  addGraphOp: (op) => set({ graphOps: [...get().graphOps, op] }),
+  replaceGraphOps: (graphOps) => set({ graphOps }),
+  clearGraphOps: () => {
+    if (get().graphOps.length > 0) set({ graphOps: [] })
+  },
+  replaceFileOps: (fileOps) => set({ fileOps }),
   dismissOutside: (path, serverHash) =>
     set({ dismissedOutside: { ...get().dismissedOutside, [path]: serverHash } }),
   setRestoreNotice: (restoreNotice) => set({ restoreNotice }),

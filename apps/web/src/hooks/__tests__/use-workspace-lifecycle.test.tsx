@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderHook } from '@testing-library/react'
+import type { ArtifactIR } from '@awaitstep/ir'
 import type { SourceFile, WorkflowFull, WorkflowSource } from '../../lib/api-client'
 import type { DraftUndo } from '../../lib/ide/draft-undo'
 import { actionToast } from '../../lib/action-toast'
@@ -52,6 +53,9 @@ function inputOf(overrides: Partial<Input> = {}): Input {
     workflowId: WORKFLOW_ID,
     fileParam: undefined,
     fullData: fullOf(),
+    savedVersion: null,
+    isHistorical: false,
+    editedDoc: null,
     fullError: null,
     sourceError: null,
     source,
@@ -98,6 +102,35 @@ describe('useWorkspaceLifecycle hydration', () => {
   it('does not hydrate before the workflow has loaded', () => {
     setup(inputOf({ fullData: undefined }))
     expect(useWorkflowStore.getState().workflowId).toBeNull()
+  })
+})
+
+describe('useWorkspaceLifecycle pending graph edits', () => {
+  const emptyDoc: ArtifactIR = {
+    kind: 'workflow',
+    metadata: { name: 'Orders', version: 2, createdAt: 't', updatedAt: 't' },
+    nodes: [],
+    edges: [],
+    entryNodeId: '',
+  }
+  const stale = {
+    id: 'op-1',
+    op: { kind: 'remove' as const, nodeId: 'gone' },
+    label: 'Removed “Gone”',
+  }
+
+  it('drops an edit that no longer applies to the loaded version, saying so', () => {
+    useIdeStore.getState().addGraphOp(stale)
+    setup(inputOf({ savedVersion: { doc: { ...emptyDoc }, graphHash: 'g-2' } }))
+    expect(useIdeStore.getState().graphOps).toEqual([])
+    expect(actionToast.error).toHaveBeenCalled()
+  })
+
+  it('leaves the edits alone while an older version is shown', () => {
+    useIdeStore.getState().addGraphOp(stale)
+    setup(inputOf({ savedVersion: { doc: { ...emptyDoc }, graphHash: 'g-1' }, isHistorical: true }))
+    expect(useIdeStore.getState().graphOps).toHaveLength(1)
+    expect(actionToast.error).not.toHaveBeenCalled()
   })
 })
 

@@ -52,7 +52,7 @@ export function IdeWorkspace({ workflowId, versionParam, fileParam }: IdeWorkspa
 function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const queries = useQueries()
   const data = useWorkspaceData(workflowId, versionParam)
-  const { fullQuery, sourceQuery, fullData, source, baseline, files, dirty } = data
+  const { fullQuery, sourceQuery, fullData, source, baseline, files, unsavedCount } = data
   const activePath = useIdeStore((s) => s.activePath)
   const convertDialogOpen = useIdeStore((s) => s.dialog === 'convertHandlers')
   // What the conversion will do, shown before it is confirmed. Observed here,
@@ -102,6 +102,9 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     workflowId,
     fileParam,
     fullData,
+    savedVersion: data.savedVersion,
+    isHistorical: data.isHistorical,
+    editedDoc: data.editedDoc,
     fullError: fullQuery.error,
     sourceError: sourceQuery.error,
     source,
@@ -110,7 +113,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     draftUndo,
   })
 
-  const hasUnsaved = dirty.size > 0
+  const hasUnsaved = unsavedCount > 0
   const wideEnough = useMinWidth(MIN_WORKSPACE_WIDTH)
   const blocker = useBlocker({
     shouldBlockFn: () => hasUnsaved,
@@ -138,6 +141,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     storedHashes: data.storedHashes,
     activeFile,
     onSaveAll: projectFiles.saveAll,
+    unsavedCount,
   })
 
   const handlers = useWorkspaceActions({
@@ -148,7 +152,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     readOnlyMessage: data.workspace?.message ?? null,
     baseline,
     files,
-    dirty,
+    dirty: data.shownDirty,
+    fileOps: data.fileOps,
     storedPaths: data.storedPaths,
     editabilityOf: data.editabilityOf,
     ownerOf: data.ownerOf,
@@ -172,7 +177,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const unsavedDialog = (
     <WorkspaceUnsavedDialog
       blocker={blocker}
-      dirtyCount={dirty.size}
+      dirtyCount={unsavedCount}
       canEdit={data.canEdit}
       wideEnough={wideEnough}
       saving={projectFiles.busy}

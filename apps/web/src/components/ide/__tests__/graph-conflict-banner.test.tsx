@@ -19,6 +19,12 @@ function setup(overrides: Partial<Parameters<typeof makeReviewBindings>[0]> = {}
   return bindings
 }
 
+const pendingRemove = {
+  id: 'op-1',
+  op: { kind: 'remove' as const, nodeId: 'mail' },
+  label: 'Removed “Send mail”',
+}
+
 function refused(...paths: string[]) {
   useIdeStore.getState().setGraphConflict({ currentVersionId: 'v4', currentGraphHash: 'g4', paths })
 }
@@ -85,14 +91,38 @@ describe('GraphConflictBanner', () => {
     expect(screen.getByRole('button', { name: 'Save again' })).toBeDisabled()
   })
 
-  it('says nothing was created when the refusal was about a create', async () => {
+  it('offers Save again when only pending graph edits were refused', async () => {
     refused()
-    setup()
+    useIdeStore.getState().addGraphOp(pendingRemove)
+    const bindings = setup()
     expect(screen.getByRole('status')).toHaveTextContent(
-      'The canvas changed this workflow. Nothing was created. Try again.',
+      'The canvas changed this workflow. Your changes are kept. Save again to apply them on top.',
     )
+    await userEvent.click(screen.getByRole('button', { name: 'Save again' }))
+    expect(bindings.onSaveAll).toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
     expect(useIdeStore.getState().graphConflict).toBeNull()
+  })
+
+  it('names the graph edits the new version no longer takes', () => {
+    useIdeStore.getState().setGraphConflict({
+      currentVersionId: 'v4',
+      currentGraphHash: 'g4',
+      paths: [],
+      dropped: [
+        { label: 'Removed “Send mail”', reason: 'That node is not in this version any more.' },
+      ],
+    })
+    setup()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'The canvas changed this workflow. No longer applies, discarded: Removed “Send mail”.',
+    )
+  })
+
+  it('shows nothing for a refusal about graph edits once none is left', () => {
+    refused()
+    setup()
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('goes once none of the refused drafts is left, and when dismissed', async () => {

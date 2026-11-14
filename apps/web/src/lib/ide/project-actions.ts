@@ -16,7 +16,10 @@ import { outsideState } from './outside-changes'
 import { compareTabId } from './tabs'
 import { importSpecifier, type FileOwner } from './project'
 import { countImporters, toSearchFiles } from './search'
-import type { StepSaveOutcome, StepSaveOutcomes } from './step-save'
+import { deletedPathOf, fileOpSaveKeys, opAtPath, type PendingFileOp } from './file-ops'
+import { waitingOps } from './graph-ops'
+import type { FileOpSaved, PendingFileActions } from './pending-file-actions'
+import { GRAPH_EDITS_KEY, type StepSaveOutcome, type StepSaveOutcomes } from './step-save'
 
 export interface ProjectFileClient {
   putProjectFile(
@@ -90,6 +93,12 @@ export interface ProjectActionDeps {
   refresh: () => Promise<void>
   /** Opens Search on the old import path after a rename that left importers behind. */
   onShowImporters?: (specifier: string) => void
+  /**
+   * Code's Explorer changes wait for Save: given, New File, Rename and Delete
+   * record a pending change here instead of writing, and Save writes them.
+   * The Library leaves it out and writes at once.
+   */
+  pending?: PendingFileActions
   /**
    * How other files import a path, or null. Defaults to the workflow's
    * `#app/<path>`; the Library names `#modules/<slug>` instead.
@@ -189,6 +198,9 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
     canEdit,
   } = deps
   const isCurrent = deps.isCurrent ?? (() => true)
+  const pending = deps.pending
+  // Pending changes a batch wrote, settled once its refetch has landed.
+  let justSaved: { op: PendingFileOp; written?: FileOpSaved['written'] }[] = []
   const specifierOf = deps.importSpecifierOf ?? importSpecifier
   const isStep = (path: string) => ownerOf(path) === 'step'
 
@@ -197,6 +209,28 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   async function settle(): Promise<void> {
     await commit()
     await refresh()
+    if (pending && justSaved.length > 0) {
+      const saved = justSaved
+      justSaved = []
+      pending.settle(saved)
+    }
+  }
+
+  /** Writes one pending Explorer change (a new, renamed or deleted file). */
+  async function saveFileOp(op: PendingFileOp): Promise<SaveOutcome> {
+    const result = await pending!.save(op)
+    if (result.status !== 'saved') return result.status
+    justSaved.push({ op, ...(result.written && { written: result.written }) })
+    return 'saved'
+  }
+
+  /** The pending change a save key names: a new or renamed file's path, or a delete key. */
+  function pendingOpFor(key: string): PendingFileOp | undefined {
+    if (!pending) return undefined
+    const ops = getStore().fileOps
+    const deleted = deletedPathOf(key)
+    if (deleted !== null) return ops.find((op) => op.kind === 'delete' && op.path === deleted)
+    return opAtPath(ops, key)
   }
 
   // The session store, or null when the workspace has moved on since the
@@ -257,8 +291,18 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   // 'unchanged' is a draft that matches the file (or a stored file with no
   // draft): nothing to send, and nothing wrong either.
   async function saveOne(path: string): Promise<SaveOutcome> {
+    // A new, renamed or deleted file is written by its pending change.
+    const fileOp = pendingOpFor(path)
+    if (fileOp) return saveFileOp(fileOp)
+    if (deletedPathOf(path) !== null) return 'unchanged'
     // Step code is routed before any file logic: it is never PUT.
-    if (isStep(path)) return (await saveSteps([path])).get(path) ?? 'failed'
+    if (isStep(path)) {
+      // The pending graph edits go with it (its node may be one of them): a
+      // new step's file with no typed code is saved by its Add.
+      const outcomes = await saveSteps([path])
+      const own = outcomes.get(path) ?? 'failed'
+      return own === 'unchanged' && outcomes.get(GRAPH_EDITS_KEY) === 'saved' ? 'saved' : own
+    }
     const base = getBaseline().get(path)
     const draft = getStore().drafts[path]
     if (!draft && !base) return 'failed'
@@ -303,7 +347,8 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   // take the server's), and says why nothing was written.
   function showConflict(path: string) {
     const store = liveStore()
-    if (!store) return
+    // A pending delete has no tab: its toast has said why.
+    if (!store || deletedPathOf(path) !== null) return
     if (store.activePath === compareTabId(path)) {
       notify.error(`Couldn’t save ${basename(path)}`, {
         description:
@@ -396,14 +441,26 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
   async function saveFiles(paths: readonly string[]): Promise<boolean[]> {
     if (!canEdit()) return paths.map(() => false)
     const unique = withoutErrors([...new Set(paths)])
-    const steps = unique.filter(isStep)
-    const files = unique.filter((path) => !isStep(path))
-    const [stepOutcomes, fileOutcomes] = await Promise.all([
+    const steps = unique.filter((path) => path === GRAPH_EDITS_KEY || isStep(path))
+    const files = unique.filter((path) => path !== GRAPH_EDITS_KEY && !isStep(path))
+    // Pending deletes land first: the server judges a new path against the
+    // files it holds (a name compiling over another, the file cap).
+    const deletes = files.filter((path) => deletedPathOf(path) !== null)
+    const writes = files.filter((path) => deletedPathOf(path) === null)
+    const deleteOutcomes = await Promise.all(deletes.map(saveOne))
+    // The writes read the session's drafts and pending changes: if the person
+    // has left meanwhile (Discard and leave, another workflow), they belong to
+    // someone else's session now, and nothing more is written.
+    if (deletes.length > 0 && !isCurrent()) return paths.map(() => false)
+    const [stepOutcomes, writeOutcomes] = await Promise.all([
       steps.length > 0 ? saveSteps(steps) : NO_OUTCOMES,
-      Promise.all(files.map(saveOne)),
+      Promise.all(writes.map(saveOne)),
     ])
+    const fileOutcomes = new Map<string, SaveOutcome>()
+    deletes.forEach((path, index) => fileOutcomes.set(path, deleteOutcomes[index]!))
+    writes.forEach((path, index) => fileOutcomes.set(path, writeOutcomes[index]!))
     const outcomes = new Map<string, SaveOutcome>(stepOutcomes)
-    files.forEach((path, index) => outcomes.set(path, fileOutcomes[index]!))
+    for (const [path, outcome] of fileOutcomes) outcomes.set(path, outcome)
     const firstConflict = unique.find((path) => outcomes.get(path) === 'conflict')
     if (firstConflict !== undefined) showConflict(firstConflict)
     const firstDeleted = unique.find((path) => outcomes.get(path) === 'deleted')
@@ -450,9 +507,20 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       return dirty && (deps.errorsIn?.(path) ?? 0) > 0
     },
 
+    // The pending graph edits count one each, as the unsaved count shows them;
+    // a pending Explorer change counts once, typed text in its file included.
     async saveAll() {
-      const results = await saveFiles(dirtyPaths(getBaseline(), getStore().drafts))
-      return results.filter(Boolean).length
+      const store = getStore()
+      const graphEdits = waitingOps(store.graphOps).length
+      const paths = [
+        ...new Set([...dirtyPaths(getBaseline(), store.drafts), ...fileOpSaveKeys(store.fileOps)]),
+      ]
+      const results = await saveFiles(graphEdits > 0 ? [...paths, GRAPH_EDITS_KEY] : paths)
+      return results.reduce(
+        (count, saved, index) =>
+          saved ? count + (paths[index] === undefined ? graphEdits : 1) : count,
+        0,
+      )
     },
 
     async createFile(path, source) {
@@ -466,6 +534,17 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
         (entry
           ? handlerModuleScaffold(entry.kind === 'fetch' ? { kind: 'fetch', target } : entry)
           : '')
+      if (pending) {
+        if (!pending.create(path, initial)) return false
+        getStore().openFile(path)
+        const specifier = specifierOf(path)
+        if (specifier) {
+          notify.success(`Import it as \`${specifier}\``, {
+            action: copyImportAction(specifier, notify),
+          })
+        }
+        return true
+      }
       const created = await write(path, initial, { ifNoneMatch: true }, false, 'create')
       // A conflict means someone else created it first: show their file.
       if (created === 'conflict') await refresh()
@@ -482,6 +561,13 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
     async renameFile(from, to) {
       if (!canEdit() || isStep(from)) return false
+      if (pending) {
+        // Counted before the move, over what the editor shows.
+        const importers = importersOf(from, getStore().drafts)
+        if (!pending.rename(from, to)) return false
+        announceRename(to, importers)
+        return true
+      }
       const base = getBaseline().get(from)
       // The editor as it stood when the rename began: the count below must
       // not mix this workflow's baseline with another one's drafts.
@@ -536,6 +622,7 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
     async deleteFile(path) {
       if (!canEdit()) return false
+      if (pending) return pending.remove(path)
       if (!(await removeFile(path))) return false
       await settle()
       notify.success(`Deleted ${basename(path)}`)
@@ -547,6 +634,12 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
       const prefix = `${dir}/`
       // Step sources under the folder are not files and are left alone.
       const inFolder = (p: string) => p.startsWith(prefix) && !isStep(p)
+      if (pending) {
+        const onScreen = new Set(
+          [...getBaseline().keys(), ...Object.keys(getStore().drafts)].filter(inFolder),
+        )
+        return [...onScreen].map((p) => pending.remove(p)).every(Boolean)
+      }
       const stored = [...getBaseline()].filter(([p, f]) => inFolder(p) && f.hash !== undefined)
       const paths = new Set([
         ...stored.map(([p]) => p),
@@ -571,6 +664,14 @@ export function createProjectFileActions(deps: ProjectActionDeps): ProjectFileAc
 
     async convertHandlers() {
       if (!canEdit()) return null
+      // The server converts the files it holds: pending Explorer changes
+      // would be converted around, not with.
+      if (pending && getStore().fileOps.length > 0) {
+        notify.error('Save your file changes first', {
+          description: 'The conversion works on the saved files.',
+        })
+        return null
+      }
       // The server converts what it has stored; an unsaved draft of the
       // annotation file would be lost, so it is saved first.
       let savedFirst = false

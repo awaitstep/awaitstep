@@ -2,6 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useIdeStore } from '../../../stores/ide-store'
+import type { PendingFileOp } from '../../../lib/ide/file-ops'
 import { ReviewView } from '../review-view'
 import { makeReviewBindings, sourceFile } from './fixtures/review-bindings'
 
@@ -230,5 +231,78 @@ describe('ReviewView', () => {
     expect(screen.getByText('Unsaved · read-only')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Save all' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Revert file' })).toBeDisabled()
+  })
+})
+
+describe('ReviewView — pending graph edits', () => {
+  const remove = {
+    id: 'op-1',
+    op: { kind: 'remove' as const, nodeId: 'mail' },
+    label: 'Removed “Send mail”',
+  }
+
+  it('lists each pending graph edit in plain words with its own Discard', async () => {
+    useIdeStore.getState().addGraphOp(remove)
+    const bindings = setup()
+    const graph = screen.getByRole('region', { name: 'Graph changes' })
+    expect(graph).toHaveTextContent('Removed “Send mail”')
+    expect(screen.queryByText('No unsaved changes')).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Discard: Removed “Send mail”' }))
+    expect(bindings.onDiscardGraphOp).toHaveBeenCalledWith('op-1')
+  })
+
+  it('does not list an edit a save already wrote', () => {
+    useIdeStore.getState().addGraphOp({ ...remove, postedOn: 'g-3' })
+    setup()
+    expect(screen.queryByRole('region', { name: 'Graph changes' })).toBeNull()
+    expect(screen.getByText('No unsaved changes')).toBeInTheDocument()
+  })
+
+  it('shows a pending step’s file as new, with nothing saved behind it', () => {
+    const path = 'steps/notify.ts'
+    useIdeStore.getState().addGraphOp({
+      id: 'op-2',
+      op: {
+        kind: 'insert',
+        placement: { after: 'mail' },
+        node: { id: 'notify', name: 'Notify', type: 'step' },
+      },
+      label: 'Added “Notify”',
+    })
+    setup({
+      baseline: new Map([[path, sourceFile(path, 'scaffold', 'hs')]]),
+      files: new Map([[path, sourceFile(path, 'scaffold')]]),
+    })
+    expect(screen.getByText('New file · nothing saved')).toBeInTheDocument()
+    expect(pane.props.at(-1)).toMatchObject({ path, original: '' })
+    expect(screen.getByRole('button', { name: 'Save file' })).toBeEnabled()
+  })
+})
+
+describe('ReviewView — pending file changes', () => {
+  it('lists new, renamed and deleted files with their own Discard', async () => {
+    const fileOps: PendingFileOp[] = [
+      { kind: 'create', id: 'f1', path: 'lib/new.ts', source: '' },
+      { kind: 'move', id: 'f2', from: 'a.ts', to: 'lib/z.ts', source: 'saved a', hash: 'ha' },
+      { kind: 'delete', id: 'f3', path: 'lib/b.ts', hash: 'hb' },
+    ]
+    const bindings = setup({ fileOps })
+    const list = screen.getByRole('region', { name: 'File changes' })
+    expect(list).toHaveTextContent('Created lib/new.ts')
+    expect(list).toHaveTextContent('Renamed a.ts → lib/z.ts')
+    expect(list).toHaveTextContent('Deleted lib/b.ts')
+    await userEvent.click(screen.getByRole('button', { name: 'Discard: Deleted lib/b.ts' }))
+    expect(bindings.onDiscardFileOp).toHaveBeenCalledWith('f3')
+  })
+
+  it('shows a renamed file against its saved text under the old name', () => {
+    const path = 'lib/z.ts'
+    setup({
+      fileOps: [{ kind: 'move', id: 'f2', from: 'a.ts', to: path, source: 'saved a', hash: 'ha' }],
+      baseline: new Map([[path, sourceFile(path, 'saved a', 'ha')]]),
+      files: new Map([[path, sourceFile(path, 'saved a')]]),
+    })
+    expect(screen.getByText('Saved as a.ts · read-only')).toBeInTheDocument()
+    expect(pane.props.at(-1)).toMatchObject({ path, original: 'saved a' })
   })
 })

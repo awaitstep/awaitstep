@@ -36,7 +36,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
   }
 
   return (
-    <div className="flex min-h-[60vh] w-full items-center justify-center bg-background px-4 py-10">
+    <div className="flex min-h-[60vh] bg-red-500 w-full items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-[520px]">
         <LoadError
           title="We couldn’t load this page"

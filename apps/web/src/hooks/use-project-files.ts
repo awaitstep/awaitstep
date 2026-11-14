@@ -14,7 +14,10 @@ import {
   type SaveNodeFieldsOutcome,
 } from '../lib/ide/step-create'
 import type { RemoveNodeOutcome } from '../lib/ide/step-remove'
+import { createPendingFileActions } from '../lib/ide/pending-file-actions'
 import { createStepSaver } from '../lib/ide/step-save'
+import type { PendingGraphOp } from '../lib/ide/graph-ops'
+import { discardGraphOp, discardLastGraphOp } from '../lib/ide/graph-ops-actions'
 import { useIdeStore } from '../stores/ide-store'
 import { useApi, useQueries } from '../contexts/api-client-context'
 import { liveErrorCount } from '../lib/monaco/live-errors'
@@ -45,21 +48,27 @@ export interface ProjectFilesController extends ProjectFileActions {
   busy: boolean
   /** Refetches the workspace's files and settings. */
   refresh: () => Promise<void>
-  /** Adds a step (or, given `template`, a custom node) to the loaded version and saves it as one new version. */
+  /** Adds a step (or, given `template`, a custom node) as a pending graph edit. */
   createStep: (
     placement: StepPlacement,
     name: string,
     nodeId?: string,
     template?: NewTemplateNode,
-  ) => Promise<CreateStepOutcome>
-  /** Saves one node's field values as one new version. */
+  ) => CreateStepOutcome
+  /** Records one node's field values as a pending graph edit. */
   saveNodeFields: (
     nodeId: string,
     edited: Record<string, unknown>,
     base: Record<string, unknown>,
-  ) => Promise<SaveNodeFieldsOutcome>
-  /** Removes a node, reconnecting the nodes on either side, as one new version. */
-  removeNode: (nodeId: string) => Promise<RemoveNodeOutcome>
+  ) => SaveNodeFieldsOutcome
+  /** Removes a node, reconnecting the nodes on either side, as a pending graph edit. */
+  removeNode: (nodeId: string) => RemoveNodeOutcome
+  /** Discards one pending graph edit, and any later one that only applied because of it. */
+  discardGraphOp: (id: string) => void
+  /** Discards the last pending graph edit (⌘Z in the Steps view); false when there was none. */
+  undoGraphOp: () => boolean
+  /** Discards one pending Explorer change (a new, renamed or deleted file). */
+  discardFileOp: (id: string) => void
 }
 
 /**
@@ -142,34 +151,34 @@ export function useProjectFiles({
     [api, queries, queryClient, workflowId, versionParam, refresh],
   )
 
-  // The create shares the saver's queue and its memory of the last version,
-  // so a save and a create can never post two versions on one base.
+  // Graph edits are recorded, not posted: they are validated against the
+  // version a save would build on, which the saver knows best.
   const stepCreator = useMemo(
     () =>
       createStepCreator({
-        workflowId,
-        client: api,
-        notify: actionToast,
         getStore: useIdeStore.getState,
         isCurrent: () => liveWorkflow.current === workflowId,
         getVersion: stepSaver.currentVersion,
-        // The raw cache, not the saver's remembered response: it answers
-        // whether the refetch after the create actually landed.
-        getCachedVersion: () =>
-          loadVersionDocument(
-            queryClient.getQueryData<WorkflowFull>(
-              queries.workflows.full(workflowId, versionParam).queryKey,
-            ),
-          ),
-        exclusive: stepSaver.exclusive,
-        remember: stepSaver.remember,
-        forget: stepSaver.forget,
-        refresh,
         canEdit: () => latest.current.canEdit,
         readOnlyReason: () =>
           latest.current.readOnlyMessage ?? 'You can view this workflow but not edit it.',
       }),
-    [api, queries, queryClient, workflowId, versionParam, stepSaver, refresh],
+    [workflowId, stepSaver],
+  )
+
+  // Explorer changes (New File, Rename, Delete) wait for Save, like the rest of Code.
+  const pendingFiles = useMemo(
+    () =>
+      createPendingFileActions({
+        workflowId,
+        client: api,
+        notify: actionToast,
+        getBaseline: () => baseline,
+        getStore: useIdeStore.getState,
+        isCurrent: () => liveWorkflow.current === workflowId,
+        isStep: (path) => ownerOf(path) === 'step',
+      }),
+    [api, workflowId, baseline, ownerOf],
   )
 
   const actions = useMemo(
@@ -189,6 +198,7 @@ export function useProjectFiles({
         errorsIn: (path) => liveErrorCount(workflowId, path),
         refresh,
         canEdit: () => latest.current.canEdit,
+        pending: pendingFiles,
         ...(onShowImporters && { onShowImporters }),
       }),
     [
@@ -202,6 +212,7 @@ export function useProjectFiles({
       commit,
       refresh,
       onShowImporters,
+      pendingFiles,
     ],
   )
 
@@ -232,13 +243,27 @@ export function useProjectFiles({
         name: string,
         nodeId?: string,
         template?: NewTemplateNode,
-      ) => track(() => stepCreator.create(placement, name, nodeId, template)),
+      ) => stepCreator.create(placement, name, nodeId, template),
       saveNodeFields: (
         nodeId: string,
         edited: Record<string, unknown>,
         base: Record<string, unknown>,
-      ) => track(() => stepCreator.saveNodeFields(nodeId, edited, base)),
-      removeNode: (nodeId: string) => track(() => stepCreator.remove(nodeId)),
+      ) => stepCreator.saveNodeFields(nodeId, edited, base),
+      removeNode: (nodeId: string) => stepCreator.remove(nodeId),
+      discardGraphOp: (id: string) => {
+        const version = stepSaver.currentVersion()
+        if (!version) return
+        announceCascade(discardGraphOp(useIdeStore.getState, version, id))
+      },
+      discardFileOp: (id: string) => pendingFiles.discard(id),
+      undoGraphOp: () => {
+        const version = stepSaver.currentVersion()
+        if (!version) return false
+        const undone = discardLastGraphOp(useIdeStore.getState, version)
+        if (!undone) return false
+        announceCascade(undone.cascaded)
+        return true
+      },
       convertHandlers: () =>
         track(async () => {
           const result = await actions.convertHandlers()
@@ -252,5 +277,13 @@ export function useProjectFiles({
       busy,
       refresh,
     }
-  }, [actions, stepCreator, busy, queryClient, workflowId, refresh])
+  }, [actions, stepCreator, stepSaver, pendingFiles, busy, queryClient, workflowId, refresh])
+}
+
+/** A discard that took later edits with it says so: they needed the one discarded. */
+function announceCascade(cascaded: readonly PendingGraphOp[]): void {
+  if (cascaded.length === 0) return
+  actionToast.info('Also discarded', {
+    description: cascaded.map((entry) => entry.label).join(' · '),
+  })
 }

@@ -6,12 +6,12 @@ export interface NodeEditValue {
   canEdit: boolean
   /** Why editing is refused right now (a read-only version, a Viewer), or null. */
   readOnlyReason?: string | null
-  /** Saves one node's field edits (from `base`) as the next version. */
+  /** Records one node's field edits (from `base`) as a pending graph edit; Save writes it. */
   saveNodeFields: (
     nodeId: string,
     edited: Record<string, unknown>,
     base: Record<string, unknown>,
-  ) => Promise<SaveNodeFieldsOutcome>
+  ) => SaveNodeFieldsOutcome
 }
 
 const NodeEditContext = createContext<NodeEditValue | null>(null)

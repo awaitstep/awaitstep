@@ -29,7 +29,7 @@ function setup(
 ) {
   const { canEdit = true, outcome } = options
   const onRemove = vi.fn(
-    async (nodeId: string): Promise<RemoveNodeOutcome> => outcome ?? { status: 'removed', nodeId },
+    (nodeId: string): RemoveNodeOutcome => outcome ?? { status: 'removed', nodeId },
   )
   render(
     <SyncHarness>
@@ -39,8 +39,9 @@ function setup(
         canEdit={canEdit}
         readOnlyMessage={canEdit ? null : 'Older versions are read-only.'}
         onCreateStep={vi.fn()}
+        onUndoGraphEdit={vi.fn(() => false)}
       />
-      <RemoveNodeDialog onRemove={onRemove} busy={false} />
+      <RemoveNodeDialog onRemove={onRemove} />
     </SyncHarness>,
   )
   return { onRemove, user: userEvent.setup() }
@@ -66,7 +67,7 @@ describe('Remove from the Steps row menu', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Remove…' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Remove Charge card?')
-    expect(dialog).toHaveTextContent('The steps around it are joined.')
+    expect(dialog).toHaveTextContent('The steps around it are joined when you save.')
     await user.click(screen.getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(onRemove).toHaveBeenCalledWith('charge'))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
@@ -94,28 +95,22 @@ describe('Remove from the Steps row menu', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
-  it('removes an arm’s first node that leads into a join, and toasts the save’s refusal', async () => {
+  it('removes an arm’s first node that leads into a join; the save answers why not', async () => {
     // Paid? —paid→ ship → wait and Paid? —late→ wait: removing ship sends the
-    // paid arm straight into wait. Code lets it go; the save answers why not.
+    // paid arm straight into wait. Code records it; the save's validation refuses it.
     loadGraph(NODES, [
       ...EDGES.filter((edge) => edge.id !== 'e3'),
       { id: 'e3', source: 'check', target: 'ship', label: 'paid' },
       { id: 'e5', source: 'ship', target: 'wait' },
     ])
-    const reason =
-      'Paid?’s “paid” arm leads straight into Wait 2 days, which another path also reaches. Add a step to that arm first.'
-    const { onRemove, user } = setup({ outcome: { status: 'failed', reason } })
+    const { onRemove, user } = setup()
     await openMenu(user, 'Ship order')
     const remove = await screen.findByRole('menuitem', { name: 'Remove…' })
     expect(remove).not.toHaveAttribute('aria-disabled')
     await user.click(remove)
     await user.click(await screen.findByRole('button', { name: 'Remove' }))
-    await waitFor(() => expect(onRemove).toHaveBeenCalledWith('ship'))
-    await waitFor(() =>
-      expect(toastError).toHaveBeenCalledWith('Couldn’t remove Ship order', {
-        description: reason,
-      }),
-    )
+    expect(onRemove).toHaveBeenCalledWith('ship')
+    expect(toastError).not.toHaveBeenCalled()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
@@ -242,48 +237,6 @@ describe('RemoveNodeDialog', () => {
       'notify',
     )
     expect(within(dialog).queryByRole('list', { name: 'Will error' })).not.toBeInTheDocument()
-  })
-
-  it('does not close a dialog opened while the remove was saving', async () => {
-    let finish: (outcome: RemoveNodeOutcome) => void = () => {}
-    const onRemove = vi.fn(() => new Promise<RemoveNodeOutcome>((resolve) => (finish = resolve)))
-    render(
-      <SyncHarness>
-        <RemoveNodeDialog onRemove={onRemove} busy={false} />
-      </SyncHarness>,
-    )
-    const user = userEvent.setup()
-    useIdeStore.getState().showDialog('removeNode', 'charge')
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
-    useIdeStore.getState().showDialog('palette')
-    finish({ status: 'removed', nodeId: 'charge' })
-    await waitFor(() => expect(onRemove).toHaveBeenCalled())
-    await Promise.resolve()
-    expect(useIdeStore.getState().dialog).toBe('palette')
-  })
-
-  it('keeps saying what it removes while the save refetches the graph', async () => {
-    let finish: (outcome: RemoveNodeOutcome) => void = () => {}
-    const onRemove = vi.fn(() => new Promise<RemoveNodeOutcome>((resolve) => (finish = resolve)))
-    render(
-      <SyncHarness>
-        <RemoveNodeDialog onRemove={onRemove} busy={false} />
-      </SyncHarness>,
-    )
-    const user = userEvent.setup()
-    useIdeStore.getState().showDialog('removeNode', 'charge')
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
-    // The refetch lands before the save resolves: the node is gone from the graph.
-    act(() =>
-      loadGraph(
-        NODES.filter((n) => n.id !== 'charge'),
-        [],
-      ),
-    )
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('Remove Charge card?')
-    expect(screen.getByRole('alertdialog')).not.toHaveTextContent('not in this version')
-    finish({ status: 'removed', nodeId: 'charge' })
-    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
 
   it('shows at most 20 reading steps, then how many more', async () => {

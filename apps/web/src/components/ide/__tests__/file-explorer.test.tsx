@@ -558,11 +558,11 @@ describe('step sources', () => {
           onEscape={vi.fn()}
           canEdit
           readOnlyMessage={null}
-          onCreateStep={vi.fn(async () => ({
+          onUndoGraphEdit={vi.fn(() => false)}
+          onCreateStep={vi.fn(() => ({
             status: 'created' as const,
             nodeId: 'new',
             path: 'steps/new.ts',
-            opened: false,
           }))}
         />
       </SyncHarness>,

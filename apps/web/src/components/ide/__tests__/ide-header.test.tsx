@@ -220,7 +220,7 @@ describe('IdeHeader', () => {
   it('says why Save all is off when nothing is unsaved', () => {
     renderHeader()
     expect(screen.getByRole('button', { name: 'Save all' })).toHaveAccessibleDescription(
-      'No unsaved files',
+      'No unsaved changes',
     )
   })
 

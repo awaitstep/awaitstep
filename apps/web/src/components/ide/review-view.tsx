@@ -11,33 +11,64 @@ import {
   reviewSummary,
   stepReviewPath,
 } from '../../lib/ide/review'
+import { fileOpLabel, newFilePaths, opAtPath, type PendingFileOp } from '../../lib/ide/file-ops'
+import { pendingStepPaths, waitingOps } from '../../lib/ide/graph-ops'
 import { outsideState } from '../../lib/ide/outside-changes'
 import { REVIEW_TAB_ID } from '../../lib/ide/tabs'
 import { useIdeStore } from '../../stores/ide-store'
 import { Button } from '../ui/button'
 import { DiffPane, type DiffPaneApi } from './diff-pane'
 import { DiffToolbar, HeaderButton, SideCaptions, ViewToggle } from './diff-parts'
+import { PendingChanges } from './pending-changes'
 import type { ReviewBindings } from './review-bindings'
 
 /**
- * The Unsaved changes tab: saved on the left, your unsaved text on the right,
- * one file at a time, with the actions that settle each file. The right side
- * is the file's own editor model, so editing here is editing the file.
+ * The Unsaved changes tab: the pending graph edits first (the Graph entry),
+ * then saved on the left, your unsaved text on the right, one file at a
+ * time, with the actions that settle each file. The right side is the
+ * file's own editor model, so editing here is editing the file. A step a
+ * pending edit adds is a new file: nothing saved stands on its left.
  */
 export function ReviewView({ bindings }: { bindings: ReviewBindings }) {
-  const { drafts, reviewPath, inline, setReviewPath, setReviewInline, closeFile } = useIdeStore(
-    useShallow((s) => ({
-      drafts: s.drafts,
-      reviewPath: s.reviewPath,
-      inline: s.reviewInline,
-      setReviewPath: s.setReviewPath,
-      setReviewInline: s.setReviewInline,
-      closeFile: s.closeFile,
-    })),
+  const { fileOps } = bindings
+  const { drafts, graphOps, reviewPath, inline, setReviewPath, setReviewInline, closeFile } =
+    useIdeStore(
+      useShallow((s) => ({
+        drafts: s.drafts,
+        graphOps: s.graphOps,
+        reviewPath: s.reviewPath,
+        inline: s.reviewInline,
+        setReviewPath: s.setReviewPath,
+        setReviewInline: s.setReviewInline,
+        closeFile: s.closeFile,
+      })),
+    )
+  const graphEntries = useMemo(
+    () =>
+      waitingOps(graphOps).map((entry) => ({
+        id: entry.id,
+        label: entry.label,
+        ...(entry.saving && { locked: true }),
+      })),
+    [graphOps],
+  )
+  const fileEntries = useMemo(
+    () => fileOps.map((op) => ({ id: op.id, label: fileOpLabel(op) })),
+    [fileOps],
+  )
+  // Files with nothing saved at their path: a pending step's, a new or renamed file.
+  const newPaths = useMemo(
+    () =>
+      new Set(
+        [...pendingStepPaths(graphOps), ...newFilePaths(fileOps)].filter((path) =>
+          bindings.baseline.has(path),
+        ),
+      ),
+    [graphOps, fileOps, bindings.baseline],
   )
   const order = useMemo(
-    () => reviewOrder(dirtyPaths(bindings.baseline, drafts)),
-    [bindings.baseline, drafts],
+    () => reviewOrder(new Set([...dirtyPaths(bindings.baseline, drafts), ...newPaths])),
+    [bindings.baseline, drafts, newPaths],
   )
   const current = currentReviewPath(order, reviewPath, (path) => bindings.files.has(path))
 
@@ -45,17 +76,43 @@ export function ReviewView({ bindings }: { bindings: ReviewBindings }) {
     closeFile(REVIEW_TAB_ID)
   }
 
-  if (current === null) return <NothingToReview onClose={handleClose} />
+  if (current === null && graphEntries.length === 0 && fileEntries.length === 0) {
+    return <NothingToReview onClose={handleClose} />
+  }
   return (
-    <ReviewFile
-      path={current}
-      draft={drafts[current]}
-      order={order}
-      bindings={bindings}
-      inline={inline}
-      onSelectPath={setReviewPath}
-      onInline={setReviewInline}
-    />
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <PendingChanges
+        title="Graph"
+        label="Graph changes"
+        entries={graphEntries}
+        canEdit={bindings.canEdit}
+        busy={bindings.busy}
+        onDiscard={bindings.onDiscardGraphOp}
+      />
+      <PendingChanges
+        title="Files"
+        label="File changes"
+        entries={fileEntries}
+        canEdit={bindings.canEdit}
+        busy={bindings.busy}
+        onDiscard={bindings.onDiscardFileOp}
+      />
+      <div className="min-h-0 flex-1">
+        {current !== null && (
+          <ReviewFile
+            path={current}
+            draft={drafts[current]}
+            isNew={newPaths.has(current)}
+            renamedFrom={renamedFrom(fileOps, current)}
+            order={order}
+            bindings={bindings}
+            inline={inline}
+            onSelectPath={setReviewPath}
+            onInline={setReviewInline}
+          />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -74,6 +131,10 @@ function NothingToReview({ onClose }: { onClose: () => void }) {
 interface ReviewFileProps {
   path: string
   draft: Draft | undefined
+  /** Nothing is saved at this path yet: a pending step's file, a new or renamed file. */
+  isNew: boolean
+  /** A pending rename's old path: the left side is that file as saved. */
+  renamedFrom: string | null
   order: string[]
   bindings: ReviewBindings
   inline: boolean
@@ -84,6 +145,8 @@ interface ReviewFileProps {
 function ReviewFile({
   path,
   draft,
+  isNew,
+  renamedFrom,
   order,
   bindings,
   inline,
@@ -105,7 +168,7 @@ function ReviewFile({
   const readOnly = !canEdit || bindings.editabilityOf(path).readOnly
   const canStep = index === -1 ? order.length > 0 : order.length > 1
   const clean = draft === undefined
-  const movedOnServer = outsideState(baseline, path, draft) !== null
+  const movedOnServer = !isNew && outsideState(baseline, path, draft) !== null
   const modified = files.get(path)?.source ?? ''
 
   function handleChangeCount(count: number) {
@@ -209,7 +272,7 @@ function ReviewFile({
         <HeaderButton onClick={handleRevert} disabled={!canEdit || busy || clean}>
           Revert file
         </HeaderButton>
-        <HeaderButton onClick={handleSaveClick} disabled={!canEdit || busy || clean}>
+        <HeaderButton onClick={handleSaveClick} disabled={!canEdit || busy || (clean && !isNew)}>
           Save file
         </HeaderButton>
         <Button
@@ -223,7 +286,15 @@ function ReviewFile({
       </DiffToolbar>
       <SideCaptions
         sideBySide={sideBySide}
-        left={baseline.has(path) ? 'Saved · read-only' : 'Deleted on the server · nothing saved'}
+        left={
+          renamedFrom !== null
+            ? `Saved as ${renamedFrom} · read-only`
+            : isNew
+              ? 'New file · nothing saved'
+              : baseline.has(path)
+                ? 'Saved · read-only'
+                : 'Deleted on the server · nothing saved'
+        }
         right={readOnly ? 'Unsaved · read-only' : 'Unsaved · editable'}
       />
       <div className="min-h-0 flex-1">
@@ -231,7 +302,7 @@ function ReviewFile({
           key={path}
           workflowId={bindings.workflowId}
           path={path}
-          original={baseline.get(path)?.source ?? ''}
+          original={isNew && renamedFrom === null ? '' : (baseline.get(path)?.source ?? '')}
           originalKind="saved"
           modified={modified}
           readOnly={readOnly}
@@ -244,4 +315,10 @@ function ReviewFile({
       </div>
     </div>
   )
+}
+
+/** The old path of a pending rename to `path`, else null. */
+function renamedFrom(ops: readonly PendingFileOp[], path: string): string | null {
+  const op = opAtPath(ops, path)
+  return op?.kind === 'move' ? op.from : null
 }

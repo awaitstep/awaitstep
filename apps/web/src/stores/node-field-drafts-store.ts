@@ -10,13 +10,10 @@ export interface NodeFieldDraft {
 interface NodeFieldDraftsState {
   /** By `<workflowId>:<nodeId>`, so one workflow's edits never show on another. */
   drafts: Readonly<Record<string, NodeFieldDraft>>
-  /** Nodes whose Save is in flight, by the same key. */
-  saving: Readonly<Record<string, true>>
   /** Why a node's last Save failed, by the same key. */
   errors: Readonly<Record<string, string>>
   setDraft: (key: string, draft: NodeFieldDraft) => void
   dropDraft: (key: string) => void
-  setSaving: (key: string, saving: boolean) => void
   setError: (key: string, error: string | null) => void
 }
 
@@ -26,14 +23,13 @@ function without<T>(record: Readonly<Record<string, T>>, key: string): Record<st
 }
 
 /**
- * Field edits made in Code's node details and not saved yet, with each
- * node's save state. They outlive the panel, so picking another node and
- * coming back keeps them, and a save or its failure stays with its own
- * node; Save, Discard, or a newer saved version of that node ends a draft.
+ * Field edits typed in Code's node details and not yet handed to the
+ * workspace's pending graph edits, with why the last Save was refused. They
+ * outlive the panel, so picking another node and coming back keeps them;
+ * Save, Discard, or new data on that node ends a draft.
  */
 export const useNodeFieldDraftsStore = create<NodeFieldDraftsState>()((set) => ({
   drafts: {},
-  saving: {},
   errors: {},
   setDraft: (key, draft) =>
     set((state) => ({
@@ -42,10 +38,6 @@ export const useNodeFieldDraftsStore = create<NodeFieldDraftsState>()((set) => (
     })),
   dropDraft: (key) =>
     set((state) => ({ drafts: without(state.drafts, key), errors: without(state.errors, key) })),
-  setSaving: (key, saving) =>
-    set((state) => ({
-      saving: saving ? { ...state.saving, [key]: true } : without(state.saving, key),
-    })),
   setError: (key, error) =>
     set((state) => ({
       errors: error === null ? without(state.errors, key) : { ...state.errors, [key]: error },

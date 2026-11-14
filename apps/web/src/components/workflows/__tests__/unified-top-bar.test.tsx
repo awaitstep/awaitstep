@@ -127,7 +127,7 @@ describe('the bar on both surfaces', () => {
     codeBar()
     expect(screen.getByRole('button', { name: 'Save all (1)' })).toHaveAttribute(
       'title',
-      expect.stringContaining('Save all files'),
+      expect.stringContaining('Save all changes'),
     )
   })
 })

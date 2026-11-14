@@ -4,6 +4,7 @@ import { PROJECT_HANDLERS_PATH } from '@awaitstep/ir'
 import { actionToast } from '../lib/action-toast'
 import type { SourceFile } from '../lib/api-client'
 import type { IdeCommandActions } from '../lib/ide/commands'
+import type { PendingFileOp } from '../lib/ide/file-ops'
 import type { DraftUndo } from '../lib/ide/draft-undo'
 import { VIEW_ONLY_MESSAGE, type Editability } from '../lib/ide/editability'
 import type { FileOwner } from '../lib/ide/project'
@@ -41,6 +42,8 @@ interface WorkspaceActionsInput {
   baseline: ReadonlyMap<string, SourceFile>
   files: ReadonlyMap<string, GeneratedFile>
   dirty: ReadonlySet<string>
+  /** Pending Explorer changes as the shown version has them (none on an older one). */
+  fileOps: readonly PendingFileOp[]
   storedPaths: ReadonlySet<string>
   editabilityOf: (path: string) => Editability
   ownerOf: (path: string) => FileOwner
@@ -65,6 +68,7 @@ export function useWorkspaceActions({
   baseline,
   files,
   dirty,
+  fileOps,
   storedPaths,
   editabilityOf,
   ownerOf,
@@ -99,6 +103,7 @@ export function useWorkspaceActions({
     workflowId,
     files,
     baseline,
+    fileOps,
     canEdit,
     projectFiles,
     draftUndo,

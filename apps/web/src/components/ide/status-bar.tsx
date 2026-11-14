@@ -20,7 +20,8 @@ interface StatusBarProps {
   errors: number
   warnings: number
   /** Unsaved files, in the order they should be listed. */
-  unsaved: string[]
+  /** Files with unsaved text plus pending graph edits. */
+  unsaved: number
   canEdit: boolean
   activePath: string | null
   readOnly: boolean
@@ -48,7 +49,7 @@ export function StatusBar({
   onReview,
 }: StatusBarProps) {
   const cursor = useIdeStore((s) => s.cursor)
-  const unsavedText = unsavedLabel(unsaved.length)
+  const unsavedText = unsavedLabel(unsaved)
 
   // Not `onClick={onReview}`: the click event would arrive as the path to review.
   function handleReview() {

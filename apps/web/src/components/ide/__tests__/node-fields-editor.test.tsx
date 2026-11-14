@@ -24,7 +24,7 @@ function setup(
   options: { canEdit?: boolean; outcome?: SaveNodeFieldsOutcome } = {},
 ) {
   const saveNodeFields = vi.fn(
-    async (): Promise<SaveNodeFieldsOutcome> => options.outcome ?? { status: 'saved' },
+    (): SaveNodeFieldsOutcome => options.outcome ?? { status: 'recorded' },
   )
   const view = render(
     <NodeEditProvider canEdit={options.canEdit ?? true} saveNodeFields={saveNodeFields}>
@@ -45,10 +45,10 @@ function targetInput() {
   return screen.getByDisplayValue('ops')
 }
 
-beforeEach(() => useNodeFieldDraftsStore.setState({ drafts: {}, saving: {}, errors: {} }))
+beforeEach(() => useNodeFieldDraftsStore.setState({ drafts: {}, errors: {} }))
 
 describe('NodeFieldsEditor', () => {
-  it('saves the changed fields as one write, only when there is something to save', async () => {
+  it('hands the changed fields to the pending edits, only when there is something to save', async () => {
     const user = userEvent.setup()
     const { saveNodeFields } = setup({ target: 'ops', greeting: 'Hi' })
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -123,12 +123,14 @@ describe('NodeFieldsEditor', () => {
     const user = userEvent.setup()
     setup(
       { target: 'ops', greeting: 'Hi' },
-      { outcome: { status: 'failed', reason: 'Couldn’t save the node' } },
+      { outcome: { status: 'refused', reason: 'That node is not in this version any more.' } },
     )
     await user.type(targetInput(), 'x')
     await user.tab()
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t save the node')
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'That node is not in this version any more.',
+    )
     expect(screen.getByDisplayValue('opsx')).toBeInTheDocument()
   })
 
@@ -138,12 +140,12 @@ describe('NodeFieldsEditor', () => {
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
   })
 
-  it('keeps a save’s spinner and error on its own node', async () => {
+  it('keeps a refusal’s error on its own node', async () => {
     const user = userEvent.setup()
-    let settle: (outcome: SaveNodeFieldsOutcome) => void = () => {}
-    const saveNodeFields = vi.fn(
-      () => new Promise<SaveNodeFieldsOutcome>((resolve) => (settle = resolve)),
-    )
+    const saveNodeFields = vi.fn((): SaveNodeFieldsOutcome => ({
+      status: 'refused',
+      reason: 'Not here any more.',
+    }))
     const other: WorkflowNode = { ...node({ target: 'b', greeting: 'Yo' }), id: 'other' }
     const view = render(
       <NodeEditProvider canEdit saveNodeFields={saveNodeFields}>
@@ -157,19 +159,12 @@ describe('NodeFieldsEditor', () => {
     await user.type(targetInput(), 'x')
     await user.tab()
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    // The same panel now shows another node, while the first save is still going.
     view.rerender(
       <NodeEditProvider canEdit saveNodeFields={saveNodeFields}>
         <NodeFieldsEditor workflowId="wf-1" node={other} definition={SAY_HELLO} />
       </NodeEditProvider>,
     )
-    expect(screen.getByDisplayValue('b')).toBeEnabled()
-    settle({ status: 'failed', reason: 'Couldn’t save the node' })
-    await waitFor(() =>
-      expect(useNodeFieldDraftsStore.getState().errors['wf-1:hello']).toBe(
-        'Couldn’t save the node',
-      ),
-    )
+    expect(useNodeFieldDraftsStore.getState().errors['wf-1:hello']).toBe('Not here any more.')
     expect(screen.queryByRole('alert')).toBeNull()
   })
 

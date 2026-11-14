@@ -43,6 +43,7 @@ function setup(canEdit = true, onCreateStep = created()) {
         onEscape={vi.fn()}
         canEdit={canEdit}
         readOnlyMessage={canEdit ? null : 'You can view this workflow but not edit it.'}
+        onUndoGraphEdit={vi.fn(() => false)}
         onCreateStep={onCreateStep}
       />
     </SyncHarness>,
@@ -51,11 +52,10 @@ function setup(canEdit = true, onCreateStep = created()) {
 }
 
 function created() {
-  return vi.fn(async (): Promise<CreateStepOutcome> => ({
+  return vi.fn((): CreateStepOutcome => ({
     status: 'created',
     nodeId: 'say_hello',
     path: null,
-    opened: true,
   }))
 }
 
@@ -172,10 +172,10 @@ describe('Add → Custom node', () => {
 
   it('focuses the new node’s Steps row once it is added', async () => {
     const user = userEvent.setup()
-    const onCreateStep = vi.fn(async (): Promise<CreateStepOutcome> => {
+    const onCreateStep = vi.fn((): CreateStepOutcome => {
       // The creator selects the node it added; `next` stands in for it here.
       useIdeStore.getState().selectNode('next')
-      return { status: 'created', nodeId: 'next', path: null, opened: true }
+      return { status: 'created', nodeId: 'next', path: null }
     })
     setup(true, onCreateStep)
     await openCustom(user)
@@ -184,19 +184,19 @@ describe('Add → Custom node', () => {
     await waitFor(() => expect(document.activeElement?.getAttribute('data-step-id')).toBe('next'))
   })
 
-  it('locks the picked node while it saves, so Change cannot drop the result', async () => {
+  it('keeps the picked node and says why when the add is refused', async () => {
     const user = userEvent.setup()
-    let settle: (outcome: CreateStepOutcome) => void = () => {}
-    const onCreateStep = vi.fn(
-      () => new Promise<CreateStepOutcome>((resolve) => (settle = resolve)),
-    )
+    const onCreateStep = vi.fn((): CreateStepOutcome => ({
+      status: 'refused',
+      reason: 'That step is not in this version any more.',
+    }))
     setup(true, onCreateStep)
     await openCustom(user)
     await user.click(screen.getByRole('button', { name: /Resend/ }))
     await user.click(screen.getByRole('button', { name: 'Insert' }))
-    expect(screen.getByRole('button', { name: 'Change' })).toBeDisabled()
-    settle({ status: 'failed', reason: 'Couldn’t create the node' })
-    expect(await screen.findByText('Couldn’t create the node')).toBeInTheDocument()
+    expect(
+      await screen.findByText('That step is not in this version any more.'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Change' })).toBeEnabled()
   })
 

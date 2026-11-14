@@ -122,4 +122,19 @@ describe('useDraftPersistence', () => {
     expect(memory.data.has(draftKey('u2', 'wf'))).toBe(false)
     expect(useIdeStore.getState().drafts).toEqual({})
   })
+
+  it('drops the last account’s edits and pending graph edits even where the new one can’t edit', async () => {
+    renderHook(() => useDraftPersistence({ workflowId: 'wf', enabled: false, baseline }), {
+      wrapper,
+    })
+    act(() => {
+      useIdeStore.getState().setDraft('a.ts', 'typed as u1', 'ha')
+      useIdeStore
+        .getState()
+        .addGraphOp({ id: 'op-1', op: { kind: 'remove', nodeId: 'n' }, label: 'Removed “N”' })
+    })
+    act(() => useAuthStore.setState({ user: { id: 'u2' } as never }))
+    expect(useIdeStore.getState().drafts).toEqual({})
+    expect(useIdeStore.getState().graphOps).toEqual([])
+  })
 })

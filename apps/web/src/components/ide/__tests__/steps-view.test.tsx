@@ -20,11 +20,10 @@ function setup(
   readOnlyMessage: string | null = null,
 ) {
   const onEscape = vi.fn()
-  const onCreateStep = vi.fn(async () => ({
+  const onCreateStep = vi.fn(() => ({
     status: 'created' as const,
     nodeId: 'created',
     path: 'steps/created.ts',
-    opened: true,
   }))
   render(
     <SyncHarness {...props}>
@@ -33,6 +32,7 @@ function setup(
         onEscape={onEscape}
         canEdit={canEdit}
         readOnlyMessage={readOnlyMessage}
+        onUndoGraphEdit={vi.fn(() => false)}
         onCreateStep={onCreateStep}
       />
     </SyncHarness>,
@@ -364,7 +364,7 @@ describe('StepsView', () => {
 
   it('keeps a refusal in the dialog with the reason', async () => {
     const user = userEvent.setup()
-    const onCreateStep = vi.fn(async () => ({
+    const onCreateStep = vi.fn(() => ({
       status: 'refused' as const,
       reason: 'That step is not in this version any more.',
     }))
@@ -375,6 +375,7 @@ describe('StepsView', () => {
           onEscape={vi.fn()}
           canEdit
           readOnlyMessage={null}
+          onUndoGraphEdit={vi.fn(() => false)}
           onCreateStep={onCreateStep}
         />
       </SyncHarness>,
@@ -406,43 +407,6 @@ describe('StepsView', () => {
     expect(onCreateStep).not.toHaveBeenCalled()
   })
 
-  it('keeps a create open and ignores its result after a close attempt', async () => {
-    const user = userEvent.setup()
-    let resolveCreate: (outcome: { status: 'refused'; reason: string }) => void = () => {}
-    const onCreateStep = vi.fn(
-      () =>
-        new Promise<{ status: 'refused'; reason: string }>((resolve) => {
-          resolveCreate = resolve
-        }),
-    )
-    render(
-      <SyncHarness>
-        <StepsView
-          tabs={null}
-          onEscape={vi.fn()}
-          canEdit
-          readOnlyMessage={null}
-          onCreateStep={onCreateStep}
-        />
-      </SyncHarness>,
-    )
-    await user.click(screen.getByRole('button', { name: 'Add' }))
-    await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Charge')
-    await user.click(screen.getByRole('button', { name: 'Insert' }))
-    expect(screen.getByRole('button', { name: 'Inserting…' })).toBeDisabled()
-    await user.keyboard('{Escape}')
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
-    await act(async () => {
-      resolveCreate({ status: 'refused', reason: 'That connection is gone.' })
-    })
-    expect(await screen.findByRole('alert')).toHaveTextContent('That connection is gone.')
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Step name' })).toHaveFocus())
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-  })
-
   it('drops the dialog when the workspace turns read-only', async () => {
     const user = userEvent.setup()
     const ui = (canEdit: boolean) => (
@@ -452,11 +416,11 @@ describe('StepsView', () => {
           onEscape={vi.fn()}
           canEdit={canEdit}
           readOnlyMessage={canEdit ? null : 'This version is read-only.'}
-          onCreateStep={vi.fn(async () => ({
+          onUndoGraphEdit={vi.fn(() => false)}
+          onCreateStep={vi.fn(() => ({
             status: 'created' as const,
             nodeId: 'new',
             path: 'steps/new.ts',
-            opened: false,
           }))}
         />
       </SyncHarness>
@@ -564,5 +528,59 @@ describe('StepsView', () => {
       expect(menu).toHaveAttribute('title', 'Older versions are read-only.')
     }
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+})
+
+describe('StepsView — pending graph edits', () => {
+  function renderWithUndo(canEdit = true) {
+    const onUndoGraphEdit = vi.fn(() => true)
+    render(
+      <SyncHarness>
+        <StepsView
+          tabs={null}
+          onEscape={vi.fn()}
+          canEdit={canEdit}
+          readOnlyMessage={canEdit ? null : 'Older versions are read-only.'}
+          onCreateStep={vi.fn()}
+          onUndoGraphEdit={onUndoGraphEdit}
+        />
+      </SyncHarness>,
+    )
+    return onUndoGraphEdit
+  }
+
+  beforeEach(() => {
+    useIdeStore.getState().resetSession()
+    loadGraph([irNode('a', 'A'), irNode('b', 'B')], [{ id: 'e1', source: 'a', target: 'b' }])
+  })
+
+  it('marks a node a pending edit adds or changes with the unsaved dot', () => {
+    useIdeStore.getState().addGraphOp({
+      id: 'op-1',
+      op: { kind: 'fields', nodeId: 'b', edited: { retries: 2 }, base: {} },
+      label: 'Changed retries on “B”',
+    })
+    renderWithUndo()
+    const row = (id: string) => document.querySelector(`[data-step-id="${id}"]`)!
+    expect(row('b').querySelector('[aria-label="Unsaved changes"]')).not.toBeNull()
+    expect(row('a').querySelector('[aria-label="Unsaved changes"]')).toBeNull()
+  })
+
+  it('undoes the last pending edit with ⌘Z in the list, not where it cannot edit', () => {
+    const onUndo = renderWithUndo()
+    const row = document.querySelector<HTMLElement>('[data-step-id="a"]')!
+    fireEvent.keyDown(row, { key: 'z', metaKey: true })
+    expect(onUndo).toHaveBeenCalledTimes(1)
+    fireEvent.keyDown(row, { key: 'z', metaKey: true, shiftKey: true })
+    expect(onUndo).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores ⌘Z where the workspace cannot edit', () => {
+    const onUndo = renderWithUndo(false)
+    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-step-id="a"]')!, {
+      key: 'z',
+      ctrlKey: true,
+    })
+    expect(onUndo).not.toHaveBeenCalled()
   })
 })

@@ -1,17 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ArtifactIR } from '@awaitstep/ir'
 import { contentHash } from '@awaitstep/ir'
-import { VersionConflictError, type SavedVersion } from '../api-client'
-import { loadVersionDocument } from '../ide/node-source'
-import { createStepCreator, withEdits, type StepCreateDeps } from '../ide/step-create'
-import { createStepSaver } from '../ide/step-save'
+import { ApiError, VersionConflictError, type SavedVersion } from '../api-client'
+import { editedVersion, waitingOps } from '../ide/graph-ops'
+import { discardGraphOp, discardLastGraphOp, pruneGraphOps } from '../ide/graph-ops-actions'
+import { loadVersionDocument, type LoadedVersion } from '../ide/node-source'
+import { createStepCreator, type StepCreateDeps } from '../ide/step-create'
+import { GRAPH_EDITS_KEY, createStepSaver } from '../ide/step-save'
 import { useIdeStore } from '../../stores/ide-store'
 
 const metadata = { name: 'orders', version: 3, createdAt: 't', updatedAt: 't' }
 const TASK_CODE = `export default async function Fetch_user({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n`
 const MAIL_CODE = `export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 2;\n}\n`
-const MAIL_1 = `export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 20;\n}\n`
-const MAIL_2 = `export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 200;\n}\n`
+const MAIL_EDIT = `export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 20;\n}\n`
 const doc: ArtifactIR = {
   kind: 'workflow',
   metadata,
@@ -32,12 +33,22 @@ const doc: ArtifactIR = {
       position: { x: 280, y: 0 },
       version: '1.0.0',
       provider: 'cloudflare',
-      data: {
-        code: 'export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 2;\n}\n',
-      },
+      data: { code: MAIL_CODE },
+    },
+    {
+      id: 'hello',
+      type: 'custom:hello',
+      name: 'Say hello',
+      position: { x: 560, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: { greeting: 'hi', retries: 1 },
     },
   ],
-  edges: [{ id: 'e1', source: 'fetch', target: 'mail' }],
+  edges: [
+    { id: 'e1', source: 'fetch', target: 'mail' },
+    { id: 'e2', source: 'mail', target: 'hello' },
+  ],
   entryNodeId: 'fetch',
 }
 
@@ -53,32 +64,9 @@ function versionRow(ir: ArtifactIR, graphHash: string): SavedVersion {
   }
 }
 
-interface Harness {
-  deps: StepCreateDeps
-  saver: ReturnType<typeof createStepSaver>
-  createVersion: ReturnType<typeof vi.fn>
-  notify: { error: ReturnType<typeof vi.fn> }
-  refresh: ReturnType<typeof vi.fn>
-  /** When set, the refetch after a write does not move what the workspace shows. */
-  refetchFails: boolean
-  /** A version saved elsewhere that the workspace has refetched. */
-  show(ir: ArtifactIR, graphHash: string): void
-  /** A version the server holds but the workspace has not refetched (its cache still shows the old one). */
-  serverOnly(ir: ArtifactIR, graphHash: string): void
-  /** A refetch that did not include the latest write: the cache shows an older version than the server. */
-  cacheOnly(ir: ArtifactIR, graphHash: string): void
-  /** The document an earlier save posted, after the post has landed. */
-  server(): ArtifactIR
-}
-
-function harness(
-  initial: ArtifactIR = doc,
-  graphHash = 'g-3',
-  options: { isCurrent?: () => boolean; canEdit?: () => boolean } = {},
-): Harness {
-  let server = { version: versionRow(initial, graphHash), graphHash }
+function harness(options: { canEdit?: boolean } = {}) {
+  let server = { version: versionRow(doc, 'g-3'), graphHash: 'g-3' }
   let full = server
-  const h: Partial<Harness> = { refetchFails: false }
   const createVersion = vi.fn(
     async (_id: string, data: { ir: unknown; baseGraphHash?: string }) => {
       const row = versionRow(data.ir as ArtifactIR, `g-after-${data.baseGraphHash}`)
@@ -87,7 +75,7 @@ function harness(
     },
   )
   const refresh = vi.fn(async () => {
-    if (!h.refetchFails) full = server
+    full = server
   })
   const notify = { error: vi.fn() }
   const saver = createStepSaver({
@@ -95,688 +83,456 @@ function harness(
     client: { createVersion },
     notify,
     getStore: useIdeStore.getState,
-    isCurrent: options.isCurrent ?? (() => true),
     getVersion: () => loadVersionDocument(full),
     refresh,
   })
+  let ids = 0
   const deps: StepCreateDeps = {
-    workflowId: 'wf-1',
-    client: { createVersion },
-    notify,
     getStore: useIdeStore.getState,
-    ...(options.isCurrent && { isCurrent: options.isCurrent }),
     getVersion: saver.currentVersion,
-    getCachedVersion: () => loadVersionDocument(full),
-    exclusive: saver.exclusive,
-    remember: saver.remember,
-    forget: saver.forget,
-    refresh,
-    canEdit: options.canEdit ?? (() => true),
+    canEdit: () => options.canEdit ?? true,
     readOnlyReason: () => 'Older versions are read-only.',
-    newId: () => 'newstep00000',
+    newId: () => `new${++ids}`,
   }
-  return Object.assign(h, {
-    deps,
+  return {
+    creator: createStepCreator(deps),
     saver,
     createVersion,
     notify,
     refresh,
-    server: () => JSON.parse(server.version.ir) as ArtifactIR,
-    show(ir: ArtifactIR, hash: string) {
+    /** What the workspace shows: the cached version with the pending edits replayed. */
+    shown(): ArtifactIR {
+      const loaded = loadVersionDocument(full)!
+      return editedVersion(loaded, useIdeStore.getState().graphOps).version.doc
+    },
+    loaded: (): LoadedVersion => loadVersionDocument(full)!,
+    /** A version the canvas saved and the workspace refetched. */
+    canvasSaved(ir: ArtifactIR, hash: string) {
       server = { version: versionRow(ir, hash), graphHash: hash }
       full = server
     },
-    serverOnly(ir: ArtifactIR, hash: string) {
+    /** A version the canvas saved that the workspace has not refetched yet. */
+    canvasSavedUnseen(ir: ArtifactIR, hash: string) {
       server = { version: versionRow(ir, hash), graphHash: hash }
     },
-    cacheOnly(ir: ArtifactIR, hash: string) {
-      full = { version: versionRow(ir, hash), graphHash: hash }
-    },
-  }) as Harness
+  }
 }
 
 function posted(createVersion: ReturnType<typeof vi.fn>, call = 0) {
   return createVersion.mock.calls[call]![1] as { ir: ArtifactIR; baseGraphHash?: string }
 }
 
+function waiting() {
+  return waitingOps(useIdeStore.getState().graphOps)
+}
+
 beforeEach(() => useIdeStore.getState().resetSession())
 
-describe('createStepCreator', () => {
-  it('posts one version with the node spliced into the edge, then opens its file', async () => {
+describe('Add, Remove and field Save record pending edits', () => {
+  it('adds a step without a network write, shows it and opens its new file', () => {
     const h = harness()
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge card')
-    expect(outcome).toEqual({
-      status: 'created',
-      nodeId: 'newstep00000',
-      path: 'steps/newstep00000.ts',
-      opened: true,
+    const outcome = h.creator.create({ after: 'fetch' }, 'Charge card')
+    expect(outcome).toEqual({ status: 'created', nodeId: 'new1', path: 'steps/new1.ts' })
+    expect(h.createVersion).not.toHaveBeenCalled()
+    expect(waiting().map((entry) => entry.label)).toEqual(['Added “Charge card”'])
+    const shown = h.shown()
+    expect(shown.edges.map((e) => [e.source, e.target])).toEqual([
+      ['fetch', 'new1'],
+      ['new1', 'mail'],
+      ['mail', 'hello'],
+    ])
+    expect(useIdeStore.getState().activePath).toBe('steps/new1.ts')
+  })
+
+  it('selects a custom node it adds, which has no file', () => {
+    const h = harness()
+    const outcome = h.creator.create({ after: 'mail' }, 'Ping', undefined, {
+      type: 'custom:ping',
+      data: { url: 'https://x' },
     })
-    expect(h.createVersion).toHaveBeenCalledTimes(1)
-    const { ir, baseGraphHash } = posted(h.createVersion)
-    expect(baseGraphHash).toBe('g-3')
-    expect(ir.nodes.map((n) => n.id)).toEqual(['fetch', 'mail', 'newstep00000'])
-    expect(ir.edges.map((e) => [e.source, e.target])).toEqual([
-      ['fetch', 'newstep00000'],
-      ['newstep00000', 'mail'],
-    ])
-    expect(String(ir.nodes[2]!.data.code)).toContain('export default async function Charge_card(')
-    expect(useIdeStore.getState().activePath).toBe('steps/newstep00000.ts')
+    expect(outcome).toEqual({ status: 'created', nodeId: 'new1', path: null })
+    expect(useIdeStore.getState().selectedNodeId).toBe('new1')
+    expect(h.shown().nodes.find((n) => n.id === 'new1')?.data).toEqual({ url: 'https://x' })
   })
 
-  it('appends after the last step and refreshes the workspace', async () => {
+  it('refuses an add the graph cannot take and records nothing', () => {
     const h = harness()
-    await createStepCreator(h.deps).create({ after: 'mail' }, 'Notify')
-    const { ir } = posted(h.createVersion)
-    expect(ir.edges.map((e) => [e.source, e.target])).toEqual([
-      ['fetch', 'mail'],
-      ['mail', 'newstep00000'],
-    ])
-    expect(h.refresh).toHaveBeenCalled()
-  })
-
-  it('puts the step in front of a version with no steps', async () => {
-    const noSteps: ArtifactIR = {
-      ...doc,
-      nodes: [
-        {
-          id: 'setup',
-          type: 'sleep',
-          name: 'Wait',
-          version: '1.0.0',
-          provider: 'cloudflare',
-          data: { duration: '1 minute' },
-        },
-      ],
-      edges: [],
-      entryNodeId: 'setup',
-    }
-    const h = harness(noSteps)
-    await createStepCreator(h.deps).create({ first: true }, 'Start')
-    const { ir } = posted(h.createVersion)
-    expect(ir.entryNodeId).toBe('newstep00000')
-    expect(ir.edges.map((e) => [e.source, e.target])).toEqual([['newstep00000', 'setup']])
-  })
-
-  it('refuses a placement the version does not have, writing nothing', async () => {
-    const h = harness()
-    const outcome = await createStepCreator(h.deps).create({ after: 'gone' }, 'Charge')
-    expect(outcome).toEqual({
+    expect(h.creator.create({ after: 'gone' }, 'X')).toEqual({
       status: 'refused',
       reason: 'That step is not in this version any more.',
     })
-    expect(h.createVersion).not.toHaveBeenCalled()
+    expect(waiting()).toEqual([])
   })
 
-  it('refuses a branch without a chosen arm, writing nothing', async () => {
-    const branch: ArtifactIR = {
-      ...doc,
-      nodes: [
-        ...doc.nodes,
-        {
-          id: 'gate',
-          type: 'branch',
-          name: 'Paid?',
-          position: { x: 560, y: 0 },
-          version: '1.0.0',
-          provider: 'cloudflare',
-          data: {},
-        },
-      ],
-      edges: [
-        ...doc.edges,
-        { id: 'yes', source: 'gate', target: 'fetch', label: 'yes' },
-        { id: 'no', source: 'gate', target: 'mail', label: 'no' },
-      ],
-    }
-    const h = harness(branch)
-    const outcome = await createStepCreator(h.deps).create({ after: 'gate' }, 'Charge')
-    expect(outcome.status).toBe('refused')
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('splices the chosen arm when one is named', async () => {
-    const branch: ArtifactIR = {
-      ...doc,
-      nodes: [
-        ...doc.nodes,
-        {
-          id: 'gate',
-          type: 'branch',
-          name: 'Paid?',
-          position: { x: 560, y: 0 },
-          version: '1.0.0',
-          provider: 'cloudflare',
-          data: {},
-        },
-      ],
-      edges: [
-        ...doc.edges,
-        { id: 'yes', source: 'gate', target: 'fetch', label: 'yes' },
-        { id: 'no', source: 'gate', target: 'mail', label: 'no' },
-      ],
-    }
-    const h = harness(branch)
-    const outcome = await createStepCreator(h.deps).create(
-      { after: 'gate', edgeId: 'yes' },
-      'Charge',
-    )
-    expect(outcome.status).toBe('created')
-    const { ir } = posted(h.createVersion)
-    const spliced = ir.edges.find((e) => e.source === 'gate' && e.label === 'yes')!
-    expect(spliced.target).toBe('newstep00000')
-    expect(ir.edges.find((e) => e.label === 'no')).toEqual(branch.edges[2])
-  })
-
-  it('turns a moved graph into the existing conflict notice and writes nothing else', async () => {
+  it('places an add after a step another pending add put there', () => {
     const h = harness()
-    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome).toEqual({ status: 'graph-conflict' })
-    expect(useIdeStore.getState().graphConflict).toEqual({
-      currentVersionId: 'v-9',
-      currentGraphHash: 'g-9',
-      paths: [],
-    })
-    expect(h.refresh).toHaveBeenCalled()
+    h.creator.create({ after: 'hello' }, 'One')
+    expect(h.creator.create({ after: 'new1' }, 'Two').status).toBe('created')
+    expect(
+      h
+        .shown()
+        .edges.slice(-2)
+        .map((e) => [e.source, e.target]),
+    ).toEqual([
+      ['hello', 'new1'],
+      ['new1', 'new2'],
+    ])
   })
 
-  it('keeps a save conflict’s notice when a create is also refused', async () => {
+  it('refuses every edit where the workspace cannot edit', () => {
+    const h = harness({ canEdit: false })
+    const refused = { status: 'refused', reason: 'Older versions are read-only.' }
+    expect(h.creator.create({ after: 'fetch' }, 'X')).toEqual(refused)
+    expect(h.creator.remove('mail')).toEqual(refused)
+    expect(h.creator.saveNodeFields('hello', { retries: 3 }, { retries: 1 })).toEqual(refused)
+    expect(useIdeStore.getState().graphOps).toEqual([])
+  })
+
+  it('records a field edit in plain words and shows the edited values', () => {
+    const h = harness()
+    const data = doc.nodes[2]!.data
+    expect(h.creator.saveNodeFields('hello', { ...data, retries: 3 }, data)).toEqual({
+      status: 'recorded',
+    })
+    expect(h.createVersion).not.toHaveBeenCalled()
+    expect(waiting().map((entry) => entry.label)).toEqual(['Changed retries on “Say hello”'])
+    expect(h.shown().nodes[2]!.data).toEqual({ greeting: 'hi', retries: 3 })
+  })
+
+  it('removes a node, closing its file and keeping its draft on the edit', () => {
+    const h = harness()
+    const store = useIdeStore.getState()
+    store.openFile('steps/mail.ts')
+    store.setDraft('steps/mail.ts', MAIL_EDIT, contentHash(MAIL_CODE))
+    expect(h.creator.remove('mail')).toEqual({ status: 'removed', nodeId: 'mail' })
+    expect(h.createVersion).not.toHaveBeenCalled()
+    const state = useIdeStore.getState()
+    expect(state.drafts['steps/mail.ts']).toBeUndefined()
+    expect(state.openPaths).not.toContain('steps/mail.ts')
+    expect(waiting()[0]!.stashedDraft?.draft.source).toBe(MAIL_EDIT)
+    expect(h.shown().nodes.map((n) => n.id)).toEqual(['fetch', 'hello'])
+  })
+
+  it('refuses removing the last node', () => {
+    const h = harness()
+    h.creator.remove('mail')
+    h.creator.remove('hello')
+    expect(h.creator.remove('fetch')).toEqual({
+      status: 'refused',
+      reason: 'A workflow needs at least one node. Add another first.',
+    })
+  })
+
+  it('un-adds a pending node instead of recording a removal, with its field edits', () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'Ping', undefined, { type: 'custom:ping', data: {} })
+    h.creator.saveNodeFields('new1', { url: 'a' }, {})
+    useIdeStore.getState().setDraft('steps/new1.ts', 'x', null)
+    h.creator.remove('new1')
+    expect(useIdeStore.getState().graphOps).toEqual([])
+    expect(useIdeStore.getState().drafts['steps/new1.ts']).toBeUndefined()
+  })
+
+  it('records a removal of a pending node that a later add builds on', () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'One')
+    h.creator.create({ after: 'new1' }, 'Two')
+    h.creator.remove('new1')
+    expect(waiting().map((entry) => entry.op.kind)).toEqual(['insert', 'insert', 'remove'])
+    expect(
+      h
+        .shown()
+        .edges.slice(-1)
+        .map((e) => [e.source, e.target]),
+    ).toEqual([['hello', 'new2']])
+  })
+})
+
+describe('Save writes the pending edits and step drafts as one version', () => {
+  it('posts one version with every pending edit and draft, then lists nothing', async () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'Notify')
+    h.creator.saveNodeFields('hello', { retries: 5 }, { retries: 1 })
+    const store = useIdeStore.getState()
+    store.setDraft('steps/mail.ts', MAIL_EDIT, contentHash(MAIL_CODE))
+    // Typed into the new file: built on the scaffold it opened with.
+    const scaffold = String(h.shown().nodes.find((n) => n.id === 'new1')!.data.code)
+    store.setDraft(
+      'steps/new1.ts',
+      'export default async function Notify() {\n  return 3;\n}\n',
+      contentHash(scaffold),
+    )
+
+    const outcomes = await h.saver.save(['steps/mail.ts', 'steps/new1.ts'])
+    expect(h.createVersion).toHaveBeenCalledTimes(1)
+    const { ir, baseGraphHash } = posted(h.createVersion)
+    expect(baseGraphHash).toBe('g-3')
+    expect(ir.nodes.map((n) => n.id)).toEqual(['fetch', 'mail', 'hello', 'new1'])
+    expect(ir.nodes[1]!.data.code).toBe(MAIL_EDIT)
+    expect(ir.nodes[2]!.data.retries).toBe(5)
+    expect(String(ir.nodes[3]!.data.code)).toContain('return 3;')
+    expect(outcomes.get(GRAPH_EDITS_KEY)).toBe('saved')
+    expect(outcomes.get('steps/mail.ts')).toBe('saved')
+    expect(waiting()).toEqual([])
+  })
+
+  it('saves pending edits on their own when no draft is asked for', async () => {
+    const h = harness()
+    h.creator.remove('mail')
+    const outcomes = await h.saver.save([GRAPH_EDITS_KEY])
+    expect(outcomes.get(GRAPH_EDITS_KEY)).toBe('saved')
+    expect(posted(h.createVersion).ir.nodes.map((n) => n.id)).toEqual(['fetch', 'hello'])
+    // Once the refetch shows the new version, the written edits go for good.
+    pruneGraphOps(useIdeStore.getState, h.loaded(), h.notify)
+    expect(useIdeStore.getState().graphOps).toEqual([])
+    expect(h.shown().nodes.map((n) => n.id)).toEqual(['fetch', 'hello'])
+  })
+
+  it('keeps showing written edits while the refetch still shows the old version', async () => {
+    const h = harness()
+    h.creator.remove('mail')
+    h.refresh.mockImplementationOnce(async () => undefined)
+    await h.saver.save([GRAPH_EDITS_KEY])
+    expect(waiting()).toEqual([])
+    expect(h.shown().nodes.map((n) => n.id)).toEqual(['fetch', 'hello'])
+  })
+
+  it('keeps the edits and drafts when the server refuses the version, with its reason', async () => {
+    const h = harness()
+    h.creator.remove('mail')
+    useIdeStore.getState().setDraft('steps/fetch.ts', TASK_CODE + '\n', contentHash(TASK_CODE))
+    h.createVersion.mockRejectedValueOnce(
+      new ApiError('An arm cannot lead straight into a join.', 400),
+    )
+    const outcomes = await h.saver.save(['steps/fetch.ts'])
+    expect(outcomes.get(GRAPH_EDITS_KEY)).toBe('failed')
+    expect(h.notify.error).toHaveBeenCalledWith('An arm cannot lead straight into a join.')
+    expect(waiting()).toHaveLength(1)
+    expect(useIdeStore.getState().drafts['steps/fetch.ts']).toBeDefined()
+  })
+
+  it('keeps the edits on a conflict and drops, by name, one the new version cannot take', async () => {
+    const h = harness()
+    h.creator.saveNodeFields('hello', { retries: 5 }, { retries: 1 })
+    h.creator.create({ after: 'fetch' }, 'Audit')
+    // The canvas removed `hello` meanwhile; the workspace has not seen it.
+    const moved = { ...doc, nodes: doc.nodes.slice(0, 2), edges: doc.edges.slice(0, 1) }
+    h.canvasSavedUnseen(moved, 'g-canvas')
+    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-4', 'g-canvas'))
+
+    const outcomes = await h.saver.save([GRAPH_EDITS_KEY])
+    expect(outcomes.get(GRAPH_EDITS_KEY)).toBe('graph-conflict')
+    pruneGraphOps(useIdeStore.getState, h.loaded(), h.notify)
+    expect(waiting().map((entry) => entry.label)).toEqual(['Added “Audit”'])
+    expect(useIdeStore.getState().graphConflict?.dropped).toEqual([
+      {
+        label: 'Changed retries on “Say hello”',
+        reason: 'That node is not in this version any more.',
+      },
+    ])
+    expect(h.shown().nodes.map((n) => n.id)).toEqual(['fetch', 'mail', 'new1'])
+  })
+
+  it('keeps an edit made while a save is in flight for the next save', async () => {
+    const h = harness()
+    h.creator.remove('mail')
+    let release!: () => void
+    h.createVersion.mockImplementationOnce(async (_id, data) => {
+      await new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return versionRow(data.ir as ArtifactIR, 'g-after')
+    })
+    const saving = h.saver.save([GRAPH_EDITS_KEY])
+    await vi.waitFor(() => expect(h.createVersion).toHaveBeenCalled())
+    h.creator.saveNodeFields('hello', { retries: 9 }, { retries: 1 })
+    release()
+    await saving
+    expect(waiting().map((entry) => entry.label)).toEqual(['Changed retries on “Say hello”'])
+  })
+
+  it('writes nothing when nothing is pending', async () => {
+    const h = harness()
+    const outcomes = await h.saver.save([GRAPH_EDITS_KEY])
+    expect(h.createVersion).not.toHaveBeenCalled()
+    expect(outcomes.size).toBe(0)
+  })
+})
+
+describe('Discarding pending edits', () => {
+  it('discards one edit, closing an added step’s file and its draft', () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'One')
+    h.creator.remove('mail')
+    useIdeStore.getState().setDraft('steps/new1.ts', 'x', null)
+    const add = waiting()[0]!
+    expect(discardGraphOp(useIdeStore.getState, h.loaded(), add.id)).toEqual([])
+    const state = useIdeStore.getState()
+    expect(state.openPaths).not.toContain('steps/new1.ts')
+    expect(state.drafts['steps/new1.ts']).toBeUndefined()
+    expect(waiting().map((entry) => entry.label)).toEqual(['Removed “Send mail”'])
+  })
+
+  it('takes a later edit that needed the discarded one with it', () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'One')
+    h.creator.create({ after: 'new1' }, 'Two')
+    const cascaded = discardGraphOp(useIdeStore.getState, h.loaded(), waiting()[0]!.id)
+    expect(cascaded.map((entry) => entry.label)).toEqual(['Added “Two”'])
+    expect(useIdeStore.getState().graphOps).toEqual([])
+  })
+
+  it('brings a removed step’s unsaved code back when the removal is discarded', () => {
+    const h = harness()
+    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_EDIT, contentHash(MAIL_CODE))
+    h.creator.remove('mail')
+    discardGraphOp(useIdeStore.getState, h.loaded(), waiting()[0]!.id)
+    expect(useIdeStore.getState().drafts['steps/mail.ts']?.source).toBe(MAIL_EDIT)
+  })
+
+  it('drops the last edit for ⌘Z, and nothing when none is waiting', () => {
+    const h = harness()
+    h.creator.remove('mail')
+    h.creator.saveNodeFields('hello', { retries: 2 }, { retries: 1 })
+    const undone = discardLastGraphOp(useIdeStore.getState, h.loaded())
+    expect(undone?.discarded.label).toBe('Changed retries on “Say hello”')
+    expect(waiting().map((entry) => entry.label)).toEqual(['Removed “Send mail”'])
+    discardLastGraphOp(useIdeStore.getState, h.loaded())
+    expect(discardLastGraphOp(useIdeStore.getState, h.loaded())).toBeNull()
+  })
+})
+
+describe('A version saved underneath', () => {
+  it('drops an edit that no longer applies with a toast, and keeps the rest', () => {
+    const h = harness()
+    h.creator.remove('hello')
+    h.creator.create({ after: 'fetch' }, 'Audit')
+    const moved = { ...doc, nodes: doc.nodes.slice(0, 2), edges: doc.edges.slice(0, 1) }
+    h.canvasSaved(moved, 'g-canvas')
+    pruneGraphOps(useIdeStore.getState, h.loaded(), h.notify)
+    expect(waiting().map((entry) => entry.label)).toEqual(['Added “Audit”'])
+    expect(h.notify.error).toHaveBeenCalledWith('An unsaved change no longer applies', {
+      description: 'Removed “Say hello”: That node is not in this version any more.',
+    })
+  })
+})
+
+describe('Review fixes: what broke before', () => {
+  /** Holds the next post open until `release` is called. */
+  function holdNextPost(h: ReturnType<typeof harness>) {
+    let release!: () => void
+    h.createVersion.mockImplementationOnce(async (_id, data) => {
+      await new Promise<void>((resolve) => {
+        release = resolve
+      })
+      return versionRow(data.ir as ArtifactIR, 'g-after')
+    })
+    return () => release()
+  }
+
+  it('can’t discard, ⌘Z or un-add an edit the post in flight carries', async () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'Pending')
+    const release = holdNextPost(h)
+    const saving = h.saver.save([GRAPH_EDITS_KEY])
+    await vi.waitFor(() => expect(h.createVersion).toHaveBeenCalled())
+    const [add] = waiting()
+    expect(add!.saving).toBe(true)
+    expect(discardGraphOp(useIdeStore.getState, h.loaded(), add!.id)).toEqual([])
+    expect(discardLastGraphOp(useIdeStore.getState, h.loaded())).toBeNull()
+    // Removing it records a real removal rather than un-adding what is being posted.
+    h.creator.remove('new1')
+    expect(waiting().map((entry) => entry.op.kind)).toEqual(['insert', 'remove'])
+    release()
+    await saving
+    expect(waiting().map((entry) => entry.op.kind)).toEqual(['remove'])
+  })
+
+  it('lets an edit be discarded again once its post failed', async () => {
+    const h = harness()
+    h.creator.remove('mail')
+    h.createVersion.mockRejectedValueOnce(new ApiError('Refused.', 400))
+    await h.saver.save([GRAPH_EDITS_KEY])
+    expect(waiting()[0]!.saving).toBeUndefined()
+    expect(discardLastGraphOp(useIdeStore.getState, h.loaded())).not.toBeNull()
+  })
+
+  it('does not bring back drafts a cascaded discard cleared', () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'P')
+    h.creator.create({ after: 'new1' }, 'Q')
+    const store = useIdeStore.getState()
+    store.setDraft('steps/new1.ts', 'p code', null)
+    store.setDraft('steps/new2.ts', 'q code', null)
+    // Q builds on P, so removing P is recorded (P's code is stashed on it).
+    h.creator.remove('new1')
+    discardGraphOp(useIdeStore.getState, h.loaded(), waiting()[0]!.id)
+    expect(useIdeStore.getState().graphOps).toEqual([])
+    expect(useIdeStore.getState().drafts).toEqual({})
+  })
+
+  it('keeps a second save’s edits on screen while the first save’s refetch never landed', async () => {
+    const h = harness()
+    h.refresh.mockImplementation(async () => undefined)
+    h.creator.remove('mail')
+    await h.saver.save([GRAPH_EDITS_KEY])
+    h.creator.create({ after: 'hello' }, 'Later')
+    await h.saver.save([GRAPH_EDITS_KEY])
+    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
+    expect(h.shown().nodes.map((n) => n.id)).toEqual(['fetch', 'hello', 'new1'])
+  })
+
+  it('keeps a pending step’s code saveable when an earlier same-named Add is discarded', async () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'Notify')
+    h.creator.create({ after: 'hello' }, 'Notify')
+    const scaffold = String(h.shown().nodes.find((n) => n.id === 'new2')!.data.code)
+    useIdeStore.getState().setDraft('steps/new2.ts', 'typed', contentHash(scaffold))
+    // Discarding the first: the second now replays where its name is free.
+    discardGraphOp(useIdeStore.getState, h.loaded(), waiting()[0]!.id)
+    expect(waiting().map((entry) => entry.label)).toEqual(['Added “Notify”'])
+    const outcomes = await h.saver.save(['steps/new2.ts'])
+    expect(outcomes.get('steps/new2.ts')).toBe('saved')
+  })
+
+  it('closes a dropped Add’s file before the save, and says the graph edits were partly saved', async () => {
+    const h = harness()
+    h.creator.create({ after: 'hello' }, 'Gone')
+    h.creator.remove('fetch')
+    useIdeStore.getState().setDraft('steps/new1.ts', 'typed', null)
+    // `hello` went on the canvas underneath; the workspace has refetched it.
+    const moved = { ...doc, nodes: doc.nodes.slice(0, 2), edges: doc.edges.slice(0, 1) }
+    h.canvasSaved(moved, 'g-canvas')
+    const outcomes = await h.saver.save(['steps/new1.ts', GRAPH_EDITS_KEY])
+    expect(outcomes.get(GRAPH_EDITS_KEY)).toBe('partial')
+    expect(outcomes.get('steps/new1.ts')).toBe('unchanged')
+    expect(useIdeStore.getState().drafts['steps/new1.ts']).toBeUndefined()
+    expect(useIdeStore.getState().openPaths).not.toContain('steps/new1.ts')
+    expect(posted(h.createVersion).ir.nodes.map((n) => n.id)).toEqual(['mail'])
+  })
+
+  it('keeps the names of dropped edits on the notice when the post is then refused', async () => {
     const h = harness()
     useIdeStore.getState().setGraphConflict({
-      currentVersionId: 'v-save',
-      currentGraphHash: 'g-save',
-      paths: ['steps/mail.ts'],
+      currentVersionId: 'v-3',
+      currentGraphHash: 'g-3',
+      paths: [],
+      dropped: [{ label: 'Removed “X”', reason: 'Gone.' }],
     })
-    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome).toEqual({ status: 'graph-conflict' })
-    expect(useIdeStore.getState().graphConflict).toEqual({
-      currentVersionId: 'v-save',
-      currentGraphHash: 'g-save',
-      paths: ['steps/mail.ts'],
-    })
-    expect(h.notify.error).toHaveBeenCalledWith(
-      'Nothing was created',
-      expect.objectContaining({ description: 'The canvas changed this workflow. Try again.' }),
-    )
-  })
-
-  it('refuses on a workspace that cannot edit, with the reason', async () => {
-    const h = harness(doc, 'g-3', { canEdit: () => false })
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome).toEqual({ status: 'refused', reason: 'Older versions are read-only.' })
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('posts nothing once the workspace has moved on', async () => {
-    const h = harness(doc, 'g-3', { isCurrent: () => false })
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome.status).toBe('failed')
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('says how to get a version when there is none', async () => {
-    const h = harness()
-    h.deps.getVersion = () => null
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome.status).toBe('failed')
-    if (outcome.status === 'failed') expect(outcome.reason).toMatch(/canvas/)
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('tells the person the server’s reason when the post fails', async () => {
-    const h = harness()
-    h.createVersion.mockRejectedValueOnce(new Error('nope'))
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome.status).toBe('failed')
-    if (outcome.status === 'failed') expect(outcome.reason).toMatch(/nope/)
-  })
-
-  it('creates again after the graph moved once the refetch has landed', async () => {
-    const h = harness()
-    // The server saved a newer version elsewhere; the workspace still shows g-3.
-    h.serverOnly(doc, 'g-9')
-    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
-    const first = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(first).toEqual({ status: 'graph-conflict' })
-    expect(posted(h.createVersion, 0).baseGraphHash).toBe('g-3')
-    // The conflict path refetched: the same create now builds on g-9.
-    const second = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(second.status).toBe('created')
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-9')
-  })
-
-  it('leaves another step’s draft untouched and saveable afterwards', async () => {
-    const h = harness()
-    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_1, contentHash(MAIL_CODE))
-    await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(useIdeStore.getState().drafts['steps/mail.ts']).toEqual({
-      source: MAIL_1,
-      baseHash: contentHash(MAIL_CODE),
-    })
-    const outcomes = await h.saver.save(['steps/mail.ts'])
-    expect(outcomes.get('steps/mail.ts')).toBe('saved')
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
-  })
-
-  it('does not open a blank tab when the refetch did not land', async () => {
-    const h = harness()
-    h.refetchFails = true
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome.status).toBe('created')
-    expect(outcome.status === 'created' && outcome.opened).toBe(false)
-    expect(useIdeStore.getState().activePath).toBeNull()
-    expect(h.notify.error).toHaveBeenCalledWith(
-      'Created the step, but the workspace didn’t reload',
-      expect.objectContaining({ description: 'Reload the page to open its file.' }),
-    )
-  })
-})
-
-describe('createStepCreator — one write at a time with the saver', () => {
-  it('waits for a save in flight and builds on the version it produced', async () => {
-    const h = harness()
-    // The refetch after a save fails: only the saver's remembered response
-    // knows the version the save wrote.
-    h.refetchFails = true
-    useIdeStore
-      .getState()
-      .setDraft(
-        'steps/fetch.ts',
-        'export default async function Fetch_user({ env, event, inputs, step, ctx }) {\n  return 10;\n}\n',
-        contentHash(TASK_CODE),
-      )
-    let finish: (v: SavedVersion) => void = () => {}
-    h.createVersion.mockImplementationOnce(
-      () => new Promise<SavedVersion>((resolve) => (finish = resolve)),
-    )
-    const saving = h.saver.save(['steps/fetch.ts'])
-    const creating = createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    // The create has not posted while the save is in flight.
-    expect(h.createVersion).toHaveBeenCalledTimes(1)
-    const savedDoc = {
-      ...doc,
-      nodes: doc.nodes.map((n) => (n.id === 'fetch' ? { ...n, data: { code: 'x' } } : n)),
-    }
-    finish(versionRow(savedDoc, 'g-after-g-3'))
-    await saving
-    const outcome = await creating
-    expect(outcome.status).toBe('created')
-    expect(h.createVersion).toHaveBeenCalledTimes(2)
-    // The create read the save's response, not the stale cache.
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
-    expect(h.server().nodes.some((n) => n.id === 'newstep00000')).toBe(true)
-  })
-
-  it('lets a save build on the version a create wrote while the refetch lags', async () => {
-    const h = harness()
-    h.refetchFails = true
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    expect(outcome.status).toBe('created')
-    useIdeStore
-      .getState()
-      .setDraft(
-        'steps/mail.ts',
-        'export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 20;\n}\n',
-        contentHash(
-          'export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 2;\n}\n',
-        ),
-      )
-    await h.saver.save(['steps/mail.ts'])
-    expect(h.createVersion).toHaveBeenCalledTimes(2)
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
-  })
-
-  it('holds a save asked for during a create until the create has posted', async () => {
-    const h = harness()
-    let finish: (v: SavedVersion) => void = () => {}
-    h.createVersion.mockImplementationOnce(
-      () => new Promise<SavedVersion>((resolve) => (finish = resolve)),
-    )
-    const creating = createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_1, contentHash(MAIL_CODE))
-    const saving = h.saver.save(['steps/mail.ts'])
-    // The save has not posted while the create is in flight.
-    expect(h.createVersion).toHaveBeenCalledTimes(1)
-    finish(versionRow(posted(h.createVersion, 0).ir, 'g-after-g-3'))
-    expect((await creating).status).toBe('created')
-    expect((await saving).get('steps/mail.ts')).toBe('saved')
-    expect(h.createVersion).toHaveBeenCalledTimes(2)
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
-  })
-
-  it('keeps its newest write when a late refetch brings back an older version', async () => {
-    const h = harness()
-    h.refetchFails = true
-    await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_1, contentHash(MAIL_CODE))
-    await h.saver.save(['steps/mail.ts'])
-    // A refetch of the create's version lands late, after the save's:
-    // the cache shows the created document, not the saved one.
-    h.cacheOnly(posted(h.createVersion, 0).ir, 'g-after-g-3')
-    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_2, null)
-    await h.saver.save(['steps/mail.ts'])
-    expect(h.createVersion).toHaveBeenCalledTimes(3)
-    // The save still builds on the newest remembered write, not the cache.
-    expect(posted(h.createVersion, 2).baseGraphHash).toBe('g-after-g-after-g-3')
-  })
-
-  it('keeps building on its own writes when the refetch never lands', async () => {
-    const h = harness()
-    h.refetchFails = true
-    await createStepCreator(h.deps).create({ after: 'fetch' }, 'Charge')
-    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_1, contentHash(MAIL_CODE))
-    await h.saver.save(['steps/mail.ts'])
-    useIdeStore.getState().setDraft('steps/mail.ts', MAIL_2, null)
-    await h.saver.save(['steps/mail.ts'])
-    expect(h.createVersion).toHaveBeenCalledTimes(3)
-    expect(posted(h.createVersion, 0).baseGraphHash).toBe('g-3')
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
-    expect(posted(h.createVersion, 2).baseGraphHash).toBe('g-after-g-after-g-3')
-  })
-})
-
-describe('createStepCreator with a caller-chosen id', () => {
-  it('refuses an id an existing node already has without writing', async () => {
-    const h = harness()
-    const outcome = await createStepCreator(h.deps).create({ after: 'mail' }, 'Another', 'fetch')
-    expect(outcome.status).toBe('refused')
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('uses the id for the node and its steps/<id>.ts path', async () => {
-    const h = harness(doc)
-    const outcome = await createStepCreator(h.deps).create(
-      { after: 'fetch' },
-      'Notify ops',
-      'notify_ops',
-    )
-    expect(outcome).toEqual({
-      status: 'created',
-      nodeId: 'notify_ops',
-      path: 'steps/notify_ops.ts',
-      opened: true,
-    })
-  })
-})
-
-describe('createStepCreator — a custom node', () => {
-  const HELLO = { type: 'custom:item_1', data: { greeting: '{{fetch_user.result}}' } }
-
-  it('posts one version with the node, its edges and its fields, then selects it', async () => {
-    const h = harness()
-    const outcome = await createStepCreator(h.deps).create(
-      { after: 'fetch' },
-      'Say hello',
-      undefined,
-      HELLO,
-    )
-    expect(outcome).toEqual({ status: 'created', nodeId: 'newstep00000', path: null, opened: true })
-    const { ir, baseGraphHash } = posted(h.createVersion)
-    expect(baseGraphHash).toBe('g-3')
-    expect(ir.nodes[2]).toMatchObject({
-      id: 'newstep00000',
-      type: 'custom:item_1',
-      name: 'Say hello',
-      data: { greeting: '{{fetch_user.result}}' },
-    })
-    expect(ir.nodes[2]!.data.code).toBeUndefined()
-    expect(ir.edges.map((e) => [e.source, e.target])).toEqual([
-      ['fetch', 'newstep00000'],
-      ['newstep00000', 'mail'],
-    ])
-    expect(useIdeStore.getState().selectedNodeId).toBe('newstep00000')
-    expect(useIdeStore.getState().activePath).toBeNull()
-  })
-
-  it('is refused like a step when the canvas saved a newer version, writing nothing', async () => {
-    const h = harness()
-    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
-    const outcome = await createStepCreator(h.deps).create(
-      { after: 'fetch' },
-      'Say hello',
-      undefined,
-      HELLO,
-    )
-    expect(outcome).toEqual({ status: 'graph-conflict' })
-    expect(useIdeStore.getState().graphConflict).toMatchObject({ currentGraphHash: 'g-9' })
-    expect(useIdeStore.getState().selectedNodeId).toBeNull()
-  })
-
-  it('refuses a builtin that keeps its canvas flow, posting nothing', async () => {
-    const h = harness()
-    const outcome = await createStepCreator(h.deps).create({ after: 'fetch' }, 'Fork', undefined, {
-      type: 'branch',
-      data: {},
-    })
-    expect(outcome).toEqual({
-      status: 'refused',
-      reason: 'Only a step or a custom node can be added here.',
-    })
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('says the workspace did not reload without opening anything', async () => {
-    const h = harness()
-    h.refetchFails = true
-    const outcome = await createStepCreator(h.deps).create(
-      { after: 'fetch' },
-      'Say hello',
-      undefined,
-      HELLO,
-    )
-    expect(outcome).toMatchObject({ status: 'created', path: null, opened: false })
-    expect(h.notify.error).toHaveBeenCalledWith(
-      'Created the node, but the workspace didn’t reload',
-      { description: 'Reload the page to see it.' },
-    )
-    expect(useIdeStore.getState().selectedNodeId).toBeNull()
-  })
-})
-
-describe('createStepCreator — saving a node’s fields', () => {
-  it('posts one version where only that node’s data changed', async () => {
-    const h = harness()
-    const outcome = await createStepCreator(h.deps).saveNodeFields('mail', { to: 'ops' }, {})
-    expect(outcome).toEqual({ status: 'saved' })
-    const { ir, baseGraphHash } = posted(h.createVersion)
-    expect(baseGraphHash).toBe('g-3')
-    expect(ir.nodes.find((n) => n.id === 'mail')!.data).toEqual({ code: MAIL_CODE, to: 'ops' })
-    expect(ir.nodes.find((n) => n.id === 'fetch')).toEqual(doc.nodes[0])
-    expect(ir.edges).toEqual(doc.edges)
-    expect(h.refresh).toHaveBeenCalled()
-  })
-
-  it('is refused like Add when the canvas saved a newer version', async () => {
-    const h = harness()
-    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
-    const outcome = await createStepCreator(h.deps).saveNodeFields('mail', { to: 'ops' }, {})
-    expect(outcome).toEqual({ status: 'graph-conflict' })
-    expect(useIdeStore.getState().graphConflict).toMatchObject({ currentGraphHash: 'g-9' })
-  })
-
-  it('refuses a node that is gone, and a workspace that can’t edit, posting nothing', async () => {
-    const gone = harness()
-    expect(await createStepCreator(gone.deps).saveNodeFields('nope', {}, {})).toEqual({
-      status: 'refused',
-      reason: 'That node is not in this version any more.',
-    })
-    const viewer = harness(doc, 'g-3', { canEdit: () => false })
-    expect(await createStepCreator(viewer.deps).saveNodeFields('mail', {}, {})).toEqual({
-      status: 'refused',
-      reason: 'Older versions are read-only.',
-    })
-    expect(gone.createVersion).not.toHaveBeenCalled()
-    expect(viewer.createVersion).not.toHaveBeenCalled()
-  })
-})
-
-describe('saving a node’s fields over a version that moved', () => {
-  it('keeps a field the canvas changed meanwhile, writing only what this edit changed', async () => {
-    const custom = {
-      ...doc,
-      nodes: [
-        ...doc.nodes,
-        {
-          id: 'hello',
-          type: 'custom:hello',
-          name: 'Say hello',
-          version: '1.0.0',
-          provider: 'cloudflare',
-          data: { target: 'ops', greeting: 'Hi' },
-        },
-      ],
-    }
-    const h = harness(custom)
-    // The canvas saved a new greeting after the panel's draft was started.
-    const moved = {
-      ...custom,
-      nodes: custom.nodes.map((n) =>
-        n.id === 'hello' ? { ...n, data: { target: 'ops', greeting: 'Hello there' } } : n,
-      ),
-    }
-    h.show(moved, 'g-4')
-    await createStepCreator(h.deps).saveNodeFields(
-      'hello',
-      { target: 'sales', greeting: 'Hi' },
-      { target: 'ops', greeting: 'Hi' },
-    )
-    const { ir, baseGraphHash } = posted(h.createVersion)
-    expect(baseGraphHash).toBe('g-4')
-    expect(ir.nodes.find((n) => n.id === 'hello')!.data).toEqual({
-      target: 'sales',
-      greeting: 'Hello there',
-    })
-  })
-
-  it('says so when the workspace didn’t read the saved version back', async () => {
-    const h = harness()
-    h.refetchFails = true
-    expect(await createStepCreator(h.deps).saveNodeFields('mail', { to: 'ops' }, {})).toEqual({
-      status: 'saved',
-    })
-    expect(h.notify.error).toHaveBeenCalledWith('Saved the node, but the workspace didn’t reload', {
-      description: 'Reload the page to see it.',
-    })
-  })
-})
-
-describe('withEdits', () => {
-  it('applies set, changed and removed fields, leaving the rest as they are now', () => {
-    expect(
-      withEdits({ a: 1, b: 9, c: 3, d: 4 }, { a: 2, b: 2, d: 4 }, { a: 1, b: 2, c: 3, d: 4 }),
-    ).toEqual({ a: 2, b: 9, d: 4 })
-  })
-
-  it('compares structured values by content', () => {
-    expect(withEdits({ list: [1, 2] }, { list: [1, 2] }, { list: [1, 2] })).toEqual({
-      list: [1, 2],
-    })
-  })
-})
-
-describe('createStepCreator — removing a node', () => {
-  const MAIL_PATH = 'steps/mail.ts'
-
-  it('posts one version without the node, the entry moved to the next one', async () => {
-    const h = harness()
-    const outcome = await createStepCreator(h.deps).remove('fetch')
-    expect(outcome).toEqual({ status: 'removed', nodeId: 'fetch' })
-    expect(h.createVersion).toHaveBeenCalledTimes(1)
-    const { ir, baseGraphHash } = posted(h.createVersion)
-    expect(baseGraphHash).toBe('g-3')
-    expect(ir.nodes.map((n) => n.id)).toEqual(['mail'])
-    expect(ir.edges).toEqual([])
-    expect(ir.entryNodeId).toBe('mail')
-  })
-
-  it('closes the removed step’s tab, drops its draft and selects the step before it', async () => {
-    const h = harness()
-    const store = useIdeStore.getState()
-    store.openFile(MAIL_PATH)
-    store.setDraft(MAIL_PATH, MAIL_1, contentHash(MAIL_CODE))
-    store.selectNode('mail')
-    await createStepCreator(h.deps).remove('mail')
-    const after = useIdeStore.getState()
-    expect(after.openPaths).not.toContain(MAIL_PATH)
-    expect(after.drafts[MAIL_PATH]).toBeUndefined()
-    expect(after.selectedNodeId).toBe('fetch')
-  })
-
-  it('selects the step after a removed selected step, and closes its Compare tab', async () => {
-    const h = harness()
-    const store = useIdeStore.getState()
-    store.openFile('steps/fetch.ts')
-    store.openCompare('steps/fetch.ts')
-    store.setReviewPath('steps/fetch.ts')
-    store.selectNode('fetch')
-    await createStepCreator(h.deps).remove('fetch')
-    const after = useIdeStore.getState()
-    expect(after.selectedNodeId).toBe('mail')
-    expect(after.openPaths).toEqual([])
-    expect(after.reviewPath).toBeNull()
-  })
-
-  it('keeps the tab and draft when the canvas saved first, writing nothing', async () => {
-    const h = harness()
-    const store = useIdeStore.getState()
-    store.openFile(MAIL_PATH)
-    store.setDraft(MAIL_PATH, MAIL_1, contentHash(MAIL_CODE))
-    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-9', 'g-9'))
-    const outcome = await createStepCreator(h.deps).remove('mail')
-    expect(outcome).toEqual({ status: 'graph-conflict' })
-    expect(useIdeStore.getState().openPaths).toContain(MAIL_PATH)
-    expect(useIdeStore.getState().drafts[MAIL_PATH]).toBeDefined()
-    expect(useIdeStore.getState().graphConflict?.currentGraphHash).toBe('g-9')
-  })
-
-  it('refuses on a workspace that cannot edit, posting nothing', async () => {
-    const h = harness(doc, 'g-3', { canEdit: () => false })
-    const outcome = await createStepCreator(h.deps).remove('mail')
-    expect(outcome).toEqual({ status: 'refused', reason: 'Older versions are read-only.' })
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('refuses the last node with the reason, posting nothing', async () => {
-    const h = harness({ ...doc, nodes: [doc.nodes[0]!], edges: [] })
-    const outcome = await createStepCreator(h.deps).remove('fetch')
-    expect(outcome.status).toBe('refused')
-    if (outcome.status === 'refused') expect(outcome.reason).toMatch(/at least one node/)
-    expect(h.createVersion).not.toHaveBeenCalled()
-  })
-
-  it('waits for a save in flight and removes from the version it produced', async () => {
-    const h = harness()
-    h.refetchFails = true
-    useIdeStore.getState().setDraft(MAIL_PATH, MAIL_2, contentHash(MAIL_CODE))
-    let finish: (v: SavedVersion) => void = () => {}
-    h.createVersion.mockImplementationOnce(
-      () => new Promise<SavedVersion>((resolve) => (finish = resolve)),
-    )
-    const saving = h.saver.save([MAIL_PATH])
-    const removing = createStepCreator(h.deps).remove('fetch')
-    expect(h.createVersion).toHaveBeenCalledTimes(1)
-    const savedDoc = {
-      ...doc,
-      nodes: doc.nodes.map((n) => (n.id === 'mail' ? { ...n, data: { code: MAIL_2 } } : n)),
-    }
-    finish(versionRow(savedDoc, 'g-after-g-3'))
-    await saving
-    expect((await removing).status).toBe('removed')
-    expect(posted(h.createVersion, 1).baseGraphHash).toBe('g-after-g-3')
-    expect(h.server().nodes).toEqual([
-      expect.objectContaining({ id: 'mail', data: { code: MAIL_2 } }),
+    h.creator.remove('mail')
+    h.createVersion.mockRejectedValueOnce(new VersionConflictError('moved', 'v-4', 'g-4'))
+    await h.saver.save([GRAPH_EDITS_KEY])
+    expect(useIdeStore.getState().graphConflict?.dropped).toEqual([
+      { label: 'Removed “X”', reason: 'Gone.' },
     ])
   })
 
-  it('says the workspace didn’t reload when the refetch did not land', async () => {
+  it('names “your changes”, not the internal key, when only graph edits fail to save', async () => {
     const h = harness()
-    h.refetchFails = true
-    const outcome = await createStepCreator(h.deps).remove('mail')
-    expect(outcome.status).toBe('removed')
-    expect(h.notify.error).toHaveBeenCalledWith(
-      'Removed Send mail, but the workspace didn’t reload',
-      expect.anything(),
-    )
+    h.creator.remove('mail')
+    h.createVersion.mockRejectedValueOnce(new ApiError('', 500))
+    await h.saver.save([GRAPH_EDITS_KEY])
+    expect(h.notify.error).toHaveBeenCalledWith('Couldn’t save the change')
+    expect(h.notify.error).not.toHaveBeenCalledWith(expect.stringContaining(':graph'))
   })
 })

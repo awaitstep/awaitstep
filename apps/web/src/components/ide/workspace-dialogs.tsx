@@ -5,6 +5,7 @@ import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
 import { useIdeStore } from '../../stores/ide-store'
 import { ConfirmDialog } from '../ui/confirm-dialog'
+import { discardAllGraphOps } from '../../lib/ide/graph-ops-actions'
 import { UnsavedChangesDialog } from '../workflows/unsaved-changes-dialog'
 import { CloseDirtyDialog } from './close-dirty-dialog'
 import { RemoveNodeDialog } from './remove-node-dialog'
@@ -139,7 +140,7 @@ export function WorkspaceDialogs({
         loading={projectFiles.busy || conversionPreview.isPending}
         onConfirm={handleConvert}
       />
-      <RemoveNodeDialog onRemove={projectFiles.removeNode} busy={projectFiles.busy} />
+      <RemoveNodeDialog onRemove={projectFiles.removeNode} />
       <CloseDirtyDialog
         saving={projectFiles.busy}
         onSave={handleCloseSave}
@@ -169,6 +170,7 @@ export type UnsavedBlocker =
 interface WorkspaceUnsavedDialogProps {
   /** The router's blocker for this workspace; it must live above the early returns. */
   blocker: UnsavedBlocker
+  /** Files with unsaved text plus pending graph edits. */
   dirtyCount: number
   canEdit: boolean
   /** Review… needs somewhere to look, so it is offered only where the workspace is shown. */
@@ -197,7 +199,7 @@ export function WorkspaceUnsavedDialog({
       ? surfaceSwitchTarget({ current: blocker.current, next: blocker.next })
       : null
   const unsavedSentence =
-    dirtyCount === 1 ? 'One file has unsaved changes.' : `${dirtyCount} files have unsaved changes.`
+    dirtyCount === 1 ? 'One change is unsaved.' : `${dirtyCount} changes are unsaved.`
 
   function handleBlockerCancel() {
     blocker.reset?.()
@@ -206,6 +208,8 @@ export function WorkspaceUnsavedDialog({
   // Leaving without saving is a decision to drop the edits: forget the stored
   // copy too, or the next visit would "restore" what the dialog said was lost.
   function handleLeave() {
+    discardAllGraphOps(useIdeStore.getState)
+    useIdeStore.getState().replaceFileOps([])
     useIdeStore.getState().clearDrafts()
     blocker.proceed?.()
   }
@@ -213,7 +217,7 @@ export function WorkspaceUnsavedDialog({
   function handleSaveAndSwitch() {
     const pending = dirtyCount
     void saveAll().then((saved) => {
-      // Every dirty path is a real write, so a shortfall means one failed —
+      // Every unsaved change is a real write, so a shortfall means one failed —
       // it has toasted why, and switching would hide both the error and the
       // file still holding the change.
       if (saved === pending) blocker.proceed?.()

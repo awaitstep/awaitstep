@@ -11,7 +11,7 @@ function renderBar(overrides: Partial<React.ComponentProps<typeof StatusBar>> = 
     session: { tone: 'ok', label: 'Test session · running' },
     errors: 1,
     warnings: 2,
-    unsaved: ['lib/payments/charge.ts', 'lib/errors.ts'],
+    unsaved: 2,
     canEdit: true,
     activePath: 'lib/payments/charge.ts',
     readOnly: false,
@@ -67,7 +67,7 @@ describe('StatusBar', () => {
   })
 
   it('shows no unsaved item when nothing is unsaved', () => {
-    renderBar({ unsaved: [] })
+    renderBar({ unsaved: 0 })
     expect(screen.queryByText(/unsaved/)).toBeNull()
   })
 

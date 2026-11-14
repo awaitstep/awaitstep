@@ -121,8 +121,8 @@ export function IdeHeader({
     if (!canEdit)
       return readOnlyReason({ viewOnlyReason, olderVersion: historicalVersion !== undefined })
     if (saving) return 'Saving…'
-    if (dirtyCount === 0) return 'No unsaved files'
-    return `Save all files (${hint('saveAll')}). ${hint('save')} saves the open file.`
+    if (dirtyCount === 0) return 'No unsaved changes'
+    return `Save all changes (${hint('saveAll')}). ${hint('save')} saves the open file.`
   }
 
   function deployTitle() {

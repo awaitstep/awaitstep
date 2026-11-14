@@ -7,7 +7,6 @@ import { SegmentedTab, SegmentedTabList, SegmentedTabs } from '../ui/segmented-t
 
 interface StepFlowHeaderProps {
   mode: 'fast' | 'map'
-  busy: boolean
   fileStem: string
   name: string
   onNameChange: (name: string) => void
@@ -19,11 +18,9 @@ interface StepFlowHeaderProps {
 
 function KindTabs({
   kind,
-  busy,
   onKindChange,
 }: {
   kind: AddKind
-  busy: boolean
   onKindChange: (kind: AddKind) => void
 }) {
   function handleValueChange(value: string) {
@@ -32,12 +29,8 @@ function KindTabs({
   return (
     <SegmentedTabs value={kind} onValueChange={handleValueChange} aria-label="What to add">
       <SegmentedTabList>
-        <SegmentedTab value="step" disabled={busy}>
-          Step
-        </SegmentedTab>
-        <SegmentedTab value="custom" disabled={busy}>
-          Custom node
-        </SegmentedTab>
+        <SegmentedTab value="step">Step</SegmentedTab>
+        <SegmentedTab value="custom">Custom node</SegmentedTab>
       </SegmentedTabList>
     </SegmentedTabs>
   )
@@ -45,7 +38,6 @@ function KindTabs({
 
 export function StepFlowHeader({
   mode,
-  busy,
   fileStem,
   name,
   onNameChange,
@@ -66,14 +58,14 @@ export function StepFlowHeader({
                 : 'A node from your Library or the marketplace.'}
             </p>
           </div>
-          <KindTabs kind={kind} busy={busy} onKindChange={onKindChange} />
+          <KindTabs kind={kind} onKindChange={onKindChange} />
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon"
           onClick={onClose}
-          disabled={busy}
+
           aria-label="Close"
           className="h-7 w-7 text-muted-foreground"
         >
@@ -94,7 +86,7 @@ export function StepFlowHeader({
         variant="ghost"
         size="icon"
         onClick={onBack}
-        disabled={busy}
+
         aria-label="Back to quick add"
         className="h-7 w-7 shrink-0 text-muted-foreground"
       >
@@ -104,7 +96,7 @@ export function StepFlowHeader({
         <DialogTitle className="text-xs font-medium text-foreground">
           Where should it go?
         </DialogTitle>
-        <KindTabs kind={kind} busy={busy} onKindChange={onKindChange} />
+        <KindTabs kind={kind} onKindChange={onKindChange} />
         {/* A custom node's name sits with its fields, below the map. */}
         {kind === 'step' && (
           <>

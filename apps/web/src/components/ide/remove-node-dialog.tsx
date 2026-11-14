@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   AlertTriangle,
   CircleDashed,
@@ -17,12 +17,12 @@ import { ConfirmDialog } from '../ui/confirm-dialog'
 import { useStepSyncOptional } from './step-sync-context'
 
 interface RemoveNodeDialogProps {
-  onRemove: (nodeId: string) => Promise<RemoveNodeOutcome>
-  busy: boolean
+  onRemove: (nodeId: string) => RemoveNodeOutcome
 }
 
 /**
- * Asks before Code removes a node, showing what changes in one short row
+ * Asks before Code removes a node (a pending edit, written with the next
+ * save), showing what changes in one short row
  * of chips per effect (steps that will error or read another node, emptied
  * arms, names that move, unsaved changes lost); a chip's details show on
  * hover. A node Code can't remove never opens it: `requestNodeRemoval`
@@ -30,19 +30,15 @@ interface RemoveNodeDialogProps {
  * The row menu, the inspector and the command palette all open it through
  * the session store's dialog slot.
  */
-export function RemoveNodeDialog({ onRemove, busy }: RemoveNodeDialogProps) {
+export function RemoveNodeDialog({ onRemove }: RemoveNodeDialogProps) {
   const open = useIdeStore((s) => s.dialog === 'removeNode')
   const nodeId = useIdeStore((s) => (s.dialog === 'removeNode' ? s.dialogTarget : null))
   const drafts = useIdeStore((s) => s.drafts)
   const closeDialog = useIdeStore((s) => s.closeDialog)
   // Outside the workspace's graph (a test of the other dialogs) there is nothing to remove.
   const sync = useStepSyncOptional()
-  // What the dialog said when Remove was pressed. The save refetches the graph
-  // before it resolves, and the dialog must not flash "not in this version"
-  // for the node it is removing.
-  const [frozen, setFrozen] = useState<{ nodeId: string; preview: RemovePreview } | null>(null)
 
-  const live = useMemo<RemovePreview>(() => {
+  const preview = useMemo<RemovePreview>(() => {
     if (nodeId === null || sync === null) return { status: 'missing' }
     const graph = {
       nodes: [...sync.nodes.values()],
@@ -51,33 +47,23 @@ export function RemoveNodeDialog({ onRemove, busy }: RemoveNodeDialogProps) {
     }
     return removePreview(graph, nodeId, drafts)
   }, [nodeId, sync, drafts])
-  const preview = frozen !== null && frozen.nodeId === nodeId ? frozen.preview : live
 
   function handleOpenChange(next: boolean) {
     if (next) return
     closeDialog()
   }
 
-  async function handleConfirm() {
+  function handleConfirm() {
     if (nodeId === null || preview.status !== 'ok') return
-    setFrozen({ nodeId, preview })
-    const outcome = await onRemove(nodeId)
-    // Nothing was removed: the node is still there, and opening Remove on it
-    // again must show the graph as it is then, not this attempt's preview.
-    if (outcome.status !== 'removed') setFrozen(null)
+    const outcome = onRemove(nodeId)
     if (outcome.status === 'refused' || outcome.status === 'failed') {
-      // The save's reason (a validation refusal, say) goes in a toast, as a
-      // canvas save's does; the dialog has nothing left to ask.
       const title = `Couldn’t remove ${preview.name}`
       actionToast.error(
         title,
         outcome.reason === title ? undefined : { description: outcome.reason },
       )
     }
-    // A graph conflict's workspace notice says why. Close only this dialog:
-    // it may have been dismissed, and another opened, meanwhile.
-    const { dialog, dialogTarget } = useIdeStore.getState()
-    if (dialog === 'removeNode' && dialogTarget === nodeId) closeDialog()
+    closeDialog()
   }
 
   const name = preview.status === 'missing' ? 'node' : preview.name
@@ -90,7 +76,7 @@ export function RemoveNodeDialog({ onRemove, busy }: RemoveNodeDialogProps) {
       description={<RemoveDescription preview={preview} />}
       icon={Trash2}
       confirmLabel="Remove"
-      loading={busy || preview.status !== 'ok'}
+      loading={preview.status !== 'ok'}
       onConfirm={handleConfirm}
     />
   )
@@ -102,7 +88,7 @@ function RemoveDescription({ preview }: { preview: RemovePreview }) {
   const { readers, rebound, emptiedArms, renamed, draftPath } = preview
   return (
     <span className="flex flex-col gap-3">
-      <span>The steps around it are joined.</span>
+      <span>The steps around it are joined when you save.</span>
       {readers.length > 0 && (
         <Impact icon={AlertTriangle} tone="text-status-warning" label="Will error">
           {readerChips(readers)}

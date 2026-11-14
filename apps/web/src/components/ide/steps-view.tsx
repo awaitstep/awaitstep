@@ -12,7 +12,8 @@ import { railRows } from '../../lib/ide/step-rail-layout'
 import { isArmEdge } from '../../lib/ide/step-placements'
 import { selectStep } from '../../lib/ide/step-actions'
 import { nodeMeta, stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
-import { stepsKeyIntent } from '../../lib/ide/steps-keys'
+import { pendingNodeIds } from '../../lib/ide/graph-ops'
+import { isUndoKey, stepsKeyIntent } from '../../lib/ide/steps-keys'
 import { escapeCss } from '../../lib/ide/css-escape'
 import type { CreateStepOutcome, NewTemplateNode } from '../../lib/ide/step-create'
 import { useIdeLayoutStore } from '../../stores/ide-layout-store'
@@ -39,7 +40,9 @@ interface StepsViewProps {
     name: string,
     nodeId?: string,
     template?: NewTemplateNode,
-  ) => Promise<CreateStepOutcome>
+  ) => CreateStepOutcome
+  /** Discards the last pending graph edit; false when there was none. */
+  onUndoGraphEdit: () => boolean
 }
 
 /**
@@ -54,6 +57,7 @@ export function StepsView({
   canEdit,
   readOnlyMessage,
   onCreateStep,
+  onUndoGraphEdit,
 }: StepsViewProps) {
   const {
     workflowId,
@@ -69,13 +73,16 @@ export function StepsView({
     takenStepIds,
   } = useStepSync()
   const { registry, customNodes } = useNodeRegistry()
-  const { activePath, selectedNodeId, focusRequested } = useIdeStore(
+  const { activePath, selectedNodeId, focusRequested, graphOps } = useIdeStore(
     useShallow((s) => ({
       activePath: s.activePath,
       selectedNodeId: s.selectedNodeId,
       focusRequested: s.stepsFocusRequested,
+      graphOps: s.graphOps,
     })),
   )
+  // Nodes a pending graph edit adds or changes: their rows carry the unsaved dot.
+  const pendingNodes = useMemo(() => pendingNodeIds(graphOps), [graphOps])
   const showing = useIdeLayoutStore((s) => s.sideBarTab === 'steps')
   const previewOpen = useIdeLayoutStore((s) => s.previewOpen)
   const picker = useIdeStepsStore((s) => s.picker)
@@ -161,6 +168,11 @@ export function StepsView({
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    // ⌘Z here undoes the last pending graph edit; the editor keeps its own undo.
+    if (isUndoKey(event)) {
+      if (canEdit && onUndoGraphEdit()) event.preventDefault()
+      return
+    }
     const nodeId = (event.target as HTMLElement).dataset.stepId
     if (!nodeId || event.altKey || event.ctrlKey || event.metaKey) return
     const intent = stepsKeyIntent(shown, collapsed, nodeId, event.key)
@@ -203,17 +215,17 @@ export function StepsView({
     useIdeLayoutStore.getState().togglePreview()
   }
 
-  async function handleDialogCreate(
+  function handleDialogCreate(
     placement: StepPlacement,
     name: string,
     nodeId: string,
     template?: NewTemplateNode,
-  ): Promise<CreateStepOutcome> {
+  ): CreateStepOutcome {
     // A step's create keeps its three-argument call; only a custom node adds the template.
     const outcome = template
-      ? await onCreateStep(placement, name, nodeId, template)
-      : await onCreateStep(placement, name, nodeId)
-    if (outcome.status === 'created' && outcome.opened && outcome.path !== null) {
+      ? onCreateStep(placement, name, nodeId, template)
+      : onCreateStep(placement, name, nodeId)
+    if (outcome.status === 'created' && outcome.path !== null) {
       useIdeStore.getState().requestEditorFocus()
     }
     return outcome
@@ -308,6 +320,7 @@ export function StepsView({
                 tabbable={row.nodeId === tabbableId}
                 active={activeIds.has(row.nodeId)}
                 selected={row.nodeId === selectedNodeId}
+                unsaved={pendingNodes.has(row.nodeId)}
                 outgoing={outgoing}
                 canCreate={canEdit}
                 readOnlyMessage={readOnlyMessage}

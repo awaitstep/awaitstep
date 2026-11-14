@@ -17,8 +17,6 @@ interface AddNodeFieldsProps {
   onFieldChange: (fieldId: string, value: unknown) => void
   /** Back to the list to pick another node. */
   onChangeNode: () => void
-  /** A save is in flight: nothing here can change until it settles. */
-  busy: boolean
   /** Required fields to mark "Required": edited and left empty. */
   missing: readonly string[]
 }
@@ -36,7 +34,6 @@ export function AddNodeFields({
   onNameChange,
   onFieldChange,
   onChangeNode,
-  busy,
   missing,
 }: AddNodeFieldsProps) {
   const { customNodes } = useNodeRegistry()
@@ -57,7 +54,7 @@ export function AddNodeFields({
   }
 
   return (
-    <fieldset disabled={busy} className="min-w-0 space-y-4">
+    <fieldset className="min-w-0 space-y-4">
       <div className="flex items-center gap-2.5 rounded-lg border border-border px-2.5 py-2">
         <span
           className={cn(

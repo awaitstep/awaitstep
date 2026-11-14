@@ -12,6 +12,7 @@ export function makeReviewBindings(overrides: Partial<ReviewBindings> = {}): Rev
     workflowId: 'wf',
     files: new Map(),
     baseline: new Map(),
+    fileOps: [],
     canEdit: true,
     busy: false,
     editabilityOf: () => ({ readOnly: false, message: null }),
@@ -25,6 +26,8 @@ export function makeReviewBindings(overrides: Partial<ReviewBindings> = {}): Rev
     onUseServerVersion: vi.fn(),
     onRecreate: vi.fn().mockResolvedValue(true),
     onDiscardDeleted: vi.fn(),
+    onDiscardGraphOp: vi.fn(),
+    onDiscardFileOp: vi.fn(),
     ...overrides,
   }
 }

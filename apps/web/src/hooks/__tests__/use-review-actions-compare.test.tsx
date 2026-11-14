@@ -19,6 +19,7 @@ function setup() {
         workflowId: 'wf',
         files: new Map(),
         baseline: new Map(),
+        fileOps: [],
         canEdit: true,
         projectFiles: { busy: false } as never,
         draftUndo: {} as never,

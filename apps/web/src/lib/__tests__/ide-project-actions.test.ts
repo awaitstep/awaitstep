@@ -11,7 +11,7 @@ import {
   type Notifier,
   type ProjectFileClient,
 } from '../ide/project-actions'
-import type { StepSaveOutcome } from '../ide/step-save'
+import { GRAPH_EDITS_KEY, type StepSaveOutcome } from '../ide/step-save'
 import { useIdeStore } from '../../stores/ide-store'
 
 function file(path: string, source: string, hash?: string): SourceFile {
@@ -760,6 +760,41 @@ describe('project file actions and step sources', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
     // The commit comes before the refetch, so the refetch sees the recorded version.
     expect(commit.mock.invocationCallOrder[0]!).toBeLessThan(refresh.mock.invocationCallOrder[0]!)
+  })
+
+  it('saveAll takes the pending graph edits along and counts each one', async () => {
+    const store = useIdeStore.getState()
+    store.setDraft('config/env.ts', 'edited env', 'h-env')
+    store.addGraphOp({ id: 'op-1', op: { kind: 'remove', nodeId: 'a' }, label: 'Removed “A”' })
+    store.addGraphOp({ id: 'op-2', op: { kind: 'remove', nodeId: 'b' }, label: 'Removed “B”' })
+    const { saveSteps, actions } = setup()
+    expect(await actions.saveAll()).toBe(3)
+    expect(saveSteps).toHaveBeenCalledWith([GRAPH_EDITS_KEY])
+  })
+
+  it('saveAll does not count graph edits when some no longer applied, so leaving stops', async () => {
+    useIdeStore
+      .getState()
+      .addGraphOp({ id: 'op-1', op: { kind: 'remove', nodeId: 'a' }, label: 'Removed “A”' })
+    const { saveSteps, actions } = setup()
+    saveSteps.mockResolvedValueOnce(
+      new Map<string, StepSaveOutcome>([[GRAPH_EDITS_KEY, 'partial']]),
+    )
+    expect(await actions.saveAll()).toBe(0)
+  })
+
+  it('saveFile of a new step’s file with no typed code is saved by its pending Add', async () => {
+    useIdeStore
+      .getState()
+      .addGraphOp({ id: 'op-1', op: { kind: 'remove', nodeId: 'a' }, label: 'Removed “A”' })
+    const { saveSteps, actions } = setup()
+    saveSteps.mockResolvedValueOnce(
+      new Map<string, StepSaveOutcome>([
+        [STEP, 'unchanged'],
+        [GRAPH_EDITS_KEY, 'saved'],
+      ]),
+    )
+    expect(await actions.saveFile(STEP)).toBe(true)
   })
 
   it('saveFiles saves only the paths it was given and answers in their order', async () => {

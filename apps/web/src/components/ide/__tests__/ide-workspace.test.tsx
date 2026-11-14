@@ -235,7 +235,7 @@ describe('IdeWorkspace', () => {
     mount(client)
     expect(screen.getByText('The code workspace needs a wider window')).toBeTruthy()
     expect(screen.getByRole('alertdialog')).toBeTruthy()
-    expect(screen.getByText(/One file has unsaved changes/)).toBeTruthy()
+    expect(screen.getByText(/One change is unsaved/)).toBeTruthy()
   })
 
   it('shows the explorer and dock panes only while the layout store has them open', () => {

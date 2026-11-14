@@ -22,6 +22,8 @@ interface StepRowItemProps {
   tabbable: boolean
   active: boolean
   selected: boolean
+  /** A pending graph edit adds or changes this node: it shows the unsaved dot. */
+  unsaved?: boolean
   /** The connections out of this node; the menu offers one entry per connection. */
   outgoing: readonly StepOutgoingEdge[]
   /** False when the workspace cannot edit: the menu stays, disabled. */
@@ -48,6 +50,7 @@ export function StepRowItem({
   tabbable,
   active,
   selected,
+  unsaved = false,
   outgoing,
   canCreate,
   readOnlyMessage,
@@ -130,6 +133,12 @@ export function StepRowItem({
         </span>
         {meta && <span className="block truncate text-2xs text-muted-foreground">{meta}</span>}
       </span>
+      {unsaved && (
+        <span
+          aria-label="Unsaved changes"
+          className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-warning"
+        />
+      )}
       <StepRowMenu
         nodeId={row.nodeId}
         name={name}

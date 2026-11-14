@@ -19,6 +19,8 @@ import {
   storedFiles as storedOf,
   virtualSeedFiles,
 } from '../lib/ide/project'
+import { applyFileOps, newFilePaths, vacatedPaths, type PendingFileOp } from '../lib/ide/file-ops'
+import { editedVersion, pendingNodeIds, pendingStepPaths, waitingOps } from '../lib/ide/graph-ops'
 import { formatClock } from '../lib/ide/session-log'
 import { deriveReadOnlyState } from '../lib/hydrate-workflow'
 import type { SourceFile } from '../lib/api-client'
@@ -28,6 +30,7 @@ import { useDraftOverlay } from './use-draft-overlay'
 import { useWorkspaceProblems } from './use-workspace-problems'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
+const NO_FILE_OPS: readonly PendingFileOp[] = []
 const NO_STEPS: StepSources = { files: [], byNode: new Map(), byPath: new Map(), collisions: [] }
 
 /**
@@ -53,6 +56,8 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   // pruning) ever judges a step file against a baseline that lacks it.
   const loaded = source !== undefined && fullData !== undefined
   const drafts = useIdeStore((s) => s.drafts)
+  const graphOps = useIdeStore((s) => s.graphOps)
+  const fileOps = useIdeStore((s) => s.fileOps)
   const { isReadOnly: isHistorical, readOnlyVersion } = deriveReadOnlyState(
     versionParam,
     fullData?.workflow.currentVersionId,
@@ -86,7 +91,18 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   // is a step source (saved through the version), the rest is generated.
   // Legacy settings surface as virtual files to adopt.
   const storedPaths = useMemo(() => new Set(storedFiles.keys()), [storedFiles])
-  const version = useMemo(() => loadVersionDocument(fullData), [fullData])
+  const savedVersion = useMemo(() => loadVersionDocument(fullData), [fullData])
+  // The loaded version with Code's pending graph edits replayed: what the
+  // step files, Steps list, inspector and map show. An older version never
+  // holds any (edits are refused there).
+  const version = useMemo(
+    () =>
+      savedVersion && !isHistorical ? editedVersion(savedVersion, graphOps).version : savedVersion,
+    [savedVersion, isHistorical, graphOps],
+  )
+  const pendingNodes = useMemo(() => pendingNodeIds(graphOps), [graphOps])
+  // The edits a save would write: the list Unsaved changes shows.
+  const waitingGraphOps = useMemo(() => waitingOps(graphOps), [graphOps])
   const steps = useMemo(
     () => (version ? stepSources(version.doc, storedPaths) : NO_STEPS),
     [version, storedPaths],
@@ -103,9 +119,21 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     () => (canEdit && fullData ? virtualSeedFiles(fullData.workflow, storedPaths) : []),
     [canEdit, fullData, storedPaths],
   )
+  // The project files as Code shows them: a pending delete or rename has
+  // freed its old path, and new or renamed files are the project's own. An
+  // older version never holds pending changes.
+  const shownFileOps = isHistorical ? NO_FILE_OPS : fileOps
+  const shownStoredPaths = useMemo(() => {
+    if (shownFileOps.length === 0) return storedPaths
+    const vacated = vacatedPaths(shownFileOps)
+    return new Set([
+      ...[...storedPaths].filter((path) => !vacated.has(path)),
+      ...newFilePaths(shownFileOps),
+    ])
+  }, [storedPaths, shownFileOps])
   const savedProjectPaths = useMemo(
-    () => new Set([...storedPaths, ...seeds.map((f) => f.path), ...stepPaths]),
-    [storedPaths, seeds, stepPaths],
+    () => new Set([...shownStoredPaths, ...seeds.map((f) => f.path), ...stepPaths]),
+    [shownStoredPaths, seeds, stepPaths],
   )
   const virtualPaths = useMemo(() => new Set(seeds.map((f) => f.path)), [seeds])
 
@@ -117,13 +145,34 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     // generated copy there: the editable source replaces it. (A stored file
     // at that path is a collision, and `stepSources` leaves the step out.)
     for (const step of steps.files) map.set(step.path, step)
-    return map
-  }, [source, loaded, seeds, steps])
+    return applyFileOps(map, shownFileOps)
+  }, [source, loaded, seeds, steps, shownFileOps])
   const { files, projectPaths, ghostPaths } = useDraftOverlay(baseline, drafts, savedProjectPaths)
   // Stored files only (neither a virtual seed nor a step source is counted by
   // the server); it changes when files do, not with every keystroke.
   const usage = useMemo(() => projectUsage(storedFiles.values()), [storedFiles])
   const dirty = useMemo(() => new Set(dirtyPaths(baseline, drafts)), [baseline, drafts])
+  // A pending node's step file is new: nothing saved stands behind it, so its
+  // tab and row show the unsaved dot. Its Add is what a save writes, so it is
+  // counted once, as a graph edit, not again as a file.
+  const newStepPaths = useMemo(
+    () => new Set(pendingStepPaths(graphOps).filter((path) => baseline.has(path))),
+    [graphOps, baseline],
+  )
+  // New and renamed files have nothing saved at their path yet.
+  const newFiles = useMemo(() => newFilePaths(shownFileOps), [shownFileOps])
+  const shownDirty = useMemo(
+    () =>
+      newStepPaths.size === 0 && newFiles.length === 0
+        ? dirty
+        : new Set([...dirty, ...newStepPaths, ...newFiles]),
+    [dirty, newStepPaths, newFiles],
+  )
+  // What Save would write: files with unsaved text, each new or renamed file
+  // once (its text included), each pending delete, each pending graph edit.
+  const pendingDeletes = shownFileOps.filter((op) => op.kind === 'delete').length
+  const unsavedCount =
+    new Set([...dirty, ...newFiles]).size + pendingDeletes + waitingGraphOps.length
   // Trees only depend on which files exist, so a keystroke never rebuilds them.
   // The Library modules the bundle carries, by file: read-only here.
   const libraryFiles = useMemo(
@@ -177,13 +226,21 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     source,
     loaded,
     hasVersion: !!fullData?.version,
+    savedVersion,
+    editedDoc: version?.doc ?? null,
+    waitingGraphOps,
+    fileOps: shownFileOps,
+    pendingNodes,
+    unsavedCount,
+    newStepPaths,
+    shownDirty,
     isHistorical,
     readOnlyVersion,
     storedFiles,
     storedHashes,
     workspace,
     canEdit,
-    storedPaths,
+    storedPaths: shownStoredPaths,
     virtualPaths,
     stepPaths,
     stepSourceByNode,

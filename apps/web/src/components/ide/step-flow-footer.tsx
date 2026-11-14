@@ -6,7 +6,6 @@ interface StepFlowFooterProps {
   side: 'after' | 'before'
   fastChoiceName: string | null
   mapSummary: string
-  busy: boolean
   canInsert: boolean
   onCancel: () => void
   /** Custom node chosen, none picked yet. */
@@ -21,7 +20,6 @@ export function StepFlowFooter({
   side,
   fastChoiceName,
   mapSummary,
-  busy,
   canInsert,
   onCancel,
   picking = false,
@@ -46,12 +44,12 @@ export function StepFlowFooter({
       )}
       <div className="flex shrink-0 items-center gap-2">
         {mode === 'fast' && (
-          <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={busy}>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             Cancel
           </Button>
         )}
-        <Button type="submit" size="sm" loading={busy} disabled={!canInsert}>
-          {busy ? 'Inserting…' : 'Insert'}
+        <Button type="submit" size="sm" disabled={!canInsert}>
+          Insert
         </Button>
       </div>
     </div>

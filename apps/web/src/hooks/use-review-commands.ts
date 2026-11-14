@@ -5,6 +5,8 @@ import type { IdeCommandActions } from '../lib/ide/commands'
 import type { DraftUndo } from '../lib/ide/draft-undo'
 import type { Drafts } from '../lib/ide/drafts'
 import { outsideState } from '../lib/ide/outside-changes'
+import { waitingOps } from '../lib/ide/graph-ops'
+import { GRAPH_EDITS_KEY } from '../lib/ide/step-save'
 import { useIdeStore } from '../stores/ide-store'
 import type { ReviewBindings } from '../components/ide/review-bindings'
 import { activeTargetPath } from './use-review-actions'
@@ -57,7 +59,15 @@ export function useReviewCommands(input: ReviewCommandsInput) {
           return
         }
         const path = target()
-        if (path) void projectFiles.saveFile(path)
+        const store = useIdeStore.getState()
+        // The file in front of the person, when it has something to save (a
+        // step's save takes the pending graph edits along); else the pending
+        // graph edits on their own.
+        if (path && (store.drafts[path] || waitingOps(store.graphOps).length === 0)) {
+          void projectFiles.saveFile(path)
+        } else if (waitingOps(store.graphOps).length > 0) {
+          void projectFiles.saveFiles([GRAPH_EDITS_KEY])
+        }
       },
       revertFile: () => {
         const path = target()

@@ -43,7 +43,7 @@ interface StepFlowDialogProps {
     name: string,
     nodeId: string,
     template?: NewTemplateNode,
-  ) => Promise<CreateStepOutcome>
+  ) => CreateStepOutcome
   onClose: () => void
 }
 
@@ -77,9 +77,7 @@ export function StepFlowDialog({
   const [anchorId, setAnchorId] = useState<string | null>(null)
   const [mapPlacement, setMapPlacement] = useState<StepPlacement | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const wasOpen = useRef(false)
-  const generation = useRef(0)
   // A created step's editor focus must not be replaced by the Steps row when
   // the dialog's close auto-focus runs.
   const restoreFocus = useRef(true)
@@ -113,17 +111,14 @@ export function StepFlowDialog({
   useEffect(() => {
     if (!open) {
       wasOpen.current = false
-      generation.current += 1
       return
     }
     if (wasOpen.current) return
     wasOpen.current = true
-    generation.current += 1
     restoreFocus.current = true
     createdNodeId.current = null
     resetDraft()
     setError(null)
-    setBusy(false)
     setMode('fast')
     setSide('after')
     setAnchorId(afters[0]?.nodeId ?? null)
@@ -207,7 +202,6 @@ export function StepFlowDialog({
   const missingLabels = missing.map((fieldId) => picked?.configSchema[fieldId]?.label ?? fieldId)
   const missingNotice = missing.length > 0 ? `Fill in ${listLabels(missingLabels)}` : null
   const canInsert =
-    !busy &&
     !picking &&
     missing.length === 0 &&
     name.trim() !== '' &&
@@ -282,14 +276,7 @@ export function StepFlowDialog({
   }
 
   function closeDialog() {
-    generation.current += 1
     onClose()
-  }
-
-  function requestClose() {
-    // The POST cannot be cancelled; leave the dialog open until it settles.
-    if (busy) return
-    closeDialog()
   }
 
   function handleCloseAutoFocus(event: Event) {
@@ -307,12 +294,11 @@ export function StepFlowDialog({
     })
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.FormEvent) {
     // React bubbles a submit through portals: one from a dialog opened over
     // this one (the marketplace) must not insert.
     if (event.target !== event.currentTarget) return
     event.preventDefault()
-    if (busy) return
     const trimmed = name.trim()
     if (picking) {
       setError('Choose a node to add.')
@@ -328,22 +314,16 @@ export function StepFlowDialog({
       setError(`Choose where the ${noun} goes.`)
       return
     }
-    const run = generation.current
-    setBusy(true)
     setError(null)
-    const outcome = await onCreate(activePlacement, trimmed, fileStem, draft.template())
-    if (generation.current !== run) return
-    if (outcome.status === 'created' || outcome.status === 'graph-conflict') {
+    const outcome = onCreate(activePlacement, trimmed, fileStem, draft.template())
+    if (outcome.status === 'created') {
       // A new step's file takes focus. A custom node has none: it is selected,
       // so its Steps row is the one the close focuses.
-      if (outcome.status === 'created' && outcome.opened) {
-        if (outcome.path !== null) restoreFocus.current = false
-        else createdNodeId.current = outcome.nodeId
-      }
+      if (outcome.path !== null) restoreFocus.current = false
+      else createdNodeId.current = outcome.nodeId
       closeDialog()
       return
     }
-    setBusy(false)
     setError(outcome.reason)
     const nameLabel = noun === 'step' ? 'Step name' : 'Node name'
     requestAnimationFrame(() =>
@@ -360,7 +340,6 @@ export function StepFlowDialog({
         name={name}
         data={draft.fields}
         error={error}
-        busy={busy}
         missing={missing.filter((fieldId) => draft.touched.has(fieldId))}
         onNameChange={handleNameChange}
         onFieldChange={draft.setField}
@@ -369,7 +348,7 @@ export function StepFlowDialog({
     ) : undefined
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? undefined : requestClose())}>
+    <Dialog open={open} onOpenChange={(next) => (next ? undefined : closeDialog())}>
       <DialogContent
         className="top-[10%] flex max-h-[85vh] w-[460px] max-w-[calc(100vw-2rem)] -translate-y-0 flex-col overflow-hidden p-0"
         onCloseAutoFocus={handleCloseAutoFocus}
@@ -379,11 +358,10 @@ export function StepFlowDialog({
             mode={picking ? 'fast' : mode}
             kind={draft.kind}
             onKindChange={handleKindChange}
-            busy={busy}
             fileStem={fileStem}
             name={name}
             onNameChange={handleNameChange}
-            onClose={requestClose}
+            onClose={closeDialog}
             onBack={openFast}
           />
           {picking ? (
@@ -438,9 +416,8 @@ export function StepFlowDialog({
             side={side}
             fastChoiceName={fastChoice?.nodeName ?? null}
             mapSummary={mapSummary}
-            busy={busy}
             canInsert={canInsert}
-            onCancel={requestClose}
+            onCancel={closeDialog}
           />
         </form>
       </DialogContent>

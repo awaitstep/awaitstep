@@ -13,9 +13,9 @@ interface NodeFieldsEditorProps {
 
 /**
  * A custom or marketplace node's fields and Inline switch in Code's node
- * details. Someone who may edit changes them here and saves them as one
- * version; everyone else sees them read-only. Edits wait as a draft until
- * Save, so typing never writes a version per keystroke.
+ * details. Someone who may edit changes them here; Save hands them to the
+ * workspace's pending graph edits, written with the next save. Everyone else
+ * sees them read-only. Typing waits as a draft until Save.
  */
 export function NodeFieldsEditor({ workflowId, node, definition }: NodeFieldsEditorProps) {
   const edit = useNodeEdit()
@@ -23,9 +23,8 @@ export function NodeFieldsEditor({ workflowId, node, definition }: NodeFieldsEdi
   const key = nodeDraftKey(workflowId, node.id)
   const base = JSON.stringify(node.data)
   const stored = useNodeFieldDraftsStore((state) => state.drafts[key])
-  const busy = useNodeFieldDraftsStore((state) => state.saving[key] === true)
   const error = useNodeFieldDraftsStore((state) => state.errors[key] ?? null)
-  const { setDraft, dropDraft, setSaving, setError } = useNodeFieldDraftsStore.getState()
+  const { setDraft, dropDraft, setError } = useNodeFieldDraftsStore.getState()
 
   // A draft applies only where it can be saved (not on an older version or
   // for a viewer), and only to the data it was started from: once that was
@@ -52,21 +51,19 @@ export function NodeFieldsEditor({ workflowId, node, definition }: NodeFieldsEdi
     dropDraft(key)
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!edit || !draft || busy) return
-    setSaving(key, true)
+    if (!edit || !draft) return
     setError(key, null)
-    const outcome = await edit.saveNodeFields(node.id, draft, node.data)
-    setSaving(key, false)
-    if (outcome.status === 'saved') dropDraft(key)
-    // A conflict keeps the draft: the workspace notice says what happened.
-    else if (outcome.status !== 'graph-conflict') setError(key, outcome.reason)
+    const outcome = edit.saveNodeFields(node.id, draft, node.data)
+    // Recorded: the node now shows the edited values, unsaved until Save.
+    if (outcome.status === 'recorded') dropDraft(key)
+    else setError(key, outcome.reason)
   }
 
   return (
     <form onSubmit={handleSubmit} aria-label="Node settings" className="border-t border-border/60">
-      <fieldset disabled={!editable || busy} className="min-w-0 space-y-3 px-3 py-2.5">
+      <fieldset disabled={!editable} className="min-w-0 space-y-3 px-3 py-2.5">
         {hasFields && (
           <DynamicFields
             configSchema={definition.configSchema}
@@ -81,16 +78,10 @@ export function NodeFieldsEditor({ workflowId, node, definition }: NodeFieldsEdi
       </fieldset>
       {editable && (
         <div className="flex items-center gap-2 px-3 pb-2.5">
-          <Button type="submit" size="sm" loading={busy} disabled={!draft || busy}>
+          <Button type="submit" size="sm" disabled={!draft}>
             Save
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={handleDiscard}
-            disabled={!draft || busy}
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={handleDiscard} disabled={!draft}>
             Discard
           </Button>
           {error !== null && (

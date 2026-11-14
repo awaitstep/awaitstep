@@ -158,9 +158,9 @@ describe('WorkspaceUnsavedDialog', () => {
     expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
-  it('counts the unsaved files in its question', async () => {
+  it('counts the unsaved changes in its question', async () => {
     renderUnsaved(blocked())
-    expect(await screen.findByText(/2 files have unsaved changes/)).toBeTruthy()
+    expect(await screen.findByText(/2 changes are unsaved/)).toBeTruthy()
   })
 
   it('goes on after Save and switch only when every dirty file was written', async () => {

@@ -75,6 +75,7 @@ function setup(overrides: { canEdit?: boolean; wideEnough?: boolean } = {}) {
         baseline,
         files: baseline,
         dirty: new Set<string>(),
+        fileOps: [],
         storedPaths: new Set(['workflow.ts', 'handlers.ts']),
         editabilityOf: () => ({ readOnly: false, message: null }),
         ownerOf: () => 'project',

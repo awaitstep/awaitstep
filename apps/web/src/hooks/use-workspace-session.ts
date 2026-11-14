@@ -3,7 +3,6 @@ import type { IdeCommandActions } from '../lib/ide/commands'
 import { SAVE_VERSION_FIRST, sessionCommands } from '../lib/ide/run-intent'
 import { sessionStatus } from '../lib/ide/status-bar'
 import { useIdeLayoutStore } from '../stores/ide-layout-store'
-import { useIdeStore } from '../stores/ide-store'
 import { useRunAction } from './use-run-action'
 import { useTestSession } from './use-test-session'
 
@@ -19,6 +18,11 @@ interface UseWorkspaceSessionOptions {
   activeFile: { path: string; source: string } | null
   /** Saves every unsaved file; resolves to how many were written. */
   onSaveAll: () => Promise<number>
+  /**
+   * Everything Save would write (typed text, graph edits, file changes):
+   * Run offers to save first while any is pending.
+   */
+  unsavedCount: number
 }
 
 type SessionActions = Pick<
@@ -38,8 +42,8 @@ export function useWorkspaceSession({
   storedHashes,
   activeFile,
   onSaveAll,
+  unsavedCount,
 }: UseWorkspaceSessionOptions) {
-  const unsavedCount = useIdeStore((s) => Object.keys(s.drafts).length)
   const testSession = useTestSession({
     workflowId,
     versionId: currentVersionId,
