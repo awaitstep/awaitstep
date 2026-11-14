@@ -373,6 +373,7 @@ export {
   type SignInProvider,
 } from './account.js'
 export { JS_RESERVED_WORDS, isIdentifierName } from './identifiers.js'
+export { GENERATED_BODY_NAMES, GENERATED_NAMES, INLINE_TAKEN_NAMES } from './generated-names.js'
 export {
   CUSTOM_NODE_TYPE_PREFIX,
   FIRST_LIBRARY_VERSION,

@@ -7,6 +7,7 @@ import type {
   WorkflowNode,
 } from './types.js'
 import { isIdentifierName } from './identifiers.js'
+import { GENERATED_BODY_NAMES } from './generated-names.js'
 import { isBuiltinNodeType } from './types.js'
 import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './schema.js'
 import { validateDependencySpecs } from './dependencies.js'
@@ -17,21 +18,7 @@ import { validateProjectFiles } from './project-files.js'
  * loop's other bindings, and the names a loop body uses (the item would hide
  * them there). A `$` name is refused too: step module imports are `$<name>`.
  */
-const LOOP_ITEM_TAKEN = new Set([
-  'env',
-  'event',
-  'inputs',
-  'step',
-  'ctx',
-  'index',
-  'flow',
-  'stepArgs',
-  'waitForEventOrTimeout',
-  '_loop_i',
-  '_output',
-  'err',
-  'Promise',
-])
+const LOOP_ITEM_TAKEN: ReadonlySet<string> = new Set([...GENERATED_BODY_NAMES, 'index', 'Promise'])
 
 export function validateIR(input: unknown): Result<WorkflowIR, ValidationError[]> {
   const result = workflowIRSchema.safeParse(input)

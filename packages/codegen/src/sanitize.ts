@@ -1,4 +1,4 @@
-import { JS_RESERVED_WORDS, isBuiltinNodeType } from '@awaitstep/ir'
+import { GENERATED_NAMES, JS_RESERVED_WORDS, isBuiltinNodeType } from '@awaitstep/ir'
 
 export function sanitizeIdentifier(name: string): string {
   return name
@@ -241,37 +241,15 @@ const RUNTIME_GLOBALS = [
   'window',
   'document',
   'location',
-  // Names the generated code binds around a step
-  '_output',
-  '_loop_i',
-  'err',
-  'graph',
 ]
 
 export const RESERVED_VAR_NAMES: ReadonlySet<string> = new Set([
   ...JS_RESERVED_WORDS,
   ...RUNTIME_GLOBALS,
-  'env',
-  'event',
-  'flow',
-  'step',
-  'ctx',
-  'inputs',
-  'runGraph',
-  'workflow',
+  ...GENERATED_NAMES,
   'globalThis',
   'crypto',
   'Date',
-  'createWorkflowContext',
-  'createInlineHost',
-  'createCloudflareHost',
-  'createAwaitstepPlatform',
-  'durableStep',
-  'stepArgs',
-  'waitForEventOrTimeout',
-  'defineWorkflow',
-  'defineFunction',
-  'AWAITSTEP_RETENTION',
 ])
 
 export function buildVarNameMap(nodes: { id: string; name: string }[]): Map<string, string> {
