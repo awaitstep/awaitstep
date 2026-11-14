@@ -24,11 +24,7 @@ export function WorkflowTitle({ name, kind, version, children, href }: WorkflowT
   return (
     <div className="flex min-w-0 items-center gap-1.5 px-1 @[640px]:gap-2">
       {href ? (
-        <RouterShellLink
-          href={href}
-          title="Open the overview"
-          className={cn(NAME_CLASS, '')}
-        >
+        <RouterShellLink href={href} title="Open the overview" className={cn(NAME_CLASS, '')}>
           {name}
         </RouterShellLink>
       ) : (

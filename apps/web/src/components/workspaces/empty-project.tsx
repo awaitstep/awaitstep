@@ -51,10 +51,7 @@ function SetupRow({ step }: { step: SetupStep }) {
   }
   return (
     <li>
-      <ShellLink
-        href={step.href}
-        className="flex items-center gap-3 py-2.5 text-sm "
-      >
+      <ShellLink href={step.href} className="flex items-center gap-3 py-2.5 text-sm">
         {mark}
         <span className="flex-1 text-foreground">{step.label}</span>
         {step.caption && <span className="text-2xs text-muted-foreground">{step.caption}</span>}

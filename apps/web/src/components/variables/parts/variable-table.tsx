@@ -28,11 +28,7 @@ function Notes({
   if (variable.setAt.level === 'organization') notes.push(<span key="org">From the org</span>)
   for (const workspace of variable.overriddenIn) {
     notes.push(
-      <ShellLink
-        key={workspace.id}
-        href={overrideHref(workspace)}
-        className="text-status-success "
-      >
+      <ShellLink key={workspace.id} href={overrideHref(workspace)} className="text-status-success">
         Overridden in {workspace.name}
       </ShellLink>,
     )
@@ -92,10 +88,7 @@ export function VariableTable({
       header: '',
       width: '100px',
       cell: (v) => (
-        <ShellLink
-          href={actionHref(v)}
-          className="text-xs font-medium text-status-success "
-        >
+        <ShellLink href={actionHref(v)} className="text-xs font-medium text-status-success ">
           {v.setAt.level === 'organization' ? 'Override' : 'Edit'}
         </ShellLink>
       ),

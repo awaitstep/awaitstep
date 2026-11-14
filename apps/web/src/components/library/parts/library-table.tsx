@@ -32,10 +32,7 @@ function NameCell({ row, href }: { row: ApiLibraryRow; href: string }) {
       />
       <span className="flex min-w-0 flex-col gap-0.5">
         <span className="flex min-w-0 items-center gap-2">
-          <ShellLink
-            href={href}
-            className="truncate text-sm font-semibold text-foreground "
-          >
+          <ShellLink href={href} className="truncate text-sm font-semibold text-foreground">
             {row.name}
           </ShellLink>
           <Badge variant="neutral">{KIND_PILL[row.kind]}</Badge>

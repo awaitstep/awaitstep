@@ -575,11 +575,7 @@ export function ProjectEmptyState({
       {canEdit && (
         <>
           {' '}
-          <button
-            type="button"
-            onClick={onCreate}
-            className="text-primary underline-offset-2 "
-          >
+          <button type="button" onClick={onCreate} className="text-primary">
             Create one
           </button>{' '}
           and import it anywhere as <code className="font-mono">#app/…</code>.

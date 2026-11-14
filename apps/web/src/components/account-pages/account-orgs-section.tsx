@@ -94,10 +94,7 @@ function OnlyOwnerNote({ slug }: { slug: string }) {
   return (
     <span className="max-w-[220px] text-right text-2xs text-muted-foreground">
       Only owner. Transfer ownership in{' '}
-      <ShellLink
-        href={orgSettingsPath(slug, 'members')}
-        className="text-status-success "
-      >
+      <ShellLink href={orgSettingsPath(slug, 'members')} className="text-status-success">
         Members
       </ShellLink>{' '}
       to leave.
