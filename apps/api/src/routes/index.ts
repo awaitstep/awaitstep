@@ -233,6 +233,11 @@ export function createRouter(
   )
   router.patch('/workspaces/:id/members/:userId', requireWorkspaceCan('manageMembers'))
   router.delete('/workspaces/:id/members/:userId', requireWorkspaceCan('manageMembers'))
+  // Installed marketplace nodes are the organization's: its owners and admins
+  // add, update and remove them; everyone reads them.
+  router.post('/marketplace/install', requireOrgCan('manageSettings'))
+  router.post('/marketplace/update', requireOrgCan('manageSettings'))
+  router.post('/marketplace/uninstall', requireOrgCan('manageSettings'))
   router.get('/members/:userId/access', requireOrgCan('manageSettings'))
   router.put('/members/:userId/access', requireOrgCan('manageSettings'))
   router.delete('/members/:userId', requireOrgCan('manageSettings'))

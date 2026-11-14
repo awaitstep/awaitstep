@@ -3236,6 +3236,8 @@ Install a node from the marketplace.
 
 **Permission:** `resources:write`
 
+Only the organization's owners and admins change its installed nodes (a key acts as its creator, who must be one); anyone else gets `403 { "error": "Only org owners and admins can do this" }`.
+
 ```json
 {
   "nodeId": "stripe",
@@ -3251,6 +3253,8 @@ Uninstall a previously installed node.
 
 **Permission:** `resources:delete`
 
+Only the organization's owners and admins change its installed nodes (a key acts as its creator, who must be one); anyone else gets `403 { "error": "Only org owners and admins can do this" }`.
+
 ```json
 {
   "nodeId": "stripe"
@@ -3262,6 +3266,8 @@ Uninstall a previously installed node.
 Update an installed node to a newer version.
 
 **Permission:** `resources:write`
+
+Only the organization's owners and admins change its installed nodes (a key acts as its creator, who must be one); anyone else gets `403 { "error": "Only org owners and admins can do this" }`.
 
 ```json
 {

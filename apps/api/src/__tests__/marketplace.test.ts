@@ -6,6 +6,7 @@ import {
   mockDb,
   recordedAuditEvents,
   resetStore,
+  setTestOrgRole,
   TEST_ORG_ID,
   TEST_USER_ID,
 } from './helpers.js'
@@ -370,6 +371,34 @@ describe('marketplace', () => {
     it('records nothing when the install is refused', async () => {
       await post('/install', { nodeId: 'nonexistent' })
       expect(recordedAuditEvents()).toEqual([])
+    })
+  })
+
+  describe('who changes the installed nodes', () => {
+    const post = (path: string, body: unknown) =>
+      app.request(url(path), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+    it('refuses a member install, update and uninstall with the reason, and leaves the install alone', async () => {
+      expect((await post('/install', { nodeId: 'test_node' })).status).toBe(201)
+      setTestOrgRole('member')
+      for (const path of ['/install', '/update', '/uninstall']) {
+        const res = await post(path, { nodeId: 'test_node' })
+        expect(res.status, path).toBe(403)
+        expect(await res.json()).toEqual({ error: 'Only org owners and admins can do this' })
+      }
+      expect(await mockDb.getInstalledNode(TEST_ORG_ID, 'test_node')).not.toBeNull()
+      // Reading stays open to members.
+      expect((await app.request(url(''))).status).toBe(200)
+    })
+
+    it('lets an admin install and uninstall', async () => {
+      setTestOrgRole('admin')
+      expect((await post('/install', { nodeId: 'test_node' })).status).toBe(201)
+      expect((await post('/uninstall', { nodeId: 'test_node' })).status).toBe(200)
     })
   })
 })
