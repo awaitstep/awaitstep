@@ -27,6 +27,14 @@ const AWAITSTEP_MODULES_LIB_URI = 'file:///awaitstep/awaitstep-modules.d.ts'
 const PLATFORM_MODULES_DTS = "declare module 'node:*';\n"
 const PLATFORM_MODULES_LIB_URI = 'file:///awaitstep/platform-modules.d.ts'
 
+// Numeric, not `ScriptTarget.ES2022` / `ModuleKind.ESNext`: Monaco's
+// ScriptTarget enum stops at ES2020, so `ES2022` is undefined at runtime and
+// the worker silently falls back to the ES2015 lib (`Object.entries` and
+// every later API become errors). The worker picks
+// `lib.es${2013 + target}.full.d.ts`, so 9 is ES2022.
+const ES2022_TARGET = 9
+const ESNEXT_MODULE = 99
+
 let configured = false
 
 /**
@@ -34,10 +42,10 @@ let configured = false
  * and a project tsconfig's switches) layer on top via
  * {@link setProjectCompilerOptions}.
  */
-function baseCompilerOptions(ts: Monaco['languages']['typescript']) {
+function baseCompilerOptions() {
   return {
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.ESNext,
+    target: ES2022_TARGET,
+    module: ESNEXT_MODULE,
     // ts.ModuleResolutionKind.Bundler (numeric: monaco's typings lag the
     // enum) — what wrangler's esbuild does: package.json `exports` and
     // `imports` resolve, extensionless relative imports resolve.
@@ -82,7 +90,7 @@ export function configureMonaco(monaco: Monaco): void {
 
   const ts = monaco.languages.typescript
   for (const defaults of [ts.typescriptDefaults, ts.javascriptDefaults]) {
-    defaults.setCompilerOptions(baseCompilerOptions(ts))
+    defaults.setCompilerOptions(baseCompilerOptions())
     defaults.setDiagnosticsOptions(diagnosticsOptions(false))
     defaults.setEagerModelSync(true)
     defaults.addExtraLib(AWAITSTEP_MODULES_DTS, AWAITSTEP_MODULES_LIB_URI)
@@ -138,7 +146,7 @@ export function setProjectCompilerOptions(
 ): void {
   configureMonaco(monaco)
   const ts = monaco.languages.typescript
-  const options = { ...baseCompilerOptions(ts), ...project }
+  const options = { ...baseCompilerOptions(), ...project }
   ts.typescriptDefaults.setCompilerOptions(options)
   ts.javascriptDefaults.setCompilerOptions(options)
 }

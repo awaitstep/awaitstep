@@ -72,7 +72,8 @@ function fakeMonaco() {
       typescript: {
         typescriptDefaults,
         javascriptDefaults,
-        ScriptTarget: { ES2022: 9 },
+        // Monaco's own enums: no ES2022 member.
+        ScriptTarget: { ES2015: 2, ES2017: 4, ES2020: 7, ESNext: 99 },
         ModuleKind: { ESNext: 99 },
       },
     },
@@ -130,6 +131,18 @@ describe('useProjectLanguageService', () => {
     expect(options.strict).toBe(true)
     // The JavaScript service gets the same program.
     expect(fake.javascriptDefaults.setCompilerOptions).toHaveBeenLastCalledWith(options)
+  })
+
+  it('targets ES2022, so the editor loads a lib that has Object.entries', () => {
+    const fake = fakeMonaco()
+    monaco.current = fake
+    renderHook(() => useProjectLanguageService('wf', files, { reportUnresolvedImports: true }))
+    const { target } = lastCompilerOptions(fake)
+    // Monaco's worker picks its default lib this way, falling back to the
+    // ES2015 lib when the file doesn't exist (an undefined target never does).
+    expect(`lib.es${2013 + ((target as number | undefined) || 99)}.full.d.ts`).toBe(
+      'lib.es2022.full.d.ts',
+    )
   })
 
   it('reports unresolved imports for the code workspace once types have settled', () => {
