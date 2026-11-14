@@ -17,6 +17,8 @@ Iterates over a collection. The collection can be a literal array or an expressi
 | Collection    | JavaScript expression evaluating to an array | `fetch_orders.results` |
 | Item variable | Name for each item inside the loop           | `order`                |
 
+The item variable can't share a name with a step inside the loop (`order` and a step named `order`): Check and Deploy refuse it until you rename one.
+
 **Generated code:**
 
 ```typescript

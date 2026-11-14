@@ -960,4 +960,46 @@ describe('expression references by node name', () => {
       'Expression references nonexistent node "nope"',
     )
   })
+
+  describe('names the generated code also binds', () => {
+    function loop(itemVar: string): FlowNode {
+      return makeFlowNode({
+        id: 'each',
+        type: 'loop',
+        name: 'each',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: { loopType: 'forEach', collection: '[1]', itemVar },
+      })
+    }
+
+    it('errors on the loop when its item is named like a step inside it, until one is renamed', () => {
+      const body = makeStepNode('w', { name: 'work' })
+      const issues = (itemVar: string) =>
+        validateWorkflowForPublish(
+          makeMetadata(),
+          [loop(itemVar), body],
+          [makeEdge('each', 'w', 'body')],
+        ).issues
+      expect(issues('work')).toContainEqual({
+        severity: 'error',
+        nodeId: 'each',
+        nodeName: 'each',
+        message: 'Loop "each" item name `work` is also step "work" inside this loop. Rename one.',
+      })
+      expect(issues('job').filter((i) => i.nodeId === 'each')).toEqual([])
+    })
+
+    it('errors on an inline step that declares a generated name', () => {
+      const inline = makeStepNode('s1', { name: 'Prepare', code: 'const step = 1' })
+      inline.data.irNode.data.inline = true
+      expect(validateWorkflowForPublish(makeMetadata(), [inline], []).issues).toContainEqual({
+        severity: 'error',
+        nodeId: 's1',
+        nodeName: 'Prepare',
+        message: 'Inline step "Prepare" declares `step`, which generated code uses. Rename it.',
+      })
+    })
+  })
 })

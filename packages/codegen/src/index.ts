@@ -139,7 +139,9 @@ export type {
   UnsupportedRequirement,
 } from './requirements.js'
 export { GENERATED_GRAPH_MODULES } from './runtime.js'
-export { extractImports } from './imports.js'
+export { extractImports, importBindings, importOrigin, mergeImports } from './imports.js'
+export { generatedNameProblems, topLevelDeclarations } from './generated-name-problems.js'
+export type { ImportBinding, ImportSource } from './imports.js'
 export {
   MAX_STEP_CODE_LENGTH,
   STEP_MODULE_PARAMS,

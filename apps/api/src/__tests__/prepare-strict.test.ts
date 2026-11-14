@@ -208,4 +208,67 @@ describe('a strict prepare', () => {
       severity: 'warning',
     })
   })
+
+  it('refuses an inline step that declares a name the generated code binds, and lists it on Check', async () => {
+    const clash = {
+      ...validIR,
+      nodes: [{ ...validIR.nodes[0], data: { code: 'const step = 1', inline: true } }],
+    }
+    const refused = await prepareStoredIr(clash)
+    expect(isPrepareError(refused) && refused.status).toBe(400)
+    expect(isPrepareError(refused) && refused.error).toBe(
+      'Inline step "Hello" declares `step`, which generated code uses. Rename it.',
+    )
+    const read = await prepareStoredIr(clash, undefined, { mode: 'read' })
+    expect(isPrepareError(read) ? read.error : read.diagnostics).toContainEqual({
+      source: 'ir',
+      nodeId: 'step-1',
+      message: 'Inline step "Hello" declares `step`, which generated code uses. Rename it.',
+    })
+  })
+
+  it('refuses a loop item named like a step inside the loop', async () => {
+    const prepared = await prepareStoredIr({
+      ...validIR,
+      nodes: [
+        {
+          id: 'each',
+          type: 'loop',
+          name: 'each',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { loopType: 'forEach', collection: '[1]', itemVar: 'work' },
+        },
+        { ...validIR.nodes[0], id: 'w', name: 'work' },
+      ],
+      edges: [{ id: 'e1', source: 'each', target: 'w', label: 'body' }],
+      entryNodeId: 'each',
+    })
+    expect(isPrepareError(prepared) && prepared.status).toBe(400)
+    expect(isPrepareError(prepared) && prepared.error).toBe(
+      'Loop "each" item name `work` is also step "work" inside this loop. Rename one.',
+    )
+  })
+
+  it('refuses an inline step importing a generated name from another module', async () => {
+    const prepared = await prepareStoredIr({
+      ...validIR,
+      nodes: [
+        {
+          ...validIR.nodes[0],
+          id: 'prep',
+          name: 'Prepare',
+          data: { code: 'import { stepArgs } from "some-pkg"', inline: true },
+        },
+        { ...validIR.nodes[0], id: 'w', name: 'work' },
+      ],
+      edges: [{ id: 'e1', source: 'prep', target: 'w' }],
+      entryNodeId: 'prep',
+    })
+    expect(isPrepareError(prepared) && prepared.status).toBe(400)
+    expect(isPrepareError(prepared) && prepared.error).toBe(
+      'Inline step "Prepare" imports `stepArgs` from "some-pkg", which generated code uses. Rename it with `as`.',
+    )
+  })
 })

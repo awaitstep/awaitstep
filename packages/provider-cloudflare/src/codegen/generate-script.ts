@@ -44,6 +44,9 @@ import {
   generateNodeCode,
   resolveNodeExpressions,
   wrapModuleCalls,
+  importOrigin,
+  mergeImports,
+  type ImportSource,
 } from '@awaitstep/codegen'
 import {
   CLOUDFLARE_PRIMITIVES_IMPORT,
@@ -256,11 +259,12 @@ function generateScriptInternal(
   // Imports the graph's own code asked for (an inline step's, a template's)
   // go with the graph into `awaitstep/function.ts`; the trigger code's go
   // with the handlers into `worker.ts`.
-  const graphImports: string[] = []
+  const graphImports: ImportSource[] = []
   const collectedImports: string[] = []
-  const strippedParts = bodyParts.map((part) => {
+  const strippedParts = bodyParts.map((part, i) => {
     const { imports, body } = extractImports(part)
-    graphImports.push(...imports)
+    const origin = importOrigin(emittedNodes[i])
+    graphImports.push(...imports.map((statement) => ({ statement, origin })))
     return body
   })
 
@@ -425,8 +429,9 @@ function generateScriptInternal(
     }
   }
 
+  const wiringImports: string[] = []
   if (wiring) {
-    collectedImports.push(...wiring.imports)
+    wiringImports.push(...wiring.imports)
     if (wiring.fetch) fetchHandlerEmission = null
   }
 
@@ -505,22 +510,24 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
   // The graph module imports the runtime and the step modules; the worker
   // imports the graph module, the handler modules and what the trigger code
   // asked for. Nothing imports the worker.
-  const functionImports = [
-    ...new Set([
-      ...(usesFlow
-        ? [
-            functionRuntimeImport({
+  const functionImports = mergeImports([
+    ...(usesFlow
+      ? [
+          {
+            statement: functionRuntimeImport({
               needsHost,
               hasSubCalls,
               callsStepModules: callsStepModules(ctx.files),
             }),
-          ]
-        : []),
-      ...(hasSubCalls ? ['import { createAwaitstepPlatform } from "#awaitstep/platform";'] : []),
-      ...moduleImports,
-      ...graphImports,
-    ]),
-  ]
+          },
+        ]
+      : []),
+    ...(hasSubCalls
+      ? [{ statement: 'import { createAwaitstepPlatform } from "#awaitstep/platform";' }]
+      : []),
+    ...moduleImports.map((statement) => ({ statement })),
+    ...graphImports,
+  ])
   const importBlock = functionImports.length > 0 ? '\n' + functionImports.join('\n') : ''
   const classBlock =
     !preview && classDefinitions.size > 0
@@ -574,12 +581,13 @@ ${runGraphBlock}
   // fetch, or legacy trigger code, runs the graph).
   const workerBody = `${moduleCodeBlock}\n${exportDefault}`
   const graphNames = graphModuleNames(workerBody, ['runGraph', 'AWAITSTEP_RETENTION'])
-  const workerImports = [
-    ...new Set([
-      `import { ${[...graphNames, 'type Env'].join(', ')} } from "#awaitstep/function";`,
-      ...collectedImports,
-    ]),
-  ]
+  const workerImports = mergeImports([
+    {
+      statement: `import { ${[...graphNames, 'type Env'].join(', ')} } from "#awaitstep/function";`,
+    },
+    ...collectedImports.map((statement) => ({ statement, origin: 'The trigger code' })),
+    ...wiringImports.map((statement) => ({ statement })),
+  ])
   const entrySource = `${workerImports.join('\n')}
 ${workerBody}
 `

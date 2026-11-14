@@ -9,6 +9,7 @@ import type {
 import { NO_VERSION_MESSAGE } from './blank-source.js'
 import {
   GenerateInputError,
+  generatedNameProblems,
   bundleCodeFiles,
   bundleDeployFiles,
   bundlePackageManifest,
@@ -277,6 +278,29 @@ export async function prepareWorkflow(
     installedNodes,
     libraryFold.customNodes,
   )
+
+  // A workflow name that the generated code also binds — a loop item hiding a
+  // step inside it, inline code declaring `step` — breaks the generated file
+  // with an error that doesn't say why; refuse it here with one that does.
+  const nameClashes: PrepareDiagnostic[] = generatedNameProblems(ir).map((problem) => ({
+    source: 'ir',
+    message: problem.message,
+    ...(problem.nodeId && { nodeId: problem.nodeId }),
+  }))
+  if (nameClashes.length > 0) {
+    if (!lenient) {
+      const [first, ...rest] = nameClashes
+      return {
+        error: first!.message,
+        status: 400,
+        ...(rest.length > 0 && { details: nameClashes }),
+        diagnostics: nameClashes,
+        checked,
+        finding: true,
+      }
+    }
+    diagnostics.push(...nameClashes)
+  }
 
   // A custom or marketplace node's required fields: the editors warn while
   // they're filled in; nothing ships with one empty.

@@ -35,6 +35,7 @@ import {
 import { builtinGenerators } from './generator-registry.js'
 import { collectBranchInlineTargets } from './generators/branch.js'
 import { generateStepGroup } from './generators/step.js'
+import { importOrigin, mergeImports, type ImportSource } from '../imports.js'
 import { hasTemplateExpressions } from './generators/state-tracking.js'
 import { groupChain } from './coalesce.js'
 import { assertStepPathsFree, modulePathOf } from './module-files.js'
@@ -191,27 +192,30 @@ function generate(ir: WorkflowIR, options: UniversalGenerateOptions): PortableWo
     )
   }
 
-  const workflowImports: string[] = []
-  const strippedParts = bodyParts.map((part) => {
+  const workflowImports: ImportSource[] = []
+  const strippedParts = bodyParts.map((part, i) => {
     const { imports, body } = extractImports(part)
-    workflowImports.push(...imports)
+    const origin = importOrigin(emittedGroups[i]?.[0])
+    workflowImports.push(...imports.map((statement) => ({ statement, origin })))
     return body
   })
   const bodyLines = wrapModuleCalls(strippedParts.join('\n\n'), 4)
 
   for (const file of ctx.files) {
-    if (file.role === 'module') workflowImports.push(moduleImportFor(file))
+    if (file.role === 'module') workflowImports.push({ statement: moduleImportFor(file) })
   }
 
   const envSource = generateEnvSource(ir, envVarNames ?? [], ctx.files, classDefinitions)
   const classBlock =
     classDefinitions.size > 0 ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n' : ''
   const hasWait = ir.nodes.some((node) => node.type === 'wait_for_event')
-  const workflowSource = `${[
-    workflowRuntimeImport({ callsStepModules: callsStepModules(ctx.files), hasWait }),
-    'import type { Env } from "#awaitstep/env";',
-    ...new Set(workflowImports),
-  ].join('\n')}
+  const workflowSource = `${mergeImports([
+    {
+      statement: workflowRuntimeImport({ callsStepModules: callsStepModules(ctx.files), hasWait }),
+    },
+    { statement: 'import type { Env } from "#awaitstep/env";' },
+    ...workflowImports,
+  ]).join('\n')}
 ${classBlock}
 export default defineWorkflow<Env>({
   id: "${workflowId}",
@@ -408,10 +412,11 @@ function generateFunction(
     emittedNodes.push(node)
   }
 
-  const graphImports: string[] = []
-  const strippedParts = bodyParts.map((part) => {
+  const graphImports: ImportSource[] = []
+  const strippedParts = bodyParts.map((part, i) => {
     const { imports, body } = extractImports(part)
-    graphImports.push(...imports)
+    const origin = importOrigin(emittedNodes[i])
+    graphImports.push(...imports.map((statement) => ({ statement, origin })))
     return body
   })
   let graphBody = strippedParts.join('\n\n')
@@ -502,22 +507,22 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
     if (moduleFile.role !== 'module') continue
     moduleImports.push(moduleImportFor(moduleFile))
   }
-  const functionImports = [
-    ...new Set([
-      'import type { Env } from "#awaitstep/env";',
-      ...(usesFlow
-        ? [
-            functionRuntimeImport({
+  const functionImports = mergeImports([
+    { statement: 'import type { Env } from "#awaitstep/env";' },
+    ...(usesFlow
+      ? [
+          {
+            statement: functionRuntimeImport({
               needsHost,
               hasSubCalls,
               callsStepModules: callsStepModules(ctx.files),
             }),
-          ]
-        : []),
-      ...moduleImports,
-      ...graphImports,
-    ]),
-  ]
+          },
+        ]
+      : []),
+    ...moduleImports.map((statement) => ({ statement })),
+    ...graphImports,
+  ])
   const classBlock =
     classDefinitions.size > 0 ? '\n' + [...classDefinitions.values()].join('\n\n') + '\n' : ''
   const envSource = generateEnvSource(irAsWorkflow, envVarNames ?? [], ctx.files, classDefinitions)

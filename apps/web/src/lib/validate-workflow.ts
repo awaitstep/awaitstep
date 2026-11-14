@@ -7,7 +7,9 @@ import {
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
   type NodeRegistry,
 } from '@awaitstep/ir'
+import { generatedNameProblems } from '@awaitstep/codegen'
 import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
+import { findEntryNodeId } from './build-ir'
 import { computeUpstreamSets, nodeIdsByVarName } from './expressions/upstream'
 import { z } from 'zod'
 
@@ -466,6 +468,22 @@ export function validateWorkflowForPublish(
       for (const err of exprErrors) {
         add('error', id, name, err.message)
       }
+    }
+  }
+
+  // ── Names the generated code also binds ──
+  if (!hasCycle(nodes, edges)) {
+    const irNodes = nodes.map((node) => node.data.irNode)
+    const irEdges = edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      ...(edge.label ? { label: String(edge.label) } : {}),
+    }))
+    const entryNodeId = findEntryNodeId(irNodes, irEdges)
+    for (const problem of generatedNameProblems({ nodes: irNodes, edges: irEdges, entryNodeId })) {
+      const node = problem.nodeId ? nodes.find((n) => n.id === problem.nodeId) : undefined
+      add('error', problem.nodeId ?? null, node?.data.irNode.name ?? null, problem.message)
     }
   }
 

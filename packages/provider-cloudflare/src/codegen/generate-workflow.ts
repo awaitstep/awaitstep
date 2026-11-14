@@ -13,6 +13,7 @@ import {
   endsWithReturn,
   envFieldName,
   extractImports,
+  mergeImports,
   generatePortableWorkflow,
   graphModuleNames,
   importSpecifiers,
@@ -260,8 +261,9 @@ function generateWorkflowInternal(
     }
   }
 
+  const wiringImports: string[] = []
   if (wiring) {
-    entryImports.push(...wiring.imports)
+    wiringImports.push(...wiring.imports)
     if (wiring.fetch) fetchHandlerEmission = null
   }
 
@@ -339,14 +341,18 @@ export async function workflowStatus(env: Env, instanceId: string) {
   // default fetch (or legacy trigger code) creates instances itself.
   const usesRetention =
     graphModuleNames(`${moduleCodeBlock}\n${exportDefault}`, ['AWAITSTEP_RETENTION']).length > 0
-  const entryImportBlock = [
+  const entryGenerated = [
     'import { WorkflowEntrypoint } from "cloudflare:workers";',
     'import { createWorkflowContext, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";',
     'import { createAwaitstepPlatform } from "#awaitstep/platform";',
     `import workflow${usesRetention ? ', { AWAITSTEP_RETENTION }' : ''} from "#awaitstep/workflow";`,
     'import type { Env } from "#awaitstep/env";',
-    ...new Set(entryImports),
-  ].join('\n')
+  ]
+  const entryImportBlock = mergeImports([
+    ...entryGenerated.map((statement) => ({ statement })),
+    ...entryImports.map((statement) => ({ statement, origin: 'The trigger code' })),
+    ...wiringImports.map((statement) => ({ statement })),
+  ]).join('\n')
   const sendEventHelper = hasWaitForEvent
     ? `async function awaitstepSendEvent(request: Request, env: Env): Promise<Response | null> {
   if (request.method !== "POST") return null;
