@@ -104,7 +104,7 @@ export function AddAccountDialog({ org, onClose }: AddAccountDialogProps) {
             All projects, including new ones
           </label>
           {all ? (
-            <p className="rounded-xl border border-dashed border-border px-3.5 py-2.5 text-xs text-muted-foreground">
+            <p className="rounded border border-dashed border-border px-3.5 py-2.5 text-xs text-muted-foreground">
               Every project in {org.name} can deploy with this account, including new ones.
             </p>
           ) : (

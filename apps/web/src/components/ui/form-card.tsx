@@ -1,6 +1,6 @@
 import type { SubmitEvent, ReactNode } from 'react'
 
-const CARD = 'settings-width flex flex-col gap-5 rounded-2xl border border-border bg-card p-6'
+const CARD = 'settings-width flex flex-col gap-5 rounded border border-border bg-card p-6'
 
 interface FormCardProps {
   /** The top bar's Save button submits it with `form={id}`. */

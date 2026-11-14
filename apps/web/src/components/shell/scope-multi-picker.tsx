@@ -170,7 +170,7 @@ export function ScopeMultiPicker({
           onOpenAutoFocus={keepFocus}
           onCloseAutoFocus={keepFocus}
           onInteractOutside={handleInteractOutside}
-          className="z-50 w-[var(--radix-popover-trigger-width)] rounded-xl border border-border bg-card p-1.5 shadow-lg"
+          className="z-50 w-[var(--radix-popover-trigger-width)] rounded border border-border bg-card p-1.5 shadow-lg"
         >
           {shown.length === 0 ? (
             <p className="px-2.5 py-2.5 text-xs text-muted-foreground">{emptyText(query.trim())}</p>

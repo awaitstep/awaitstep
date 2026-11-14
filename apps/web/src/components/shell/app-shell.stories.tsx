@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>
 
 function PagePlaceholder() {
   return (
-    <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">
+    <div className="flex h-72 items-center justify-center rounded border border-dashed border-border text-xs text-muted-foreground">
       Page content
     </div>
   )

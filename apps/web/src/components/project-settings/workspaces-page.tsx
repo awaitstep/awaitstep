@@ -35,7 +35,7 @@ function PoolSkeleton() {
     <LoadingRegion label="Loading the project-wide items">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {Array.from({ length: 3 }, (_, i) => (
-          <Bone key={i} className="h-40 rounded-2xl" />
+          <Bone key={i} className="h-40 rounded" />
         ))}
       </div>
     </LoadingRegion>
@@ -124,7 +124,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
       <LoadingRegion label="Loading workspaces">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => (
-            <Bone key={i} className="h-56 rounded-2xl" />
+            <Bone key={i} className="h-56 rounded" />
           ))}
         </div>
       </LoadingRegion>
@@ -247,7 +247,7 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
         ) : only ? (
           // The welcome waits for its workspace's scope, never flashing the cards first.
           <LoadingRegion label="Loading the project">
-            <Bone className="h-64 rounded-2xl" />
+            <Bone className="h-64 rounded" />
           </LoadingRegion>
         ) : (
           <>

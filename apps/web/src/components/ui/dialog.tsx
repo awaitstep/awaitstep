@@ -25,8 +25,7 @@ const dialogContentVariants = cva(
       // header / scrolling body / footer layout built from overlay-parts.
       layout: {
         padded: 'rounded-md border-border p-6',
-        sectioned:
-          'flex max-h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded-2xl border-border',
+        sectioned: 'flex max-h-[calc(100dvh-3rem)] flex-col overflow-hidden rounded border-border',
       },
     },
     defaultVariants: {

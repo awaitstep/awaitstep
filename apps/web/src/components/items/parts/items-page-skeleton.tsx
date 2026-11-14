@@ -16,8 +16,8 @@ export function ItemsPageSkeleton({ label }: ItemsPageSkeletonProps) {
       <div className="flex flex-col gap-3.5">
         <Bone className="h-5 w-48" />
         <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-          <Bone className="h-[78px] rounded-2xl" />
-          <Bone className="h-[78px] rounded-2xl" />
+          <Bone className="h-[78px] rounded" />
+          <Bone className="h-[78px] rounded" />
         </div>
       </div>
     </LoadingRegion>

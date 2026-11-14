@@ -47,7 +47,7 @@ export function LoadError({
     <div
       className={cn(
         'flex flex-col items-center gap-3.5 px-6 py-14 text-center',
-        framed && 'rounded-2xl border border-border bg-card',
+        framed && 'rounded border border-border bg-card',
       )}
     >
       <Tile tone="fail" size="lg">

@@ -55,7 +55,7 @@ export function WorkspaceCard({
       aria-labelledby={nameId}
       aria-describedby={detailId}
       className={cn(
-        'flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex flex-col overflow-hidden rounded border bg-card shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         current ? 'border-primary' : 'border-border hover:border-foreground/20',
       )}
     >
@@ -68,7 +68,7 @@ export function WorkspaceCard({
         <span
           aria-hidden="true"
           className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-xl text-base font-semibold',
+            'flex size-11 shrink-0 items-center justify-center rounded text-base font-semibold',
             WORKSPACE_TILE_CLASS[workspace.colour],
           )}
         >

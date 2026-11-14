@@ -54,7 +54,7 @@ export function StatusBand({
   return (
     <section
       aria-label="Status"
-      className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card"
+      className="flex flex-col overflow-hidden rounded border border-border bg-card"
     >
       <div className="flex flex-wrap divide-border md:flex-nowrap md:divide-x">
         <div className={cn(COLUMN, 'basis-[260px] grow-[1.3]')}>

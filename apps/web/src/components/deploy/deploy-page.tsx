@@ -172,7 +172,7 @@ export function DeployPage({
   let settingsBody
   if (!connectionId) {
     settingsBody = (
-      <p className="rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground">
+      <p className="rounded border border-border bg-card px-5 py-4 text-sm text-muted-foreground">
         Pick an account to see its settings.
       </p>
     )
@@ -180,7 +180,7 @@ export function DeployPage({
     settingsBody = (
       <div
         role="alert"
-        className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4 text-sm text-muted-foreground"
+        className="flex flex-wrap items-center gap-3 rounded border border-border bg-card px-5 py-4 text-sm text-muted-foreground"
       >
         <span className="flex-1">Couldn’t load the settings. {settings.error.message}</span>
         <Button variant="outline" size="sm" onClick={handleRetrySettings}>
@@ -189,7 +189,7 @@ export function DeployPage({
       </div>
     )
   } else if (!settings.data || !schema) {
-    settingsBody = <Bone className="h-80 w-full rounded-2xl" />
+    settingsBody = <Bone className="h-80 w-full rounded" />
   } else {
     settingsBody = (
       <DeploySettings
@@ -290,12 +290,12 @@ function DeployPageSkeleton() {
   return (
     <div className="flex flex-wrap items-start gap-5" aria-busy="true">
       <div className="flex min-w-0 flex-[1.6_1_460px] flex-col gap-5">
-        <Bone className="h-[74px] w-full rounded-2xl" />
-        <Bone className="h-80 w-full rounded-2xl" />
+        <Bone className="h-[74px] w-full rounded" />
+        <Bone className="h-80 w-full rounded" />
       </div>
       <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-5">
-        <Bone className="h-72 w-full rounded-2xl" />
-        <Bone className="h-12 w-full rounded-2xl" />
+        <Bone className="h-72 w-full rounded" />
+        <Bone className="h-12 w-full rounded" />
       </div>
     </div>
   )

@@ -48,7 +48,7 @@ export function YourDataSection({ account, currentOrg }: YourDataSectionProps) {
   return (
     <section className="settings-width flex flex-col gap-3">
       <SectionHeader title="Your data" />
-      <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+      <div className="flex flex-col divide-y divide-border overflow-hidden rounded border border-border bg-card">
         <DataRow
           title="Export your data"
           description="Download your profile, sign-in methods, sessions and memberships as JSON."

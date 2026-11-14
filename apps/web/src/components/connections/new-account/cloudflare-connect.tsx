@@ -105,7 +105,7 @@ function TokenPermissions() {
   return (
     <section
       aria-label="Token permissions"
-      className="flex flex-col gap-2.5 rounded-xl border border-border bg-background p-4"
+      className="flex flex-col gap-2.5 rounded border border-border bg-background p-4"
     >
       <span className="text-xs font-semibold text-foreground">
         Create an API token in Cloudflare

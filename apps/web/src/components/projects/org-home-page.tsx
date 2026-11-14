@@ -24,15 +24,15 @@ function OrgHomeSkeleton() {
         <div aria-hidden="true" className="flex flex-wrap items-end gap-5">
           <Bone className="h-8 w-40" />
           <span className="ml-auto hidden gap-2.5 md:flex">
-            <Bone className="h-14 w-28 rounded-xl" />
-            <Bone className="h-14 w-28 rounded-xl" />
-            <Bone className="h-14 w-28 rounded-xl" />
+            <Bone className="h-14 w-28 rounded" />
+            <Bone className="h-14 w-28 rounded" />
+            <Bone className="h-14 w-28 rounded" />
           </span>
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-          <Bone className="h-44 rounded-2xl" />
-          <Bone className="h-44 rounded-2xl" />
-          <Bone className="h-44 rounded-2xl" />
+          <Bone className="h-44 rounded" />
+          <Bone className="h-44 rounded" />
+          <Bone className="h-44 rounded" />
         </div>
         <ListCardSkeleton rows={3} />
       </LoadingRegion>

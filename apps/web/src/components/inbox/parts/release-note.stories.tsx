@@ -7,7 +7,7 @@ const meta = {
   title: 'Inbox/ReleaseNote',
   decorators: [
     (Story) => (
-      <div className="flex max-w-[560px] flex-col divide-y divide-border rounded-2xl border border-border bg-card">
+      <div className="flex max-w-[560px] flex-col divide-y divide-border rounded border border-border bg-card">
         <Story />
       </div>
     ),

@@ -56,9 +56,9 @@ export function DeployAccountCard({
   return (
     <section
       aria-label="Account"
-      className="flex flex-wrap items-center gap-3.5 rounded-2xl border border-border bg-card px-5 py-4"
+      className="flex flex-wrap items-center gap-3.5 rounded border border-border bg-card px-5 py-4"
     >
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-status-warning/15 text-status-warning">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded bg-status-warning/15 text-status-warning">
         <Cable aria-hidden="true" className="size-[18px]" />
       </span>
       <span className="flex min-w-[200px] flex-1 flex-col gap-0.5">

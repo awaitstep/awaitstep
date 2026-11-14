@@ -148,7 +148,7 @@ export function LibraryDetails({
         </DetailsSection>
       ) : (
         <DetailsSection title="How it looks on canvas" note="Drawn from configSchema.">
-          <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-background p-3">
+          <div className="flex flex-col gap-2.5 rounded border border-border bg-background p-3">
             <div className="flex items-center gap-2">
               <LibraryKindTile kind="node" className="size-6 rounded-md text-2xs" />
               <span className="truncate text-sm font-semibold text-foreground">{previewName}</span>

@@ -10,7 +10,7 @@ const meta = {
   title: 'Access/PeoplePicker',
   decorators: [
     (Story) => (
-      <div className="max-w-[512px] rounded-2xl border border-border bg-card p-6">
+      <div className="max-w-[512px] rounded border border-border bg-card p-6">
         <Story />
       </div>
     ),

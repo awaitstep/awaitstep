@@ -168,7 +168,7 @@ function OrgGeneral({ slug, scope }: { slug: string; scope: OrgScope }) {
                 clearLabel="Remove logo"
                 disabled={readOnly}
               >
-                <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
+                <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded bg-primary text-lg font-semibold text-primary-foreground">
                   <OrgMark initial={org.initial} logo={logo} />
                 </span>
               </ClearableMark>

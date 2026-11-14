@@ -24,7 +24,7 @@ import {
 } from './workspace-start-copy'
 
 const CARD =
-  'flex flex-col gap-3 rounded-xl border border-border bg-background p-[18px] text-left transition-colors hover:border-foreground/20 disabled:opacity-60'
+  'flex flex-col gap-3 rounded border border-border bg-background p-[18px] text-left transition-colors hover:border-foreground/20 disabled:opacity-60'
 
 interface StartCardBodyProps {
   icon: LucideIcon
@@ -138,7 +138,7 @@ export function WorkspaceStart({
 
   return (
     <>
-      <section className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card">
+      <section className="flex flex-col overflow-hidden rounded border border-border bg-card">
         <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-5 py-4">
           <h2 className="text-sm font-semibold text-foreground">
             {readOnly ? `Nothing in ${workspace.name} yet` : `Start building in ${workspace.name}`}
@@ -162,7 +162,7 @@ export function WorkspaceStart({
 
       <ul
         aria-label={`About ${workspace.name}`}
-        className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card"
+        className="flex flex-col divide-y divide-border overflow-hidden rounded border border-border bg-card"
       >
         <SummaryRow
           icon={Users}

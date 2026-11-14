@@ -53,7 +53,7 @@ export const AccessEditor: Story = {
         {ROLE_ROWS.map((name) => (
           <div
             key={name}
-            className="flex items-center justify-between rounded-xl border border-border px-3.5 py-3 text-xs"
+            className="flex items-center justify-between rounded border border-border px-3.5 py-3 text-xs"
           >
             {name}
             <span className="text-muted-foreground">No project role</span>

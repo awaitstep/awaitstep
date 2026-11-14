@@ -86,7 +86,7 @@ export function SearchableSelect<T extends string>({
           align="end"
           sideOffset={4}
           collisionPadding={16}
-          className="z-50 flex max-h-[min(360px,var(--radix-popover-content-available-height))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+          className="z-50 flex max-h-[min(360px,var(--radix-popover-content-available-height))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded border border-border bg-card shadow-lg"
         >
           <Command
             label={label}
@@ -222,7 +222,7 @@ export function SearchableMultiSelect<T extends string>({
             align="start"
             sideOffset={4}
             collisionPadding={16}
-            className="z-50 flex max-h-[min(360px,var(--radix-popover-content-available-height))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+            className="z-50 flex max-h-[min(360px,var(--radix-popover-content-available-height))] w-64 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded border border-border bg-card shadow-lg"
           >
             <Command
               label={label}

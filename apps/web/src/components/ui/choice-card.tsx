@@ -4,7 +4,7 @@ import { FieldGroup } from './form-field'
 import { hasContent } from './has-content'
 
 const CARD_CLASS =
-  'flex cursor-pointer gap-3 rounded-xl border px-4 py-3.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring'
+  'flex cursor-pointer gap-3 rounded border px-4 py-3.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring'
 
 function cardTone(picked: boolean): string {
   return picked

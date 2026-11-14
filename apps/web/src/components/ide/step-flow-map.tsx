@@ -263,7 +263,7 @@ export function StepFlowMap({
         <div key={`${node.row.nodeId}-${at}`} className="w-full">
           <div
             className={cn(
-              'w-full rounded-xl border bg-muted/10 p-2',
+              'w-full rounded border bg-muted/10 p-2',
               nodes.get(node.row.nodeId)?.type === 'try_catch'
                 ? 'border-node-error-handling/40'
                 : 'border-border',

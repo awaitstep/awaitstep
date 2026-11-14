@@ -51,7 +51,7 @@ export function DeployPreviewCard({
   }
 
   return (
-    <section className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card">
+    <section className="flex flex-col overflow-hidden rounded border border-border bg-card">
       <Button
         type="button"
         variant="ghost"

@@ -35,7 +35,7 @@ export function AvailableList({
           <li key={account.id}>
             <label
               className={cn(
-                'flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
+                'flex items-center gap-3 rounded border px-3.5 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
                 open && on ? 'border-primary bg-primary/5' : 'border-input bg-background',
                 open
                   ? 'cursor-pointer hover:border-foreground/25'

@@ -89,7 +89,7 @@ export function InvitePage({ token }: InvitePageProps) {
     card = (
       <LoadingRegion label="Taking you to sign in">
         <Bone className="h-12 w-64" />
-        <Bone className="h-48 w-full rounded-2xl" />
+        <Bone className="h-48 w-full rounded" />
       </LoadingRegion>
     )
   } else if (invite.isError) {
@@ -105,7 +105,7 @@ export function InvitePage({ token }: InvitePageProps) {
     card = (
       <LoadingRegion label="Opening the invite">
         <Bone className="h-12 w-64" />
-        <Bone className="h-48 w-full rounded-2xl" />
+        <Bone className="h-48 w-full rounded" />
       </LoadingRegion>
     )
   } else {

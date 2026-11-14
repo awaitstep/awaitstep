@@ -59,7 +59,7 @@ export function RunsTab({ workflow, neverDeployed, runs24h }: RunsTabProps) {
           <h2 className="text-sm font-semibold text-foreground">Runs</h2>
           <span className="text-xs text-muted-foreground">None yet</span>
         </div>
-        <div className="rounded-2xl border border-border bg-card">
+        <div className="rounded border border-border bg-card">
           <CardEmpty
             className="max-w-xs mx-auto"
             icon={<Play />}

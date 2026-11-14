@@ -54,7 +54,7 @@ describe('framed', () => {
         />
       </>,
     )
-    expect(container.querySelectorAll('.rounded-2xl')).toHaveLength(0)
+    expect(container.querySelectorAll('.rounded')).toHaveLength(0)
   })
 
   it('keeps the card border by default', () => {
@@ -63,6 +63,6 @@ describe('framed', () => {
         <ListRow title="Lead enrichment" />
       </ListCard>,
     )
-    expect(container.firstElementChild).toHaveClass('rounded-2xl', 'border')
+    expect(container.firstElementChild).toHaveClass('rounded', 'border')
   })
 })

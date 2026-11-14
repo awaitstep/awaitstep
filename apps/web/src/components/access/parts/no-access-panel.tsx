@@ -61,7 +61,7 @@ export function NoAccessPanel({
   return (
     <section
       aria-labelledby={titleId}
-      className="relative overflow-hidden rounded-2xl border border-border bg-card"
+      className="relative overflow-hidden rounded border border-border bg-card"
     >
       <div aria-hidden="true" className="absolute inset-0 px-[22px] pt-3.5">
         {REDACTED_ROWS.map((row, i) => (

@@ -14,8 +14,8 @@ const tileVariants = cva('flex shrink-0 items-center justify-center font-semibol
     },
     size: {
       sm: 'size-8 rounded-lg text-2xs [&_svg]:size-4',
-      md: 'size-10 rounded-xl text-xs [&_svg]:size-[18px]',
-      lg: 'size-11 rounded-xl text-base [&_svg]:size-5',
+      md: 'size-10 rounded text-xs [&_svg]:size-[18px]',
+      lg: 'size-11 rounded text-base [&_svg]:size-5',
     },
   },
   defaultVariants: { tone: 'neutral', size: 'md' },
@@ -49,7 +49,7 @@ interface StatTileProps {
 export function StatTile({ value, label, tone, href }: StatTileProps) {
   const danger = tone === 'danger'
   const className = cn(
-    'flex min-w-[110px] flex-col gap-0.5 rounded-xl border px-4 py-2.5',
+    'flex min-w-[110px] flex-col gap-0.5 rounded border px-4 py-2.5',
     danger ? 'border-destructive/40 bg-tone-fail' : 'border-border bg-card',
     href && 'transition-colors hover:border-foreground/20',
   )

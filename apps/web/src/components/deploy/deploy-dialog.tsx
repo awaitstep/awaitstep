@@ -47,7 +47,7 @@ function DeployDialogContent({ workflowId }: { workflowId: string }) {
             {full.error.message}
           </p>
         ) : (
-          <Bone className="h-80 w-full rounded-2xl" />
+          <Bone className="h-80 w-full rounded" />
         )}
       </OverlayBody>
     </DialogContent>

@@ -82,7 +82,7 @@ export function DeployProgressCard(props: DeployProgressCardProps) {
       aria-label="Deploy progress"
       aria-live="polite"
       className={cn(
-        'flex flex-col overflow-hidden rounded-2xl border bg-card',
+        'flex flex-col overflow-hidden rounded border bg-card',
         outcome === 'success' && 'border-status-success/40',
         outcome === 'error' && 'border-status-error/40',
         (outcome === 'deploying' || outcome === 'lost') && 'border-border',

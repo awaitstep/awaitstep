@@ -151,7 +151,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
     )
   } else if (connections.data.length === 0) {
     body = (
-      <p className="rounded-2xl border border-dashed border-border px-5 py-8 text-center text-sm text-muted-foreground">
+      <p className="rounded border border-dashed border-border px-5 py-8 text-center text-sm text-muted-foreground">
         No Cloudflare account yet. Connect one to deploy workflows; you can build first.
       </p>
     )

@@ -79,7 +79,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-card text-card-foreground focus-visible:outline-none md:inset-auto md:bottom-4 md:left-[84px] md:h-[min(700px,calc(100vh-32px))] md:w-[420px] md:rounded-2xl md:border md:border-border md:shadow-2xl"
+          className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-card text-card-foreground focus-visible:outline-none md:inset-auto md:bottom-4 md:left-[84px] md:h-[min(700px,calc(100vh-32px))] md:w-[420px] md:rounded md:border md:border-border md:shadow-2xl"
         >
           <div className="flex items-center gap-2 px-4 pb-2.5 pt-3.5">
             <DialogPrimitive.Title className="flex-1 text-base font-semibold">

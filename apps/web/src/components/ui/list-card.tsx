@@ -21,7 +21,7 @@ interface ListCardProps {
 export function ListCard({ label, empty, framed = true, children, footer }: ListCardProps) {
   const isEmpty = Children.toArray(children).length === 0
   return (
-    <div className={cn(framed && 'overflow-hidden rounded-2xl border border-border bg-card')}>
+    <div className={cn(framed && 'overflow-hidden rounded border border-border bg-card')}>
       {isEmpty ? (
         <div className="px-5 py-8 text-center text-xs text-muted-foreground">{empty}</div>
       ) : (

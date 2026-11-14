@@ -35,7 +35,7 @@ export function ProjectCard({ project, href, current }: ProjectCardProps) {
       aria-labelledby={nameId}
       aria-describedby={detailId}
       className={cn(
-        'flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex flex-col overflow-hidden rounded border bg-card shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         current ? 'border-primary' : 'border-border hover:border-foreground/20',
       )}
     >
@@ -47,7 +47,7 @@ export function ProjectCard({ project, href, current }: ProjectCardProps) {
       >
         <span
           aria-hidden="true"
-          className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted text-base font-semibold text-foreground"
+          className="flex size-11 shrink-0 items-center justify-center rounded bg-muted text-base font-semibold text-foreground"
         >
           {project.initial}
         </span>

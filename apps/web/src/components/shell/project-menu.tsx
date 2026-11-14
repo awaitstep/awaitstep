@@ -93,7 +93,7 @@ function WorkspaceTile({
       onClick={onSelect}
       aria-current={workspace.current ? 'true' : undefined}
       className={cn(
-        'flex min-h-11 items-center gap-2.5 rounded-xl border px-3 py-2.5',
+        'flex min-h-11 items-center gap-2.5 rounded border px-3 py-2.5',
         workspace.current ? 'border-primary/60 bg-sidebar-accent' : 'border-border',
       )}
     >
@@ -165,7 +165,7 @@ export function ProjectMenu({
           <ShellLink
             href={newWorkspaceHref}
             onClick={onClose}
-            className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-dashed border-border text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="flex min-h-11 items-center justify-center gap-1.5 rounded border border-dashed border-border text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             <Plus size={14} aria-hidden="true" />
             New

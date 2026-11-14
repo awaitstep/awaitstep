@@ -23,7 +23,7 @@ export function PickedScopes({ label, picks, onRoleChange }: PickedScopesProps) 
   return (
     <ul
       aria-label={label}
-      className="flex flex-col divide-y divide-border overflow-hidden rounded-xl border border-border"
+      className="flex flex-col divide-y divide-border overflow-hidden rounded border border-border"
     >
       {picks.map((pick) => (
         <PickedRow key={pick.id} pick={pick} onRoleChange={onRoleChange} />

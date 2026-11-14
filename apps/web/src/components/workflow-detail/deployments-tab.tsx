@@ -94,7 +94,7 @@ export function DeploymentsTab({
 
   if (deployments.length === 0) {
     return (
-      <div className="rounded-2xl border border-border bg-card">
+      <div className="rounded border border-border bg-card">
         <CardEmpty
           icon={<Rocket />}
           title={neverDeployed ? 'Never deployed' : 'Not deployed'}
@@ -172,7 +172,7 @@ function LiveCard({ live, dropped }: LiveCardProps) {
   ].join(' ')
   const by = live.deployedByName ? `deployed by ${live.deployedByName}, ` : 'deployed '
   return (
-    <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-status-success/30 bg-card px-5 py-4">
+    <section className="flex flex-wrap items-center gap-4 rounded border border-status-success/30 bg-card px-5 py-4">
       <Tile tone="ok">
         <Rocket />
       </Tile>

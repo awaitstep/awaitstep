@@ -64,7 +64,7 @@ function SignInDemo({ initiallySent = false }: { initiallySent?: boolean }) {
           </Button>
         }
       >
-        <div className="flex items-center gap-3.5 rounded-xl border border-status-success/20 bg-tone-ok/40 p-4 text-xs leading-relaxed">
+        <div className="flex items-center gap-3.5 rounded border border-status-success/20 bg-tone-ok/40 p-4 text-xs leading-relaxed">
           <Tile tone="ok">
             <Mail />
           </Tile>

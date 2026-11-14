@@ -27,7 +27,7 @@ export function ConnectionsEmpty({
       : ''
   return (
     <div className="flex flex-col items-center gap-3 px-6 pb-12 pt-[52px] text-center">
-      <span className="flex size-[42px] items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
+      <span className="flex size-[42px] items-center justify-center rounded border border-border bg-muted text-muted-foreground">
         <Plug className="size-[19px]" aria-hidden="true" />
       </span>
       <span className="text-sm font-semibold text-foreground">No account connected yet</span>

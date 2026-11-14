@@ -36,13 +36,13 @@ export const TodaysDefault: Story = {
 function FannedTiles() {
   return (
     <span aria-hidden="true" className="flex items-center">
-      <span className="flex size-12 -rotate-[8deg] items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
+      <span className="flex size-12 -rotate-[8deg] items-center justify-center rounded border border-border bg-muted text-muted-foreground">
         <Code2 className="size-5" />
       </span>
-      <span className="relative -mx-1.5 flex size-[60px] items-center justify-center rounded-2xl border border-status-success/40 bg-tone-ok text-status-success">
+      <span className="relative -mx-1.5 flex size-[60px] items-center justify-center rounded border border-status-success/40 bg-tone-ok text-status-success">
         <Workflow className="size-6" />
       </span>
-      <span className="flex size-12 rotate-[8deg] items-center justify-center rounded-xl border border-border bg-muted text-muted-foreground">
+      <span className="flex size-12 rotate-[8deg] items-center justify-center rounded border border-border bg-muted text-muted-foreground">
         <Download className="size-5" />
       </span>
     </span>

@@ -92,7 +92,7 @@ export function CatalogNodeCard({
   return (
     <article
       aria-label={node.name}
-      className="flex flex-col gap-3.5 rounded-2xl border border-border bg-card p-4.5"
+      className="flex flex-col gap-3.5 rounded border border-border bg-card p-4.5"
     >
       <div className="flex items-center gap-3">
         <Tile tone={custom ? 'info' : (CATEGORY_TONE[node.category] ?? 'neutral')}>

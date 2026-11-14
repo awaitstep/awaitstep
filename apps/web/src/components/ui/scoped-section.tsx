@@ -43,7 +43,7 @@ export function ScopedSection({
     <section
       aria-labelledby={labelId}
       className={cn(
-        'overflow-hidden rounded-2xl border',
+        'overflow-hidden rounded border',
         own ? 'border-border bg-card' : 'border-dashed border-inherited-border',
       )}
     >

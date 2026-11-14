@@ -19,7 +19,7 @@ export const Plain: Story = {
 
 function StatPlaceholder({ value, label }: { value: string; label: string }) {
   return (
-    <span className="flex min-w-[110px] flex-col gap-0.5 rounded-xl border border-border bg-card px-4 py-2.5">
+    <span className="flex min-w-[110px] flex-col gap-0.5 rounded border border-border bg-card px-4 py-2.5">
       <span className="text-lg font-semibold">{value}</span>
       <span className="text-2xs text-muted-foreground">{label}</span>
     </span>

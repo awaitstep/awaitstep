@@ -114,7 +114,7 @@ export function DeploymentDrawer({
 
 function DetailCard({ children }: { children: ReactNode }) {
   return (
-    <dl className="m-0 flex flex-col gap-3.5 rounded-xl border border-border bg-background/40 px-4 py-3.5">
+    <dl className="m-0 flex flex-col gap-3.5 rounded border border-border bg-background/40 px-4 py-3.5">
       {children}
     </dl>
   )

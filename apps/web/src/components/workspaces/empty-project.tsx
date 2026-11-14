@@ -124,7 +124,7 @@ export function EmptyProject({
 
   return (
     <>
-      <section className="flex flex-col gap-6 rounded-2xl border border-status-success/20 bg-tone-ok/40 p-8">
+      <section className="flex flex-col gap-6 rounded border border-status-success/20 bg-tone-ok/40 p-8">
         <div className="flex flex-wrap items-center gap-4">
           <Tile tone="neutral" className="size-13 rounded-[14px] text-xl">
             {project.initial}
@@ -176,7 +176,7 @@ export function EmptyProject({
         {newItem.dialog && <NewItemDialog slugs={slugs} {...newItem.dialog} />}
       </section>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5.5">
+        <section className="flex flex-col gap-4 rounded border border-border bg-card p-5.5">
           <span className="flex items-center justify-between gap-2.5">
             <h2 className="text-sm font-semibold">Set up {project.name}</h2>
             {setup.data && (
@@ -189,7 +189,7 @@ export function EmptyProject({
             ))}
           </ul>
         </section>
-        <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5.5">
+        <section className="flex flex-col gap-4 rounded border border-border bg-card p-5.5">
           <h2 className="text-sm font-semibold">More than one team here?</h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
             Give each team its own workspace, with separate people, keys and workflows. Anything set

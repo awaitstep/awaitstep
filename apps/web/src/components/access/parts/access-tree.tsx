@@ -93,7 +93,7 @@ export function AccessTree({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background p-4">
+      <div className="flex flex-wrap items-center gap-3 rounded border border-border bg-background p-4">
         <span className="flex min-w-[200px] flex-1 flex-col gap-0.5">
           <span id={orgLabelId} className="text-sm font-semibold text-foreground">
             Role in {orgName}
@@ -113,7 +113,7 @@ export function AccessTree({
       </div>
 
       {orgWide ? (
-        <p className="flex items-center gap-2.5 rounded-xl border border-dashed border-inherited-border px-4 py-3.5 text-xs text-muted-foreground">
+        <p className="flex items-center gap-2.5 rounded border border-dashed border-inherited-border px-4 py-3.5 text-xs text-muted-foreground">
           <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
           {value.orgRole === 'owner' ? 'Owners' : 'Admins'} open every project and workspace, so
           per-project roles aren’t needed.
@@ -140,7 +140,7 @@ export function AccessTree({
         </section>
       )}
 
-      <div className="flex flex-col gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3.5">
+      <div className="flex flex-col gap-2 rounded border border-primary/20 bg-primary/5 px-4 py-3.5">
         <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
           {personFirstName} can work in
         </span>
@@ -172,7 +172,7 @@ function ProjectBlock({ project, value, onProjectRole, onWorkspaceRole }: Projec
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
+    <div className="overflow-hidden rounded border border-border">
       <div className="flex items-center gap-3 bg-muted/40 px-3.5 py-3">
         <Tile size="sm">{project.initial}</Tile>
         <span id={nameId} className="flex-1 text-sm font-semibold text-foreground">

@@ -40,7 +40,7 @@ export function OrgCard({ org, lastUsed, onOpen }: OrgCardProps) {
       aria-labelledby={nameId}
       aria-describedby={detailId}
       className={cn(
-        'flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex flex-col gap-4 rounded border bg-card p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         lastUsed ? 'border-primary' : 'border-border hover:border-foreground/20',
       )}
     >

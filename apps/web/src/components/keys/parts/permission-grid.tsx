@@ -73,7 +73,7 @@ export function PermissionGrid({ level, value, onChange, note }: PermissionGridP
           onChange={handlePreset}
         />
       </div>
-      <div className="overflow-x-auto rounded-xl border border-border">
+      <div className="overflow-x-auto rounded border border-border">
         <table aria-labelledby={headingId} className="w-full min-w-[480px] border-collapse">
           <thead>
             <tr className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">

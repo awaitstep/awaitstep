@@ -7,7 +7,7 @@ import { Tile } from '../../ui/tile'
 /** 17b: signed in, in no organization yet. */
 export function NoOrgState({ email }: { email: string }) {
   return (
-    <section className="flex flex-col items-center gap-3.5 rounded-2xl border border-dashed border-border px-6 py-14 text-center">
+    <section className="flex flex-col items-center gap-3.5 rounded border border-dashed border-border px-6 py-14 text-center">
       <Tile tone="ok" size="lg">
         <Building2 />
       </Tile>

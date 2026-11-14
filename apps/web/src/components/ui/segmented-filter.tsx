@@ -27,7 +27,7 @@ export function SegmentedFilter<Id extends string>({
     <div
       role="group"
       aria-label={label}
-      className="flex flex-wrap gap-1 rounded-xl border border-border bg-card p-1"
+      className="flex flex-wrap gap-1 rounded border border-border bg-card p-1"
     >
       {options.map((option) => (
         <FilterPill

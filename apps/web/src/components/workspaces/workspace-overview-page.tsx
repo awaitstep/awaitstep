@@ -16,7 +16,7 @@ function OverviewSkeleton() {
     <LoadingRegion label="Loading the overview">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {Array.from({ length: 4 }, (_, i) => (
-          <Bone key={i} className="h-16 rounded-xl" />
+          <Bone key={i} className="h-16 rounded" />
         ))}
       </div>
       <ListCardSkeleton rows={1} trailing={2} />

@@ -89,9 +89,9 @@ function DashboardSkeleton() {
       <Bone className="h-8 w-72" />
       <Bone className="h-4 w-96 max-w-full" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Bone className="h-44 rounded-2xl" />
-        <Bone className="h-44 rounded-2xl" />
-        <Bone className="h-44 rounded-2xl" />
+        <Bone className="h-44 rounded" />
+        <Bone className="h-44 rounded" />
+        <Bone className="h-44 rounded" />
       </div>
     </LoadingRegion>
   )

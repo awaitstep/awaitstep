@@ -70,7 +70,7 @@ export function WorkspaceSettingsPage({
         <span
           aria-hidden="true"
           className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-xl text-lg font-semibold',
+            'flex size-11 shrink-0 items-center justify-center rounded text-lg font-semibold',
             WORKSPACE_TILE_CLASS[workspace.colour],
           )}
         >

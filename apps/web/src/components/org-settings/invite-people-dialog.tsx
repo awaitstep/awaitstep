@@ -177,7 +177,7 @@ export function InvitePeopleDialog({ org, onClose }: InvitePeopleDialogProps) {
             </p>
           </div>
         ) : (
-          <p className="rounded-xl border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
+          <p className="rounded border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
             Admins can open every project and workspace in {org.name}, including ones created later.
           </p>
         )}

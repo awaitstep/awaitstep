@@ -130,7 +130,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
           />
         </OverviewCard>
         {inWorkspace ? (
-          <section className="overflow-hidden rounded-2xl border border-dashed border-border">
+          <section className="overflow-hidden rounded border border-dashed border-border">
             <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-5 py-4">
               <h2 className="text-sm font-semibold text-foreground">From {projectName}</h2>
               <span className="flex-1 text-xs text-muted-foreground">Read-only here</span>
@@ -144,7 +144,7 @@ export function LibraryPage({ place, placeName, projectName }: LibraryPageProps)
             />
           </section>
         ) : (
-          <section className="overflow-hidden rounded-2xl border border-dashed border-border">
+          <section className="overflow-hidden rounded border border-dashed border-border">
             <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-5 py-4">
               <h2 className="text-sm font-semibold text-foreground">From the marketplace</h2>
               <span className="flex-1 text-xs text-muted-foreground">Read-only here</span>

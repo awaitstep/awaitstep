@@ -157,7 +157,7 @@ export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageP
             </Button>
           }
         >
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3.5">
+          <div className="flex items-center gap-3 rounded border border-border bg-card px-4 py-3.5">
             <Tile tone="ok" size="sm">
               <Mail />
             </Tile>

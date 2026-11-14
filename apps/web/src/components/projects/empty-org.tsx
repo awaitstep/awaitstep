@@ -15,7 +15,7 @@ function ScopeSketch({ org }: EmptyOrgProps) {
   return (
     <div
       aria-hidden="true"
-      className="flex flex-1 basis-[340px] flex-col gap-2.5 rounded-2xl border border-border bg-card p-5 shadow-lg"
+      className="flex flex-1 basis-[340px] flex-col gap-2.5 rounded border border-border bg-card p-5 shadow-lg"
     >
       <span className="flex items-center gap-2.5 rounded-lg border border-border bg-background px-3 py-2.5">
         <span className="flex size-6 items-center justify-center rounded-md bg-primary text-2xs font-semibold text-primary-foreground">
@@ -55,7 +55,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
   const newProject = withNewDialog(orgPath(org.slug), 'project')
   return (
     <PageBody>
-      <section className="flex flex-wrap items-center gap-10 rounded-2xl border border-primary/20 bg-primary/5 p-8 md:p-10">
+      <section className="flex flex-wrap items-center gap-10 rounded border border-primary/20 bg-primary/5 p-8 md:p-10">
         <div className="flex flex-1 basis-[360px] flex-col gap-5">
           <span className="flex w-fit items-center gap-1.5 rounded-full bg-tone-ok px-2.5 py-1 text-xs text-status-success">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-status-success" />

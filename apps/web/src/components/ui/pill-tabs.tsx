@@ -4,9 +4,7 @@ import { TabsList, TabsTrigger } from './tabs'
 /** The boards' pill tablist (`Access`, `OrgResources`), on the kit's tabs. */
 export function PillTabsList({ children }: { children: ReactNode }) {
   return (
-    <TabsList className="w-fit gap-1 rounded-xl border border-border bg-card p-1">
-      {children}
-    </TabsList>
+    <TabsList className="w-fit gap-1 rounded border border-border bg-card p-1">{children}</TabsList>
   )
 }
 

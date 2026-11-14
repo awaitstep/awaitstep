@@ -46,7 +46,7 @@ export function DataTable<Row>({
   linkedRows = false,
 }: DataTableProps<Row>) {
   return (
-    <div className={cn(framed && 'overflow-hidden rounded-2xl border border-border bg-card')}>
+    <div className={cn(framed && 'overflow-hidden rounded border border-border bg-card')}>
       {/* With linked rows, a browser that won't size a row's link layer to its row
           keeps it inside the table rather than over the page. */}
       <div className={cn('overflow-x-auto', linkedRows && 'relative')}>

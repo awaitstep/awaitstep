@@ -99,7 +99,7 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
             placeholder="What lives here?"
           />
         </FormField>
-        <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-background p-4">
+        <div className="flex flex-col gap-2.5 rounded border border-border bg-background p-4">
           <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
             What you’ll get
           </span>

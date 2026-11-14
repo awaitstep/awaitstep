@@ -25,11 +25,11 @@ interface EmptyStateProps {
 const BOX_CLASS: Record<EmptyStateTone, Record<EmptyStateSize, string>> = {
   plain: {
     sm: 'rounded-lg border border-dashed border-border px-6 py-12',
-    lg: 'rounded-2xl border border-dashed border-border px-8 py-12',
+    lg: 'rounded border border-dashed border-border px-8 py-12',
   },
   welcome: {
     sm: 'rounded-lg border border-status-success/20 bg-tone-ok/40 px-6 py-12',
-    lg: 'rounded-2xl border border-status-success/20 bg-tone-ok/40 px-8 py-12',
+    lg: 'rounded border border-status-success/20 bg-tone-ok/40 px-8 py-12',
   },
 }
 

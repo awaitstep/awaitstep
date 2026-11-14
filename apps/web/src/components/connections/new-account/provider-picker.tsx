@@ -39,7 +39,7 @@ function ProviderRow({
     <button
       type="button"
       onClick={handlePick}
-      className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex w-full items-center gap-3 rounded border border-border bg-background px-4 py-3 text-left transition-colors hover:border-foreground/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {Icon && (
         <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-white">

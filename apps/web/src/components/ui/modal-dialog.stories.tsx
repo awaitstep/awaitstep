@@ -70,7 +70,7 @@ export const NewWorkspace: Story = {
     leading: (
       <span
         className={cn(
-          'flex size-11 items-center justify-center rounded-xl text-base font-semibold',
+          'flex size-11 items-center justify-center rounded text-base font-semibold',
           WORKSPACE_TILE_CLASS.amber,
         )}
       >
@@ -95,7 +95,7 @@ export const NewWorkspace: Story = {
 export const WithFooterHint: Story = {
   args: {
     leading: (
-      <span className="flex size-11 items-center justify-center rounded-xl bg-tone-info text-status-info">
+      <span className="flex size-11 items-center justify-center rounded bg-tone-info text-status-info">
         <KeyRound className="size-5" aria-hidden="true" />
       </span>
     ),

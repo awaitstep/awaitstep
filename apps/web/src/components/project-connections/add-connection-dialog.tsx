@@ -114,8 +114,8 @@ export function AddConnectionDialog({
   } else if (!available.data) {
     orgBody = (
       <div className="flex flex-col gap-2" aria-busy="true">
-        <Bone className="h-14 w-full rounded-xl" />
-        <Bone className="h-14 w-full rounded-xl" />
+        <Bone className="h-14 w-full rounded" />
+        <Bone className="h-14 w-full rounded" />
       </div>
     )
   } else {
@@ -147,7 +147,7 @@ export function AddConnectionDialog({
           onSubmit={handleConnect}
           onEdit={handleEdit}
         />
-        <p className="rounded-xl border border-dashed border-border px-3.5 py-2.5 text-xs text-muted-foreground">
+        <p className="rounded border border-dashed border-border px-3.5 py-2.5 text-xs text-muted-foreground">
           Only {projectName} can see it or deploy with it. An account for the whole organization is
           connected on {orgName}’s Connections page.
         </p>

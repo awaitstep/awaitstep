@@ -6,7 +6,7 @@ import { Tile } from '../../ui/tile'
 /** Shown above the notes when the viewer has seen them all (board `WhatsNew`, `uptodate`). */
 export function UpToDateNote() {
   return (
-    <div className="mt-2 flex items-center gap-3 rounded-xl border border-status-success/30 bg-tone-ok/40 px-4 py-3">
+    <div className="mt-2 flex items-center gap-3 rounded border border-status-success/30 bg-tone-ok/40 px-4 py-3">
       <Check className="size-4 shrink-0 text-status-success" aria-hidden="true" />
       <p className="flex flex-col gap-0.5">
         <span className="text-sm font-semibold text-foreground">You’ve seen everything</span>

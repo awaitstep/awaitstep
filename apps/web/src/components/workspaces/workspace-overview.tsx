@@ -139,7 +139,7 @@ export function WorkspaceOverview({
           href={workspacePath(slugs, 'functions')}
         />
         {quiet ? (
-          <div className="col-span-2 flex items-center gap-3.5 rounded-xl border border-dashed border-input bg-card px-4 py-3 md:col-span-1">
+          <div className="col-span-2 flex items-center gap-3.5 rounded border border-dashed border-input bg-card px-4 py-3 md:col-span-1">
             <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px] bg-muted text-muted-foreground">
               <Play className="size-4" aria-hidden="true" />
             </span>

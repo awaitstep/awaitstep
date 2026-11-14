@@ -149,7 +149,7 @@ export const Empty: Story = {
 export const PagerStates: Story = {
   args: { caption: '', columns: [], rows: [], getRowKey: () => '' },
   render: () => (
-    <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card">
+    <div className="flex flex-col gap-3 rounded border border-border bg-card">
       <Pager
         summary="Showing 25 of 128 · first page"
         hasNewer={false}

@@ -50,7 +50,7 @@ export function ActionCard({
   const titleId = useId()
   const descriptionId = useId()
   const className = cn(
-    'flex flex-col gap-3 rounded-2xl border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'flex flex-col gap-3 rounded border p-5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
     // The "New …" tile: unfilled, its content centred, as the boards draw it.
     variant === 'dashed'
       ? 'min-h-[200px] items-center justify-center border-dashed bg-transparent text-center'

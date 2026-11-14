@@ -107,7 +107,7 @@ export function OrgHome({
           {firstFailing && (
             <ShellLink
               href={failingHref(org.slug, firstFailing)}
-              className="flex items-center gap-3 rounded-xl border border-destructive/40 bg-tone-fail px-3.5 py-3 text-sm"
+              className="flex items-center gap-3 rounded border border-destructive/40 bg-tone-fail px-3.5 py-3 text-sm"
             >
               <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-status-error" />
               <span className="min-w-0 flex-1">

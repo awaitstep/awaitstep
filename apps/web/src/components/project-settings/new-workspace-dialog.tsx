@@ -142,7 +142,7 @@ export function NewWorkspaceDialog({
         <span
           aria-hidden="true"
           className={cn(
-            'flex size-11 items-center justify-center rounded-xl text-lg font-semibold',
+            'flex size-11 items-center justify-center rounded text-lg font-semibold',
             WORKSPACE_TILE_CLASS[colour],
           )}
         >
@@ -178,7 +178,7 @@ export function NewWorkspaceDialog({
           options={options}
           renderExtra={renderPeople}
         />
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background px-4 py-3.5 text-2xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 rounded border border-border bg-background px-4 py-3.5 text-2xs text-muted-foreground">
           <span>Also gets, from {projectName}:</span>
           {alsoGets.map((item) => (
             <Badge key={item} className="font-normal">

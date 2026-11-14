@@ -63,7 +63,7 @@ export function AccountMenu({
           sideOffset={8}
           collisionPadding={16}
           aria-label="Your account"
-          className="z-50 flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+          className="z-50 flex w-[300px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded border border-border bg-card shadow-lg"
         >
           <Menu.Label className="flex items-center gap-3 border-b border-border p-3.5">
             <Avatar name={user.name} email={user.email} src={user.image} className="size-9" />

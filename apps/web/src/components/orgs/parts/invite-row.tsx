@@ -18,7 +18,7 @@ interface InviteRowProps {
 /** One invite in Waiting for you (17a): who and where, Review and join, Decline. */
 export function InviteRow({ invite, declined, busy, error, onDecline, onUndo }: InviteRowProps) {
   return (
-    <li className="flex flex-wrap items-center gap-4 rounded-2xl border border-primary/20 bg-primary/5 px-4.5 py-4">
+    <li className="flex flex-wrap items-center gap-4 rounded border border-primary/20 bg-primary/5 px-4.5 py-4">
       <Tile tone="warn" size="lg">
         {invite.org.initial}
       </Tile>

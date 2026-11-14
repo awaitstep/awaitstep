@@ -75,7 +75,7 @@ export function VersionHistoryEmpty({
       }
     >
       <div className="flex flex-col items-center gap-3.5 px-4 py-6 text-center">
-        <span className="flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+        <span className="flex size-10 items-center justify-center rounded bg-muted text-muted-foreground">
           <Rocket className="size-5" aria-hidden="true" />
         </span>
         <div className="flex flex-col gap-1.5">

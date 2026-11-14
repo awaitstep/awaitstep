@@ -24,7 +24,7 @@ function Tokens() {
           {workspaceColours.map((c) => (
             <div key={c.name} className="flex flex-col items-center gap-1.5">
               <span
-                className={`flex size-11 items-center justify-center rounded-xl text-lg font-semibold ${c.tile}`}
+                className={`flex size-11 items-center justify-center rounded text-lg font-semibold ${c.tile}`}
               >
                 {c.name[0]}
               </span>
@@ -47,8 +47,8 @@ function Tokens() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Inherited border</h2>
-        <div className="rounded-xl border border-border bg-card p-4 text-xs">Only in Sales</div>
-        <div className="rounded-xl border border-dashed border-inherited-border p-4 text-xs text-muted-foreground">
+        <div className="rounded border border-border bg-card p-4 text-xs">Only in Sales</div>
+        <div className="rounded border border-dashed border-inherited-border p-4 text-xs text-muted-foreground">
           From Project 101 · Inherited
         </div>
       </section>

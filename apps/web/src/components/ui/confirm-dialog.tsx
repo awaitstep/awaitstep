@@ -181,17 +181,14 @@ function SectionedContent(props: ConfirmDialogProps) {
         onOpenAutoFocus={handleOpenAutoFocus}
         onCloseAutoFocus={props.onCloseAutoFocus}
         className={cn(
-          'fixed left-1/2 top-1/2 z-50 flex w-[480px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border bg-card shadow-lg',
+          'fixed left-1/2 top-1/2 z-50 flex w-[480px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded border bg-card shadow-lg',
           variant === 'destructive' ? 'border-destructive/40' : 'border-border',
         )}
       >
         <div className="flex flex-col gap-3.5 p-6">
           {Icon && (
             <span
-              className={cn(
-                'flex size-11 items-center justify-center rounded-xl',
-                ICON_TONE[variant],
-              )}
+              className={cn('flex size-11 items-center justify-center rounded', ICON_TONE[variant])}
             >
               <Icon className="size-5" aria-hidden="true" />
             </span>

@@ -96,7 +96,7 @@ export function ScopeSwitcher({
           sideOffset={6}
           collisionPadding={16}
           aria-label={listProps.label}
-          className="z-50 flex max-h-[min(480px,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+          className="z-50 flex max-h-[min(480px,var(--radix-popover-content-available-height))] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded border border-border bg-card shadow-lg"
         >
           <SwitcherList {...listProps} onDone={handleClose} />
         </Popover.Content>

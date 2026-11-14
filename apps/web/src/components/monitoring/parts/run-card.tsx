@@ -18,7 +18,7 @@ export function RunCard({ title, meta, actions, footer, className, children }: R
   return (
     <section
       className={cn(
-        'flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card',
+        'flex min-w-0 flex-col overflow-hidden rounded border border-border bg-card',
         className,
       )}
     >

@@ -12,7 +12,7 @@ interface SharedItemCardProps {
   href: string | null
 }
 
-const CARD = 'flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4.5'
+const CARD = 'flex items-center gap-3.5 rounded border border-border bg-card p-4.5'
 
 /** An item another workspace shared, under "Shared with Sales": read-only, called from a step. */
 export function SharedItemCard({ item, href }: SharedItemCardProps) {

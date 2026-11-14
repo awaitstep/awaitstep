@@ -43,7 +43,7 @@ function Typography() {
     <div className="flex max-w-3xl flex-col gap-10 text-foreground">
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Scale</h2>
-        <div className="overflow-hidden rounded-xl border border-border">
+        <div className="overflow-hidden rounded border border-border">
           {scale.map((row) => (
             <div
               key={row.token}
@@ -69,7 +69,7 @@ function Typography() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Roles</h2>
-        <div className="flex flex-col gap-4 rounded-xl border border-border p-4">
+        <div className="flex flex-col gap-4 rounded border border-border p-4">
           {roles.map((role) => (
             <div key={role.name} className="flex flex-col gap-1">
               <span className="text-3xs uppercase tracking-wider text-muted-foreground">
@@ -83,7 +83,7 @@ function Typography() {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Dense chrome</h2>
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border p-4">
+        <div className="flex flex-wrap items-center gap-2 rounded border border-border p-4">
           <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-3xs uppercase tracking-wider text-primary">
             Entry
           </span>

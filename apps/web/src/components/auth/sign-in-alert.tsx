@@ -6,7 +6,7 @@ export function SignInAlert({ title, body }: ProblemCopy) {
   return (
     <div
       role="alert"
-      className="flex gap-3 rounded-xl border border-status-error/50 bg-card px-4 py-3.5"
+      className="flex gap-3 rounded border border-status-error/50 bg-card px-4 py-3.5"
     >
       <CircleAlert className="mt-0.5 size-4 shrink-0 text-status-error" aria-hidden="true" />
       <div className="flex min-w-0 flex-col gap-1">

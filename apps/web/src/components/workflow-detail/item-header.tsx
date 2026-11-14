@@ -212,7 +212,7 @@ function LockBanner({ workflowId, versionId, version }: LockBannerProps) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-status-warning/30 bg-status-warning/5 px-4 py-3">
+    <div className="flex flex-wrap items-center gap-3 rounded border border-status-warning/30 bg-status-warning/5 px-4 py-3">
       <Lock aria-hidden="true" className="size-4 shrink-0 text-status-warning" />
       <p className="flex-1 text-sm text-foreground">
         v{version} is locked · it can’t be replaced where it’s live

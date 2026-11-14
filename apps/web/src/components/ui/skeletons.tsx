@@ -92,10 +92,10 @@ interface ListCardSkeletonProps {
 /** Placeholder for a `ListCard`: rows keep `ListRow`'s padding and line boxes so nothing jumps. */
 export function ListCardSkeleton({ rows = 4, trailing = 3, tile = true }: ListCardSkeletonProps) {
   return (
-    <div className="flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+    <div className="flex flex-col divide-y divide-border overflow-hidden rounded border border-border bg-card">
       {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4">
-          {tile && <Bone className="size-10 rounded-xl" />}
+          {tile && <Bone className="size-10 rounded" />}
           {/* Line boxes match ListRow: text-sm (20px) title, text-xs (18px) description. */}
           <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
             <div className="flex h-5 items-center">

@@ -73,7 +73,7 @@ export interface Fact {
 /** The boxed facts on an invite: where it leads, the role, who is signed in. */
 export function FactList({ items }: { items: Fact[] }) {
   return (
-    <div role="list" className="overflow-hidden rounded-2xl border border-border bg-card">
+    <div role="list" className="overflow-hidden rounded border border-border bg-card">
       {items.map((item) => (
         <div
           key={item.key}

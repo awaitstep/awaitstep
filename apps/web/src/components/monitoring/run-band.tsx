@@ -36,7 +36,7 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
   return (
     <section
       aria-label="Run facts"
-      className="flex flex-wrap divide-border rounded-2xl border border-border bg-card md:flex-nowrap md:divide-x"
+      className="flex flex-wrap divide-border rounded border border-border bg-card md:flex-nowrap md:divide-x"
     >
       <div className={cn(COLUMN, 'basis-[220px] grow-[1.2]')}>
         <span className={LABEL}>{isTerminalRunStatus(run.status) ? 'Ran for' : 'Running for'}</span>

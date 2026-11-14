@@ -12,7 +12,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 const mark = (
-  <span className="flex size-12 items-center justify-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground">
+  <span className="flex size-12 items-center justify-center rounded bg-primary text-lg font-semibold text-primary-foreground">
     A
   </span>
 )

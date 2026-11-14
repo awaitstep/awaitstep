@@ -151,7 +151,7 @@ export function KeysPage({ slugs, createOpen, onCloseCreate }: KeysPageProps) {
           </OverviewCard>
         )}
         {keys.data.workspaceKeys.length > 0 && (
-          <section className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-2xl border border-dashed border-border px-5 py-4">
+          <section className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded border border-dashed border-border px-5 py-4">
             <span className="flex min-w-[220px] flex-1 flex-col gap-0.5">
               <h2 className="text-sm font-semibold text-foreground">Workspace keys</h2>
               <span className="text-xs text-muted-foreground">

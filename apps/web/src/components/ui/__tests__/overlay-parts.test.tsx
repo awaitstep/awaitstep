@@ -32,7 +32,7 @@ describe('DialogContent defaults', () => {
       </Dialog>,
     )
     const dialog = screen.getByRole('dialog', { name: 'Create a workspace' })
-    expect(dialog).toHaveClass('w-[560px]', 'rounded-2xl', 'flex-col')
+    expect(dialog).toHaveClass('w-[560px]', 'rounded', 'flex-col')
     expect(dialog).not.toHaveClass('p-6')
     expect(backdropOf(dialog)).toHaveClass('bg-black/70')
   })
