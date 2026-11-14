@@ -160,6 +160,10 @@ export {
 } from './step-module.js'
 export { insertNode, insertStep } from './graph-edit.js'
 export type { InsertStepResult, NewNode, NewStep, StepPlacement } from './graph-edit.js'
+export { removeNode, removalBlocker } from './graph-remove.js'
+export type { EmptiedArm, GraphShape, RemoveNodeResult, RenamedNode } from './graph-remove.js'
+export { nodeReaders } from './graph/readers.js'
+export type { NodeReader } from './graph/readers.js'
 export { moduleInputReads, moduleInputNames } from './module-inputs.js'
 export type { ModuleInputReads } from './module-inputs.js'
 export {
