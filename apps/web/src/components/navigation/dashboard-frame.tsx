@@ -184,7 +184,7 @@ function FramePanel({ panel, scope }: { panel: PanelModel; scope: FrameScope }) 
         <ContextPanel
           label="Project"
           header={<ProjectHeader scope={scope} />}
-          footer={<PanelItem href={panel.projectHref} icon={Layers} label="Project" />}
+          footer={<PanelItem href={panel.projectHref} icon={Layers} label="Manage project" />}
         >
           <WorkspaceSwitcher
             slugs={panel.slugs}

@@ -17,8 +17,6 @@ interface LoadErrorProps {
   statusHref?: string
   /** The request ID support needs, e.g. `req_7f2a91c4`. */
   errorId?: string
-  /** `false` drops the card, for use inside a section that draws its own. */
-  framed?: boolean
 }
 
 /** What a list shows in place of its rows when loading it failed. */
@@ -30,7 +28,6 @@ export function LoadError({
   attempts = 0,
   statusHref,
   errorId,
-  framed = true,
 }: LoadErrorProps) {
   const { status: copyStatus, copy: copyErrorId } = useCopyStatus(errorId)
   const copied = copyStatus === 'copied'
@@ -44,12 +41,7 @@ export function LoadError({
   }
 
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center gap-3.5 px-6 py-14 text-center',
-        framed && 'rounded border border-border bg-card',
-      )}
-    >
+    <div className="flex flex-col items-center gap-3.5 px-6 py-14 text-center">
       <Tile tone="fail" size="lg">
         <TriangleAlert />
       </Tile>

@@ -182,7 +182,7 @@ export function ProjectMenu({
       </nav>
       {projectHref && (
         <div className="border-t border-border px-2.5 py-2">
-          <PanelItem href={projectHref} icon={Layers} label="Project" onSelect={onClose} />
+          <PanelItem href={projectHref} icon={Layers} label="Manage project" onSelect={onClose} />
         </div>
       )}
     </div>
