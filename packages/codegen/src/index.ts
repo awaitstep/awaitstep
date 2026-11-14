@@ -162,6 +162,13 @@ export { insertNode, insertStep } from './graph-edit.js'
 export type { InsertStepResult, NewNode, NewStep, StepPlacement } from './graph-edit.js'
 export { removeNode, removalBlocker } from './graph-remove.js'
 export type { EmptiedArm, GraphShape, RemoveNodeResult, RenamedNode } from './graph-remove.js'
+export { applyGraphOp, applyGraphOps, withFieldEdits } from './graph-ops.js'
+export type {
+  ApplyGraphOpResult,
+  ApplyGraphOpsResult,
+  DroppedGraphOp,
+  GraphOp,
+} from './graph-ops.js'
 export { nodeReaders } from './graph/readers.js'
 export type { NodeReader } from './graph/readers.js'
 export { moduleInputReads, moduleInputNames } from './module-inputs.js'

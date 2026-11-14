@@ -30,7 +30,13 @@ export interface NewStep {
  */
 export interface NewNode extends NewStep {
   type: string
-  /** A template node's field values; ignored for a step. */
+  /**
+   * A template node's field values. For a step only `code` is read: the
+   * module it starts with, instead of the scaffold named from its variable
+   * name. A pending Add keeps the scaffold it was first given this way, so
+   * replaying it where the names differ never changes the text a draft of
+   * it was started from.
+   */
   data?: Record<string, unknown>
 }
 
@@ -117,9 +123,10 @@ export function insertNode(
   if (varName === '') {
     return refuse(`This ${noun}’s name needs at least one letter or digit.`)
   }
+  const givenCode = isStep && typeof newStep.data?.code === 'string' ? newStep.data.code : null
   const build = (position: { x: number; y: number }): WorkflowNode =>
     isStep
-      ? buildNode(newStep.id, name, varName, position)
+      ? buildNode(newStep.id, name, givenCode ?? stepModuleTemplate(varName), position)
       : {
           id: newStep.id,
           type: newStep.type,
@@ -217,7 +224,7 @@ export function insertNode(
 function buildNode(
   id: string,
   name: string,
-  varName: string,
+  code: string,
   position: { x: number; y: number },
 ): WorkflowNode {
   return {
@@ -227,6 +234,6 @@ function buildNode(
     position,
     version: NEW_NODE_VERSION,
     provider: NEW_NODE_PROVIDER,
-    data: { code: stepModuleTemplate(varName) },
+    data: { code },
   }
 }
