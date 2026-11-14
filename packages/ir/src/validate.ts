@@ -12,6 +12,7 @@ import { isBuiltinNodeType } from './types.js'
 import { builtinNodeDataSchemas, scriptIRSchema, workflowIRSchema } from './schema.js'
 import { validateDependencySpecs } from './dependencies.js'
 import { validateProjectFiles } from './project-files.js'
+import { validateArmsIntoJoins } from './arms.js'
 
 /**
  * Names a loop item cannot take: the step module's own parameters, the
@@ -159,13 +160,16 @@ function validateStructure(ir: ArtifactIR): ValidationError[] {
   }
 
   const unreachable = findUnreachableNodes(ir)
+  const names = new Map(ir.nodes.map((n) => [n.id, n.name]))
   for (const nodeId of unreachable) {
     errors.push({
       path: `nodes`,
-      message: `Node "${nodeId}" is not reachable from entry node`,
+      message: `${names.get(nodeId) || nodeId} is not connected to the workflow’s start, so it would never run.`,
       nodeId,
     })
   }
+
+  errors.push(...validateArmsIntoJoins(ir))
 
   // Type-specific validation
   errors.push(...validateTryCatchNodes(ir))

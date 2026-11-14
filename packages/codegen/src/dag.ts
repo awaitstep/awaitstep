@@ -1,4 +1,4 @@
-import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import { isArmEdgeOf, type WorkflowIR, type WorkflowNode } from '@awaitstep/ir'
 import { GenerateInputError } from './errors.js'
 
 /** The node kinds whose successors run inside a block of their own; only a `then` edge leaves it. */
@@ -18,9 +18,6 @@ export const CONTAINER_TYPES: ReadonlySet<string> = new Set([
 function isArmContainer(type: string): boolean {
   return CONTAINER_TYPES.has(type) || type === 'wait_for_event'
 }
-
-/** A wait's arms; every other container's are its edges but `then`. */
-const WAIT_ARM_LABELS = new Set(['onEvent', 'onTimeout'])
 
 export function buildAdjacencyList(ir: WorkflowIR): Map<string, string[]> {
   const adj = new Map<string, string[]>()
@@ -176,8 +173,6 @@ export interface ArmBlock {
   arm: string
 }
 
-const ARM_LABELS = new Set(['body', 'try', 'catch', 'finally'])
-
 /**
  * The block each inlined node runs in, by the emitter's own rule: a loop or
  * try_catch inlines the chains behind its `body`/`try`/`catch`/`finally`
@@ -209,11 +204,7 @@ export function containerArms(ir: WorkflowIR): Map<string, ArmBlock> {
   for (const node of nodes) {
     if (!isArmContainer(node.type)) continue
     const armEdges = (bySource.get(node.id) ?? []).filter((edge) =>
-      node.type === 'loop' || node.type === 'try_catch'
-        ? ARM_LABELS.has(edge.label ?? '')
-        : node.type === 'wait_for_event'
-          ? WAIT_ARM_LABELS.has(edge.label ?? '')
-          : edge.label !== 'then',
+      isArmEdgeOf(node.type, edge.label),
     )
     for (const edge of armEdges) {
       const block: ArmBlock = { owner: node.id, arm: edge.target }

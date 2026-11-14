@@ -115,7 +115,11 @@ describe('validateIR', () => {
     })
     expect(result.ok).toBe(false)
     if (!result.ok) {
-      expect(result.errors.some((e) => e.message.includes('not reachable'))).toBe(true)
+      expect(result.errors).toContainEqual({
+        path: 'nodes',
+        nodeId: 'b',
+        message: 'b is not connected to the workflow’s start, so it would never run.',
+      })
     }
   })
 

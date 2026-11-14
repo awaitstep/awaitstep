@@ -5,7 +5,9 @@ import {
   missingRequiredFields,
   validateExpressionRefs,
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
+  validateArmsIntoJoins,
   type NodeRegistry,
+  type WorkflowNode,
 } from '@awaitstep/ir'
 import { generatedNameProblems } from '@awaitstep/codegen'
 import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
@@ -228,15 +230,30 @@ export function validateWorkflowForPublish(
     )
   }
 
+  const nodeById = new Map(nodes.map((n) => [n.id, n]))
   const unreachable = findUnreachableNodes(nodes, edges)
   for (const nodeId of unreachable) {
-    const node = nodes.find((n) => n.id === nodeId)
+    const node = nodeById.get(nodeId)
     add(
       'error',
       nodeId,
       node?.data.irNode.name ?? null,
       'Not connected to the rest of the workflow. Connect it or remove it.',
     )
+  }
+
+  // The save refuses an arm leading straight into a join; say so on the node first.
+  const armEdges = edges.map((e) => ({
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    ...(typeof e.label === 'string' && { label: e.label }),
+  }))
+  const armNodes = nodes.map((n) => n.data.irNode as WorkflowNode)
+  for (const issue of validateArmsIntoJoins({ nodes: armNodes, edges: armEdges })) {
+    const name =
+      issue.nodeId === undefined ? null : (nodeById.get(issue.nodeId)?.data.irNode.name ?? null)
+    add('error', issue.nodeId ?? null, name, issue.message)
   }
 
   // ── Expression validation setup (topo-sort for upstream tracking) ──
@@ -482,7 +499,7 @@ export function validateWorkflowForPublish(
     }))
     const entryNodeId = findEntryNodeId(irNodes, irEdges)
     for (const problem of generatedNameProblems({ nodes: irNodes, edges: irEdges, entryNodeId })) {
-      const node = problem.nodeId ? nodes.find((n) => n.id === problem.nodeId) : undefined
+      const node = problem.nodeId ? nodeById.get(problem.nodeId) : undefined
       add('error', problem.nodeId ?? null, node?.data.irNode.name ?? null, problem.message)
     }
   }

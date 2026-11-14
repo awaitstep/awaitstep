@@ -257,6 +257,40 @@ describe('version routes', () => {
       ])
     })
 
+    it('refuses an arm that leads straight into a node another path also reaches', async () => {
+      const at = (id: string, name: string, type = 'step') => ({
+        ...validIR.nodes[0],
+        id,
+        name,
+        type,
+        data: type === 'branch' ? { branches: [] } : { code: 'return 1;' },
+      })
+      const res = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ir: {
+            ...validIR,
+            nodes: [at('br', 'Paid', 'branch'), at('late', 'Late'), at('ship', 'Ship')],
+            edges: [
+              { id: 'a', source: 'br', target: 'ship', label: 'paid' },
+              { id: 'b', source: 'br', target: 'late', label: 'late' },
+              { id: 'ls', source: 'late', target: 'ship' },
+            ],
+            entryNodeId: 'br',
+          },
+        }),
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { details: { path: string; message: string }[] }
+      expect(body.details).toContainEqual({
+        path: 'edges.a',
+        nodeId: 'br',
+        message:
+          'Paid’s “paid” arm leads straight into Ship, which another path also reaches. Add a step to that arm first.',
+      })
+    })
+
     it('refuses a first save that seeds a generated project path', async () => {
       const res = await app.request(url('/api/workflows/wf-1/versions'), {
         method: 'POST',

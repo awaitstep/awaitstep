@@ -267,6 +267,40 @@ describe('validateWorkflowForPublish', () => {
   // ── branch ──
 
   describe('branch', () => {
+    it('errors on an arm that leads straight into a step another path also reaches', () => {
+      const branch = makeFlowNode({
+        id: 'b1',
+        type: 'branch',
+        name: 'Paid',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {
+          branches: [
+            { label: 'yes', condition: 'true' },
+            { label: 'no', condition: '' },
+          ],
+        },
+      })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [branch, makeStepNode('late', { name: 'Late' }), makeStepNode('ship', { name: 'Ship' })],
+        [
+          { id: 'a', source: 'b1', target: 'ship', label: 'yes' },
+          { id: 'b', source: 'b1', target: 'late', label: 'no' },
+          { id: 'c', source: 'late', target: 'ship' },
+        ],
+      )
+      expect(result.canPublish).toBe(false)
+      expect(result.issues).toContainEqual({
+        severity: 'error',
+        nodeId: 'b1',
+        nodeName: 'Paid',
+        message:
+          'Paid’s “yes” arm leads straight into Ship, which another path also reaches. Add a step to that arm first.',
+      })
+    })
+
     it('accepts a single-condition branch (if without else)', () => {
       const node = makeFlowNode({
         id: 'b1',
