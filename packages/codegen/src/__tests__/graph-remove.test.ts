@@ -320,11 +320,17 @@ describe('removeNode — arms that would run straight into a join', () => {
     return result.ok ? [] : result.errors.map((error) => error.message)
   }
 
-  it('removes the head of an arm whose next node the other arm also reaches, and the save refuses it', () => {
-    // Before: if { xx; jj } else { yy; jj }. br —a→ jj would run jj on arm a
-    // only, so validation refuses the result with its reason.
+  it('removes the head of an arm whose next node the other arm also reaches, and the save takes it', () => {
+    // Before: if { xx; jj } else { yy; jj }. After: if { jj } else { yy; jj }:
+    // the generated code runs jj inside each arm, so validation accepts it.
+    const gate = node('br', 'br', 'branch', {
+      branches: [
+        { label: 'a', condition: 'true' },
+        { label: 'b', condition: '' },
+      ],
+    })
     const ir = graph(
-      [node('br', 'br', 'branch'), node('xx', 'xx'), node('yy', 'yy'), node('jj', 'jj')],
+      [gate, node('xx', 'xx'), node('yy', 'yy'), node('jj', 'jj')],
       [
         { id: 'a', source: 'br', target: 'xx', label: 'a' },
         { id: 'b', source: 'br', target: 'yy', label: 'b' },
@@ -335,9 +341,7 @@ describe('removeNode — arms that would run straight into a join', () => {
     expect(removalBlocker(ir, 'xx')).toBeNull()
     const after = remove(ir, 'xx').ir
     expect(after.edges).toContainEqual({ id: 'a', source: 'br', target: 'jj', label: 'a' })
-    expect(joinErrors(after)).toContainEqual(
-      expect.stringMatching(/br’s “a” arm leads straight into jj/),
-    )
+    expect(joinErrors(after)).toEqual([])
   })
 
   it('refuses on save the head of an arm whose next node is the container’s way on', () => {
@@ -352,7 +356,7 @@ describe('removeNode — arms that would run straight into a join', () => {
     expect(joinErrors(remove(ir, 'xx').ir)).toContainEqual(expect.stringMatching(JOIN_ERROR))
   })
 
-  it('refuses on save the same shape on a wait’s arm and an unlabelled parallel arm', () => {
+  it('takes the same shape on a wait’s arm, and refuses it on an unlabelled parallel arm', () => {
     const wait = graph(
       [node('w', 'w', 'wait_for_event'), node('xx', 'xx'), node('tt', 'tt'), node('jj', 'jj')],
       [
@@ -362,9 +366,7 @@ describe('removeNode — arms that would run straight into a join', () => {
         { id: 'tj', source: 'tt', target: 'jj' },
       ],
     )
-    expect(joinErrors(remove(wait, 'xx').ir)).toContainEqual(
-      expect.stringMatching(/w’s “onEvent” arm leads straight into jj/),
-    )
+    expect(joinErrors(remove(wait, 'xx').ir)).toEqual([])
     const fan = graph(
       [node('p', 'p', 'parallel'), node('xx', 'xx'), node('yy', 'yy'), node('jj', 'jj')],
       [

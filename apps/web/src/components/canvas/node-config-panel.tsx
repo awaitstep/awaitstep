@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useId, useMemo, useState } from 'react'
 import { actionToast } from '../../lib/action-toast'
 import { X, Trash2, Info, Plus } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -30,7 +30,8 @@ import {
 import { customAlphabet } from 'nanoid'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
-import type { WorkflowNode, BranchCondition } from '@awaitstep/ir'
+import type { BranchCondition, ConfigField, WorkflowNode } from '@awaitstep/ir'
+import { useNodeExpressionErrors } from '../../hooks/use-node-expression-errors'
 import { isBuiltinNodeType } from '@awaitstep/ir'
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
@@ -99,25 +100,139 @@ export function validateNode(node: WorkflowNode, expectedFunctionName?: string):
   return errors
 }
 
+/** The node the panel shows: its arm and branch pickers connect from it. */
+const PanelNodeContext = createContext<string | null>(null)
+
+/** One connection out of the panel's node, as its pickers change it. */
+export interface PanelEdge {
+  id: string
+  target: string
+  label?: string
+}
+
+/**
+ * How the panel's changes land. On the canvas they go to the workflow
+ * store; Code passes a writer that records each one as a pending edit.
+ */
+export interface NodeWriter {
+  setField: (nodeId: string, fieldId: string, value: unknown) => void
+  rename: (nodeId: string, name: string) => void
+  /** The connections out of the node, changed as a list (order kept, new ones last). */
+  setOutgoing: (nodeId: string, update: (edges: PanelEdge[]) => PanelEdge[]) => void
+}
+
+const storeWriter: NodeWriter = {
+  setField: (nodeId, fieldId, value) =>
+    useWorkflowStore.getState().updateNodeField(nodeId, fieldId, value),
+  rename: (nodeId, name) => useWorkflowStore.getState().renameNode(nodeId, name),
+  setOutgoing: (nodeId, update) => {
+    const store = useWorkflowStore.getState()
+    const outgoing = store.edges.filter((edge) => edge.source === nodeId)
+    const next = update(
+      outgoing.map((edge) => ({
+        id: edge.id,
+        target: edge.target,
+        ...(typeof edge.label === 'string' && { label: edge.label }),
+      })),
+    )
+    const byId = new Map(next.map((edge) => [edge.id, edge]))
+    const kept = store.edges.flatMap((edge) => {
+      if (edge.source !== nodeId) return [edge]
+      const updated = byId.get(edge.id)
+      if (!updated) return []
+      byId.delete(edge.id)
+      return [{ ...edge, target: updated.target, label: updated.label }]
+    })
+    const added = [...byId.values()].map((edge) => ({
+      id: edge.id,
+      source: nodeId,
+      target: edge.target,
+      ...(edge.label !== undefined && { label: edge.label }),
+    }))
+    useWorkflowStore.setState({ edges: [...kept, ...added], isDirty: true })
+  },
+}
+
+const NodeWriterContext = createContext<NodeWriter>(storeWriter)
+
+function useNodeWriter(): NodeWriter {
+  return useContext(NodeWriterContext)
+}
+
+/** One connection out of the node set by its label: retargeted, added, or (no target) removed. */
+function withTarget(edges: PanelEdge[], label: string, targetId: string): PanelEdge[] {
+  const existing = edges.find((edge) => edge.label === label)
+  if (targetId === '') return existing ? edges.filter((edge) => edge !== existing) : edges
+  if (existing) {
+    return edges.map((edge) => (edge === existing ? { ...edge, target: targetId } : edge))
+  }
+  return [...edges, { id: nanoid(), target: targetId, label }]
+}
+
+function usePanelNodeId(): string | null {
+  return useContext(PanelNodeContext)
+}
+
 export function NodeConfigPanel() {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
   // Keyed by the node, so the enlarged editor and the folded section start
   // afresh when another node is picked.
   if (!selectedNodeId) return null
-  return <NodeConfigBody key={selectedNodeId} />
+  return <NodeConfigBody key={selectedNodeId} nodeId={selectedNodeId} />
 }
 
-function NodeConfigBody() {
-  const { selectedNodeId, nodes, edges, kind, readOnly } = useWorkflowStore(
+/**
+ * The same panel as Code opens it from a node's details (in a sheet): its
+ * header (with Close from `onClose`, no Delete — Code's Remove reconnects
+ * the steps), every field, arm and branch, a step's code left to its file.
+ * Its changes go through `writer`, which records them as pending edits.
+ */
+export function NodeSettingsPanel({
+  nodeId,
+  readOnly,
+  writer,
+  onClose,
+}: {
+  nodeId: string
+  readOnly: boolean
+  writer: NodeWriter
+  onClose: () => void
+}) {
+  return (
+    <NodeWriterContext.Provider value={writer}>
+      <NodeConfigBody key={nodeId} nodeId={nodeId} embedded readOnly={readOnly} onClose={onClose} />
+    </NodeWriterContext.Provider>
+  )
+}
+
+function NodeConfigBody({
+  nodeId: selectedNodeId,
+  embedded = false,
+  readOnly: readOnlyOverride,
+  onClose,
+}: {
+  nodeId: string
+  embedded?: boolean
+  readOnly?: boolean
+  /** Embedded: closes the panel where it is shown (Code's settings sheet). */
+  onClose?: () => void
+}) {
+  const {
+    nodes,
+    edges,
+    kind,
+    readOnly: storeReadOnly,
+  } = useWorkflowStore(
     useShallow((s) => ({
-      selectedNodeId: s.selectedNodeId,
       nodes: s.nodes,
       edges: s.edges,
       kind: s.kind,
       readOnly: s.readOnly,
     })),
   )
-  const { updateNodeField, renameNode, removeNode, selectNode } = useWorkflowStore()
+  const readOnly = readOnlyOverride ?? storeReadOnly
+  const { removeNode, selectNode } = useWorkflowStore()
+  const writer = useNodeWriter()
   const { registry, customNodes, customNodesStatus } = useNodeRegistry()
   // 'collapsed' is 'fields' after a visit to the enlarged editor, so focus returns to Enlarge.
   const [editorView, setEditorView] = useState<'fields' | 'enlarged' | 'collapsed'>('fields')
@@ -200,7 +315,7 @@ function NodeConfigBody() {
   // Merged at write time by the store: a debounced edit landing after a
   // reload must not put this render's snapshot of the node back.
   const updateData = (fieldId: string, value: unknown) => {
-    updateNodeField(selectedNode.id, fieldId, value)
+    writer.setField(selectedNode.id, fieldId, value)
   }
 
   function handleEnlarge() {
@@ -216,10 +331,10 @@ function NodeConfigBody() {
   }
 
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    renameNode(selectedNode.id, event.target.value.slice(0, 256))
+    writer.rename(selectedNode.id, event.target.value.slice(0, 256))
   }
 
-  if (editorView === 'enlarged' && irNode.type === 'step') {
+  if (!embedded && editorView === 'enlarged' && irNode.type === 'step') {
     return (
       <StepEnlargedEditor
         node={irNode}
@@ -233,8 +348,123 @@ function NodeConfigBody() {
     )
   }
 
+  const form = (
+    <PanelNodeContext.Provider value={selectedNode.id}>
+      {/* A disabled fieldset disables every control in it, so a read-only version is read-only here too. */}
+      <fieldset disabled={readOnly} className="min-w-0 space-y-4">
+        {customSource && <CustomNodeSourceLine source={customSource} />}
+        {unavailableCustom && <CustomNodeUnavailable />}
+        {customUnknown && customNodesStatus === 'error' && <CustomNodesLoadFailed />}
+        <Field label="Name" htmlFor={nameId}>
+          <Input
+            id={nameId}
+            value={irNode.name}
+            onChange={handleNameChange}
+            debounceMs={300}
+            placeholder="My node"
+            maxLength={256}
+          />
+        </Field>
+
+        <Separator className="!bg-muted/60" />
+
+        {irNode.type === 'branch' ? (
+          <BranchFields node={irNode} onUpdateField={updateData} />
+        ) : irNode.type === 'parallel' ? (
+          <ForkFields hint="Connect several nodes to this output to run them at the same time. Branches aren’t durable on their own. Use separate Workflow instances for durable parallelism." />
+        ) : irNode.type === 'race' ? (
+          <ForkFields hint="Connect several nodes to this output to run them at the same time. The first to finish wins, and the other branches are abandoned." />
+        ) : irNode.type === 'wait_for_event' ? (
+          <>
+            {definition && (
+              <DynamicFields
+                configSchema={definition.configSchema}
+                data={irNode.data}
+                onChange={updateData}
+                nodeId={irNode.id}
+                readOnly={readOnly}
+              />
+            )}
+            <WaitForEventFields node={irNode} onUpdateField={updateData} />
+          </>
+        ) : irNode.type === 'try_catch' ? (
+          <TryCatchFields />
+        ) : irNode.type === 'loop' ? (
+          <LoopFields node={irNode} onUpdateField={updateData} />
+        ) : irNode.type === 'break' ? (
+          <>
+            <Field label="Condition" hint="Leave blank to always break.">
+              <Input
+                value={String(irNode.data.condition ?? '')}
+                onChange={(e) => updateData('condition', e.target.value)}
+                debounceMs={300}
+                placeholder='poll_result.status === "complete"'
+                className="font-mono text-xs"
+              />
+            </Field>
+            <Hint>
+              Inside a loop: exits the loop (break). Outside a loop: stops workflow execution
+              (return). Leave the condition empty for unconditional exit.
+            </Hint>
+          </>
+        ) : irNode.type === 'step' && definition ? (
+          <StepFields
+            node={irNode}
+            kind={kind}
+            scope={scope}
+            schema={definition.configSchema}
+            readOnly={readOnly}
+            onChange={updateData}
+            onEnlarge={handleEnlarge}
+            focusEnlarge={editorView === 'collapsed'}
+            codeInFile={embedded}
+          />
+        ) : definition ? (
+          <>
+            {irNode.type === 'http_request' ? (
+              <HttpRequestFields
+                node={irNode}
+                schema={definition.configSchema}
+                onChange={updateData}
+                readOnly={readOnly}
+              />
+            ) : (
+              <DynamicFields
+                configSchema={definition.configSchema}
+                data={irNode.data}
+                onChange={updateData}
+                nodeId={irNode.id}
+                readOnly={readOnly}
+              />
+            )}
+            {irNode.type === 'sleep' && (
+              <Hint>The run pauses durably and resumes after the delay. No code, no retries.</Hint>
+            )}
+            {!isBuiltinNodeType(irNode.type) && (
+              <TemplateExecution node={irNode} runtime={definition.runtime} onChange={updateData} />
+            )}
+            <ExportFields node={irNode} kind={kind} scope={scope} onChange={updateData} />
+          </>
+        ) : missingCustom ? null : (
+          <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
+            <Info className="mt-0.5 h-3 w-3 shrink-0" />
+            <span>
+              Unknown node type: <strong>{irNode.type}</strong>. This node isn’t in the registry. It
+              may have been removed or never installed.
+            </span>
+          </div>
+        )}
+        <ExpressionProblemsList
+          node={irNode}
+          schema={definition?.configSchema}
+          shownUnderFields={fieldsWithOwnMessages(irNode.type, definition?.configSchema)}
+        />
+      </fieldset>
+    </PanelNodeContext.Provider>
+  )
+
   return (
-    <div className="flex h-full flex-col w-[480px]">
+    <div className={cn('flex h-full flex-col', embedded ? 'w-full' : 'w-[480px]')}>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2.5">
           <div
@@ -255,144 +485,76 @@ function NodeConfigBody() {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-destructive hover:text-destructive"
-            aria-label="Delete node"
-            disabled={readOnly}
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+          {/* In Code, Remove is in the node's details, where it reconnects the steps. */}
+          {!embedded && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              aria-label="Delete node"
+              disabled={readOnly}
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-foreground"
             aria-label="Close panel"
-            onClick={tryClose}
+            onClick={embedded ? onClose : tryClose}
           >
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 scrollbar-none">
-        {/* A disabled fieldset disables every control in it, so a read-only version is read-only here too. */}
-        <fieldset disabled={readOnly} className="min-w-0 space-y-4">
-          {customSource && <CustomNodeSourceLine source={customSource} />}
-          {unavailableCustom && <CustomNodeUnavailable />}
-          {customUnknown && customNodesStatus === 'error' && <CustomNodesLoadFailed />}
-          <Field label="Name" htmlFor={nameId}>
-            <Input
-              id={nameId}
-              value={irNode.name}
-              onChange={handleNameChange}
-              debounceMs={300}
-              placeholder="My node"
-              maxLength={256}
-            />
-          </Field>
-
-          <Separator className="!bg-muted/60" />
-
-          {irNode.type === 'branch' ? (
-            <BranchFields node={irNode} onUpdateField={updateData} />
-          ) : irNode.type === 'parallel' ? (
-            <ForkFields hint="Connect several nodes to this output to run them at the same time. Branches aren’t durable on their own. Use separate Workflow instances for durable parallelism." />
-          ) : irNode.type === 'race' ? (
-            <ForkFields hint="Connect several nodes to this output to run them at the same time. The first to finish wins, and the other branches are abandoned." />
-          ) : irNode.type === 'wait_for_event' ? (
-            <>
-              {definition && (
-                <DynamicFields
-                  configSchema={definition.configSchema}
-                  data={irNode.data}
-                  onChange={updateData}
-                  nodeId={irNode.id}
-                  readOnly={readOnly}
-                />
-              )}
-              <WaitForEventFields node={irNode} onUpdateField={updateData} />
-            </>
-          ) : irNode.type === 'try_catch' ? (
-            <TryCatchFields />
-          ) : irNode.type === 'loop' ? (
-            <LoopFields node={irNode} onUpdateField={updateData} />
-          ) : irNode.type === 'break' ? (
-            <>
-              <Field label="Condition" hint="Leave blank to always break.">
-                <Input
-                  value={String(irNode.data.condition ?? '')}
-                  onChange={(e) => updateData('condition', e.target.value)}
-                  debounceMs={300}
-                  placeholder='poll_result.status === "complete"'
-                  className="font-mono text-xs"
-                />
-              </Field>
-              <Hint>
-                Inside a loop: exits the loop (break). Outside a loop: stops workflow execution
-                (return). Leave the condition empty for unconditional exit.
-              </Hint>
-            </>
-          ) : irNode.type === 'step' && definition ? (
-            <StepFields
-              node={irNode}
-              kind={kind}
-              scope={scope}
-              schema={definition.configSchema}
-              readOnly={readOnly}
-              onChange={updateData}
-              onEnlarge={handleEnlarge}
-              focusEnlarge={editorView === 'collapsed'}
-            />
-          ) : definition ? (
-            <>
-              {irNode.type === 'http_request' ? (
-                <HttpRequestFields
-                  node={irNode}
-                  schema={definition.configSchema}
-                  onChange={updateData}
-                  readOnly={readOnly}
-                />
-              ) : (
-                <DynamicFields
-                  configSchema={definition.configSchema}
-                  data={irNode.data}
-                  onChange={updateData}
-                  nodeId={irNode.id}
-                  readOnly={readOnly}
-                />
-              )}
-              {irNode.type === 'sleep' && (
-                <Hint>
-                  The run pauses durably and resumes after the delay. No code, no retries.
-                </Hint>
-              )}
-              {!isBuiltinNodeType(irNode.type) && (
-                <TemplateExecution
-                  node={irNode}
-                  runtime={definition.runtime}
-                  onChange={updateData}
-                />
-              )}
-              <ExportFields node={irNode} kind={kind} scope={scope} onChange={updateData} />
-            </>
-          ) : missingCustom ? null : (
-            <div className="flex items-start gap-1.5 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs leading-relaxed text-destructive">
-              <Info className="mt-0.5 h-3 w-3 shrink-0" />
-              <span>
-                Unknown node type: <strong>{irNode.type}</strong>. This node isn’t in the registry.
-                It may have been removed or never installed.
-              </span>
-            </div>
-          )}
-        </fieldset>
-      </div>
+      <div className="flex-1 overflow-y-auto p-4 scrollbar-none">{form}</div>
 
       <div className="border-t border-border px-4 py-2.5">
         <span className="font-mono text-xs text-muted-foreground/40">ID {selectedNode.id}</span>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The fields whose `{{ … }}` problems show under the field itself: those
+ * rendered through `DynamicFields`. Every other field's (a branch condition,
+ * a loop's collection, an HTTP URL, a step's code) is listed once below.
+ */
+function fieldsWithOwnMessages(
+  type: string,
+  schema: Record<string, ConfigField> | undefined,
+): ReadonlySet<string> {
+  if (!schema || ['branch', 'loop', 'break', 'http_request', 'try_catch'].includes(type)) {
+    return new Set()
+  }
+  const fields = new Set(Object.keys(schema))
+  if (type === 'step') fields.delete('code')
+  return fields
+}
+
+function ExpressionProblemsList({
+  node,
+  schema,
+  shownUnderFields,
+}: {
+  node: WorkflowNode
+  schema: Record<string, ConfigField> | undefined
+  shownUnderFields: ReadonlySet<string>
+}) {
+  const errors = useNodeExpressionErrors(node.id, node.data, schema)
+  const listed = Object.entries(errors).filter(([field]) => !shownUnderFields.has(field))
+  if (listed.length === 0) return null
+  return (
+    <div role="alert" className="space-y-1 rounded-lg bg-destructive/10 px-2.5 py-2 text-xs">
+      {listed.map(([field, message]) => (
+        <p key={field} className="text-destructive">
+          <span className="font-medium">{schema?.[field]?.label ?? field}:</span> {message}
+        </p>
+      ))}
     </div>
   )
 }
@@ -435,9 +597,8 @@ function Hint({ children }: { children: React.ReactNode }) {
 // so position drags don't trigger re-renders in config panel sub-components.
 
 function useEdgeManagement() {
-  const { selectedNodeId, edges, nodes } = useWorkflowStore(
-    useShallow((s) => ({ selectedNodeId: s.selectedNodeId, edges: s.edges, nodes: s.nodes })),
-  )
+  const selectedNodeId = usePanelNodeId()
+  const { edges, nodes } = useWorkflowStore(useShallow((s) => ({ edges: s.edges, nodes: s.nodes })))
 
   const outgoingEdges = useMemo(
     () => edges.filter((e) => e.source === selectedNodeId),
@@ -457,39 +618,13 @@ function useEdgeManagement() {
     [outgoingEdges],
   )
 
+  const writer = useNodeWriter()
   const setTargetForLabel = useCallback(
     (label: string, targetId: string) => {
-      const store = useWorkflowStore.getState()
-      const existingEdge = store.edges.find((e) => e.source === selectedNodeId && e.label === label)
-
-      if (targetId === '') {
-        if (existingEdge) {
-          useWorkflowStore.setState({
-            edges: store.edges.filter((e) => e.id !== existingEdge.id),
-            isDirty: true,
-          })
-        }
-        return
-      }
-
-      if (existingEdge) {
-        useWorkflowStore.setState({
-          edges: store.edges.map((e) =>
-            e.id === existingEdge.id ? { ...e, target: targetId } : e,
-          ),
-          isDirty: true,
-        })
-      } else {
-        useWorkflowStore.setState({
-          edges: [
-            ...store.edges,
-            { id: nanoid(), source: selectedNodeId!, target: targetId, label },
-          ],
-          isDirty: true,
-        })
-      }
+      if (!selectedNodeId) return
+      writer.setOutgoing(selectedNodeId, (out) => withTarget(out, label, targetId))
     },
-    [selectedNodeId],
+    [selectedNodeId, writer],
   )
 
   return { selectedNodeId, outgoingEdges, targetOptions, getTargetForLabel, setTargetForLabel }
@@ -504,12 +639,9 @@ function BranchFields({
   node: WorkflowNode
   onUpdateField: (fieldId: string, value: unknown) => void
 }) {
-  const {
-    nodes: allNodes,
-    edges,
-    selectedNodeId,
-  } = useWorkflowStore(
-    useShallow((s) => ({ nodes: s.nodes, edges: s.edges, selectedNodeId: s.selectedNodeId })),
+  const selectedNodeId = usePanelNodeId()
+  const { nodes: allNodes, edges } = useWorkflowStore(
+    useShallow((s) => ({ nodes: s.nodes, edges: s.edges })),
   )
 
   const branches = (node.data.branches ?? []) as BranchCondition[]
@@ -524,37 +656,19 @@ function BranchFields({
     return edge?.target ?? ''
   }
 
+  const writer = useNodeWriter()
+
   const setTargetForBranch = (label: string, targetId: string) => {
-    const store = useWorkflowStore.getState()
-    const existingEdge = outgoingEdges.find((e) => e.label === label)
-
-    if (targetId === '') {
-      if (existingEdge) {
-        useWorkflowStore.setState({ edges: store.edges.filter((e) => e.id !== existingEdge.id) })
-      }
-      return
-    }
-
-    if (existingEdge) {
-      useWorkflowStore.setState({
-        edges: store.edges.map((e) => (e.id === existingEdge.id ? { ...e, target: targetId } : e)),
-      })
-    } else {
-      useWorkflowStore.setState({
-        edges: [...store.edges, { id: nanoid(), source: selectedNodeId!, target: targetId, label }],
-      })
-    }
+    if (!selectedNodeId) return
+    writer.setOutgoing(selectedNodeId, (out) => withTarget(out, label, targetId))
   }
 
   const updateBranch = (index: number, field: 'label' | 'condition', value: string) => {
-    if (field === 'label') {
+    if (field === 'label' && selectedNodeId) {
       const oldLabel = branches[index]!.label
-      const store = useWorkflowStore.getState()
-      useWorkflowStore.setState({
-        edges: store.edges.map((e) =>
-          e.source === selectedNodeId && e.label === oldLabel ? { ...e, label: value } : e,
-        ),
-      })
+      writer.setOutgoing(selectedNodeId, (out) =>
+        out.map((edge) => (edge.label === oldLabel ? { ...edge, label: value } : edge)),
+      )
     }
     const updated = branches.map((b, i) => (i === index ? { ...b, [field]: value } : b))
     onUpdateField('branches', updated)
@@ -580,10 +694,8 @@ function BranchFields({
   const removeBranch = (index: number) => {
     if (branches.length <= 1) return
     const label = branches[index]!.label
-    const edge = outgoingEdges.find((e) => e.label === label)
-    if (edge) {
-      const store = useWorkflowStore.getState()
-      useWorkflowStore.setState({ edges: store.edges.filter((e) => e.id !== edge.id) })
+    if (selectedNodeId) {
+      writer.setOutgoing(selectedNodeId, (out) => out.filter((edge) => edge.label !== label))
     }
     onUpdateField(
       'branches',

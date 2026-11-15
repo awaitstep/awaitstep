@@ -170,10 +170,52 @@ describe('StepFlowMap — empty arms', () => {
     expect(onSelect).toHaveBeenCalledWith({ after: 'w', arm: 'then' })
   })
 
-  it('draws the ghost in the empty arm it was placed in', () => {
+  it('draws the ghost in the empty arm it was placed in, its arm in the label column', () => {
     renderWait({ after: 'w', arm: 'onTimeout' })
-    const ghost = screen.getByText('lands here').closest('div')
-    expect(ghost).toHaveTextContent('onTimeout')
+    const ghost = screen.getByText('late').closest('div')!
+    // Compact inside a block: the name and NEW, no “lands here” to overflow.
+    expect(ghost).toHaveTextContent('New')
+    expect(ghost).not.toHaveTextContent('lands here')
+    expect(screen.getByTitle('onTimeout')).toBeInTheDocument()
     expect(screen.queryByText('Empty')).toBeNull()
+  })
+})
+
+describe('StepFlowMap — a node both of a wait’s paths run', () => {
+  it('shows the run both paths end with under each path, as the code runs it', () => {
+    const mergeNodes = [
+      { ...node('w', 'Wait for sunny', 'wait_for_event') },
+      node('s', 'Sunny'),
+      node('h', 'Say Hello'),
+    ]
+    const mergeEdges: (OrderEdge & { id: string })[] = [
+      { id: 'e1', source: 'w', target: 's', label: 'onEvent' },
+      { id: 'e2', source: 'w', target: 'h', label: 'onTimeout' },
+      { id: 'e3', source: 's', target: 'h' },
+    ]
+    const mergeRows = orderSteps(
+      mergeNodes.map((n, i) => ({ id: n.id, type: n.type, position: { x: 0, y: i * 80 } })),
+      mergeEdges,
+    )
+    const map = new Map(mergeNodes.map((n) => [n.id, n]))
+    render(
+      <StepFlowMap
+        rows={mergeRows}
+        nodes={map}
+        edges={mergeEdges}
+        entryNodeId="w"
+        reachable={new Set(['w', 's', 'h'])}
+        kind="workflow"
+        name="x"
+        choices={flowChoices(true, mergeRows, map, mergeEdges, 'w')}
+        triggerLabel="POST /orders"
+        placement={null}
+        onSelect={vi.fn()}
+      />,
+    )
+    expect(screen.getByText('onTimeout')).toBeInTheDocument()
+    // Once after Sunny on the event path, once on the timeout path.
+    expect(screen.getAllByText('Say Hello')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Into onTimeout' })).toBeInTheDocument()
   })
 })

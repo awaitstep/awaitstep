@@ -1,4 +1,4 @@
-import { parseExpressions } from './parse.js'
+import { scanExpressions } from './parse.js'
 
 /**
  * Identifiers that are runtime-provided (not node IDs) and should bypass
@@ -12,10 +12,19 @@ import { parseExpressions } from './parse.js'
  */
 export const RESERVED_EXPRESSION_REFS = new Set(['event', 'env', 'trigger'])
 
+/** Any set of node ids: only membership is asked. */
+export type NodeIdSet = Pick<ReadonlySet<string>, 'has'>
+
 export interface ExpressionValidationError {
   expression: string
   nodeId: string
   message: string
+  /** What is wrong with the ref: the node itself, no such node, or one that runs later. */
+  kind: 'self' | 'missing' | 'downstream'
+  /** The ref as written (`fetch_user`). */
+  ref: string
+  /** Where the expression starts in the input. */
+  start: number
 }
 
 /**
@@ -26,7 +35,7 @@ export interface ExpressionValidationError {
  */
 export function expressionRefNodeId(
   ref: string,
-  allNodeIds: ReadonlySet<string>,
+  allNodeIds: NodeIdSet,
   idByName?: ReadonlyMap<string, string>,
 ): string {
   if (allNodeIds.has(ref)) return ref
@@ -41,12 +50,16 @@ export function expressionRefNodeId(
 export function validateExpressionRefs(
   input: string,
   currentNodeId: string,
-  upstreamNodeIds: Set<string>,
-  allNodeIds: Set<string>,
+  upstreamNodeIds: NodeIdSet,
+  allNodeIds: NodeIdSet,
   idByName?: ReadonlyMap<string, string>,
 ): ExpressionValidationError[] {
   const errors: ExpressionValidationError[] = []
-  const expressions = parseExpressions(input)
+  const expressions = scanExpressions(input).map(({ raw, start, ast }) => ({
+    raw,
+    start,
+    nodeId: ast.ref,
+  }))
 
   for (const parsed of expressions) {
     if (RESERVED_EXPRESSION_REFS.has(parsed.nodeId)) continue
@@ -56,18 +69,27 @@ export function validateExpressionRefs(
         expression: expr.raw,
         nodeId: expr.nodeId,
         message: `Expression references the current node "${parsed.nodeId}"`,
+        kind: 'self',
+        ref: parsed.nodeId,
+        start: parsed.start,
       })
     } else if (!allNodeIds.has(expr.nodeId)) {
       errors.push({
         expression: expr.raw,
         nodeId: expr.nodeId,
         message: `Expression references nonexistent node "${parsed.nodeId}"`,
+        kind: 'missing',
+        ref: parsed.nodeId,
+        start: parsed.start,
       })
     } else if (!upstreamNodeIds.has(expr.nodeId)) {
       errors.push({
         expression: expr.raw,
         nodeId: expr.nodeId,
         message: `Expression references downstream node "${parsed.nodeId}"`,
+        kind: 'downstream',
+        ref: parsed.nodeId,
+        start: parsed.start,
       })
     }
   }

@@ -1,10 +1,12 @@
-import { CONTINUE_LABEL, isArmEdgeOf, labelledArmsOf } from '@awaitstep/ir'
+import { CONTINUE_LABEL, armMergeTargets, isArmEdgeOf, labelledArmsOf } from '@awaitstep/ir'
 
 export interface OrderNode {
   id: string
   type: string
   /** Used only to break ties between roots: top to bottom, then left to right. */
   position?: { x: number; y: number }
+  /** A wait's arm fields, which win over its edges as codegen reads them. */
+  data?: Record<string, unknown>
 }
 
 export interface OrderEdge {
@@ -27,6 +29,13 @@ export interface StepRow {
   continuesAbove: boolean
   /** The step opens arms of its own, which can be folded away. */
   container: boolean
+  /**
+   * This arm's path ends by running more: the nodes from where a branch's or
+   * wait's arms meet on, which the generated code runs inside each arm, in
+   * order. Their own rows are under the arm that leads straight to them; a
+   * view shows them again here, as the code runs them twice.
+   */
+  thenRuns?: string[]
 }
 
 /**
@@ -85,6 +94,8 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
 
   const rows: StepRow[] = []
   const visited = new Set<string>()
+  // Read once: where each branch's and wait's arms meet, if one leads straight there.
+  const merges = armMergeTargets(nodes, edges)
 
   const ready = (id: string): boolean => (incoming.get(id) ?? []).every((from) => visited.has(from))
   const isJoin = (id: string): boolean => (incoming.get(id) ?? []).length > 1
@@ -101,6 +112,8 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
     stopAtUnready: boolean,
     /** The first row is an arm, even when its edge has no label to show. */
     firstIsArm = false,
+    /** The first node is entered though other paths reach it too (an arm into the merge). */
+    enterJoin = false,
   ): string | null {
     if (depth > MAX_DEPTH) return null
     let id: string | null = startId
@@ -110,7 +123,7 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
     // the rejoin a container continues to after its arms).
     let fromAbove = false
     // A rejoin point was chosen by its container, so it is not stopped at again.
-    let rejoined = false
+    let rejoined = enterJoin
     while (id !== null) {
       if (visited.has(id)) return null
       if (stopAtUnready && !rejoined && isJoin(id)) return id
@@ -141,9 +154,55 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
 
       const rejoin: string[] = []
       const firstArmRow = rows.length
-      for (const edge of arms) {
-        const stoppedAt = walk(edge.target, depth + 1, id, edge.label ?? null, true, true)
+      // A branch or wait whose arm leads straight into where the others end:
+      // the generated code runs that node inside each arm, so it shows as that
+      // arm, not after the block. That arm is walked last (the others stop at
+      // the merge first), then the arms are put back in their own order.
+      const merge = merges.get(node.id) ?? null
+      const ordered = merge
+        ? [
+            ...arms.filter((edge) => edge.target !== merge),
+            ...arms.filter((edge) => edge.target === merge),
+          ]
+        : arms
+      // The last row of each arm that ends at the merge, and the merge's own run.
+      const endsAtMerge: StepRow[] = []
+      let mergeRun: string[] = []
+      const armRows = new Map<OrderEdge, StepRow[]>()
+      for (const edge of ordered) {
+        const intoMerge = edge.target === merge
+        const armStart = rows.length
+        const stoppedAt = walk(
+          edge.target,
+          depth + 1,
+          id,
+          edge.label ?? null,
+          true,
+          true,
+          intoMerge,
+        )
         if (stoppedAt !== null && !rejoin.includes(stoppedAt)) rejoin.push(stoppedAt)
+        // An arm that ends at the merge runs it next, as the generated code does.
+        if (merge !== null && !intoMerge && stoppedAt === merge) {
+          for (let at = rows.length - 1; at >= armStart; at--) {
+            if (rows[at]!.depth === depth + 1) {
+              endsAtMerge.push(rows[at]!)
+              break
+            }
+          }
+        }
+        if (intoMerge) {
+          mergeRun = rows
+            .slice(armStart)
+            .filter((row) => row.depth === depth + 1)
+            .map((row) => row.nodeId)
+        }
+        armRows.set(edge, rows.slice(armStart))
+      }
+      if (mergeRun.length > 0) for (const end of endsAtMerge) end.thenRuns = mergeRun
+      if (ordered !== arms) {
+        rows.length = firstArmRow
+        for (const edge of arms) rows.push(...(armRows.get(edge) ?? []))
       }
 
       if (isFanOut) {

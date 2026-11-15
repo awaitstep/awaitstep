@@ -19,3 +19,10 @@ export { findExpressions, containsExpressions } from './find.js'
 export type { FoundExpression } from './find.js'
 export { RESERVED_EXPRESSION_REFS, validateExpressionRefs, expressionRefNodeId } from './refs.js'
 export type { ExpressionValidationError } from './refs.js'
+export {
+  BUILTIN_CODE_FIELDS,
+  codeFieldsOf,
+  nodeExpressionProblems,
+  valueExpressionProblems,
+} from './problems.js'
+export type { ExpressionProblem, ExpressionScope, FieldExpressionProblem } from './problems.js'

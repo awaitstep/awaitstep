@@ -623,6 +623,31 @@ describe('NodeConfigPanel for other kinds', () => {
   })
 })
 
+describe('NodeConfigPanel: expressions', () => {
+  it('lists a broken expression in an HTTP URL under the form, by its field', () => {
+    select({
+      ...step(),
+      id: 'req',
+      type: 'http_request',
+      name: 'Fetch',
+      data: { url: 'https://example.com/{{}}', method: 'GET', body: 'JSON.stringify({{}})' },
+    })
+    render(<NodeConfigPanel />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent(
+      'URL: “{{}}” isn’t a valid expression. Use {{step.field}}, {{event.payload.field}} or {{env.NAME}}.',
+    )
+    // The body is code: its braces are its own.
+    expect(alert).not.toHaveTextContent('Body')
+  })
+
+  it('shows a broken expression under a plain field of a node', () => {
+    select({ ...step(), id: 'nap', type: 'sleep', name: 'Wait', data: { duration: '{{ghost.d}}' } })
+    render(<NodeConfigPanel />)
+    expect(screen.getByText('There’s no step called “ghost” in this workflow.')).toBeInTheDocument()
+  })
+})
+
 describe('NodeConfigPanel for a sleep', () => {
   it('says what a sleep does beneath its duration', () => {
     select({ ...step(), id: 'nap', type: 'sleep', name: 'Wait', data: { duration: '2 days' } })

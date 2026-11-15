@@ -13,7 +13,11 @@ import { loadGraph, SyncHarness } from './fixtures/step-sync'
 const switchView = vi.fn()
 vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
 vi.mock('../../../contexts/node-registry-context', () => ({
-  useNodeRegistry: () => ({ registry: { get: () => undefined } }),
+  useNodeRegistry: () => ({
+    registry: { get: () => undefined },
+    customNodes: new Map(),
+    customNodesStatus: 'ready',
+  }),
 }))
 vi.mock('../../../lib/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClient>()

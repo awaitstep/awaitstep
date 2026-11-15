@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { computeVarNames, sanitizeIdentifier } from '@awaitstep/codegen'
 import type { StepPlacement } from '@awaitstep/codegen'
 import { missingRequiredFields, type WorkflowNode } from '@awaitstep/ir'
+import { fieldExpressionErrors, scopeForNewNode } from '../../lib/expressions/field-errors'
+import { InlineSwitch } from '../canvas/inline-switch'
 import { useAddNodeDraft, type AddKind } from '../../hooks/use-add-node-draft'
 import type { CreateStepOutcome, NewTemplateNode } from '../../lib/ide/step-create'
 import type { PlacementChoice } from '../../lib/ide/step-placements'
@@ -26,6 +28,9 @@ import { StepFlowFooter } from './step-flow-footer'
 import { StepFlowHeader } from './step-flow-header'
 import { StepFlowMap } from './step-flow-map'
 import type { StepSyncEdge } from './step-sync-context'
+
+/** The id the not-yet-placed node is judged under: never a real node's. */
+const NEW_NODE_ID = '__new_node__'
 
 interface StepFlowDialogProps {
   open: boolean
@@ -201,10 +206,35 @@ export function StepFlowDialog({
       ? missingRequiredFields(picked.configSchema, draft.fields)
       : []
   const missingLabels = missing.map((fieldId) => picked?.configSchema[fieldId]?.label ?? fieldId)
-  const missingNotice = missing.length > 0 ? `Fill in ${listLabels(missingLabels)}` : null
+  // A `{{ … }}` that isn't valid, or names a step that isn't before this place.
+  const expressionErrors = useMemo(
+    () =>
+      draft.kind === 'custom' && picked
+        ? fieldExpressionErrors(
+            draft.fields,
+            scopeForNewNode({ nodes: nodes.values(), edges, entryNodeId }, activePlacement, {
+              id: NEW_NODE_ID,
+              name,
+              type: picked.id,
+            }),
+            picked.configSchema,
+          )
+        : {},
+    [draft.kind, draft.fields, picked, nodes, edges, entryNodeId, activePlacement, name],
+  )
+  const badLabels = Object.keys(expressionErrors).map(
+    (fieldId) => picked?.configSchema[fieldId]?.label ?? fieldId,
+  )
+  const missingNotice =
+    missing.length > 0
+      ? `Fill in ${listLabels(missingLabels)}`
+      : badLabels.length > 0
+        ? `Fix the expression in ${listLabels(badLabels)}`
+        : null
   const canInsert =
     !picking &&
     missing.length === 0 &&
+    badLabels.length === 0 &&
     name.trim() !== '' &&
     activePlacement !== null &&
     previewName !== null
@@ -308,7 +338,7 @@ export function StepFlowDialog({
       return
     }
     // Insert is disabled meanwhile; this only guards a submit that slips through.
-    if (missing.length > 0) return
+    if (missing.length > 0 || badLabels.length > 0) return
     if (trimmed === '') {
       setError(`Enter a ${noun} name.`)
       return
@@ -334,6 +364,12 @@ export function StepFlowDialog({
     )
   }
 
+  // A new step's own setting: whether it runs in the body without a durable step.
+  const stepOptions =
+    draft.kind === 'step' ? (
+      <InlineSwitch checked={draft.stepInline} onChange={draft.setStepInline} />
+    ) : undefined
+
   // The picked custom node's name, fields and Inline switch; it replaces the
   // step name in the fast form and sits under the map otherwise.
   const nodeForm =
@@ -344,6 +380,7 @@ export function StepFlowDialog({
         data={draft.fields}
         error={error}
         missing={missing.filter((fieldId) => draft.touched.has(fieldId))}
+        expressionErrors={expressionErrors}
         onNameChange={handleNameChange}
         onFieldChange={draft.setField}
         onChangeNode={handleChangeNode}
@@ -383,6 +420,7 @@ export function StepFlowDialog({
                 onAnchorChange={chooseAnchor}
                 onOpenMap={openMap}
                 nodeForm={nodeForm}
+                stepOptions={stepOptions}
               />
             </div>
           ) : (
@@ -402,7 +440,9 @@ export function StepFlowDialog({
                   onSelect={handleMapSelect}
                 />
               </div>
-              {nodeForm && <div className="border-t border-border px-4 py-3">{nodeForm}</div>}
+              {(nodeForm ?? stepOptions) && (
+                <div className="border-t border-border px-4 py-3">{nodeForm ?? stepOptions}</div>
+              )}
               {error !== null && nodeForm === undefined && (
                 <p role="alert" className="px-4 pb-2 text-2xs text-destructive">
                   {error}

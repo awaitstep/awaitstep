@@ -50,6 +50,8 @@ interface StepFieldsProps {
   /** True when the fields return from the enlarged editor, so focus lands back on Enlarge. */
   focusEnlarge?: boolean
   readOnly?: boolean
+  /** In Code: the code is the step's file, edited there, so only how it runs shows here. */
+  codeInFile?: boolean
 }
 
 /**
@@ -66,10 +68,9 @@ export function StepFields({
   onEnlarge,
   focusEnlarge = false,
   readOnly = false,
+  codeInFile = false,
 }: StepFieldsProps) {
   const [executionOpen, setExecutionOpen] = useState(true)
-  const idBase = useId()
-  const inline = node.data.inline === true
   const moduleProblem = stepModuleProblem(node, scope.varName)
   const rest = Object.fromEntries(
     Object.entries(schema).filter(([fieldId]) => !PLACED_FIELDS.has(fieldId)),
@@ -94,60 +95,62 @@ export function StepFields({
 
   return (
     <>
-      <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">
-          Code<span className="ml-0.5 text-destructive">*</span>
-        </Label>
-        <div className="overflow-hidden rounded-lg border border-input">
-          <div className="flex h-7 items-center gap-2 border-b border-border/60 bg-muted/30 px-2.5 text-2xs font-medium text-muted-foreground">
-            <span className="text-primary">TS</span>
-            <span className="truncate font-mono">{stepSourcePath(node.id)}</span>
-            <span className="flex-1" />
-            <button
-              type="button"
-              aria-label="Enlarge editor"
-              // Focus returns to where Collapse was pressed from.
-              autoFocus={focusEnlarge}
-              onClick={onEnlarge}
-              className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-            >
-              <Maximize2 className="h-3 w-3" />
-            </button>
+      {!codeInFile && (
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">
+            Code<span className="ml-0.5 text-destructive">*</span>
+          </Label>
+          <div className="overflow-hidden rounded-lg border border-input">
+            <div className="flex h-7 items-center gap-2 border-b border-border/60 bg-muted/30 px-2.5 text-2xs font-medium text-muted-foreground">
+              <span className="text-primary">TS</span>
+              <span className="truncate font-mono">{stepSourcePath(node.id)}</span>
+              <span className="flex-1" />
+              <button
+                type="button"
+                aria-label="Enlarge editor"
+                // Focus returns to where Collapse was pressed from.
+                autoFocus={focusEnlarge}
+                onClick={onEnlarge}
+                className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              >
+                <Maximize2 className="h-3 w-3" />
+              </button>
+            </div>
+            <CodeEditor
+              value={stepCode(node)}
+              onChange={handleCodeChange}
+              onValidate={handleValidate}
+              debounceMs={300}
+              language="typescript"
+              height="160px"
+              bordered={false}
+              expandable={false}
+              readOnly={readOnly}
+            />
           </div>
-          <CodeEditor
-            value={stepCode(node)}
-            onChange={handleCodeChange}
-            onValidate={handleValidate}
-            debounceMs={300}
-            language="typescript"
-            height="160px"
-            bordered={false}
-            expandable={false}
-            readOnly={readOnly}
-          />
+          <p className="text-xs text-muted-foreground/60">
+            {scope.status === 'cycle' ? (
+              'The graph has a cycle, so nothing can be listed as in scope.'
+            ) : scope.status === 'error' ? (
+              'What is in scope could not be read.'
+            ) : (
+              <>
+                {scope.upstream.length === 0 && 'No earlier steps. '}
+                In scope:{' '}
+                {[...scope.bindings, ...scope.upstream].map((name) => (
+                  <span key={name}>
+                    <code className="font-mono text-foreground/70">inputs.{name}</code>,{' '}
+                  </span>
+                ))}
+                <code className="font-mono text-foreground/70">event.payload</code>,{' '}
+                <code className="font-mono text-foreground/70">ctx.attempt</code>.{' '}
+                <code className="font-mono text-foreground/70">return</code> sets this step’s value.
+              </>
+            )}
+          </p>
+          {moduleProblem && <p className="text-xs text-destructive">{moduleProblem}</p>}
         </div>
-        <p className="text-xs text-muted-foreground/60">
-          {scope.status === 'cycle' ? (
-            'The graph has a cycle, so nothing can be listed as in scope.'
-          ) : scope.status === 'error' ? (
-            'What is in scope could not be read.'
-          ) : (
-            <>
-              {scope.upstream.length === 0 && 'No earlier steps. '}
-              In scope:{' '}
-              {[...scope.bindings, ...scope.upstream].map((name) => (
-                <span key={name}>
-                  <code className="font-mono text-foreground/70">inputs.{name}</code>,{' '}
-                </span>
-              ))}
-              <code className="font-mono text-foreground/70">event.payload</code>,{' '}
-              <code className="font-mono text-foreground/70">ctx.attempt</code>.{' '}
-              <code className="font-mono text-foreground/70">return</code> sets this step’s value.
-            </>
-          )}
-        </p>
-        {moduleProblem && <p className="text-xs text-destructive">{moduleProblem}</p>}
-      </div>
+      )}
 
       {Object.keys(rest).length > 0 && (
         <DynamicFields
@@ -178,38 +181,76 @@ export function StepFields({
           </span>
         </button>
         {executionOpen && (
-          <div className="mt-3 space-y-3">
-            <InlineSwitch checked={inline} onChange={handleInlineChange} />
-            {!inline && <ExportFields node={node} kind={kind} scope={scope} onChange={onChange} />}
-            {!inline && (
-              <div className="grid grid-cols-2 gap-2.5">
-                {EXECUTION_FIELDS.map((fieldId) => {
-                  const field = schema[fieldId]
-                  if (!field) return null
-                  const controlId = fieldTakesId(field) ? `${idBase}-${fieldId}` : undefined
-                  return (
-                    <div key={fieldId} className="min-w-0 space-y-1.5">
-                      <Label htmlFor={controlId} className="text-xs text-muted-foreground">
-                        {field.label}
-                      </Label>
-                      <FieldRenderer
-                        id={controlId}
-                        field={field}
-                        value={node.data[fieldId]}
-                        onChange={(value) => onChange(fieldId, value)}
-                      />
-                      {field.description && (
-                        <p className="text-2xs text-muted-foreground/60">{field.description}</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+          <div className="mt-3">
+            <StepExecutionFields
+              node={node}
+              kind={kind}
+              scope={scope}
+              schema={schema}
+              onChange={onChange}
+              onInlineChange={handleInlineChange}
+            />
           </div>
         )}
       </div>
     </>
+  )
+}
+
+interface StepExecutionFieldsProps {
+  node: WorkflowNode
+  kind: Kind
+  scope: StepScope
+  schema: Record<string, ConfigField>
+  onChange: (fieldId: string, value: unknown) => void
+  onInlineChange: (checked: boolean) => void
+}
+
+/**
+ * How a step runs: Inline, what it returns (in a function), and its
+ * retries, backoff and timeout. The canvas's inspector and Code's node
+ * details show the same controls.
+ */
+export function StepExecutionFields({
+  node,
+  kind,
+  scope,
+  schema,
+  onChange,
+  onInlineChange,
+}: StepExecutionFieldsProps) {
+  const idBase = useId()
+  const inline = node.data.inline === true
+  return (
+    <div className="space-y-3">
+      <InlineSwitch checked={inline} onChange={onInlineChange} />
+      {!inline && <ExportFields node={node} kind={kind} scope={scope} onChange={onChange} />}
+      {!inline && (
+        <div className="grid grid-cols-2 gap-2.5">
+          {EXECUTION_FIELDS.map((fieldId) => {
+            const field = schema[fieldId]
+            if (!field) return null
+            const controlId = fieldTakesId(field) ? `${idBase}-${fieldId}` : undefined
+            return (
+              <div key={fieldId} className="min-w-0 space-y-1.5">
+                <Label htmlFor={controlId} className="text-xs text-muted-foreground">
+                  {field.label}
+                </Label>
+                <FieldRenderer
+                  id={controlId}
+                  field={field}
+                  value={node.data[fieldId]}
+                  onChange={(value) => onChange(fieldId, value)}
+                />
+                {field.description && (
+                  <p className="text-2xs text-muted-foreground/60">{field.description}</p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 

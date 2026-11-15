@@ -703,14 +703,18 @@ export const useWorkflowStore = create<WorkflowState>()(
         ) {
           const oldBranches = (currentNode?.data.irNode.data.branches ?? []) as { label: string }[]
           const newBranches = (updatedIrNode.data.branches ?? []) as { label: string }[]
-          edges = edges.map((edge) => {
-            if (edge.source !== nodeId) return edge
-            const oldIndex = oldBranches.findIndex((b) => b.label === edge.label)
-            if (oldIndex >= 0 && newBranches[oldIndex]) {
-              return { ...edge, label: newBranches[oldIndex].label }
-            }
-            return edge
-          })
+          // Only a rename keeps positions: when a condition is added or
+          // removed, an index names a different branch, and the panel writes
+          // the connections it changes itself.
+          if (oldBranches.length === newBranches.length)
+            edges = edges.map((edge) => {
+              if (edge.source !== nodeId) return edge
+              const oldIndex = oldBranches.findIndex((b) => b.label === edge.label)
+              if (oldIndex >= 0 && newBranches[oldIndex]) {
+                return { ...edge, label: newBranches[oldIndex].label }
+              }
+              return edge
+            })
         }
 
         set({

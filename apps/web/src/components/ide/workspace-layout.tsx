@@ -391,6 +391,7 @@ export function WorkspaceLayout({
         canEdit={canEdit}
         readOnlyReason={data.workspace?.message ?? null}
         saveNodeFields={projectFiles.saveNodeFields}
+        saveNodeEdit={projectFiles.saveNodeEdit}
       >
         {view}
       </NodeEditProvider>

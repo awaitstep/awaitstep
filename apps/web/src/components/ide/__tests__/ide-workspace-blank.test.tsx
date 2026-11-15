@@ -28,7 +28,11 @@ vi.mock('../../../stores/org-store', async (importOriginal) => ({
   useOrgReady: () => true,
 }))
 vi.mock('../../../contexts/node-registry-context', () => ({
-  useNodeRegistry: () => ({ registry: { get: () => undefined } }),
+  useNodeRegistry: () => ({
+    registry: { get: () => undefined },
+    customNodes: new Map(),
+    customNodesStatus: 'ready',
+  }),
 }))
 vi.mock('../../../lib/api-client', async (importOriginal) => {
   const actual = await importOriginal<{ api: object }>()

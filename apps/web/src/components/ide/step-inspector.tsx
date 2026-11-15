@@ -1,5 +1,5 @@
-import { type ReactNode } from 'react'
-import { FlaskConical, Maximize2, Trash2, X } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
+import { FlaskConical, Maximize2, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { removalBlocker } from '@awaitstep/codegen'
 import { requestNodeRemoval } from '../../lib/ide/remove-request'
 import { isBuiltinNodeType } from '@awaitstep/ir'
@@ -10,7 +10,6 @@ import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
 import { openUsedFile, runStepQuickTest } from '../../lib/ide/step-actions'
 import {
-  stepSettings,
   stepsForNode,
   summarizeNodeRun,
   templateNodeMeta,
@@ -20,7 +19,9 @@ import {
 import { timeAgoOrDay } from '../../lib/time'
 import { useIdeStore } from '../../stores/ide-store'
 import { useNodeEdit } from './node-edit-context'
-import { NodeFieldsEditor } from './node-fields-editor'
+import type { NodeWriter } from '../canvas/node-config-panel'
+import { NodeSettingsSheet } from './node-settings-sheet'
+import { useCodeNodeWriter } from './code-node-writer'
 import { useStepSync } from './step-sync-context'
 
 const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
@@ -30,26 +31,28 @@ const TONE_CLASS: Record<LastRunSummary['tone'], string> = {
 }
 
 /**
- * What the selected step is and how it last did. A step's code is edited in
- * its source file and its settings on the canvas; a custom or marketplace
- * node's fields can also be changed and saved here (`NodeFieldsEditor`).
+ * What the selected node is and how it last did. Settings opens all its
+ * settings in their own panel — the canvas's (`NodeSettingsPanel`): name,
+ * fields, arms and branches. Each change is a pending edit, written with the
+ * workspace's Save. A step's code stays in its source file.
  * The panel mounts only while a step is selected, so the run requests it
  * makes start and stop with it.
  */
 export function StepInspector({ nodeId }: { nodeId: string }) {
   const sync = useStepSync()
-  const { workflowId, map, nodes, edges, entryNodeId, kind, linkVersion } = sync
+  const { workflowId, map, nodes, edges, entryNodeId, linkVersion } = sync
   const edit = useNodeEdit()
   const { registry, customNodes } = useNodeRegistry()
   const switchView = useSwitchView(workflowId)
   const node = nodes.get(nodeId)
   const info = map.byNode.get(nodeId)
   const lastRun = useLastRunSteps(workflowId, node !== undefined)
+  const writer = useCodeNodeWriter()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   if (!node || !info) return null
 
   const definition = registry.get(node.type)
-  const settings = stepSettings(node, { kind, runtime: definition?.runtime })
   const visuals = getNodeVisuals(node.type, definition?.icon)
   const template = !isBuiltinNodeType(node.type)
   const label = template
@@ -65,6 +68,10 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
 
   function handleClose() {
     useIdeStore.getState().selectNode(null)
+  }
+
+  function handleOpenSettings() {
+    setSettingsOpen(true)
   }
 
   function handleRunStep() {
@@ -142,8 +149,6 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         </button>
       </div>
       <dl className="grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-2 gap-y-1.5 px-3 py-2.5 text-xs">
-        {settings.retries !== null && <Field label="Retries">{settings.retries}</Field>}
-        {settings.timeout !== null && <Field label="Timeout">{settings.timeout}</Field>}
         {info.exportKey !== null && (
           <Field label="Returned as">
             <code className="font-mono">{info.exportKey}</code>
@@ -177,10 +182,14 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
           <LastRun nodeId={nodeId} data={lastRun} versions={sync.versions} />
         </Field>
       </dl>
-      {template && definition && (
-        <NodeFieldsEditor workflowId={workflowId} node={node} definition={definition} />
-      )}
-      <div className="flex gap-2 px-3 pb-2.5">
+      <div className="flex flex-wrap gap-2 px-3 pb-2.5">
+        <ActionButton
+          icon={<SlidersHorizontal className="h-3 w-3" />}
+          onClick={handleOpenSettings}
+          title="Name, fields and where its paths go"
+        >
+          Settings
+        </ActionButton>
         <ActionButton
           icon={<FlaskConical className="h-3 w-3" />}
           onClick={handleRunStep}
@@ -196,7 +205,7 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
         <ActionButton
           icon={<Maximize2 className="h-3 w-3" />}
           onClick={handleEditOnCanvas}
-          title="Open the canvas on this step, to change its name and settings there"
+          title="Open the canvas on this step"
         >
           Edit on canvas
         </ActionButton>
@@ -211,6 +220,14 @@ export function StepInspector({ nodeId }: { nodeId: string }) {
           </ActionButton>
         )}
       </div>
+      <NodeSettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        nodeId={nodeId}
+        nodeName={node.name}
+        readOnly={!edit?.canEdit || writer === null}
+        writer={writer ?? READ_ONLY_WRITER}
+      />
     </section>
   )
 }
@@ -304,4 +321,11 @@ function LastRun({
       </p>
     </div>
   )
+}
+
+/** Outside the workspace (a preview) nothing is written: the panel is read-only. */
+const READ_ONLY_WRITER: NodeWriter = {
+  setField: () => {},
+  rename: () => {},
+  setOutgoing: () => {},
 }

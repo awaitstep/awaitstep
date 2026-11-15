@@ -36,6 +36,20 @@ describe('stepCodeForInline', () => {
     )
   })
 
+  it('gives an untouched scaffold no return, which would end the whole run inline', () => {
+    const fresh = {
+      ...ir,
+      nodes: [
+        node('fresh', 'step', {
+          code: 'export default async function fresh({ env, event, inputs, step, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
+        }),
+      ],
+      edges: [],
+      entryNodeId: 'fresh',
+    }
+    expect(stepCodeForInline(fresh, 'fresh', true)).toBe('// Write your business logic here\n')
+  })
+
   it('leaves other kinds and unknown nodes alone', () => {
     expect(stepCodeForInline(ir, 'each', true)).toBe('')
     expect(stepCodeForInline(ir, 'ghost', false)).toBe('')

@@ -268,6 +268,36 @@ describe('validateWorkflowForPublish', () => {
 
   describe('branch', () => {
     it('errors on an arm that leads straight into a step another path also reaches', () => {
+      // A parallel's arms don't run their meeting point inside each arm.
+      const branch = makeFlowNode({
+        id: 'b1',
+        type: 'parallel',
+        name: 'Paid',
+        position: { x: 0, y: 0 },
+        version: '1.0.0',
+        provider: 'cloudflare',
+        data: {},
+      })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [branch, makeStepNode('late', { name: 'Late' }), makeStepNode('ship', { name: 'Ship' })],
+        [
+          { id: 'a', source: 'b1', target: 'ship' },
+          { id: 'b', source: 'b1', target: 'late' },
+          { id: 'c', source: 'late', target: 'ship' },
+        ],
+      )
+      expect(result.canPublish).toBe(false)
+      expect(result.issues).toContainEqual({
+        severity: 'error',
+        nodeId: 'b1',
+        nodeName: 'Paid',
+        message:
+          'Paid’s arm leads straight into Ship, which another path also reaches. Add a step to that arm first.',
+      })
+    })
+
+    it('accepts a branch arm leading straight into where the other arm ends', () => {
       const branch = makeFlowNode({
         id: 'b1',
         type: 'branch',
@@ -291,14 +321,7 @@ describe('validateWorkflowForPublish', () => {
           { id: 'c', source: 'late', target: 'ship' },
         ],
       )
-      expect(result.canPublish).toBe(false)
-      expect(result.issues).toContainEqual({
-        severity: 'error',
-        nodeId: 'b1',
-        nodeName: 'Paid',
-        message:
-          'Paid’s “yes” arm leads straight into Ship, which another path also reaches. Add a step to that arm first.',
-      })
+      expect(result.issues.filter((i) => /leads straight into/.test(i.message))).toEqual([])
     })
 
     it('accepts a single-condition branch (if without else)', () => {
@@ -1012,7 +1035,11 @@ describe('expression references by node name', () => {
   }
 
   const expressionErrors = (value: string) =>
-    graph(value).issues.filter((i) => i.message.startsWith('Expression references'))
+    graph(value).issues.filter((i) =>
+      /in this workflow|runs after this node|this node itself|isn’t a valid expression|never closed/.test(
+        i.message,
+      ),
+    )
 
   it('accepts the name a step’s code reads, as well as the node id', () => {
     expect(expressionErrors('{{sample_step.result}}')).toEqual([])
@@ -1021,7 +1048,34 @@ describe('expression references by node name', () => {
 
   it('still refuses a name no node has', () => {
     expect(expressionErrors('{{nope.result}}')[0]?.message).toBe(
-      'Expression references nonexistent node "nope"',
+      'There’s no step called “nope” in this workflow.',
+    )
+  })
+
+  it('reads a built-in node’s code fields as code even without the registry (canvas Save)', () => {
+    const request = makeFlowNode({
+      id: 'req',
+      type: 'http_request',
+      name: 'Send',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: {
+        method: 'POST',
+        url: 'https://example.com',
+        body: 'JSON.stringify({ html: "<p>Hi {{name}}</p>".replace("{{", "") })',
+      },
+    })
+    const result = validateWorkflowForPublish(makeMetadata(), [request], [], undefined)
+    expect(result.issues.filter((i) => /valid expression|never closed/.test(i.message))).toEqual([])
+  })
+
+  it('refuses an empty or unclosed expression', () => {
+    expect(expressionErrors('{{}}')[0]?.message).toBe(
+      '“{{}}” isn’t a valid expression. Use {{step.field}}, {{event.payload.field}} or {{env.NAME}}.',
+    )
+    expect(expressionErrors('Hi {{sample_step.result')[0]?.message).toBe(
+      '“{{sample_step.result” is never closed with }}.',
     )
   })
 

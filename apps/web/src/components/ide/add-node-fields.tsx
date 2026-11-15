@@ -19,6 +19,8 @@ interface AddNodeFieldsProps {
   onChangeNode: () => void
   /** Required fields to mark "Required": edited and left empty. */
   missing: readonly string[]
+  /** A field's `{{ … }}` problem, by field id: shown at once, it blocks Insert. */
+  expressionErrors?: Readonly<Record<string, string>>
 }
 
 /**
@@ -35,6 +37,7 @@ export function AddNodeFields({
   onFieldChange,
   onChangeNode,
   missing,
+  expressionErrors = {},
 }: AddNodeFieldsProps) {
   const { customNodes } = useNodeRegistry()
   const visuals = getNodeVisuals(definition.id, definition.icon)
@@ -91,7 +94,10 @@ export function AddNodeFields({
           configSchema={definition.configSchema}
           data={data}
           onChange={onFieldChange}
-          errors={Object.fromEntries(missing.map((fieldId) => [fieldId, 'Required']))}
+          errors={{
+            ...expressionErrors,
+            ...Object.fromEntries(missing.map((fieldId) => [fieldId, 'Required'])),
+          }}
         />
       )}
 

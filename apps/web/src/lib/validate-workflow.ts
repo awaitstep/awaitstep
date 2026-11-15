@@ -3,7 +3,8 @@ import type { WorkflowMetadata, BranchCondition } from '@awaitstep/ir'
 import {
   isBuiltinNodeType,
   missingRequiredFields,
-  validateExpressionRefs,
+  codeFieldsOf,
+  nodeExpressionProblems,
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
   validateArmsIntoJoins,
   type NodeRegistry,
@@ -476,17 +477,11 @@ export function validateWorkflowForPublish(
       }
     }
 
-    // ── Template expression validation ──
-    const upstream = upstreamSets.get(id) ?? new Set()
-    const stringsToCheck: string[] = []
-    for (const v of Object.values(ir.data)) {
-      if (typeof v === 'string') stringsToCheck.push(v)
-    }
-    for (const s of stringsToCheck) {
-      const exprErrors = validateExpressionRefs(s, id, upstream, allNodeIds, idByName)
-      for (const err of exprErrors) {
-        add('error', id, name, err.message)
-      }
+    // ── Template expressions: well formed, and naming a step that runs before ──
+    const scope = { nodeId: id, upstream: upstreamSets.get(id) ?? new Set(), allNodeIds, idByName }
+    const codeFields = codeFieldsOf(nodeRegistry?.get(ir.type)?.configSchema, ir.type)
+    for (const problem of nodeExpressionProblems(ir.data, scope, codeFields)) {
+      add('error', id, name, problem.message)
     }
   }
 

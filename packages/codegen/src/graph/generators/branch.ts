@@ -40,7 +40,21 @@ export function generateBranch(
     }
 
     const target = targets.find((t) => nodeLabels.get(t) === branch.label)
-    if (target) {
+    if (target && join && target === join.id) {
+      // This arm leads straight into the merge: it runs just the merge.
+      lines.push(
+        inlineChain(
+          join.id,
+          containers,
+          generateNode,
+          ir,
+          2,
+          ctx,
+          mode,
+          armContext(ir, ctx, node.id, join.id),
+        ),
+      )
+    } else if (target) {
       const arm = inlineChain(target, containers, generateNode, ir, 2, ctx, mode)
       if (!join) {
         lines.push(arm)

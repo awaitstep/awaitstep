@@ -536,6 +536,21 @@ describe('StepsView', () => {
     expect(screen.queryByRole('menuitem', { name: 'Before Stray' })).toBeNull()
   })
 
+  it('adds a step that runs inline when the switch is on', async () => {
+    const user = userEvent.setup()
+    const { onCreateStep } = setup()
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Quick')
+    await user.click(screen.getByRole('switch', { name: 'Inline — no step' }))
+    await user.click(screen.getByRole('button', { name: 'Insert' }))
+    await waitFor(() =>
+      expect(onCreateStep).toHaveBeenCalledWith(expect.anything(), 'Quick', 'quick', {
+        type: 'step',
+        data: { inline: true },
+      }),
+    )
+  })
+
   it('starts a wait’s empty arm from its menu', async () => {
     loadGraph(
       [irNode('w', 'Wait', 'wait_for_event'), irNode('s', 'Sunny')],

@@ -112,6 +112,26 @@ describe('analyzeIssues', () => {
     }
   })
 
+  it('flags an empty or unclosed expression on its own text', () => {
+    const text = 'Hi {{}} and {{fetch_data.text'
+    const issues = analyzeIssues(text, ctx)
+    expect(issues.map((issue) => text.slice(issue.start, issue.end))).toEqual([
+      '{{}}',
+      '{{fetch_data.text',
+    ])
+  })
+
+  it('marks each of two identical problems on its own text, in text order', () => {
+    const text = '{{missing.y}} then {{}} and {{missing.y}}'
+    const issues = analyzeIssues(text, ctx)
+    expect(issues.map((issue) => issue.start)).toEqual([0, 19, 28])
+  })
+
+  it('marks an unclosed expression where it is, not on an earlier valid one', () => {
+    const text = '{{fetch_data.text}} and {{fetch_data.text'
+    expect(analyzeIssues(text, ctx).map((issue) => [issue.start, issue.end])).toEqual([[24, 41]])
+  })
+
   it('accepts reserved refs and valid upstream paths', () => {
     expect(analyzeIssues('{{env.KEY}} {{fetch_data.text}}', ctx)).toEqual([])
   })

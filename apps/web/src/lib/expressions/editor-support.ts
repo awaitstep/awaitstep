@@ -2,7 +2,7 @@ import {
   parseExpressionContent,
   resolveExpressionType,
   scanExpressions,
-  validateExpressionRefs,
+  valueExpressionProblems,
   RESERVED_EXPRESSION_REFS,
   type ArtifactIR,
   type NodeDefinitionLookup,
@@ -193,27 +193,26 @@ export interface ExpressionIssue {
 }
 
 /**
- * Span-anchored validation issues for inline markers: each `{{...}}` span is
- * re-checked through validateExpressionRefs (the single authority used by
- * workflow validation) so editor squiggles and the validation panel agree.
+ * Span-anchored validation issues for inline markers: the same check the
+ * canvas's validation, Code's fields and a deploy run (a `{{ … }}` that isn't
+ * a valid expression, or names a step that is missing, later or this node),
+ * each placed on the text it is about, so squiggles and the panel agree.
  */
 export function analyzeIssues(text: string, ctx: ExpressionEditorContext): ExpressionIssue[] {
-  const allIds = new Set(ctx.nodes.map((n) => n.id))
-  const idByName = nodeIdsByVarName(ctx.nodes)
-  const issues: ExpressionIssue[] = []
-  for (const span of scanExpressions(text)) {
-    const spanText = text.slice(span.start, span.end)
-    for (const error of validateExpressionRefs(
-      spanText,
-      ctx.nodeId,
-      ctx.upstream as Set<string>,
-      allIds,
-      idByName,
-    )) {
-      issues.push({ start: span.start, end: span.end, message: error.message })
-    }
+  const scope = {
+    nodeId: ctx.nodeId,
+    upstream: ctx.upstream,
+    allNodeIds: new Set(ctx.nodes.map((n) => n.id)),
+    idByName: nodeIdsByVarName(ctx.nodes),
   }
-  return issues
+  // Each problem carries where it is: marked there, in text order.
+  return valueExpressionProblems(text, scope)
+    .map((problem) => ({
+      start: problem.start,
+      end: problem.start + problem.expression.length,
+      message: problem.message,
+    }))
+    .sort((a, b) => a.start - b.start)
 }
 
 export interface BindingPath {

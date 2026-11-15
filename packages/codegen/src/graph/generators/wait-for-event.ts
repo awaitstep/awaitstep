@@ -36,6 +36,20 @@ export function generateWaitForEvent(
   const join = joinTarget(containers, [eventTarget, timeoutTarget])
   const armCode = (target: string): string => {
     if (!target) return ''
+    // An arm that leads straight into the merge runs just the merge, in its
+    // own scope (what the wait itself left in scope).
+    if (join && target === join.id) {
+      return inlineChain(
+        join.id,
+        containers,
+        generateNode,
+        ir,
+        2,
+        ctx,
+        mode,
+        armContext(ir, ctx, node.id, join.id),
+      )
+    }
     const code = inlineChain(target, containers, generateNode, ir, 2, ctx, mode)
     if (!join) return code
     const chain = collectChain(

@@ -540,3 +540,43 @@ describe('createStepSaver', () => {
     })
   })
 })
+
+describe('createStepSaver — the canvas’s Save check', () => {
+  it('refuses what the check refuses: nothing posted, the draft kept, the reason said', async () => {
+    useIdeStore.getState().setDraft(VALIDATE, 'return 10', contentHash(VALIDATE_CODE))
+    const h = harness()
+    const saver = createStepSaver({
+      ...h.deps,
+      check: () => [
+        { nodeName: 'Wait', message: 'Choose the node to run when the wait times out' },
+      ],
+    })
+    const outcomes = await saver.save([VALIDATE])
+    expect(outcomes.get(VALIDATE)).toBe('failed')
+    expect(h.createVersion).not.toHaveBeenCalled()
+    expect(h.notify.error).toHaveBeenCalledWith('Fix 1 issue before saving', {
+      description: 'Wait: Choose the node to run when the wait times out',
+    })
+    expect(useIdeStore.getState().drafts[VALIDATE]?.source).toBe('return 10')
+  })
+
+  it('keeps a conflict found before the check as a conflict', async () => {
+    useIdeStore.getState().setDraft(VALIDATE, 'return 10', contentHash(VALIDATE_CODE))
+    useIdeStore.getState().setDraft(CHARGE, 'return 20', 'an older hash')
+    const h = harness()
+    const saver = createStepSaver({
+      ...h.deps,
+      check: () => [{ nodeName: null, message: 'The workflow loops back on itself.' }],
+    })
+    const outcomes = await saver.save([VALIDATE, CHARGE])
+    expect(outcomes.get(VALIDATE)).toBe('failed')
+    expect(outcomes.get(CHARGE)).toBe('conflict')
+  })
+
+  it('posts when the check finds nothing', async () => {
+    useIdeStore.getState().setDraft(VALIDATE, 'return 10', contentHash(VALIDATE_CODE))
+    const h = harness()
+    const outcomes = await createStepSaver({ ...h.deps, check: () => [] }).save([VALIDATE])
+    expect(outcomes.get(VALIDATE)).toBe('saved')
+  })
+})

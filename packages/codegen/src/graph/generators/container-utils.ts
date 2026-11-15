@@ -54,14 +54,25 @@ export function joinTarget(
     )
     return chain[chain.length - 1]?.id ?? id
   }
-  const ends = targets.map(lastOf)
-  const first = containers.adj.get(ends[0]!) ?? []
-  const shared = first.filter(
+  // An arm reaches the merge by leading straight into it, or by its chain's
+  // last node connecting to it.
+  const reaches = (target: string, join: string): boolean => {
+    if (target === join) return true
+    const end = lastOf(target)
+    return end !== join && (containers.adj.get(end) ?? []).includes(join)
+  }
+  const candidates = new Set([
+    ...targets,
+    ...targets.flatMap((target) => containers.adj.get(lastOf(target)) ?? []),
+  ])
+  const shared = [...candidates].filter(
     (id) =>
-      ends.every((end) => end !== id && (containers.adj.get(end) ?? []).includes(id)) &&
-      (containers.inDegree.get(id) ?? 0) >= 2,
+      (containers.inDegree.get(id) ?? 0) >= 2 && targets.every((target) => reaches(target, id)),
   )
-  return shared.length === 1 ? (containers.nodeMap.get(shared[0]!) ?? null) : null
+  // Two nodes every arm reaches: the one an arm leads straight into is the
+  // merge (IR validation judges that one); otherwise there is none.
+  const chosen = shared.length === 1 ? shared : shared.filter((id) => targets.includes(id))
+  return chosen.length === 1 ? (containers.nodeMap.get(chosen[0]!) ?? null) : null
 }
 
 /**

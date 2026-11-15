@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react'
+import { Fragment, useMemo, type ReactNode } from 'react'
 import { Plus, Zap } from 'lucide-react'
 import type { StepPlacement } from '@awaitstep/codegen'
 import { CONTINUE_LABEL, type WorkflowNode } from '@awaitstep/ir'
@@ -143,12 +143,17 @@ export function StepFlowMap({
     return edgeById.get(edgeId)?.label ?? null
   }
 
-  function ghost(key: string, choice: PlacementChoice) {
-    const arm = ghostArm(choice)
+  /**
+   * The new step where it will land. Inside a block (`compact`) it sits in
+   * the card column: its arm's label goes in the label column beside it, and
+   * the card keeps to the name and NEW so it fits.
+   */
+  function ghost(key: string, choice: PlacementChoice, compact = false) {
+    const arm = compact ? null : ghostArm(choice)
     return (
       <div
         key={key}
-        className="my-1 flex w-full items-center gap-2 rounded-lg border border-dashed border-primary/70 bg-primary/10 px-3 py-2"
+        className="my-1 flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-dashed border-primary/70 bg-primary/10 px-3 py-2"
       >
         <span
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary"
@@ -164,17 +169,31 @@ export function StepFlowMap({
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
           {name.trim() || 'new_step'}
         </span>
-        <span className="rounded bg-primary/15 px-1 py-px text-3xs uppercase tracking-wider text-primary">
+        <span className="shrink-0 rounded bg-primary/15 px-1 py-px text-3xs uppercase tracking-wider text-primary">
           New
         </span>
-        <span className="shrink-0 text-2xs text-primary">lands here</span>
+        {!compact && <span className="shrink-0 text-2xs text-primary">lands here</span>}
       </div>
     )
   }
 
-  function gate(key: string, choice: PlacementChoice | undefined): ReactNode {
+  /** The arm a new step lands on the front of, in the block's label column. */
+  function ghostPill(choice: PlacementChoice): ReactNode {
+    const arm = ghostArm(choice)
+    if (!arm) return null
+    return (
+      <span
+        className="block truncate rounded border border-primary/40 bg-primary/10 px-1 py-px text-center text-3xs uppercase tracking-wider text-primary"
+        title={arm}
+      >
+        {arm}
+      </span>
+    )
+  }
+
+  function gate(key: string, choice: PlacementChoice | undefined, compact = false): ReactNode {
     if (choice === undefined) return null
-    if (isActive(choice)) return ghost(key, choice)
+    if (isActive(choice)) return ghost(key, choice, compact)
     return (
       <div key={key} className="flex flex-col items-center">
         <span className="h-2 w-px bg-border" />
@@ -241,7 +260,11 @@ export function StepFlowMap({
             Not connected
           </span>
         )}
-        {meta && <span className="shrink-0 text-2xs text-muted-foreground">{meta}</span>}
+        {meta && (
+          <span className="min-w-0 max-w-[55%] truncate text-right text-2xs text-muted-foreground">
+            {meta}
+          </span>
+        )}
       </div>
     )
   }
@@ -282,23 +305,33 @@ export function StepFlowMap({
   }
 
   function openArmRow(key: string, choice: PlacementChoice): ReactNode {
-    if (isActive(choice)) return ghost(key, choice)
+    if (isActive(choice)) {
+      return (
+        <Fragment key={key}>{armLine(ghostPill(choice), ghost(key, choice, true), null)}</Fragment>
+      )
+    }
     const arm = 'arm' in choice.placement ? choice.placement.arm : null
+    const pill = (
+      <span
+        className={cn(
+          'block truncate rounded border px-1 py-px text-center text-3xs uppercase tracking-wider',
+          armTone(openArmPill(arm)),
+        )}
+        title={openArmPill(arm)}
+      >
+        {openArmPill(arm)}
+      </span>
+    )
     return (
-      <div key={key} className="flex items-center gap-2">
-        <span
-          className={cn(
-            'shrink-0 rounded border px-1 py-px text-3xs uppercase tracking-wider',
-            armTone(openArmPill(arm)),
-          )}
-        >
-          {openArmPill(arm)}
-        </span>
-        <span className="min-w-0 flex-1 truncate rounded-lg border border-dashed border-border px-3 py-2 text-2xs text-muted-foreground">
-          {arm === null ? 'Add an arm' : 'Empty'}
-        </span>
-        {inlineGate(`${key}-gate`, choice)}
-      </div>
+      <Fragment key={key}>
+        {armLine(
+          pill,
+          <span className="block truncate rounded-lg border border-dashed border-border px-3 py-2 text-2xs text-muted-foreground">
+            {arm === null ? 'Add an arm' : 'Empty'}
+          </span>,
+          inlineGate(`${key}-gate`, choice),
+        )}
+      </Fragment>
     )
   }
 
@@ -352,39 +385,71 @@ export function StepFlowMap({
           const edge = edgeById.get(edgeId)
           return edge !== undefined && containerIds.has(edge.source)
         })
+    // A landed "before" ghost names the arm it goes on, as the other ghosts do.
+    const beforePill = beforeChoice && isActive(beforeChoice) ? ghostPill(beforeChoice) : null
     const gates = (
-      <div className="flex shrink-0 flex-col gap-1">
+      <>
         {intoArm && inlineGate(`into-${node.row.nodeId}`, intoArm)}
         {after && after !== intoArm && inlineGate(`after-${node.row.nodeId}`, after)}
-      </div>
+      </>
     )
+    const pill =
+      node.row.arm && node.row.armStart ? (
+        <span
+          className={cn(
+            'block truncate rounded border px-1 py-px text-center text-3xs uppercase tracking-wider',
+            armTone(node.row.arm),
+          )}
+          title={node.row.arm}
+        >
+          {node.row.arm}
+        </span>
+      ) : null
     return (
       <div key={node.row.nodeId} className="flex flex-col gap-1">
-        {beforeChoice && gate(`before-${node.row.nodeId}`, beforeChoice)}
-        {intoArm && isActive(intoArm) && ghost(`into-ghost-${node.row.nodeId}`, intoArm)}
-        {isBox(node) ? (
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">{nodeView(node, 0)}</div>
-            {gates}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            {node.row.arm && node.row.armStart && (
-              <span
-                className={cn(
-                  'shrink-0 rounded border px-1 py-px text-3xs uppercase tracking-wider',
-                  armTone(node.row.arm),
-                )}
-              >
-                {node.row.arm}
-              </span>
-            )}
-            {card(node.row)}
-            {gates}
-          </div>
-        )}
-        {after && isActive(after) && ghost(`after-ghost-${node.row.nodeId}`, after)}
+        {beforeChoice &&
+          armLine(beforePill, gate(`before-${node.row.nodeId}`, beforeChoice, true), null)}
+        {intoArm &&
+          isActive(intoArm) &&
+          armLine(ghostPill(intoArm), ghost(`into-ghost-${node.row.nodeId}`, intoArm, true), null)}
+        {armLine(pill, isBox(node) ? nodeView(node, 0) : card(node.row), gates, isBox(node))}
+        {after &&
+          isActive(after) &&
+          armLine(ghostPill(after), ghost(`after-ghost-${node.row.nodeId}`, after, true), null)}
+        {node.row.thenRuns && sharedRun(node.row, node.row.thenRuns)}
       </div>
+    )
+  }
+
+  /**
+   * One line inside a block, in its three columns: the arm's label (only on
+   * an arm's first row), the card, and its + buttons. Every row of a block
+   * uses them, so an arm's later steps and its "then" line up under its first.
+   */
+  function armLine(pill: ReactNode, content: ReactNode, gates: ReactNode, top = false): ReactNode {
+    return (
+      <div className={cn('flex gap-2', top ? 'items-start' : 'items-center')}>
+        <div className="w-[5.5rem] shrink-0">{pill}</div>
+        <div className="min-w-0 flex-1">{content}</div>
+        <div className="flex w-6 shrink-0 flex-col gap-1">{gates}</div>
+      </div>
+    )
+  }
+
+  /**
+   * What this arm's path runs next, drawn as the generated code runs it: the
+   * steps from where the block's arms meet on, again under this arm. Their
+   * own cards (with their +) are under the arm that leads straight there;
+   * these are the same steps shown a second time, so they have no + of their
+   * own — a step added among them changes every path.
+   */
+  function sharedRun(row: StepRow, nodeIds: readonly string[]): ReactNode {
+    return nodeIds.map((nodeId) =>
+      nodes.has(nodeId) ? (
+        <Fragment key={`shared-${row.nodeId}-${nodeId}`}>
+          {armLine(null, card({ ...row, nodeId, thenRuns: undefined }), null)}
+        </Fragment>
+      ) : null,
     )
   }
 

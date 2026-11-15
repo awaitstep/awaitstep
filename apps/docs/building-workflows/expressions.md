@@ -23,8 +23,12 @@ Expressions let you pass data from one step to another without writing glue code
 - `?? literal` — a default applied when the value is `null`/`undefined`;
   literals may be a `"string"`, number, `true`/`false`, or `null`
 
-Anything inside <code v-pre>{{ }}</code> that does not match this grammar is
-left as literal text — braces in JSON or code snippets are never touched.
+In a node's settings, anything inside <code v-pre>{{ }}</code> that does not
+match this grammar is an error (see [Validation](#validation)). To keep braces
+as text — a template for a service further on — put a space after them:
+<code v-pre>{{ name }}</code> stays as it is. In code and JSON fields, and in a
+step's code, braces are the language's own: only a well-formed expression
+there is read, and everything else is left as it is.
 
 ## Where expressions can be used
 
@@ -93,13 +97,28 @@ The autocomplete tree mirrors the `outputSchema` of each node definition.
 
 ## Validation
 
-AwaitStep validates expressions at save time:
+AwaitStep checks every expression in a node's settings — on the canvas, in
+Code and before a deploy:
 
-| Error                             | Cause                                                      |
-| --------------------------------- | ---------------------------------------------------------- |
-| `References nonexistent node "x"` | The node ID does not exist in the workflow                 |
-| `References downstream node "x"`  | The referenced node is not upstream (would create a cycle) |
-| `References the current node "x"` | A node cannot reference its own output                     |
+| Error                                                       | Cause                                                          |
+| ----------------------------------------------------------- | -------------------------------------------------------------- |
+| <code v-pre>“{{}}” isn’t a valid expression…</code>         | Empty, or not in the grammar above                             |
+| <code v-pre>“{{x.y” is never closed with }}.</code>         | <code v-pre>{{</code> with no <code v-pre>}}</code> of its own |
+| `… is too long for an expression (256 characters at most).` | The text between the braces is too long to read                |
+| `There’s no step called “x” in this workflow.`              | No node has that id or name                                    |
+| `“x” runs after this node…`                                 | The node runs later, so its value isn't there yet              |
+| `“x” is this node itself…`                                  | A node can't read its own output                               |
+
+- In a node's settings, the message shows under the field as you type. Forms
+  with their own layout (a branch, a loop, a break, an HTTP request, a step's
+  code) list them under the form instead. Expression editors underline the
+  expression.
+- On the canvas, the Validation panel lists them, and Save waits until they
+  are fixed (as it always has for a step that isn't there).
+- In Code, **Insert** in the Add dialog waits until they are fixed. In a
+  node's details, a value with one stays on screen and is kept as a change
+  once it is fixed. Problems lists them.
+- A deploy or a test run refuses a workflow with one.
 
 :::tip
 Node IDs are auto-generated slugs like `step_1`, `http_request_2`. You can rename a node in its config drawer — the ID stays stable but the display name changes. The ID used in expressions is always the internal node ID, visible in the drawer's header.

@@ -241,7 +241,7 @@ export function StepsView({
     nodeId: string,
     template?: NewTemplateNode,
   ): CreateStepOutcome {
-    // A step's create keeps its three-argument call; only a custom node adds the template.
+    // The template is passed only when there is one: a custom node, or an inline step.
     const outcome = template
       ? onCreateStep(placement, name, nodeId, template)
       : onCreateStep(placement, name, nodeId)
@@ -333,6 +333,11 @@ export function StepsView({
                 name={node.name}
                 icon={getNodeVisuals(node.type, registry.get(node.type)?.icon).icon}
                 meta={meta}
+                thenRuns={
+                  row.thenRuns
+                    ? row.thenRuns.map((id) => nodes.get(id)?.name ?? id).join(' → ')
+                    : null
+                }
                 entry={entryNodeId !== null && row.nodeId === entryNodeId}
                 unreachable={entryNodeId !== null && !reachable.has(row.nodeId)}
                 rail={rail[at]!}

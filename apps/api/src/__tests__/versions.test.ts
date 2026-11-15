@@ -263,7 +263,7 @@ describe('version routes', () => {
         id,
         name,
         type,
-        data: type === 'branch' ? { branches: [] } : { code: 'return 1;' },
+        data: type === 'step' ? { code: 'return 1;' } : {},
       })
       const res = await app.request(url('/api/workflows/wf-1/versions'), {
         method: 'POST',
@@ -271,10 +271,11 @@ describe('version routes', () => {
         body: JSON.stringify({
           ir: {
             ...validIR,
-            nodes: [at('br', 'Paid', 'branch'), at('late', 'Late'), at('ship', 'Ship')],
+            // A parallel's arms don't run their meeting point inside each arm.
+            nodes: [at('br', 'Paid', 'parallel'), at('late', 'Late'), at('ship', 'Ship')],
             edges: [
-              { id: 'a', source: 'br', target: 'ship', label: 'paid' },
-              { id: 'b', source: 'br', target: 'late', label: 'late' },
+              { id: 'a', source: 'br', target: 'ship' },
+              { id: 'b', source: 'br', target: 'late' },
               { id: 'ls', source: 'late', target: 'ship' },
             ],
             entryNodeId: 'br',
@@ -287,7 +288,7 @@ describe('version routes', () => {
         path: 'edges.a',
         nodeId: 'br',
         message:
-          'Paid’s “paid” arm leads straight into Ship, which another path also reaches. Add a step to that arm first.',
+          'Paid’s arm leads straight into Ship, which another path also reaches. Add a step to that arm first.',
       })
     })
 

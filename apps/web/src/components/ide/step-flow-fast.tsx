@@ -23,6 +23,8 @@ interface StepFlowFastProps {
   onOpenMap: () => void
   /** Shown in place of the step name: Add → Custom node's picked node and fields. */
   nodeForm?: React.ReactNode
+  /** A new step's settings under its name (Inline). */
+  stepOptions?: React.ReactNode
 }
 
 /** The quick path: one name, after/before, one step. Branches live on the map. */
@@ -57,6 +59,7 @@ export function StepFlowFast({
   onAnchorChange,
   onOpenMap,
   nodeForm,
+  stepOptions,
 }: StepFlowFastProps) {
   const { registry } = useNodeRegistry()
 
@@ -92,6 +95,7 @@ export function StepFlowFast({
           />
         </FormField>
       )}
+      {nodeForm === undefined && stepOptions}
 
       <FieldGroup
         legend={

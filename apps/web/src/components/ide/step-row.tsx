@@ -12,6 +12,8 @@ interface StepRowItemProps {
   name: string
   icon: ReactNode
   meta: string | null
+  /** What this arm's path runs next (where a branch's or wait's arms meet on), by name. */
+  thenRuns?: string | null
   folded: boolean
   /** The graph's entry node gets the entry marker. */
   entry: boolean
@@ -47,6 +49,7 @@ export function StepRowItem({
   name,
   icon,
   meta,
+  thenRuns = null,
   folded,
   entry,
   unreachable,
@@ -138,6 +141,9 @@ export function StepRowItem({
           )}
         </span>
         {meta && <span className="block truncate text-2xs text-muted-foreground">{meta}</span>}
+        {thenRuns && (
+          <span className="block truncate text-2xs text-muted-foreground/80">then {thenRuns}</span>
+        )}
       </span>
       {unsaved && (
         <span

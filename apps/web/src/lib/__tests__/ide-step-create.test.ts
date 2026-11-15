@@ -184,14 +184,16 @@ describe('Add, Remove and field Save record pending edits', () => {
     const refused = { status: 'refused', reason: 'Older versions are read-only.' }
     expect(h.creator.create({ after: 'fetch' }, 'X')).toEqual(refused)
     expect(h.creator.remove('mail')).toEqual(refused)
-    expect(h.creator.saveNodeFields('hello', { retries: 3 }, { retries: 1 })).toEqual(refused)
+    expect(h.creator.saveNodeFields('hello', (current) => ({ ...current, retries: 3 }))).toEqual(
+      refused,
+    )
     expect(useIdeStore.getState().graphOps).toEqual([])
   })
 
   it('records a field edit in plain words and shows the edited values', () => {
     const h = harness()
     const data = doc.nodes[2]!.data
-    expect(h.creator.saveNodeFields('hello', { ...data, retries: 3 }, data)).toEqual({
+    expect(h.creator.saveNodeFields('hello', () => ({ ...data, retries: 3 }))).toEqual({
       status: 'recorded',
     })
     expect(h.createVersion).not.toHaveBeenCalled()
@@ -226,7 +228,7 @@ describe('Add, Remove and field Save record pending edits', () => {
   it('un-adds a pending node instead of recording a removal, with its field edits', () => {
     const h = harness()
     h.creator.create({ after: 'hello' }, 'Ping', undefined, { type: 'custom:ping', data: {} })
-    h.creator.saveNodeFields('new1', { url: 'a' }, {})
+    h.creator.saveNodeFields('new1', (current) => ({ ...current, url: 'a' }))
     useIdeStore.getState().setDraft('steps/new1.ts', 'x', null)
     h.creator.remove('new1')
     expect(useIdeStore.getState().graphOps).toEqual([])
@@ -252,7 +254,7 @@ describe('Save writes the pending edits and step drafts as one version', () => {
   it('posts one version with every pending edit and draft, then lists nothing', async () => {
     const h = harness()
     h.creator.create({ after: 'hello' }, 'Notify')
-    h.creator.saveNodeFields('hello', { retries: 5 }, { retries: 1 })
+    h.creator.saveNodeFields('hello', (current) => ({ ...current, retries: 5 }))
     const store = useIdeStore.getState()
     store.setDraft('steps/mail.ts', MAIL_EDIT, contentHash(MAIL_CODE))
     // Typed into the new file: built on the scaffold it opened with.
@@ -313,7 +315,7 @@ describe('Save writes the pending edits and step drafts as one version', () => {
 
   it('keeps the edits on a conflict and drops, by name, one the new version cannot take', async () => {
     const h = harness()
-    h.creator.saveNodeFields('hello', { retries: 5 }, { retries: 1 })
+    h.creator.saveNodeFields('hello', (current) => ({ ...current, retries: 5 }))
     h.creator.create({ after: 'fetch' }, 'Audit')
     // The canvas removed `hello` meanwhile; the workspace has not seen it.
     const moved = { ...doc, nodes: doc.nodes.slice(0, 2), edges: doc.edges.slice(0, 1) }
@@ -345,7 +347,7 @@ describe('Save writes the pending edits and step drafts as one version', () => {
     })
     const saving = h.saver.save([GRAPH_EDITS_KEY])
     await vi.waitFor(() => expect(h.createVersion).toHaveBeenCalled())
-    h.creator.saveNodeFields('hello', { retries: 9 }, { retries: 1 })
+    h.creator.saveNodeFields('hello', (current) => ({ ...current, retries: 9 }))
     release()
     await saving
     expect(waiting().map((entry) => entry.label)).toEqual(['Changed retries on “Say hello”'])
@@ -393,7 +395,7 @@ describe('Discarding pending edits', () => {
   it('drops the last edit for ⌘Z, and nothing when none is waiting', () => {
     const h = harness()
     h.creator.remove('mail')
-    h.creator.saveNodeFields('hello', { retries: 2 }, { retries: 1 })
+    h.creator.saveNodeFields('hello', (current) => ({ ...current, retries: 2 }))
     const undone = discardLastGraphOp(useIdeStore.getState, h.loaded())
     expect(undone?.discarded.label).toBe('Changed retries on “Say hello”')
     expect(waiting().map((entry) => entry.label)).toEqual(['Removed “Send mail”'])
@@ -566,5 +568,79 @@ describe('the pending entry names the arm a step went into', () => {
       'Added “Late” to onTimeout of “Wait”',
       'Added “Notify” after “Wait”',
     ])
+  })
+})
+
+describe('an inline step', () => {
+  it('records the step inline with its scaffold, and opens its file', () => {
+    const h = harness()
+    const outcome = h.creator.create({ after: 'fetch' }, 'Quick', undefined, {
+      type: 'step',
+      data: { inline: true },
+    })
+    expect(outcome).toEqual({ status: 'created', nodeId: 'new1', path: 'steps/new1.ts' })
+    const [entry] = waiting()
+    expect(entry!.op).toMatchObject({
+      kind: 'insert',
+      node: { type: 'step', data: { inline: true } },
+    })
+    const op = entry!.op
+    // An inline step holds statements, not a module.
+    expect(op.kind === 'insert' && String(op.node.data?.code)).not.toContain('export default')
+    expect(h.shown().nodes.find((n) => n.id === 'new1')?.data).toMatchObject({ inline: true })
+  })
+})
+
+describe('field edits to one node in a row', () => {
+  it('merge into one pending entry, which goes once the values are back', () => {
+    const h = harness()
+    const base = { greeting: 'hi', retries: 1 }
+    h.creator.saveNodeFields('hello', () => ({ greeting: 'hey', retries: 1 }))
+    h.creator.saveNodeFields('hello', () => ({ greeting: 'hey', retries: 3 }))
+    const waitingNow = waiting()
+    expect(waitingNow).toHaveLength(1)
+    expect(waitingNow[0]!.op).toMatchObject({
+      kind: 'fields',
+      edited: { greeting: 'hey', retries: 3 },
+      base,
+    })
+    h.creator.saveNodeFields('hello', () => base)
+    expect(waiting()).toEqual([])
+  })
+})
+
+describe('a node edit from the settings panel', () => {
+  it('records a new connection and a rename, and goes once both are undone', () => {
+    const h = harness()
+    h.creator.saveNodeEdit('fetch', (current) => ({
+      ...current,
+      edges: [...current.edges, { id: 'x1', target: 'hello', label: 'then' }],
+    }))
+    h.creator.saveNodeEdit('fetch', (current) => ({ ...current, name: 'Fetch it' }))
+    const [entry] = waiting()
+    expect(waiting()).toHaveLength(1)
+    expect(entry!.label).toBe(
+      'Renamed “Fetch user” to “Fetch it”; changed the connections of “Fetch user”',
+    )
+    expect(h.shown().edges.some((e) => e.id === 'x1' && e.source === 'fetch')).toBe(true)
+    h.creator.saveNodeEdit('fetch', (current) => ({
+      ...current,
+      name: 'Fetch user',
+      edges: current.edges.filter((e) => e.id !== 'x1'),
+    }))
+    expect(waiting()).toEqual([])
+  })
+
+  it('refuses a connection to a node that isn’t there', () => {
+    const h = harness()
+    const outcome = h.creator.saveNodeEdit('fetch', (current) => ({
+      ...current,
+      edges: [...current.edges, { id: 'x1', target: 'ghost' }],
+    }))
+    expect(outcome).toEqual({
+      status: 'refused',
+      reason: 'It connects to a node that is not in this version any more.',
+    })
+    expect(waiting()).toEqual([])
   })
 })

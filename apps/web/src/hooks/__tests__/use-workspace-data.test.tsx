@@ -312,3 +312,26 @@ describe('useWorkspaceData: generated code with pending graph edits', () => {
     vi.restoreAllMocks()
   })
 })
+
+describe('useWorkspaceData: what a Save would refuse', () => {
+  it('lists the canvas’s Save check in Problems before Save', () => {
+    const waitIr = {
+      ...STEP_IR,
+      nodes: [
+        ...STEP_IR.nodes,
+        {
+          id: 'w',
+          type: 'wait_for_event',
+          name: 'Wait',
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { eventType: 'sunny', timeout: '30 seconds', onEventNode: 'validate' },
+        },
+      ],
+      edges: [...STEP_IR.edges, { id: 'e2', source: 'nap', target: 'w' }],
+    }
+    const { result } = setup(undefined, { ir: waitIr })
+    const messages = result.current.problemGroups.saved.map(({ problem }) => problem.message)
+    expect(messages).toContain('Wait: Choose the node to run when the wait times out')
+  })
+})

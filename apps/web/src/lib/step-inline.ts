@@ -1,9 +1,12 @@
 import type { WorkflowIR } from '@awaitstep/ir'
 import {
+  INLINE_STEP_SCAFFOLD,
   blockBindingsOf,
+  computeVarNames,
   containerArms,
   normalizeStepModules,
   stepBodyFromModule,
+  stepModuleTemplate,
 } from '@awaitstep/codegen'
 
 /**
@@ -22,7 +25,12 @@ export function stepCodeForInline(
   const node = ir.nodes.find((n) => n.id === nodeId)
   const code = String(node?.data.code ?? '')
   if (!node || node.type !== 'step') return code
-  if (inline) return stepBodyFromModule(code, bindingsAround(ir, nodeId))
+  if (inline) {
+    // The untouched scaffold's `return` would end the whole run once inline.
+    const varName = computeVarNames(ir.nodes).get(nodeId)
+    if (varName !== undefined && code === stepModuleTemplate(varName)) return INLINE_STEP_SCAFFOLD
+    return stepBodyFromModule(code, bindingsAround(ir, nodeId))
+  }
   const asModule = {
     ...ir,
     nodes: ir.nodes.map((n) =>

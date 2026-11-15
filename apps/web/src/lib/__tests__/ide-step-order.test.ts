@@ -268,3 +268,103 @@ describe('orderSteps on absurdly nested graphs', () => {
     expect(new Set(rows.map((r) => r.nodeId)).size).toBe(depth)
   })
 })
+
+describe('orderSteps: an arm leading straight into where the other arm ends', () => {
+  it('shows the merge inside the wait under the arm that leads to it, and runs it after the other arm too', () => {
+    const rows = orderSteps(
+      [
+        { id: 'sleep', type: 'sleep' },
+        { id: 'w', type: 'wait_for_event' },
+        { id: 'sunny', type: 'step' },
+        { id: 'hello', type: 'custom:hello' },
+      ],
+      [
+        { source: 'sleep', target: 'w' },
+        { source: 'w', target: 'sunny', label: 'onEvent' },
+        { source: 'w', target: 'hello', label: 'onTimeout' },
+        { source: 'sunny', target: 'hello' },
+      ],
+    )
+    expect(rows.map((r) => [r.nodeId, r.depth, r.arm, r.parentId])).toEqual([
+      ['sleep', 0, null, null],
+      ['w', 0, null, null],
+      ['sunny', 1, 'onEvent', 'w'],
+      ['hello', 1, 'onTimeout', 'w'],
+    ])
+    // The event path runs hello after sunny too, as the generated code does.
+    expect(rows.find((r) => r.nodeId === 'sunny')?.thenRuns).toEqual(['hello'])
+  })
+})
+
+describe('orderSteps: a merge with steps after it', () => {
+  it('ends the other arm with the whole run the code repeats there', () => {
+    const rows = orderSteps(
+      [
+        { id: 'w', type: 'wait_for_event' },
+        { id: 'sunny', type: 'step' },
+        { id: 'hello', type: 'custom:hello' },
+        { id: 'next', type: 'step' },
+      ],
+      [
+        { source: 'w', target: 'sunny', label: 'onEvent' },
+        { source: 'w', target: 'hello', label: 'onTimeout' },
+        { source: 'sunny', target: 'hello' },
+        { source: 'hello', target: 'next' },
+      ],
+    )
+    expect(rows.map((r) => [r.nodeId, r.depth, r.arm])).toEqual([
+      ['w', 0, null],
+      ['sunny', 1, 'onEvent'],
+      ['hello', 1, 'onTimeout'],
+      ['next', 1, null],
+    ])
+    expect(rows.find((r) => r.nodeId === 'sunny')?.thenRuns).toEqual(['hello', 'next'])
+  })
+})
+
+describe('orderSteps: merged arms in the order the code runs them', () => {
+  it('keeps a branch’s arm that leads straight into the merge in its own place', () => {
+    const rows = orderSteps(
+      [
+        {
+          id: 'b',
+          type: 'branch',
+          data: {
+            branches: [
+              { label: 'a', condition: 'x' },
+              { label: 'b', condition: '' },
+            ],
+          },
+        },
+        { id: 'a1', type: 'step' },
+        { id: 'j', type: 'step' },
+      ],
+      [
+        { source: 'b', target: 'j', label: 'a' },
+        { source: 'b', target: 'a1', label: 'b' },
+        { source: 'a1', target: 'j' },
+      ],
+    )
+    expect(rows.map((r) => [r.nodeId, r.depth, r.arm])).toEqual([
+      ['b', 0, null],
+      ['j', 1, 'a'],
+      ['a1', 1, 'b'],
+    ])
+    expect(rows.find((r) => r.nodeId === 'a1')?.thenRuns).toEqual(['j'])
+  })
+
+  it('gives no shared run when a wait’s field names the merge but no arm goes there', () => {
+    const rows = orderSteps(
+      [
+        { id: 'w', type: 'wait_for_event', data: { onTimeoutNode: 'hello' } },
+        { id: 'sunny', type: 'step' },
+        { id: 'hello', type: 'step' },
+      ],
+      [
+        { source: 'w', target: 'sunny', label: 'onEvent' },
+        { source: 'sunny', target: 'hello' },
+      ],
+    )
+    expect(rows.every((r) => r.thenRuns === undefined)).toBe(true)
+  })
+})

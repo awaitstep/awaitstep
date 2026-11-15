@@ -205,12 +205,13 @@ describe('insertStep — the front of the graph', () => {
     expect(next.nodes[0]!.position).toEqual({ x: 80, y: 80 })
   })
 
-  it('puts the step before the entry, left of it, and makes it the entry', () => {
+  it('puts the step before the entry, in its place, and moves the graph a row down', () => {
     const ir = graph([node('a', 'A', 'step', { x: 280, y: 40 })], [], 'a')
     const next = insert(ir, { first: true })
     expect(next.edges.map((e) => [e.source, e.target])).toEqual([[NEW.id, 'a']])
     expect(next.entryNodeId).toBe(NEW.id)
-    expect(next.nodes.find((n) => n.id === NEW.id)!.position).toEqual({ x: 0, y: 40 })
+    expect(next.nodes.find((n) => n.id === NEW.id)!.position).toEqual({ x: 280, y: 40 })
+    expect(next.nodes.find((n) => n.id === 'a')!.position).toEqual({ x: 280, y: 160 })
   })
 
   it('refuses when a non-empty graph has no entry node', () => {
@@ -241,10 +242,31 @@ describe('insertStep — names and positions', () => {
     expect(codeOf(next, 'x')).toBe(TEMPLATE('Fetch_user'))
   })
 
-  it('places the new step one column right of its predecessor', () => {
+  it('places the new step a row under its predecessor, as the canvas lays steps out', () => {
     const ir = graph([node('a', 'A', 'step', { x: 200, y: 80 })], [])
     const next = insert(ir, { after: 'a' })
-    expect(next.nodes.find((n) => n.id === NEW.id)!.position).toEqual({ x: 480, y: 80 })
+    expect(next.nodes.find((n) => n.id === NEW.id)!.position).toEqual({ x: 200, y: 200 })
+  })
+
+  it('moves the path below a row down to make room, and leaves other paths where they are', () => {
+    const ir = graph(
+      [
+        node('a', 'A', 'step', { x: 0, y: 0 }),
+        node('b', 'B', 'step', { x: 0, y: 120 }),
+        node('c', 'C', 'step', { x: 0, y: 240 }),
+        node('side', 'Side', 'step', { x: 400, y: 240 }),
+      ],
+      [
+        { id: 'ab', source: 'a', target: 'b' },
+        { id: 'bc', source: 'b', target: 'c' },
+      ],
+    )
+    const next = insert(ir, { after: 'a' })
+    const at = (id: string) => next.nodes.find((n) => n.id === id)!.position
+    expect(at(NEW.id)).toEqual({ x: 0, y: 120 })
+    expect(at('b')).toEqual({ x: 0, y: 240 })
+    expect(at('c')).toEqual({ x: 0, y: 360 })
+    expect(at('side')).toEqual({ x: 400, y: 240 })
   })
 
   it('falls back when the predecessor has no position', () => {
@@ -575,5 +597,91 @@ describe('insertStep — a wait arm its field overrides', () => {
     if (!result.ok) {
       expect(result.reason).toBe('Wait’s “onEvent” arm runs another node. Change it on the canvas.')
     }
+  })
+})
+
+describe('insertStep — an inline step', () => {
+  it('keeps inline on a new step, and leaves it unset otherwise', () => {
+    const ir = graph([node('a', 'A')], [])
+    const inline = insertNode(ir, { after: 'a' }, { ...NEW, type: 'step', data: { inline: true } })
+    if (!inline.ok) throw new Error(inline.reason)
+    expect(inline.node.data).toMatchObject({ inline: true })
+    // Statements, not a module, and no `return` that would end the whole run.
+    expect(String(inline.node.data.code)).not.toContain('export default')
+    expect(String(inline.node.data.code)).not.toContain('return')
+    expect(stepModuleProblems(inline.ir).filter((p) => p.nodeId === NEW.id)).toEqual([])
+    expect(insert(ir, { after: 'a' }).nodes.at(-1)!.data).not.toHaveProperty('inline')
+  })
+})
+
+describe('insertStep — placed where the next step was, however the canvas spaced them', () => {
+  it('takes the next step’s place, and moves it and what follows a row down', () => {
+    // The canvas left New step only 90px under Say Hello.
+    const ir = graph(
+      [
+        node('hello', 'Say Hello', 'step', { x: 0, y: 300 }),
+        node('ns', 'New step', 'step', { x: 0, y: 390 }),
+        node('an', 'another new', 'step', { x: 0, y: 700 }),
+      ],
+      [
+        { id: 'h', source: 'hello', target: 'ns' },
+        { id: 'n', source: 'ns', target: 'an' },
+      ],
+    )
+    const next = insert(ir, { after: 'ns', edgeId: 'n' })
+    const at = (id: string) => next.nodes.find((n) => n.id === id)!.position
+    expect(at(NEW.id)).toEqual({ x: 0, y: 700 })
+    expect(at('an')).toEqual({ x: 0, y: 820 })
+    expect(at('ns')).toEqual({ x: 0, y: 390 })
+    const spliced = insert(ir, { after: 'hello', edgeId: 'h' })
+    const where = (id: string) => spliced.nodes.find((n) => n.id === id)!.position
+    expect(where(NEW.id)).toEqual({ x: 0, y: 390 })
+    expect(where('ns')).toEqual({ x: 0, y: 510 })
+    expect(where('an')).toEqual({ x: 0, y: 820 })
+  })
+})
+
+describe('insertStep — inside a block, what runs after the block makes room', () => {
+  // Loop L, body B1 → B2, then N right under the body.
+  const looped = () => {
+    const loop = node('L', 'Each order', 'loop', { x: 0, y: 0 })
+    loop.data = { loopType: 'forEach', collection: '[]' }
+    return graph(
+      [
+        loop,
+        node('b1', 'First', 'step', { x: 0, y: 120 }),
+        node('b2', 'Second', 'step', { x: 0, y: 240 }),
+        node('n', 'After loop', 'step', { x: 0, y: 360 }),
+        node('m', 'Last', 'step', { x: 0, y: 480 }),
+      ],
+      [
+        { id: 'body', source: 'L', target: 'b1', label: 'body' },
+        { id: 'b12', source: 'b1', target: 'b2' },
+        { id: 'then', source: 'L', target: 'n', label: 'then' },
+        { id: 'nm', source: 'n', target: 'm' },
+      ],
+    )
+  }
+  const positions = (ir: ArtifactIR) =>
+    Object.fromEntries(ir.nodes.map((n) => [n.id, n.position?.y]))
+
+  it('moves the loop’s way on down when a step goes at the front of its body', () => {
+    const next = insert(looped(), { after: 'L', edgeId: 'body' })
+    expect(positions(next)).toEqual({ L: 0, b1: 240, b2: 360, n: 480, m: 600, [NEW.id]: 120 })
+  })
+
+  it('moves the loop’s way on down when a step goes at the end of its body', () => {
+    const next = insert(looped(), { after: 'b2' })
+    expect(positions(next)).toEqual({ L: 0, b1: 120, b2: 240, n: 480, m: 600, [NEW.id]: 360 })
+  })
+
+  it('leaves the loop’s way on alone when the step goes after the loop', () => {
+    const next = insert(looped(), { after: 'L', edgeId: 'then' })
+    expect(positions(next)).toEqual({ L: 0, b1: 120, b2: 240, n: 480, m: 600, [NEW.id]: 360 })
+  })
+
+  it('leaves a block before the step alone', () => {
+    const next = insert(looped(), { after: 'n', edgeId: 'nm' })
+    expect(positions(next)).toEqual({ L: 0, b1: 120, b2: 240, n: 360, m: 600, [NEW.id]: 480 })
   })
 })

@@ -231,3 +231,146 @@ describe('applyGraphOps — a pending step keeps its first scaffold', () => {
     expect(ir.nodes.find((n) => n.id === 'b')?.data.code).toBe(recorded)
   })
 })
+
+describe('a node edit with its name and connections', () => {
+  const wait = node('w', 'Wait', 'wait_for_event', { eventType: 'sunny', timeout: '30 seconds' })
+  const base = () =>
+    graph(
+      [wait, node('s', 'Sunny'), node('late', 'Late')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+
+  it('connects an arm, retargets one, and renames, as the canvas panel does', () => {
+    const op: GraphOp = {
+      kind: 'fields',
+      nodeId: 'w',
+      base: wait.data,
+      edited: { ...wait.data, onTimeoutNode: 'late' },
+      name: { base: 'Wait', edited: 'Wait for sun' },
+      edges: {
+        base: [{ id: 'e1', target: 's', label: 'onEvent' }],
+        edited: [
+          { id: 'e1', target: 'late', label: 'onEvent' },
+          { id: 'e2', target: 's', label: 'onTimeout' },
+        ],
+      },
+    }
+    const result = applyGraphOp(base(), op)
+    if (!result.ok) throw new Error(result.reason)
+    expect(result.ir.nodes[0]).toMatchObject({
+      name: 'Wait for sun',
+      data: { onTimeoutNode: 'late' },
+    })
+    expect(result.ir.edges).toEqual([
+      { id: 'e1', source: 'w', target: 'late', label: 'onEvent' },
+      { id: 'e2', source: 'w', target: 's', label: 'onTimeout' },
+    ])
+  })
+
+  it('removes a connection, and leaves one it didn’t touch as someone else left it', () => {
+    const moved = graph(
+      [wait, node('s', 'Sunny'), node('late', 'Late')],
+      [
+        { id: 'e1', source: 'w', target: 'late', label: 'onEvent' },
+        { id: 'e3', source: 'w', target: 's', label: 'then' },
+      ],
+    )
+    const op: GraphOp = {
+      kind: 'fields',
+      nodeId: 'w',
+      base: wait.data,
+      edited: wait.data,
+      edges: {
+        base: [
+          { id: 'e1', target: 's', label: 'onEvent' },
+          { id: 'e3', target: 's', label: 'then' },
+        ],
+        edited: [{ id: 'e1', target: 's', label: 'onEvent' }],
+      },
+    }
+    const result = applyGraphOp(moved, op)
+    if (!result.ok) throw new Error(result.reason)
+    // e1 untouched by this edit keeps the newer target; e3 goes.
+    expect(result.ir.edges).toEqual([{ id: 'e1', source: 'w', target: 'late', label: 'onEvent' }])
+  })
+
+  it('refuses a connection to a node that is gone', () => {
+    const op: GraphOp = {
+      kind: 'fields',
+      nodeId: 'w',
+      base: wait.data,
+      edited: wait.data,
+      edges: { base: [], edited: [{ id: 'e9', target: 'ghost', label: 'onTimeout' }] },
+    }
+    expect(applyGraphOp(base(), op)).toEqual({
+      ok: false,
+      reason: 'It connects to a node that is not in this version any more.',
+    })
+  })
+
+  it('moves step functions with a rename', () => {
+    const step = node('a', 'Fetch', 'step', { code: stepModuleTemplate('Fetch') })
+    const op: GraphOp = {
+      kind: 'fields',
+      nodeId: 'a',
+      base: step.data,
+      edited: step.data,
+      name: { base: 'Fetch', edited: 'Load' },
+    }
+    const result = applyGraphOp(graph([step], []), op)
+    if (!result.ok) throw new Error(result.reason)
+    expect(String(result.ir.nodes[0]!.data.code)).toContain('function Load(')
+  })
+})
+
+describe('a node edit replayed on a version that moved', () => {
+  const tc = node('t', 'Guard', 'try_catch')
+  const saved = () =>
+    graph(
+      [tc, node('a', 'A'), node('b', 'B'), node('c', 'C'), node('d', 'D')],
+      [
+        { id: 'e1', source: 't', target: 'a', label: 'try' },
+        { id: 'e2', source: 't', target: 'b', label: 'catch' },
+        { id: 'e3', source: 't', target: 'c', label: 'then' },
+      ],
+    )
+  const retargetThen: GraphOp = {
+    kind: 'fields',
+    nodeId: 't',
+    base: {},
+    edited: {},
+    edges: {
+      base: [
+        { id: 'e1', target: 'a', label: 'try' },
+        { id: 'e2', target: 'b', label: 'catch' },
+        { id: 'e3', target: 'c', label: 'then' },
+      ],
+      edited: [
+        { id: 'e1', target: 'a', label: 'try' },
+        { id: 'e2', target: 'b', label: 'catch' },
+        { id: 'e3', target: 'd', label: 'then' },
+      ],
+    },
+  }
+
+  it('still applies when an arm it didn’t touch lost its target', () => {
+    const moved = saved()
+    moved.nodes = moved.nodes.filter((n) => n.id !== 'b')
+    moved.edges = moved.edges.filter((e) => e.id !== 'e2')
+    const result = applyGraphOp(moved, retargetThen)
+    if (!result.ok) throw new Error(result.reason)
+    expect(result.ir.edges.find((e) => e.label === 'then')?.target).toBe('d')
+  })
+
+  it('is refused rather than leave two connections under one label', () => {
+    const moved = saved()
+    moved.edges = [
+      ...moved.edges.filter((e) => e.id !== 'e3'),
+      { id: 'e9', source: 't', target: 'c', label: 'then' },
+    ]
+    expect(applyGraphOp(moved, retargetThen)).toEqual({
+      ok: false,
+      reason: 'Its “then” connection was changed in this version meanwhile.',
+    })
+  })
+})

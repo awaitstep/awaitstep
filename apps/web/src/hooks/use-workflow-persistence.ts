@@ -6,6 +6,7 @@ import { actionToast, failureLine } from '../lib/action-toast'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { onlyBlockedByEmptyGraph, validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
+import { fixBeforeSaving, saveErrors } from '../lib/ide/save-check'
 import { VersionConflictError, type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { useItemSlugs } from '../contexts/editor-scope-context'
@@ -278,10 +279,7 @@ export function useWorkflowPersistence(opts: {
       // The panel lists every issue (click-to-focus) and node badges mark
       // them on the canvas — one toast points there instead of N toasts.
       useWorkflowStore.setState({ validationResult: result, simulationResult: null })
-      const errorCount = result.issues.filter((i) => i.severity === 'error').length
-      actionToast.error(
-        errorCount === 1 ? 'Fix 1 issue before saving' : `Fix ${errorCount} issues before saving`,
-      )
+      actionToast.error(fixBeforeSaving(saveErrors(result).length))
       return false
     }
     useWorkflowStore.getState().clearValidation()

@@ -72,7 +72,9 @@ export default defineWorkflow<Env>({
 
 ## Adding retries to a step
 
-Open the step's config drawer and set **Retry Limit**, **Retry Delay**, and optionally **Backoff**.
+Open the step's config drawer on the canvas, or select the step in Code's
+**Steps** list, and set **Retry Limit**, **Retry Delay**, and optionally
+**Backoff**.
 
 ```typescript
 const my_step = await flow.step(
@@ -85,6 +87,29 @@ const my_step = await flow.step(
   },
 )
 ```
+
+## A node's settings in Code
+
+Select a node in Code's **Steps** list and choose **Settings** in its details:
+the canvas's own node panel opens beside the code — its name, every field, and
+where its paths go (a wait's **When the event arrives**, **When the wait times
+out** and **After the wait**, a branch's conditions and targets, a loop's
+body). Each change waits for Save with your other edits; there is no separate
+Save. A step's code stays in its file.
+
+Code's **Save** refuses what the canvas's Save refuses — for example a wait
+with no node to run when it times out — with the same message, and
+**Problems** lists those issues before you save.
+
+## Inline steps
+
+A step normally runs as a durable step: retried, timed out and saved by the
+runtime. Turn on **Inline — no step** (in the node's panel on the canvas, in the step's
+details in Code, or in Code's **Add** dialog when you add the step) to run it
+in the workflow's body instead: no retries, timeout or durability, and no
+extra step in the run. Its code is rewritten to plain statements; turning it
+off rewrites them back into the step's function. In Code, save or revert the
+step's file before switching.
 
 ## Accessing trigger payload
 
@@ -118,12 +143,13 @@ saved until you save (see [Changes in Code wait for Save](#changes-in-code-wait-
   says so, because references to its old name stop working. References to the
   removed step by name then read that step instead, without an error, and the
   dialog lists those separately.
-- If you remove the step at the start of an arm (of a branch, loop, wait,
-  parallel, race or try/catch), and the step after it is also reached another
-  way (a join, or the container's next step), the save is refused. The arm
-  would lead straight into that step, which then wouldn't run on the other
-  paths. Add a step to that arm first, or change it on the canvas. The canvas
-  flags the same shape on the node and refuses to save it.
+- An arm of a branch or a wait may lead straight into the step its other arms
+  end at: that step runs at the end of each path (on a wait's timeout path
+  alone, and after the event path's steps). Any other arm that leads straight
+  into a step also reached another way — a loop's, a parallel's, a race's, a
+  try/catch's, or a step a path from outside the block reaches too — is
+  refused on save, in Code and on the canvas: that step wouldn't run on the
+  other paths. Add a step to that arm first, or change it on the canvas.
 - Unsaved changes in the removed step's file are discarded, and its tab
   closes. Discarding the removal brings them back.
 
@@ -132,9 +158,9 @@ can draw the connection yourself.
 
 ## Changes in Code wait for Save
 
-In Code, adding a step or a custom node, removing one, saving a node's fields
-in its details, and creating, renaming or deleting a file in the Explorer all
-wait for Save, like your code edits:
+In Code, adding a step or a custom node, removing one, changing a node's
+fields in its details, and creating, renaming or deleting a file in the
+Explorer all wait for Save, like your code edits:
 
 - The change shows at once in the Steps list, the details, the map and the
   step files. A new step's file opens as a new, unsaved file. The generated

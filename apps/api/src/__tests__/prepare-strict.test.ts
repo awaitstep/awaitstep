@@ -227,6 +227,49 @@ describe('a strict prepare', () => {
     })
   })
 
+  it('refuses an expression naming a step that isn’t there, and lists it on Check', async () => {
+    const broken = {
+      ...validIR,
+      nodes: [{ ...validIR.nodes[0], data: { code: 'return {{ghost.id}}' } }],
+    }
+    const message = 'Hello: There’s no step called “ghost” in this workflow.'
+    const refused = await prepareStoredIr(broken)
+    expect(isPrepareError(refused) && refused.status).toBe(400)
+    expect(isPrepareError(refused) && refused.error).toBe(message)
+    const read = await prepareStoredIr(broken, undefined, { mode: 'read' })
+    expect(isPrepareError(read) ? read.error : read.diagnostics).toContainEqual({
+      source: 'ir',
+      nodeId: 'step-1',
+      message,
+    })
+  })
+
+  it('names a cycle, not the expressions on it, as what is wrong', async () => {
+    const step = (id: string, code: string) => ({
+      ...validIR.nodes[0],
+      id,
+      name: id,
+      data: { code },
+    })
+    const cyclic = {
+      ...validIR,
+      nodes: [step('a', 'return {{b.id}}'), step('b', 'return 1')],
+      edges: [
+        { id: 'e1', source: 'a', target: 'b' },
+        { id: 'e2', source: 'b', target: 'a' },
+      ],
+      entryNodeId: 'a',
+    }
+    const refused = await prepareStoredIr(cyclic)
+    expect(isPrepareError(refused) && refused.error).toBe('IR validation failed')
+    // A read can't generate a cyclic graph; its diagnostics name the cycle,
+    // with no "runs after" for every ref on it.
+    const read = await prepareStoredIr(cyclic, undefined, { mode: 'read' })
+    const messages = (read.diagnostics ?? []).map((d) => d.message)
+    expect(messages.length).toBeGreaterThan(0)
+    expect(messages.some((message) => message.includes('runs after this node'))).toBe(false)
+  })
+
   it('refuses a loop item named like a step inside the loop', async () => {
     const prepared = await prepareStoredIr({
       ...validIR,

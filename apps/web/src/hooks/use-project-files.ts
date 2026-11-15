@@ -11,10 +11,13 @@ import {
   createStepCreator,
   type CreateStepOutcome,
   type NewTemplateNode,
+  type FieldUpdate,
+  type NodeSettings,
   type SaveNodeFieldsOutcome,
 } from '../lib/ide/step-create'
 import type { RemoveNodeOutcome } from '../lib/ide/step-remove'
 import { createPendingFileActions } from '../lib/ide/pending-file-actions'
+import { saveCheck, saveErrors } from '../lib/ide/save-check'
 import { createStepSaver } from '../lib/ide/step-save'
 import type { PendingGraphOp } from '../lib/ide/graph-ops'
 import { discardGraphOp, discardLastGraphOp } from '../lib/ide/graph-ops-actions'
@@ -55,11 +58,12 @@ export interface ProjectFilesController extends ProjectFileActions {
     nodeId?: string,
     template?: NewTemplateNode,
   ) => CreateStepOutcome
-  /** Records one node's field values as a pending graph edit. */
-  saveNodeFields: (
+  /** Records an edit to one node's fields as a pending graph edit. */
+  saveNodeFields: (nodeId: string, update: FieldUpdate) => SaveNodeFieldsOutcome
+  /** Records any change the node's settings panel makes: fields, name, connections. */
+  saveNodeEdit: (
     nodeId: string,
-    edited: Record<string, unknown>,
-    base: Record<string, unknown>,
+    update: (current: NodeSettings) => NodeSettings,
   ) => SaveNodeFieldsOutcome
   /** Removes a node, reconnecting the nodes on either side, as a pending graph edit. */
   removeNode: (nodeId: string) => RemoveNodeOutcome
@@ -147,6 +151,8 @@ export function useProjectFiles({
             ),
           ),
         refresh,
+        // The canvas's own Save check, so Code refuses what the canvas refuses.
+        check: (doc) => saveErrors(saveCheck(doc)),
       }),
     [api, queries, queryClient, workflowId, versionParam, refresh],
   )
@@ -244,11 +250,10 @@ export function useProjectFiles({
         nodeId?: string,
         template?: NewTemplateNode,
       ) => stepCreator.create(placement, name, nodeId, template),
-      saveNodeFields: (
-        nodeId: string,
-        edited: Record<string, unknown>,
-        base: Record<string, unknown>,
-      ) => stepCreator.saveNodeFields(nodeId, edited, base),
+      saveNodeFields: (nodeId: string, update: FieldUpdate) =>
+        stepCreator.saveNodeFields(nodeId, update),
+      saveNodeEdit: (nodeId: string, update: (current: NodeSettings) => NodeSettings) =>
+        stepCreator.saveNodeEdit(nodeId, update),
       removeNode: (nodeId: string) => stepCreator.remove(nodeId),
       discardGraphOp: (id: string) => {
         const version = stepSaver.currentVersion()

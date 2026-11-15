@@ -16,6 +16,7 @@ import {
   checkRequirements,
   collectRuntimeRequirements,
   formatUnsupportedRequirements,
+  expressionDiagnostics,
   generateUniversalFunctionBundle,
   generateUniversalWorkflowBundle,
   mergeRequirements,
@@ -374,6 +375,29 @@ export async function prepareWorkflow(
         ...(error.nodeId && { nodeId: error.nodeId }),
       })
     }
+  }
+
+  // A `{{ … }}` that isn't a valid expression ships as literal text, and one
+  // naming a missing or later step fails at run time: the editors refuse
+  // both, and nothing deploys with one.
+  const badExpressions: PrepareDiagnostic[] = expressionDiagnostics(ir, (type) =>
+    nodeRegistry.registry.get(type),
+  )
+  // Judged only on a graph that validates: on a cycle every ref reads as
+  // "runs after", which would hide the real error.
+  if (validation.ok && badExpressions.length > 0) {
+    if (!lenient) {
+      const [first, ...rest] = badExpressions
+      return {
+        error: first!.message,
+        status: 400,
+        ...(rest.length > 0 && { details: badExpressions }),
+        diagnostics: badExpressions,
+        checked,
+        finding: true,
+      }
+    }
+    diagnostics.push(...badExpressions)
   }
 
   checked.push('provider')

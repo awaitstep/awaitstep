@@ -30,6 +30,7 @@ import { useDraftOverlay } from './use-draft-overlay'
 import { useWorkspaceProblems } from './use-workspace-problems'
 import { usePendingGenerated } from './use-pending-generated'
 import { withPendingGenerated } from '../lib/ide/pending-generated'
+import { saveCheck, saveErrors } from '../lib/ide/save-check'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
 const NO_FILE_OPS: readonly PendingFileOp[] = []
@@ -208,13 +209,39 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   // since they explain the editor markers after them. A step whose path is
   // taken (by another step or a stored file) is reported there too.
   const markers = useWorkspaceProblems(workflowId)
-  const savedProblems = useMemo(
-    () => [
-      ...diagnosticProblems(source?.diagnostics ?? []),
-      ...stepCollisionProblems(steps.collisions),
-    ],
-    [source, steps],
+  // What a Save would refuse on (the canvas's own check), on the graph as
+  // Code shows it, so it is listed before Save rather than only on it.
+  const saveIssues = useMemo(
+    () => (version && !isHistorical ? saveErrors(saveCheck(version.doc)) : []),
+    [version, isHistorical],
   )
+  const savedProblems = useMemo(() => {
+    const server = diagnosticProblems(source?.diagnostics ?? [])
+    // The server words some of the same checks its own way (a cycle, a node
+    // not connected, a name clash): where it already reports on a node (or
+    // on the graph), its finding stands and the save check's isn't repeated.
+    const reported = new Set(
+      server.filter((problem) => problem.source === 'workflow').map((p) => p.nodeId ?? ''),
+    )
+    const unsaved = saveIssues
+      .filter((issue) => !reported.has(issue.nodeId ?? ''))
+      .map((issue) => ({
+        message: issue.nodeName ? `${issue.nodeName}: ${issue.message}` : issue.message,
+        nodeId: issue.nodeId,
+      }))
+      .map((issue) => ({
+        file: '',
+        line: 1,
+        column: 1,
+        endLine: 1,
+        endColumn: 1,
+        message: issue.message,
+        severity: 'error' as const,
+        source: 'workflow' as const,
+        ...(issue.nodeId !== null && { nodeId: issue.nodeId }),
+      }))
+    return [...server, ...unsaved, ...stepCollisionProblems(steps.collisions)]
+  }, [source, steps, saveIssues])
   const problemGroups = useMemo(
     () => groupProblems(markers, savedProblems, dirty, (nodeId) => stepSourceByNode.get(nodeId)),
     [markers, savedProblems, dirty, stepSourceByNode],

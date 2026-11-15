@@ -167,21 +167,26 @@ const SHOWN_LABEL_LENGTH = 40
  * with more than the request sent.
  */
 export function validateArmsIntoJoins(ir: Pick<ArtifactIR, 'nodes' | 'edges'>): ValidationError[] {
-  const byId = new Map(ir.nodes.map((node) => [node.id, node]))
-  const inDegree = new Map<string, number>()
-  for (const edge of ir.edges) {
-    if (edge.source === edge.target) continue
-    inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1)
-  }
+  const index = armIndex(ir.nodes, ir.edges)
   const errors: ValidationError[] = []
   const reported = new Set<string>()
   let unlisted = 0
-  for (const edge of ir.edges) {
-    const container = byId.get(edge.source)
-    const target = byId.get(edge.target)
+  // A wait's arm set by its field alone runs its node as an arm connection would.
+  const fieldArms = index.fieldArms.map((arm) => ({
+    id: `${arm.source}.${arm.field}`,
+    source: arm.source,
+    target: arm.target,
+    label: arm.label,
+    path: `nodes.${arm.source}.data.${arm.field}`,
+  }))
+  const edgeArms = ir.edges.map((edge) => ({ ...edge, path: `edges.${edge.id}` }))
+  for (const edge of [...edgeArms, ...fieldArms]) {
+    const container = index.byId.get(edge.source)
+    const target = index.byId.get(edge.target)
     if (!container || !target || edge.source === edge.target) continue
     if (!isArmEdgeOf(container.type, edge.label)) continue
-    if ((inDegree.get(edge.target) ?? 0) < 2) continue
+    if ((index.entries.get(edge.target) ?? 0) < 2) continue
+    if (index.mergesAt(container.id, edge.target)) continue
     const pair = JSON.stringify([container.id, target.id])
     if (reported.has(pair)) continue
     reported.add(pair)
@@ -190,7 +195,7 @@ export function validateArmsIntoJoins(ir: Pick<ArtifactIR, 'nodes' | 'edges'>): 
       continue
     }
     errors.push({
-      path: `edges.${edge.id}`,
+      path: edge.path,
       message: `${container.name}’s ${armName(edge.label)} leads straight into ${target.name}, which another path also reaches. Add a step to that arm first.`,
       nodeId: container.id,
     })
@@ -202,6 +207,179 @@ export function validateArmsIntoJoins(ir: Pick<ArtifactIR, 'nodes' | 'edges'>): 
     })
   }
   return errors
+}
+
+/**
+ * For every branch and wait whose arms meet at a node one of them leads
+ * straight into, that node, by container id. Generated code runs it inside
+ * each arm; the Steps list shows it as that arm. One pass over the graph.
+ */
+export function armMergeTargets(
+  nodes: readonly ArmNode[],
+  edges: readonly ArmEdge[],
+): Map<string, string> {
+  const index = armIndex(nodes, edges)
+  const merges = new Map<string, string>()
+  for (const [containerId, arms] of index.arms) {
+    for (const target of arms) {
+      if ((index.entries.get(target) ?? 0) < 2) continue
+      if (index.mergesAt(containerId, target)) {
+        merges.set(containerId, target)
+        break
+      }
+    }
+  }
+  return merges
+}
+
+/** The node fields the arm rules read: a wait's arm fields win over its edges, as codegen reads them. */
+export interface ArmNode {
+  id: string
+  type: string
+  name?: string
+  data?: Record<string, unknown>
+}
+
+export interface ArmEdge {
+  source: string
+  target: string
+  label?: string
+}
+
+/** Containers whose generated code runs the node their arms meet at inside each arm. */
+const MERGES_INTO_ARMS: ReadonlySet<string> = new Set(['branch', 'wait_for_event'])
+
+interface ArmIndex {
+  byId: Map<string, ArmNode & { name: string }>
+  inDegree: Map<string, number>
+  /** Each branch's and wait's arm targets (a wait's fields first). */
+  arms: Map<string, Set<string>>
+  /** Ways into each node as generated code runs them: connections, plus field-only wait arms. */
+  entries: Map<string, number>
+  /** A wait's arms set only by its field, with no connection under that label to the node. */
+  fieldArms: { source: string; target: string; label: string; field: string }[]
+  mergesAt(containerId: string, join: string): boolean
+}
+
+/**
+ * The graph read once for the arm rules: in-degrees, connections out of each
+ * node, each container's arms, and — lazily, each computed once — where each
+ * arm's chain ends, followed the way codegen's `collectChain` follows it:
+ * through a node with one connection into a node only it reaches, and
+ * through a block only by its `then`.
+ */
+function armIndex(nodes: readonly ArmNode[], edges: readonly ArmEdge[]): ArmIndex {
+  const byId = new Map(nodes.map((node) => [node.id, { ...node, name: node.name ?? node.id }]))
+  const inDegree = new Map<string, number>()
+  const outgoing = new Map<string, ArmEdge[]>()
+  for (const edge of edges) {
+    if (edge.source === edge.target) continue
+    inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1)
+    const out = outgoing.get(edge.source)
+    if (out) out.push(edge)
+    else outgoing.set(edge.source, [edge])
+  }
+  const arms = new Map<string, Set<string>>()
+  const fieldArms: ArmIndex['fieldArms'] = []
+  // Ways into a node as the generated code runs them: its connections, and a
+  // wait's arm that runs it by its field alone.
+  const entries = new Map(inDegree)
+  for (const node of byId.values()) {
+    if (!MERGES_INTO_ARMS.has(node.type)) continue
+    const out = outgoing.get(node.id) ?? []
+    const targets = new Set<string>()
+    if (node.type === 'wait_for_event') {
+      // Codegen follows a set field even to a node that is gone (that arm
+      // then runs nothing), so a field always wins here too.
+      for (const [label, field] of Object.entries(WAIT_ARM_FIELDS)) {
+        const selected = node.data?.[field]
+        const viaField = typeof selected === 'string' && selected !== '' ? selected : undefined
+        const target = viaField ?? out.find((edge) => edge.label === label)?.target
+        if (target) targets.add(target)
+        const fieldOnly =
+          viaField !== undefined &&
+          byId.has(viaField) &&
+          viaField !== node.id &&
+          !out.some((edge) => edge.label === label && edge.target === viaField)
+        if (fieldOnly) {
+          fieldArms.push({ source: node.id, target: viaField, label, field })
+          entries.set(viaField, (entries.get(viaField) ?? 0) + 1)
+        }
+      }
+    } else {
+      // A branch's arms are its conditions, each the first connection under
+      // its label, as codegen reads them: a connection under any other label
+      // runs nowhere.
+      const branches = Array.isArray(node.data?.branches) ? node.data.branches : []
+      for (const branch of branches) {
+        const label = (branch as { label?: unknown } | null)?.label
+        if (typeof label !== 'string') continue
+        const target = out.find((edge) => edge.label === label)?.target
+        if (target) targets.add(target)
+      }
+    }
+    arms.set(node.id, targets)
+  }
+
+  const ends = new Map<string, string>()
+  const chainEnd = (start: string): string => {
+    const known = ends.get(start)
+    if (known !== undefined) return known
+    const path: string[] = []
+    const onPath = new Set<string>()
+    let current = start
+    for (;;) {
+      const cached = ends.get(current)
+      if (cached !== undefined) {
+        current = cached
+        break
+      }
+      path.push(current)
+      onPath.add(current)
+      const node = byId.get(current)
+      const out = outgoing.get(current) ?? []
+      let next: string | undefined
+      if (node && isArmContainerType(node.type)) {
+        next = out.find((edge) => edge.label === CONTINUE_LABEL)?.target
+      } else if (out.length === 1) {
+        next = out[0]!.target
+      }
+      if (next === undefined || onPath.has(next) || (inDegree.get(next) ?? 0) !== 1) break
+      current = next
+    }
+    for (const id of path) ends.set(id, current)
+    return current
+  }
+
+  const judged = new Map<string, boolean>()
+  return {
+    byId,
+    inDegree,
+    arms,
+    fieldArms,
+    entries,
+    mergesAt(containerId, join) {
+      const key = JSON.stringify([containerId, join])
+      const cached = judged.get(key)
+      if (cached !== undefined) return cached
+      const targets = arms.get(containerId)
+      let result = targets !== undefined && targets.size >= 2 && targets.has(join)
+      if (result) {
+        for (const start of targets!) {
+          if (start === join) continue
+          const end = chainEnd(start)
+          if (end === join || !(outgoing.get(end) ?? []).some((edge) => edge.target === join)) {
+            result = false
+            break
+          }
+        }
+      }
+      // Only the arms lead there: one way in per arm (a field-only arm is one).
+      if (result) result = (entries.get(join) ?? 0) === targets!.size
+      judged.set(key, result)
+      return result
+    },
+  }
 }
 
 function armName(label: string | undefined): string {

@@ -141,6 +141,14 @@ export type {
 export { GENERATED_GRAPH_MODULES } from './runtime.js'
 export { extractImports, importBindings, importOrigin, mergeImports } from './imports.js'
 export { generatedNameProblems, topLevelDeclarations } from './generated-name-problems.js'
+export {
+  expressionDiagnostics,
+  expressionScopes,
+  graphExpressionProblems,
+  nodeIdsByVarName,
+  topologicalRanks,
+} from './expression-scope.js'
+export type { ExpressionScopes, NodeExpressionProblem } from './expression-scope.js'
 export type { ImportBinding, ImportSource } from './imports.js'
 export {
   MAX_STEP_CODE_LENGTH,
@@ -150,6 +158,7 @@ export {
   stepFunctionName,
   stepReturnsValue,
   stepModuleTemplate,
+  INLINE_STEP_SCAFFOLD,
   normalizeStepModule,
   normalizeStepModules,
   renameStepFunction,
@@ -168,6 +177,7 @@ export type {
   ApplyGraphOpsResult,
   DroppedGraphOp,
   GraphOp,
+  OutgoingEdge,
 } from './graph-ops.js'
 export { nodeReaders } from './graph/readers.js'
 export type { NodeReader } from './graph/readers.js'

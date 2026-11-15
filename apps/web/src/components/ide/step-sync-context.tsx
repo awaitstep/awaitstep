@@ -146,7 +146,12 @@ export function StepSyncProvider({
   const rows = useMemo(
     () =>
       orderSteps(
-        flowNodes.map((n) => ({ id: n.id, type: n.data.irNode.type, position: n.position })),
+        flowNodes.map((n) => ({
+          id: n.id,
+          type: n.data.irNode.type,
+          position: n.position,
+          data: n.data.irNode.data,
+        })),
         graphEdges,
       ),
     [flowNodes, graphEdges],

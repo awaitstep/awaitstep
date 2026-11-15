@@ -17,6 +17,9 @@ export interface AddNodeDraft {
   touched: ReadonlySet<string>
   /** The name for the current kind: a step and a node keep their own. */
   name: string
+  /** A new step runs in the body, without a durable step (a node's is in its fields). */
+  stepInline: boolean
+  setStepInline: (inline: boolean) => void
   setName: (name: string) => void
   setKind: (kind: AddKind) => void
   pick: (definition: NodeDefinition) => void
@@ -24,7 +27,7 @@ export interface AddNodeDraft {
   unpick: () => void
   setField: (fieldId: string, value: unknown) => void
   reset: () => void
-  /** The node to add, read at submit time; undefined for a step. */
+  /** The node to add, read at submit time; for a step, only when it is inline. */
   template: () => NewTemplateNode | undefined
 }
 
@@ -40,6 +43,8 @@ export function useAddNodeDraft(): AddNodeDraft {
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set())
   const [stepName, setStepName] = useState('')
   const [nodeName, setNodeName] = useState('')
+  const [stepInline, setStepInlineState] = useState(false)
+  const stepInlineRef = useRef(false)
   const fieldsRef = useRef<Record<string, unknown>>({})
   const pickedRef = useRef<NodeDefinition | null>(null)
   const kindRef = useRef<AddKind>('step')
@@ -47,6 +52,11 @@ export function useAddNodeDraft(): AddNodeDraft {
   const writeFields = useCallback((next: Record<string, unknown>) => {
     fieldsRef.current = next
     setFields(next)
+  }, [])
+
+  const setStepInline = useCallback((inline: boolean) => {
+    stepInlineRef.current = inline
+    setStepInlineState(inline)
   }, [])
 
   const setKind = useCallback((next: AddKind) => {
@@ -88,11 +98,15 @@ export function useAddNodeDraft(): AddNodeDraft {
     setTouched(new Set())
     setStepName('')
     setNodeName('')
-  }, [setKind, unpick, writeFields])
+    setStepInline(false)
+  }, [setKind, unpick, writeFields, setStepInline])
 
   const template = useCallback((): NewTemplateNode | undefined => {
+    if (kindRef.current === 'step') {
+      return stepInlineRef.current ? { type: 'step', data: { inline: true } } : undefined
+    }
     const definition = pickedRef.current
-    if (kindRef.current !== 'custom' || !definition) return undefined
+    if (!definition) return undefined
     return { type: definition.id, data: fieldsRef.current }
   }, [])
 
@@ -103,6 +117,8 @@ export function useAddNodeDraft(): AddNodeDraft {
     fields,
     touched,
     name: kind === 'step' ? stepName : nodeName,
+    stepInline,
+    setStepInline,
     setName: kind === 'step' ? setStepName : setNodeName,
     setKind,
     pick,

@@ -47,6 +47,13 @@ export function stepReturnsValue(code: string): boolean {
   return RETURN_RE.test(maskNonCode(code))
 }
 
+/**
+ * A new inline step's code. Its statements run in the workflow's own body,
+ * so the module scaffold's `return` would end the whole run there: an inline
+ * step starts with nothing but the hint.
+ */
+export const INLINE_STEP_SCAFFOLD = '// Write your business logic here\n'
+
 /** A fresh step's code: the module shape with the documented default body. */
 export function stepModuleTemplate(
   varName: string,

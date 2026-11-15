@@ -8,6 +8,7 @@ import { CodeEditor } from '../ui/code-editor'
 import { ExpressionEditor } from './expression-editor'
 import { DateTimePicker } from '../ui/datetime-picker'
 import { cn } from '../../lib/utils'
+import { useNodeExpressionErrors } from '../../hooks/use-node-expression-errors'
 
 interface DynamicFieldsProps {
   configSchema: Record<string, ConfigField>
@@ -17,7 +18,10 @@ interface DynamicFieldsProps {
   nodeId?: string
   /** The code editors show without accepting edits; a disabled fieldset covers the native controls. */
   readOnly?: boolean
-  /** A message to show under a field, by field id ("Required"). */
+  /**
+   * A message to show under a field, by field id ("Required"). A placed
+   * node's `{{ … }}` problems are added on their own; these win over them.
+   */
   errors?: Readonly<Record<string, string>>
 }
 
@@ -29,6 +33,7 @@ export function DynamicFields({
   readOnly = false,
   errors,
 }: DynamicFieldsProps) {
+  const expressionErrors = useNodeExpressionErrors(nodeId, data, configSchema)
   return (
     <div className="space-y-4">
       {Object.entries(configSchema).map(([fieldId, field]) => (
@@ -39,11 +44,19 @@ export function DynamicFields({
           onChange={(value) => onChange(fieldId, value)}
           nodeId={nodeId}
           readOnly={readOnly}
-          error={errors?.[fieldId]}
+          error={ownEntry(errors, fieldId) ?? ownEntry(expressionErrors, fieldId)}
         />
       ))}
     </div>
   )
+}
+
+/** A message for a field, never one inherited from Object (a field named `constructor`). */
+function ownEntry(
+  messages: Readonly<Record<string, string>> | undefined,
+  fieldId: string,
+): string | undefined {
+  return messages && Object.hasOwn(messages, fieldId) ? messages[fieldId] : undefined
 }
 
 interface DynamicFieldProps {

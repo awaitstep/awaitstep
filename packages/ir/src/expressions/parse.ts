@@ -12,8 +12,9 @@
  *
  * No whitespace is allowed before the ref or between path segments — exactly
  * as in v1 — so strings like `{{ not an expression }}` remain literal text.
- * Content that fails to parse degrades to v1 behavior: it is left untouched
- * and surfaces as a warning via findMalformedExpressions, never a hard error.
+ * Content that fails to parse is left untouched by codegen. In a node's
+ * settings it is an error (`valueExpressionProblems`, problems.ts), except
+ * after `{{ ` with a space, which stays text.
  */
 
 export type ExpressionSegment =
@@ -239,7 +240,9 @@ export interface MalformedExpression {
 
 /**
  * Returns `{{ ... }}` candidates that are NOT valid expressions. They are left
- * untouched at codegen time (v1 behavior); surface these as editor warnings.
+ * untouched at codegen time. The settings check (`valueExpressionProblems`)
+ * reads them its own way: `{{ ` with a space is text there, and an unclosed
+ * `{{` is reported too.
  */
 export function findMalformedExpressions(input: string): MalformedExpression[] {
   const valid = new Set(scanExpressions(input).map((s) => s.start))

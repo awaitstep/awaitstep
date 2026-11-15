@@ -1,9 +1,10 @@
-import { contentHash } from '@awaitstep/ir'
+import { contentHash, type ArtifactIR } from '@awaitstep/ir'
 import { applyGraphOps, normalizeStepModules } from '@awaitstep/codegen'
 import { failureLine } from '../action-toast'
 import { VersionConflictError, type SavedVersion } from '../api-client'
 import type { IdeSessionState } from '../../stores/ide-store'
 import { basename } from './file-tree'
+import { fixBeforeSaving } from './save-check'
 import { describeDropped, opsOf, waitingOps, type PendingGraphOp } from './graph-ops'
 import { announceDropped, closeDroppedAdds, replayBase } from './graph-ops-actions'
 import {
@@ -37,6 +38,12 @@ export interface StepSaveDeps {
   getVersion: () => LoadedVersion | null
   /** Refetches the workspace once a version has been written (or refused). */
   refresh: () => Promise<void>
+  /**
+   * What a save refuses on, judged on the document it would post: the
+   * canvas's own check (`saveCheck`), so both modes refuse the same things.
+   * Left out, nothing is refused.
+   */
+  check?: (doc: ArtifactIR) => readonly { nodeName: string | null; message: string }[]
 }
 
 /**
@@ -275,6 +282,19 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
     // The hash the screen replays on: the cache's, which can still be older
     // than the base this posts on when an earlier refetch never landed.
     const shownHash = getVersion()?.graphHash ?? version.graphHash
+    // Refused as the canvas's Save refuses it: nothing is posted, everything stays.
+    const problems = deps.check?.(patched) ?? []
+    if (problems.length > 0) {
+      const [first] = problems
+      notify.error(fixBeforeSaving(problems.length), {
+        description: first!.nodeName ? `${first!.nodeName}: ${first!.message}` : first!.message,
+      })
+      // Only what this post would have written fails; a conflict or an
+      // unchanged file found above keeps its own outcome.
+      for (const path of editedPaths) outcomes.set(path, 'failed')
+      if (applied.length > 0) outcomes.set(GRAPH_EDITS_KEY, 'failed')
+      return outcomes
+    }
     // The post carries these: until it settles they can't be discarded.
     markSaving(applied, true)
     let written: SavedVersion

@@ -298,3 +298,36 @@ describe('Add → Custom node → Browse marketplace', () => {
     expect(screen.queryByRole('button', { name: 'Browse marketplace' })).toBeNull()
   })
 })
+
+describe('Add → Custom node with an expression', () => {
+  it('waits for a valid expression naming a step before the new node', async () => {
+    const user = userEvent.setup()
+    const { onCreateStep } = setup()
+    await openCustom(user)
+    await user.click(screen.getByRole('button', { name: /Say hello/ }))
+    const insert = screen.getByRole('button', { name: 'Insert' })
+
+    // The field reports a change after its short debounce.
+    fireEvent.change(targetInput(), { target: { value: '{{}}' } })
+    expect(
+      await screen.findByText(
+        '“{{}}” isn’t a valid expression. Use {{step.field}}, {{event.payload.field}} or {{env.NAME}}.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Fix the expression in Who to greet')).toBeInTheDocument()
+    expect(insert).toBeDisabled()
+
+    // Placed after "Sample step", "Next" runs after it.
+    fireEvent.change(targetInput(), { target: { value: '{{Next.team}}' } })
+    expect(
+      await screen.findByText('“Next” runs after this node. Use a step that runs before it.'),
+    ).toBeInTheDocument()
+    expect(insert).toBeDisabled()
+
+    fireEvent.change(targetInput(), { target: { value: '{{Sample_step.team}}' } })
+    await waitFor(() => expect(insert).toBeEnabled())
+    expect(screen.queryByText(/runs after this node/)).toBeNull()
+    await user.click(insert)
+    await waitFor(() => expect(onCreateStep).toHaveBeenCalled())
+  })
+})

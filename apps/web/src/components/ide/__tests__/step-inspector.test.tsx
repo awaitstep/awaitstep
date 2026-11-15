@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -33,7 +33,11 @@ vi.mock('../../../lib/action-toast', async (importOriginal) => ({
 }))
 vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => switchView }))
 vi.mock('../../../contexts/node-registry-context', () => ({
-  useNodeRegistry: () => ({ registry: { get: () => undefined } }),
+  useNodeRegistry: () => ({
+    registry: { get: () => undefined },
+    customNodes: new Map(),
+    customNodesStatus: 'ready',
+  }),
 }))
 
 const run: RunSummary = {
@@ -94,14 +98,12 @@ beforeEach(() => {
 })
 
 describe('StepInspector', () => {
-  it('shows retries and timeout as configured, and the file the step lives in', async () => {
+  it('shows the file the step lives in, and a way to its settings', async () => {
     renderInspector('charge')
-    expect(screen.getByText('3 retries · exponential from 10s')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'nodes/charge_card.ts' })).toBeInTheDocument()
     expect(screen.getByText(/generated/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'lib/payments/charge.ts' })).toBeInTheDocument()
-    // Timeout is empty on this step.
-    expect(screen.getAllByText('Default')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Settings' })).toBeInTheDocument()
     await screen.findByText('No runs yet')
   })
 
@@ -160,10 +162,15 @@ describe('StepInspector', () => {
     await screen.findByText('No runs yet')
   })
 
-  it('has no inputs to edit', async () => {
-    const { container } = renderInspector('charge')
-    expect(container.querySelectorAll('input, textarea, select')).toHaveLength(0)
-    await screen.findByText('No runs yet')
+  it('opens the canvas’s settings panel from Settings, read-only outside the workspace', async () => {
+    renderInspector('charge')
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Settings' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Edit node')).toBeInTheDocument()
+    expect(within(dialog).getByDisplayValue('Charge card')).toBeDisabled()
+    expect(within(dialog).queryByRole('button', { name: 'Delete node' })).toBeNull()
+    await userEvent.setup().click(within(dialog).getByRole('button', { name: 'Close panel' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
   })
 
   it('shows an errored last run with its attempts, first error line and the run’s version', async () => {

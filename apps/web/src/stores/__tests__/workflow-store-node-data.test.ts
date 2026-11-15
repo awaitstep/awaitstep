@@ -225,3 +225,39 @@ describe('a wait’s arm fields on the canvas', () => {
     expect(dataOf('w')).toMatchObject({ onEventNode: 's', onTimeoutNode: '' })
   })
 })
+
+describe('a branch losing a condition', () => {
+  it('keeps each remaining connection on its own branch', () => {
+    const gate: WorkflowNode = {
+      ...irNode('g'),
+      type: 'branch',
+      data: {
+        branches: [
+          { label: 'a', condition: 'x' },
+          { label: 'b', condition: 'y' },
+          { label: 'c', condition: '' },
+        ],
+      },
+    }
+    seed(gate, irNode('ta'), irNode('tb'), irNode('tc'))
+    useWorkflowStore.setState({
+      edges: [
+        { id: 'eb', source: 'g', target: 'tb', label: 'b' },
+        { id: 'ec', source: 'g', target: 'tc', label: 'c' },
+      ],
+    } as never)
+    // The panel drops a's connection, then the condition.
+    useWorkflowStore.getState().updateNodeData('g', {
+      data: {
+        branches: [
+          { label: 'b', condition: 'y' },
+          { label: 'c', condition: '' },
+        ],
+      },
+    })
+    expect(useWorkflowStore.getState().edges.map((e) => [e.id, e.label])).toEqual([
+      ['eb', 'b'],
+      ['ec', 'c'],
+    ])
+  })
+})
