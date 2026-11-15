@@ -19,6 +19,7 @@ type AnyDb = any
  * workflow and its workspace's items from their workspace, then the
  * project; a project item from the project only — and only within the
  * workflow's project, so an item of another workspace is never reached.
+ * A workspace-only reach drops the project step: only the workspace's own.
  * Rows are (item, importer) pairs and the CTE takes their union, so a cycle
  * between modules ends once every pair is known.
  *
@@ -34,12 +35,19 @@ export class LibraryBundleAdapter {
     const cap = limits.items
     const pg = this.dialect === 'pg'
     const owner = roots.workspaceId ?? ''
+    const workspaceOnly = roots.reach === 'workspace-only'
 
     // Module `t` is what an importer whose owner key is `key` gets for
     // `t.slug`: its own workspace's module, else the project's own (the
     // same rule as LibraryFields.resolves, over plain aliases).
+    // Within a workspace-only reach the project's fallback never applies.
     const resolves = (t: string, key: SQL) =>
-      sql`${sql.raw(t)}.project_id = ${roots.projectId} and ${sql.raw(t)}.kind = 'module' and (coalesce(${sql.raw(t)}.workspace_id, '') = ${key} or (${sql.raw(t)}.workspace_id is null and not exists (select 1 from library_items lbo where lbo.project_id = ${sql.raw(t)}.project_id and lbo.kind = 'module' and lbo.slug = ${sql.raw(t)}.slug and coalesce(lbo.workspace_id, '') = ${key})))`
+      workspaceOnly
+        ? sql`${sql.raw(t)}.project_id = ${roots.projectId} and ${sql.raw(t)}.kind = 'module' and ${sql.raw(t)}.workspace_id is not null and ${sql.raw(t)}.workspace_id = ${key}`
+        : sql`${sql.raw(t)}.project_id = ${roots.projectId} and ${sql.raw(t)}.kind = 'module' and (coalesce(${sql.raw(t)}.workspace_id, '') = ${key} or (${sql.raw(t)}.workspace_id is null and not exists (select 1 from library_items lbo where lbo.project_id = ${sql.raw(t)}.project_id and lbo.kind = 'module' and lbo.slug = ${sql.raw(t)}.slug and coalesce(lbo.workspace_id, '') = ${key})))`
+    const nodeOwners = workspaceOnly
+      ? sql`n.workspace_id is not null and n.workspace_id = ${owner}`
+      : sql`coalesce(n.workspace_id, '') in (${owner}, '')`
 
     const latest = sql`select v.item_id, v.version, v.files, v.imports from library_versions v inner join library_items vi on vi.id = v.item_id where vi.project_id = ${roots.projectId} and v.seq = (select max(v2.seq) from library_versions v2 where v2.item_id = v.item_id)`
 
@@ -48,7 +56,7 @@ export class LibraryBundleAdapter {
       : sql.raw('json_each(l.imports) as j')
     const reach = sql`select t.id, cast(null as text) from library_items t where t.slug in ${idList(this.dialect, roots.slugs)} and ${resolves('t', sql`${owner}`)}
       union
-      select n.id, cast(null as text) from library_items n where n.id in ${idList(this.dialect, roots.nodeItemIds)} and n.kind = 'node' and n.project_id = ${roots.projectId} and coalesce(n.workspace_id, '') in (${owner}, '')
+      select n.id, cast(null as text) from library_items n where n.id in ${idList(this.dialect, roots.nodeItemIds)} and n.kind = 'node' and n.project_id = ${roots.projectId} and ${nodeOwners}
       union
       select m.id, r.item_id from lbr r inner join library_items ri on ri.id = r.item_id inner join lbl l on l.item_id = ri.id inner join ${importsOf} on true inner join library_items m on m.slug = j.value and m.id <> ri.id and ${resolves('m', sql.raw("coalesce(ri.workspace_id, '')"))}`
 

@@ -300,6 +300,12 @@ export interface LibraryBundleRoots {
   slugs: string[]
   /** Item ids of the `custom:<itemId>` nodes on its canvas. */
   nodeItemIds: string[]
+  /**
+   * Whose items an import may reach. A deploy reaches the workspace's and
+   * the project's (the default); a workspace-level key reads its own
+   * workspace's items only, so for it the project's never resolve.
+   */
+  reach?: WorkflowCustomNodeReach
 }
 
 /** An item a bundle reaches, at its latest published version (null: never published). */

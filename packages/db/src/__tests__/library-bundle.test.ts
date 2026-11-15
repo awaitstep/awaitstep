@@ -169,6 +169,30 @@ describe.each([
     expect((await bundle(['shared'], ['ops-node', 'far-node'])).items).toEqual([])
   })
 
+  it('reaches the workspace’s own items only for a workspace-only reach, transitively too', async () => {
+    const top = item('top')
+    const base = item('base', { workspaceId: null })
+    const crm = item('crm', { workspaceId: null })
+    const node = item('notify', { kind: 'node', slug: 'notify', workspaceId: null })
+    for (const data of [top, base, crm, node]) await add(data)
+    await publish(top, '1.0.0', ['base'])
+    await publish(base, '1.0.0')
+    await publish(crm, '1.0.0')
+    await publish(node, '1.0.0')
+    const narrow = await h.adapter.resolveLibraryBundle(
+      { ...SALES, slugs: ['top', 'crm'], nodeItemIds: ['notify'], reach: 'workspace-only' },
+      { items: 100, bytes: 1_000_000, files: 1_000 },
+    )
+    expect(summary(narrow)).toEqual(['top@1.0.0 <- wf'])
+    // The default reach still falls back to the project, as a deploy does.
+    expect(summary(await bundle(['top', 'crm'], ['notify']))).toEqual([
+      'base@1.0.0 <- top',
+      'crm@1.0.0 <- wf',
+      'top@1.0.0 <- wf',
+      'notify@1.0.0 <- wf',
+    ])
+  })
+
   it('stops at the cap and says so', async () => {
     for (const id of ['m1', 'm2', 'm3']) {
       const data = item(id)
