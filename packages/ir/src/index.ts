@@ -83,7 +83,18 @@ export {
   SCRIPT_INCOMPATIBLE_NODE_TYPES,
 } from './validate.js'
 export type { ValidateNodeDataOptions } from './validate.js'
-export { isArmEdgeOf, validateArmsIntoJoins } from './arms.js'
+export {
+  CONTINUE_LABEL,
+  WAIT_ARM_FIELDS,
+  isArmContainerType,
+  isArmEdgeOf,
+  labelledArmsOf,
+  openArmSlots,
+  validateArmsIntoJoins,
+  waitArmEdgeOverridden,
+  withoutWaitArmTo,
+  type OpenArmSlot,
+} from './arms.js'
 export {
   validateDependencySpecs,
   assertRegistryDependencies,

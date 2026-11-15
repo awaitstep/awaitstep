@@ -251,3 +251,64 @@ describe('useWorkspaceData: a step source and its generated module share steps/<
     expect([...result.current.stepSourceByNode]).toEqual([['validate', 'steps/validate.ts']])
   })
 })
+
+describe('useWorkspaceData: generated code with pending graph edits', () => {
+  it('shows an added step in the generated workflow file before Save, and says so', () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    const { result, rerender } = setup(undefined, {
+      ir: STEP_IR,
+      files: [
+        { path: 'workflow.ts', source: 'export {}\n', role: 'entry', hash: 'h1' },
+        { path: 'awaitstep/workflow.ts', source: 'from the server', role: 'entry' },
+      ],
+    })
+    expect(result.current.baseline.get('awaitstep/workflow.ts')?.source).toBe('from the server')
+    useIdeStore.getState().addGraphOp({
+      id: 'op-1',
+      op: {
+        kind: 'insert',
+        placement: { after: 'nap' },
+        node: {
+          id: 'hello',
+          name: 'Hello',
+          type: 'step',
+          data: { code: 'export default async function Hello() { return 1 }\n' },
+        },
+      },
+      label: 'Added “Hello”',
+    })
+    rerender()
+    const shown = result.current.baseline.get('awaitstep/workflow.ts')
+    expect(shown?.source).toContain('$Hello(')
+    expect(shown?.role).toBe('entry')
+    expect(result.current.editabilityOf('awaitstep/workflow.ts')).toEqual({
+      readOnly: true,
+      message: 'Generated from the graph, with your unsaved changes. Save to keep them.',
+    })
+    // The person's own files are never regenerated.
+    expect(result.current.baseline.get('workflow.ts')?.source).toBe('export {}\n')
+    // The Steps links follow the edited bundle: the new step is in it.
+    expect(result.current.manifest?.steps.map((entry) => entry.nodeId)).toContain('hello')
+    vi.restoreAllMocks()
+  })
+
+  it('drops the bundle copy of a step a pending edit removes', () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'))
+    const { result, rerender } = setup(undefined, {
+      ir: STEP_IR,
+      files: [
+        { path: 'workflow.ts', source: 'export {}\n', role: 'entry', hash: 'h1' },
+        { path: 'steps/validate.ts', source: 'bundle copy', role: 'module' },
+      ],
+    })
+    expect(result.current.baseline.has('steps/validate.ts')).toBe(true)
+    useIdeStore.getState().addGraphOp({
+      id: 'op-1',
+      op: { kind: 'remove', nodeId: 'validate' },
+      label: 'Removed “Validate”',
+    })
+    rerender()
+    expect(result.current.baseline.has('steps/validate.ts')).toBe(false)
+    vi.restoreAllMocks()
+  })
+})

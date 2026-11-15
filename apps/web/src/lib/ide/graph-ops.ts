@@ -125,8 +125,18 @@ function quoted(name: string): string {
   return `“${name}”`
 }
 
-export function insertLabel(name: string): string {
-  return `Added ${quoted(name)}`
+/**
+ * "Added “late”", or with the arm it went into: "Added “late” to onTimeout
+ * of “wait”", "Added “notify” after “wait”".
+ */
+export function insertLabel(
+  name: string,
+  where?: { container: string; arm: string | null } | null,
+): string {
+  if (!where) return `Added ${quoted(name)}`
+  if (where.arm === 'then') return `Added ${quoted(name)} after ${quoted(where.container)}`
+  const arm = where.arm ?? 'a new arm'
+  return `Added ${quoted(name)} to ${arm} of ${quoted(where.container)}`
 }
 
 export function removeLabel(name: string): string {

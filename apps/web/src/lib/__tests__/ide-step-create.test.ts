@@ -536,3 +536,35 @@ describe('Review fixes: what broke before', () => {
     expect(h.notify.error).not.toHaveBeenCalledWith(expect.stringContaining(':graph'))
   })
 })
+
+describe('the pending entry names the arm a step went into', () => {
+  it('says which arm of the block, or after it', () => {
+    const h = harness()
+    const waitDoc: ArtifactIR = {
+      ...doc,
+      nodes: [
+        {
+          id: 'w',
+          type: 'wait_for_event',
+          name: 'Wait',
+          position: { x: 0, y: 0 },
+          version: '1.0.0',
+          provider: 'cloudflare',
+          data: { eventType: 'sunny', timeout: '30 seconds', onEventNode: 'fetch' },
+        },
+        doc.nodes[0]!,
+      ],
+      edges: [{ id: 'e1', source: 'w', target: 'fetch', label: 'onEvent' }],
+      entryNodeId: 'w',
+    }
+    h.canvasSaved(waitDoc, 'g-w')
+    h.creator.create({ after: 'w', edgeId: 'e1' }, 'Hello')
+    h.creator.create({ after: 'w', arm: 'onTimeout' }, 'Late')
+    h.creator.create({ after: 'w', arm: 'then' }, 'Notify')
+    expect(waiting().map((entry) => entry.label)).toEqual([
+      'Added “Hello” to onEvent of “Wait”',
+      'Added “Late” to onTimeout of “Wait”',
+      'Added “Notify” after “Wait”',
+    ])
+  })
+})

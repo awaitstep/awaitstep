@@ -715,11 +715,41 @@ function WaitForEventFields({
           </div>
         ))}
       </div>
+      <ThenSlot heading="After the wait" />
       <Hint>
         The event path runs with the event payload. The timeout path runs when Cloudflare throws
-        <code> WorkflowTimeoutError</code>; other errors are rethrown.
+        <code> WorkflowTimeoutError</code>; other errors are rethrown. After the wait runs once
+        either path is done.
       </Hint>
     </>
+  )
+}
+
+/** The block's way on: the node that runs once its arms are done. */
+function ThenSlot({ heading }: { heading: string }) {
+  const { targetOptions, getTargetForLabel, setTargetForLabel } = useEdgeManagement()
+
+  function handleChange(value: string) {
+    setTargetForLabel('then', value === '__none__' ? '' : value)
+  }
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-lg border border-border">
+      <div className="bg-muted/40 px-3 py-1.5">
+        <span className="text-xs font-medium text-muted-foreground">{heading}</span>
+      </div>
+      <div className="p-3">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground/60">Continue to</Label>
+          <Select
+            value={getTargetForLabel('then') || '__none__'}
+            onValueChange={handleChange}
+            options={[{ value: '__none__', label: 'Not connected' }, ...targetOptions]}
+            className="h-8 text-xs"
+          />
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -1,3 +1,5 @@
+import { CONTINUE_LABEL, isArmEdgeOf, labelledArmsOf } from '@awaitstep/ir'
+
 export interface OrderNode {
   id: string
   type: string
@@ -34,20 +36,15 @@ export interface StepRow {
  * out of the arms and followed after them).
  */
 const FAN_OUT = new Set(['branch', 'parallel', 'race'])
-const CONTINUE_LABEL = 'then'
 /** Nesting past this is not walked, so a pathological graph cannot overflow the stack. */
 const MAX_DEPTH = 100
-/** Containers with named arms plus a plain way on. */
-const ARM_LABELS: Readonly<Record<string, ReadonlySet<string>>> = {
-  loop: new Set(['body']),
-  try_catch: new Set(['try', 'catch', 'finally']),
-}
 
 /**
- * Whether an edge leaves its node as one of its arms. Mirrors the arm rule in
- * `orderSteps`: a fan-out's non-`then` edges, a loop's `body`, a try/catch's
- * `try`/`catch`/`finally`, and every non-`then` edge of a plain node with more
- * than one outgoing edge (which is drawn as a fan-out).
+ * Whether an edge leaves its node as one of its arms: the IR's rule for a
+ * branching node (a fan-out's non-`then` edges, a loop's `body`, a
+ * try/catch's `try`/`catch`/`finally`, a wait's `onEvent`/`onTimeout`), and
+ * every non-`then` edge of a plain node with more than one outgoing edge
+ * (which is drawn as a fan-out).
  */
 export function edgeIsArm(
   node: { type: string },
@@ -55,9 +52,9 @@ export function edgeIsArm(
   outgoingCount: number,
 ): boolean {
   if (edge.label === CONTINUE_LABEL) return false
-  if (FAN_OUT.has(node.type)) return true
-  const labelled = Object.hasOwn(ARM_LABELS, node.type) ? ARM_LABELS[node.type] : undefined
-  if (labelled !== undefined) return labelled.has(edge.label ?? '')
+  if (FAN_OUT.has(node.type) || labelledArmsOf(node.type) !== undefined) {
+    return isArmEdgeOf(node.type, edge.label)
+  }
   return outgoingCount > 1
 }
 
@@ -121,8 +118,10 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
       visited.add(id)
       const node: OrderNode = byId.get(id)!
       const outs: OrderEdge[] = outgoing.get(id) ?? []
-      const labelled = Object.hasOwn(ARM_LABELS, node.type) ? ARM_LABELS[node.type] : undefined
-      const isFanOut: boolean = FAN_OUT.has(node.type) || (!labelled && outs.length > 1)
+      const labelled = labelledArmsOf(node.type)
+      // A wait has no way on but its arms: where they meet is where it continues.
+      const isFanOut: boolean =
+        FAN_OUT.has(node.type) || node.type === 'wait_for_event' || (!labelled && outs.length > 1)
       const arms = outs.filter((edge) => edgeIsArm(node, edge, outs.length))
       const onward: OrderEdge[] = outs.filter((e) => !arms.includes(e))
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Map as MapIcon, Plus } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { removalBlocker, type StepPlacement } from '@awaitstep/codegen'
+import { isArmContainerType, waitArmEdgeOverridden } from '@awaitstep/ir'
 import { requestNodeRemoval } from '../../lib/ide/remove-request'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
@@ -9,7 +10,7 @@ import { highlightFor } from '../../lib/ide/step-map'
 import { markedFileOf } from '../../lib/ide/tabs'
 import { visibleRows } from '../../lib/ide/step-order'
 import { railRows } from '../../lib/ide/step-rail-layout'
-import { isArmEdge } from '../../lib/ide/step-placements'
+import { isArmEdge, openArmLabel, openSlotsFor } from '../../lib/ide/step-placements'
 import { selectStep } from '../../lib/ide/step-actions'
 import { nodeMeta, stepMeta, type SummaryNode } from '../../lib/ide/step-summary'
 import { pendingNodeIds } from '../../lib/ide/graph-ops'
@@ -22,7 +23,7 @@ import { useIdeStepsStore } from '../../stores/ide-steps-store'
 import { SaveVersionFirst } from './save-version-first'
 import { StepFlowDialog } from './step-flow-dialog'
 import { StepRowItem } from './step-row'
-import type { StepOutgoingEdge } from './step-row-menu'
+import type { StepOpenArm, StepOutgoingEdge } from './step-row-menu'
 import { useStepSync } from './step-sync-context'
 
 interface StepsViewProps {
@@ -106,6 +107,8 @@ export function StepsView({
     for (const edge of edges) {
       const node = nodes.get(edge.source)
       if (!node) continue
+      // The wait's field runs another node: a step placed here would never run.
+      if (waitArmEdgeOverridden(node, edge, (id) => nodes.has(id))) continue
       const list = byNode.get(edge.source) ?? []
       list.push({
         id: edge.id,
@@ -115,6 +118,23 @@ export function StepsView({
         uniqueId: idCounts.get(edge.id) === 1,
       })
       byNode.set(edge.source, list)
+    }
+    return byNode
+  }, [edges, nodes])
+  const openArmsByNode = useMemo(() => {
+    const byNode = new Map<string, StepOpenArm[]>()
+    for (const node of nodes.values()) {
+      if (!isArmContainerType(node.type)) continue
+      const outgoing = edges.filter((edge) => edge.source === node.id)
+      const slots = openSlotsFor(node, outgoing, edges, (id) => nodes.has(id))
+      byNode.set(
+        node.id,
+        slots.map((slot) => ({
+          arm: slot.label,
+          placement: { after: node.id, arm: slot.label },
+          label: openArmLabel(node, slot.label),
+        })),
+      )
     }
     return byNode
   }, [edges, nodes])
@@ -322,6 +342,8 @@ export function StepsView({
                 selected={row.nodeId === selectedNodeId}
                 unsaved={pendingNodes.has(row.nodeId)}
                 outgoing={outgoing}
+                branching={isArmContainerType(node.type)}
+                openArms={openArmsByNode.get(row.nodeId)}
                 canCreate={canEdit}
                 readOnlyMessage={readOnlyMessage}
                 onPick={handlePick}

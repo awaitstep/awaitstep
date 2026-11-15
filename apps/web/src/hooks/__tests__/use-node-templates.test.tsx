@@ -55,3 +55,27 @@ describe('useNodeTemplates', () => {
     expect(templates.get).not.toHaveBeenCalled()
   })
 })
+
+describe('useNodeTemplates switched on and off', () => {
+  it('fetches the registry templates once it is enabled, and only once', async () => {
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) => useNodeTemplates([], { enabled }),
+      { wrapper, initialProps: { enabled: false } },
+    )
+    rerender({ enabled: true })
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalledTimes(1))
+    rerender({ enabled: false })
+    rerender({ enabled: true })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useNodeTemplates while switched off', () => {
+  it('fetches nothing until it is enabled', async () => {
+    renderHook(() => useNodeTemplates(['custom:lead'], { enabled: false }), { wrapper })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+    expect(templates.get).not.toHaveBeenCalled()
+  })
+})

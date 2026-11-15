@@ -448,15 +448,17 @@ export function validateWorkflowForPublish(
           else if (seconds > MAX_SECONDS) add('error', id, name, 'Timeout exceeds 365 days')
         }
         const outgoing = edges.filter((edge) => edge.source === id)
+        const waitLabels = ['onEvent', 'onTimeout', 'then']
+        const labels = outgoing.map((edge) => String(edge.label ?? ''))
         if (
-          outgoing.length > 2 ||
-          outgoing.some((edge) => edge.label !== 'onEvent' && edge.label !== 'onTimeout')
+          labels.some((label) => !waitLabels.includes(label)) ||
+          new Set(labels).size !== labels.length
         ) {
           add(
             'error',
             id,
             name,
-            'Wait for Event can only connect to an on-event path and an on-timeout path',
+            'Wait for Event connects to an on-event path, an on-timeout path and what runs after them',
           )
         }
         const nodeIds = new Set(nodes.map((node) => node.id))

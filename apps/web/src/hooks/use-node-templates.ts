@@ -11,33 +11,43 @@ const NO_TEMPLATES: TemplatesByNode = {}
 
 /**
  * The node templates the code generator needs, fetched only while a preview
- * that generates code is on screen. Without them, built-in steps still generate
+ * that generates code is on screen (`enabled`). Without them, built-in steps still generate
  * from their own data; a custom node would otherwise preview as an empty call.
  * Inside a workflow, the templates of the Library nodes in `nodeTypes` (the
  * graph's) join the registry's; no other node's code is fetched.
  */
-export function useNodeTemplates(nodeTypes: Iterable<string> = []): TemplateResolver {
+export function useNodeTemplates(
+  nodeTypes: Iterable<string> = [],
+  { enabled = true }: { enabled?: boolean } = {},
+): TemplateResolver {
   const organizationId = useApiOrganizationId()
   const { workflowId, registry } = useNodeRegistry()
   const queries = useQueries()
   const ready = useApiReady()
   const [templates, setTemplates] = useState<TemplatesByNode>({})
+  // The org the registry templates were fetched for: once is enough.
+  const [fetchedFor, setFetchedFor] = useState<{ organizationId: typeof organizationId } | null>(
+    null,
+  )
   const typeList = [...new Set(nodeTypes)].filter(isCustomNodeType).sort()
   // A stable key: the same placed types give the same string across renders.
   const typesKey = typeList.join(',')
   const customTypes = useMemo(() => (typesKey ? typesKey.split(',') : []), [typesKey])
   const { data: custom = NO_TEMPLATES } = useQuery({
     ...queries.workflows.customNodeTemplates(workflowId ?? '', customTypes),
-    enabled: ready && !!workflowId && customTypes.length > 0,
+    enabled: enabled && ready && !!workflowId && customTypes.length > 0,
   })
 
   useEffect(() => {
+    if (!enabled || fetchedFor?.organizationId === organizationId) return
     let cancelled = false
     const query = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : ''
     fetch(`/api/nodes/templates${query}`, { credentials: 'include' })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: TemplatesByNode | null) => {
-        if (!cancelled && data) setTemplates(data)
+        if (cancelled || !data) return
+        setTemplates(data)
+        setFetchedFor({ organizationId })
       })
       .catch(() => {
         // The bundled templates still generate; only a custom node's body is missing.
@@ -45,7 +55,7 @@ export function useNodeTemplates(nodeTypes: Iterable<string> = []): TemplateReso
     return () => {
       cancelled = true
     }
-  }, [organizationId])
+  }, [organizationId, enabled, fetchedFor])
 
   return useMemo<TemplateResolver>(() => {
     const all: TemplatesByNode = { ...templates, ...custom }

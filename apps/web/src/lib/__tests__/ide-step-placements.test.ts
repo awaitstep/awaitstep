@@ -5,6 +5,7 @@ import { orderSteps, type StepRow } from '../ide/step-order'
 import {
   appendsAfter,
   isArmEdge,
+  openSlotsFor,
   placementChoices,
   type PlacementEdge,
 } from '../ide/step-placements'
@@ -78,6 +79,13 @@ describe('placementChoices', () => {
         nodeName: 'Paid?',
         nodeType: 'branch',
       },
+      {
+        placement: { after: 'gate', arm: 'then' },
+        label: 'After Paid?',
+        nodeId: 'gate',
+        nodeName: 'Paid?',
+        nodeType: 'branch',
+      },
     ])
   })
 
@@ -93,6 +101,137 @@ describe('placementChoices', () => {
     expect(choices.filter((c) => c.nodeId === 'gate').map((c) => c.label)).toEqual([
       'Before First',
       'Before Second',
+      'New arm of Race',
+      'After Race',
+    ])
+  })
+
+  it('offers a wait’s empty arm, filled by an edge or by its field', () => {
+    const wait = {
+      ...node('w', 'Wait', 'wait_for_event'),
+      data: { onTimeoutNode: 'late' },
+    }
+    const g = graph(
+      [wait, node('s', 'Sunny'), node('late', 'Late')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    expect(
+      placementChoices(g.rows, g.nodes, g.edges).filter((c) => c.nodeId === 'w'),
+    ).toMatchObject([
+      { placement: { after: 'w', edgeId: 'e1' }, label: 'Into onEvent' },
+      { placement: { after: 'w', arm: 'then' }, label: 'After Wait' },
+    ])
+    const empty = graph(
+      [node('w', 'Wait', 'wait_for_event'), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    expect(
+      placementChoices(empty.rows, empty.nodes, empty.edges)
+        .filter((c) => c.nodeId === 'w')
+        .map((c) => [c.label, c.placement]),
+    ).toEqual([
+      ['Into onEvent', { after: 'w', edgeId: 'e1' }],
+      ['Into onTimeout', { after: 'w', arm: 'onTimeout' }],
+      ['After Wait', { after: 'w', arm: 'then' }],
+    ])
+  })
+
+  it('offers no after for a branch or wait whose arms already meet', () => {
+    const branch = {
+      ...node('g', 'Gate', 'branch'),
+      data: {
+        branches: [
+          { label: 'yes', condition: 'a' },
+          { label: 'no', condition: '' },
+        ],
+      },
+    }
+    const g = graph(
+      [branch, node('x', 'X'), node('y', 'Y'), node('j', 'Join')],
+      [
+        { id: 'e1', source: 'g', target: 'x', label: 'yes' },
+        { id: 'e2', source: 'g', target: 'y', label: 'no' },
+        { id: 'e3', source: 'x', target: 'j' },
+        { id: 'e4', source: 'y', target: 'j' },
+      ],
+    )
+    const labels = placementChoices(g.rows, g.nodes, g.edges).map((c) => c.label)
+    expect(labels).not.toContain('After Gate')
+    expect(labels).toContain('After Join')
+    const wait = {
+      ...node('w', 'Wait', 'wait_for_event'),
+      data: { onEventNode: 'x', onTimeoutNode: 'y' },
+    }
+    const w = graph(
+      [wait, node('x', 'X'), node('y', 'Y'), node('j', 'Join')],
+      [
+        { id: 'e1', source: 'w', target: 'x', label: 'onEvent' },
+        { id: 'e2', source: 'w', target: 'y', label: 'onTimeout' },
+        { id: 'e3', source: 'x', target: 'j' },
+        { id: 'e4', source: 'y', target: 'j' },
+      ],
+    )
+    expect(placementChoices(w.rows, w.nodes, w.edges).map((c) => c.label)).not.toContain(
+      'After Wait',
+    )
+  })
+
+  it('still offers a parallel whose arms meet an after: its code runs the join after the block', () => {
+    const g = graph(
+      [node('p', 'Fan', 'parallel'), node('x', 'X'), node('y', 'Y'), node('j', 'Join')],
+      [
+        { id: 'e1', source: 'p', target: 'x' },
+        { id: 'e2', source: 'p', target: 'y' },
+        { id: 'e3', source: 'x', target: 'j' },
+        { id: 'e4', source: 'y', target: 'j' },
+      ],
+    )
+    expect(placementChoices(g.rows, g.nodes, g.edges).map((c) => c.label)).toContain('After Fan')
+  })
+
+  it('stays fast on a graph with a hub of many connections and several waits', () => {
+    const hub = node('hub', 'Hub')
+    const leaves = Array.from({ length: 20_000 }, (_, i) => node(`l${i}`, `L${i}`))
+    const waits = Array.from({ length: 5 }, (_, i) => ({
+      ...node(`w${i}`, `Wait ${i}`, 'wait_for_event'),
+      data: { onEventNode: 'hub', onTimeoutNode: 'l0' },
+    }))
+    const edges: PlacementEdge[] = [
+      ...leaves.map((leaf, i) => ({ id: `h${i}`, source: 'hub', target: leaf.id })),
+      ...waits.flatMap((w, i) => [
+        { id: `we${i}`, source: w.id, target: 'hub', label: 'onEvent' },
+        { id: `wt${i}`, source: w.id, target: 'l0', label: 'onTimeout' },
+      ]),
+    ]
+    const all = [...waits, hub, ...leaves]
+    const nodes = new Map(all.map((n) => [n.id, n]))
+    const started = performance.now()
+    for (const w of waits) {
+      openSlotsFor(
+        w,
+        edges.filter((e) => e.source === w.id),
+        edges,
+        (id) => nodes.has(id),
+      )
+    }
+    expect(performance.now() - started).toBeLessThan(1000)
+  })
+
+  it('offers no splice on a wait arm its field sends elsewhere', () => {
+    const wait = { ...node('w', 'Wait', 'wait_for_event'), data: { onEventNode: 'other' } }
+    const g = graph(
+      [wait, node('s', 'Sunny'), node('other', 'Other')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const placements = placementChoices(g.rows, g.nodes, g.edges).map((c) => c.placement)
+    expect(placements).not.toContainEqual({ after: 'w', edgeId: 'e1' })
+  })
+
+  it('offers an empty loop its body and its way on, never a plain after', () => {
+    const g = graph([node('loop', 'Loop', 'loop')], [])
+    expect(placementChoices(g.rows, g.nodes, g.edges).map((c) => [c.label, c.placement])).toEqual([
+      ['Into body', { after: 'loop', arm: 'body' }],
+      ['After Loop', { after: 'loop', arm: 'then' }],
     ])
   })
 

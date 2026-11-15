@@ -11,6 +11,7 @@ import {
   beforeChoices,
   choiceKey,
   flowChoices,
+  isPlainAfter,
   placementKey,
   uniqueStepId,
   type FlowSide,
@@ -137,7 +138,7 @@ export function StepFlowDialog({
         setSide('before')
         setAnchorId(entryNodeId)
         setMode('fast')
-      } else if (initialPlacement.edgeId === undefined) {
+      } else if (isPlainAfter(initialPlacement)) {
         setSide('after')
         setAnchorId(initialPlacement.after)
         setMode('fast')
@@ -157,7 +158,7 @@ export function StepFlowDialog({
     const onMap =
       allChoices.find((choice) => {
         if (choice.nodeId !== preferredNodeId) return false
-        return 'first' in choice.placement ? false : choice.placement.edgeId !== undefined
+        return 'first' in choice.placement ? false : !isPlainAfter(choice.placement)
       }) ?? allChoices.find((choice) => choice.nodeId === preferredNodeId)
     if (onMap) {
       setMode('map')
@@ -256,12 +257,14 @@ export function StepFlowDialog({
       if ('first' in effectiveMapPlacement) {
         nextSide = 'before'
         nextAnchor = entryNodeId
-      } else if (effectiveMapPlacement.edgeId === undefined) {
+      } else if (isPlainAfter(effectiveMapPlacement) || 'arm' in effectiveMapPlacement) {
+        // An empty arm has no node to stand before: the nearest is its block.
         nextSide = 'after'
         nextAnchor = effectiveMapPlacement.after
       } else {
         nextSide = 'before'
-        nextAnchor = edgeById.get(effectiveMapPlacement.edgeId)?.target ?? null
+        const edgeId = effectiveMapPlacement.edgeId
+        nextAnchor = edgeId === undefined ? null : (edgeById.get(edgeId)?.target ?? null)
       }
     }
     const list = nextSide === 'after' ? afters : befores

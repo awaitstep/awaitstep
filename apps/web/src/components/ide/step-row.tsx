@@ -5,7 +5,7 @@ import type { StepRow } from '../../lib/ide/step-order'
 import type { RailRow } from '../../lib/ide/step-rail-layout'
 import { cn } from '../../lib/utils'
 import { StepRail } from './step-rail'
-import { StepRowMenu, type StepOutgoingEdge } from './step-row-menu'
+import { StepRowMenu, type StepOpenArm, type StepOutgoingEdge } from './step-row-menu'
 
 interface StepRowItemProps {
   row: StepRow
@@ -26,6 +26,10 @@ interface StepRowItemProps {
   unsaved?: boolean
   /** The connections out of this node; the menu offers one entry per connection. */
   outgoing: readonly StepOutgoingEdge[]
+  /** A branching node: its slots are named, so it never takes a plain "after". */
+  branching?: boolean
+  /** The node's slots with nothing in them (an empty arm, after the block). */
+  openArms?: readonly StepOpenArm[]
   /** False when the workspace cannot edit: the menu stays, disabled. */
   canCreate: boolean
   /** Why it is disabled, worded for the person. */
@@ -52,6 +56,8 @@ export function StepRowItem({
   selected,
   unsaved = false,
   outgoing,
+  branching = false,
+  openArms = [],
   canCreate,
   readOnlyMessage,
   onPick,
@@ -143,6 +149,8 @@ export function StepRowItem({
         nodeId={row.nodeId}
         name={name}
         outgoing={outgoing}
+        branching={branching}
+        openArms={openArms}
         onChoose={onCreate}
         onRemove={onRemove}
         disabled={!canCreate}

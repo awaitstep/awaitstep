@@ -16,9 +16,16 @@ export interface FlowEdge {
 }
 
 export function placementKey(placement: StepPlacement): string {
-  return 'first' in placement
-    ? 'first'
-    : JSON.stringify([placement.after, placement.edgeId ?? null])
+  if ('first' in placement) return 'first'
+  if ('arm' in placement) return JSON.stringify([placement.after, 'arm', placement.arm])
+  return JSON.stringify([placement.after, placement.edgeId ?? null])
+}
+
+/** `{ after }` with no connection or arm named: appended, or spliced into the one plain connection. */
+export function isPlainAfter(
+  placement: StepPlacement,
+): placement is { after: string; edgeId?: undefined } {
+  return 'after' in placement && !('arm' in placement) && placement.edgeId === undefined
 }
 
 export function choiceKey(choice: PlacementChoice): string {
@@ -55,9 +62,7 @@ export function uniqueStepId(
 
 /** A node with no connection or one plain connection can take an "after". */
 export function afterChoices(choices: readonly PlacementChoice[]): PlacementChoice[] {
-  return choices.filter(
-    (choice) => !('first' in choice.placement) && choice.placement.edgeId === undefined,
-  )
+  return choices.filter((choice) => isPlainAfter(choice.placement))
 }
 
 /**

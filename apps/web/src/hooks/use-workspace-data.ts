@@ -28,9 +28,13 @@ import { useApiReady, useQueries } from '../contexts/api-client-context'
 import { useIdeStore } from '../stores/ide-store'
 import { useDraftOverlay } from './use-draft-overlay'
 import { useWorkspaceProblems } from './use-workspace-problems'
+import { usePendingGenerated } from './use-pending-generated'
+import { withPendingGenerated } from '../lib/ide/pending-generated'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
 const NO_FILE_OPS: readonly PendingFileOp[] = []
+const PENDING_GENERATED_MESSAGE =
+  'Generated from the graph, with your unsaved changes. Save to keep them.'
 const NO_STEPS: StepSources = { files: [], byNode: new Map(), byPath: new Map(), collisions: [] }
 
 /**
@@ -100,6 +104,15 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
       savedVersion && !isHistorical ? editedVersion(savedVersion, graphOps).version : savedVersion,
     [savedVersion, isHistorical, graphOps],
   )
+  // The generated code as the pending edits would make it, so workflow.ts
+  // shows them before Save. An older version never holds any.
+  const pendingCode = usePendingGenerated({
+    saved: isHistorical ? null : (savedVersion?.doc ?? null),
+    edited: isHistorical ? null : (version?.doc ?? null),
+    kind: fullData?.workflow.kind === 'script' ? 'script' : 'workflow',
+    sourceLagging:
+      source !== undefined && fullData?.version != null && source.versionId !== fullData.version.id,
+  })
   const pendingNodes = useMemo(() => pendingNodeIds(graphOps), [graphOps])
   // The edits a save would write: the list Unsaved changes shows.
   const waitingGraphOps = useMemo(() => waitingOps(graphOps), [graphOps])
@@ -139,14 +152,16 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
 
   const baseline = useMemo(() => {
     if (!source || !loaded) return EMPTY_FILES
-    const map = new Map<string, SourceFile>(source.files.map((file) => [file.path, file]))
+    const loadedFiles = new Map<string, SourceFile>(source.files.map((file) => [file.path, file]))
+    const owned = new Set([...storedPaths, ...seeds.map((seed) => seed.path)])
+    const map = new Map(withPendingGenerated(loadedFiles, pendingCode, owned))
     for (const seed of seeds) if (!map.has(seed.path)) map.set(seed.path, seed)
     // A step's module is emitted at the step's own path, so the bundle has a
     // generated copy there: the editable source replaces it. (A stored file
     // at that path is a collision, and `stepSources` leaves the step out.)
     for (const step of steps.files) map.set(step.path, step)
     return applyFileOps(map, shownFileOps)
-  }, [source, loaded, seeds, steps, shownFileOps])
+  }, [source, loaded, seeds, steps, shownFileOps, pendingCode, storedPaths])
   const { files, projectPaths, ghostPaths } = useDraftOverlay(baseline, drafts, savedProjectPaths)
   // Stored files only (neither a virtual seed nor a step source is counted by
   // the server); it changes when files do, not with every keystroke.
@@ -216,7 +231,11 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   )
 
   function editabilityOf(path: string) {
-    return fileEditability(ownerOf(path), workspace ?? { readOnly: true, message: null })
+    const owner = ownerOf(path)
+    if (owner === 'generated' && pendingCode?.changed.has(path)) {
+      return { readOnly: true, message: PENDING_GENERATED_MESSAGE }
+    }
+    return fileEditability(owner, workspace ?? { readOnly: true, message: null })
   }
 
   return {
@@ -228,6 +247,8 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     hasVersion: !!fullData?.version,
     savedVersion,
     editedDoc: version?.doc ?? null,
+    /** Which module each node is in: the edited bundle's while graph edits are pending. */
+    manifest: pendingCode?.manifest ?? source?.manifest ?? null,
     waitingGraphOps,
     fileOps: shownFileOps,
     pendingNodes,

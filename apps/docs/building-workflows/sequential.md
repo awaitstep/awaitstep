@@ -137,7 +137,9 @@ in its details, and creating, renaming or deleting a file in the Explorer all
 wait for Save, like your code edits:
 
 - The change shows at once in the Steps list, the details, the map and the
-  step files. A new step's file opens as a new, unsaved file.
+  step files. A new step's file opens as a new, unsaved file. The generated
+  `awaitstep/workflow.ts` shows it too; its banner says it includes unsaved
+  changes until you save.
 - **Unsaved changes** lists each one in plain words: under **Graph**, such as
   Added “fetch user” or Changed retries on “charge”, and under **Files**, such
   as Created lib/helpers.ts or Renamed a.ts → b.ts. Each has its own

@@ -325,7 +325,7 @@ describe('StepsView', () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
     await user.click(screen.getByRole('button', { name: 'Step actions for Paid?' }))
-    await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
+    await user.hover(screen.getByRole('menuitem', { name: 'Add to a branch' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Into paid' }))
     expect(screen.getByText('Where should it go?')).toBeInTheDocument()
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Charge')
@@ -501,6 +501,58 @@ describe('StepsView', () => {
     expect(useIdeLayoutStore.getState().previewOpen).toBe(false)
   })
 
+  it('splits a wait’s menu: after the wait, or into one of its arms', async () => {
+    loadGraph(
+      [irNode('w', 'Wait', 'wait_for_event'), irNode('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const user = userEvent.setup()
+    const { onCreateStep } = setup()
+    await user.click(screen.getByRole('button', { name: 'Step actions for Wait' }))
+    await user.hover(screen.getByRole('menuitem', { name: 'Add to a branch' }))
+    expect(await screen.findByRole('menuitem', { name: 'Into onEvent' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Into onTimeout' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'New step after…' }))
+    await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Notify')
+    await user.click(screen.getByRole('button', { name: 'Insert' }))
+    await waitFor(() =>
+      expect(onCreateStep).toHaveBeenCalledWith({ after: 'w', arm: 'then' }, 'Notify', 'notify'),
+    )
+  })
+
+  it('lists only arms under Add to a branch, not a stray connection', async () => {
+    loadGraph(
+      [irNode('w', 'Wait', 'wait_for_event'), irNode('s', 'Sunny'), irNode('x', 'Stray')],
+      [
+        { id: 'e1', source: 'w', target: 's', label: 'onEvent' },
+        { id: 'e2', source: 'w', target: 'x' },
+      ],
+    )
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: 'Step actions for Wait' }))
+    await user.hover(screen.getByRole('menuitem', { name: 'Add to a branch' }))
+    expect(await screen.findByRole('menuitem', { name: 'Into onEvent' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Before Stray' })).toBeNull()
+  })
+
+  it('starts a wait’s empty arm from its menu', async () => {
+    loadGraph(
+      [irNode('w', 'Wait', 'wait_for_event'), irNode('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const user = userEvent.setup()
+    const { onCreateStep } = setup()
+    await user.click(screen.getByRole('button', { name: 'Step actions for Wait' }))
+    await user.hover(screen.getByRole('menuitem', { name: 'Add to a branch' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Into onTimeout' }))
+    await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Late')
+    await user.click(screen.getByRole('button', { name: 'Insert' }))
+    await waitFor(() =>
+      expect(onCreateStep).toHaveBeenCalledWith({ after: 'w', arm: 'onTimeout' }, 'Late', 'late'),
+    )
+  })
+
   it('names an unlabelled (or empty-labelled) arm by its target', async () => {
     loadGraph(
       [irNode('gate', 'Gate', 'branch'), irNode('a', 'A'), irNode('b', 'B')],
@@ -512,7 +564,7 @@ describe('StepsView', () => {
     const user = userEvent.setup()
     setup()
     await user.click(screen.getByRole('button', { name: 'Step actions for Gate' }))
-    await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
+    await user.hover(screen.getByRole('menuitem', { name: 'Add to a branch' }))
     expect(await screen.findByRole('menuitem', { name: 'Before A' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Before B' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Into ' })).toBeNull()

@@ -372,7 +372,7 @@ export function WorkspaceLayout({
       workflowId={workflowId}
       linkVersion={linkVersion}
       kind={fullData.workflow.kind === 'script' ? 'script' : 'workflow'}
-      manifest={source.manifest ?? null}
+      manifest={data.manifest}
       files={files}
       projectPaths={projectPaths}
       sourcePaths={stepSourceByNode}

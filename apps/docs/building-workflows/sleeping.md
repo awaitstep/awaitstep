@@ -94,6 +94,19 @@ curl -X POST https://app.awaitstep.dev/api/workflows/<id>/trigger \
 If the timeout expires before an event arrives, `step.waitForEvent` throws `WorkflowTimeoutError`. Connect the wait node's **on-timeout** path to handle it; the **on-event** path runs when the event arrives.
 :::
 
+### After the wait
+
+A step connected as **After the wait** (in the node's panel) runs once either path is done, whichever ran.
+
+### Adding steps from Code
+
+In the Code view's **Steps** side bar, the **⋯** menu of a wait — or of a branch, loop, parallel, try/catch or race — has two ways to add:
+
+- **New step after…** adds a step that runs after the whole block.
+- **Add to a branch** lists each arm: an arm that has steps gets the new step first; an empty arm, such as an unconnected on-timeout path, starts with it. A parallel or race also offers a new arm.
+
+The **Add** dialog's map shows the same places, with empty arms drawn inside the block. Like every change in Code, it waits for Save.
+
 ## Durability guarantees
 
 All three pause primitives are fully durable. If the Cloudflare Worker is evicted or the region experiences an outage while a workflow is paused, the workflow automatically resumes when execution is next scheduled. No state is lost.

@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react'
 import { Plus, Zap } from 'lucide-react'
 import type { StepPlacement } from '@awaitstep/codegen'
-import type { WorkflowNode } from '@awaitstep/ir'
+import { CONTINUE_LABEL, type WorkflowNode } from '@awaitstep/ir'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import type { PlacementChoice } from '../../lib/ide/step-placements'
@@ -33,7 +33,13 @@ interface MapNode {
 }
 
 function edgeIdOf(choice: PlacementChoice): string | undefined {
-  return 'first' in choice.placement ? undefined : choice.placement.edgeId
+  const { placement } = choice
+  return 'first' in placement || 'arm' in placement ? undefined : placement.edgeId
+}
+
+/** The pill an empty arm's slot shows: its label, or "new arm" for a fan-out. */
+function openArmPill(arm: string | null): string {
+  return arm ?? 'new arm'
 }
 
 function buildTree(rows: readonly StepRow[]): MapNode[] {
@@ -98,8 +104,17 @@ export function StepFlowMap({
   const activeKey = placement === null ? null : placementKey(placement)
   const afterByNode = new Map<string, PlacementChoice>()
   const edgePoints = new Map<string, PlacementChoice[]>()
+  // Empty arms of a branching node, drawn inside its box.
+  const openByNode = new Map<string, PlacementChoice[]>()
   for (const choice of choices) {
     if ('first' in choice.placement) continue
+    if ('arm' in choice.placement) {
+      const { after, arm } = choice.placement
+      // The way on after a block is its "after": the + below the box.
+      if (arm === CONTINUE_LABEL) afterByNode.set(after, choice)
+      else openByNode.set(after, [...(openByNode.get(after) ?? []), choice])
+      continue
+    }
     if (choice.placement.edgeId === undefined) {
       afterByNode.set(choice.placement.after, choice)
       continue
@@ -119,6 +134,10 @@ export function StepFlowMap({
   }
 
   function ghostArm(choice: PlacementChoice): string | null {
+    const { placement } = choice
+    if ('arm' in placement) {
+      return placement.arm === CONTINUE_LABEL ? null : openArmPill(placement.arm)
+    }
     const edgeId = edgeIdOf(choice)
     if (edgeId === undefined) return null
     return edgeById.get(edgeId)?.label ?? null
@@ -257,8 +276,35 @@ export function StepFlowMap({
     )
   }
 
+  /** A block drawn as a box: it has arm rows, or empty arms to offer. */
+  function isBox(node: MapNode): boolean {
+    return node.children.length > 0 || openByNode.has(node.row.nodeId)
+  }
+
+  function openArmRow(key: string, choice: PlacementChoice): ReactNode {
+    if (isActive(choice)) return ghost(key, choice)
+    const arm = 'arm' in choice.placement ? choice.placement.arm : null
+    return (
+      <div key={key} className="flex items-center gap-2">
+        <span
+          className={cn(
+            'shrink-0 rounded border px-1 py-px text-3xs uppercase tracking-wider',
+            armTone(openArmPill(arm)),
+          )}
+        >
+          {openArmPill(arm)}
+        </span>
+        <span className="min-w-0 flex-1 truncate rounded-lg border border-dashed border-border px-3 py-2 text-2xs text-muted-foreground">
+          {arm === null ? 'Add an arm' : 'Empty'}
+        </span>
+        {inlineGate(`${key}-gate`, choice)}
+      </div>
+    )
+  }
+
   function nodeView(node: MapNode, at: number): ReactNode {
-    if (node.children.length > 0) {
+    if (isBox(node)) {
+      const open = openByNode.get(node.row.nodeId) ?? []
       return (
         <div key={`${node.row.nodeId}-${at}`} className="w-full">
           <div
@@ -272,6 +318,7 @@ export function StepFlowMap({
             {containerHeader(node.row)}
             <div className="flex flex-col gap-1.5">
               {node.children.map((child) => armRow(child))}
+              {open.map((choice) => openArmRow(`open-${choiceKey(choice)}`, choice))}
             </div>
           </div>
         </div>
@@ -315,7 +362,7 @@ export function StepFlowMap({
       <div key={node.row.nodeId} className="flex flex-col gap-1">
         {beforeChoice && gate(`before-${node.row.nodeId}`, beforeChoice)}
         {intoArm && isActive(intoArm) && ghost(`into-ghost-${node.row.nodeId}`, intoArm)}
-        {node.children.length > 0 ? (
+        {isBox(node) ? (
           <div className="flex items-start gap-2">
             <div className="min-w-0 flex-1">{nodeView(node, 0)}</div>
             {gates}

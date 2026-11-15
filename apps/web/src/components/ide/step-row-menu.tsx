@@ -1,5 +1,6 @@
 import { useRef } from 'react'
-import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
+import { GitBranch, MoreHorizontal, Plus, Trash2 } from 'lucide-react'
+import { CONTINUE_LABEL } from '@awaitstep/ir'
 import type { StepPlacement } from '@awaitstep/codegen'
 import {
   DropdownMenu,
@@ -24,10 +25,23 @@ export interface StepOutgoingEdge {
   uniqueId: boolean
 }
 
+/** A slot of a branching node with nothing in it yet: an empty arm, or after the block. */
+export interface StepOpenArm {
+  /** The arm's label; `then` is after the block, null a new arm of a parallel or race. */
+  arm: string | null
+  placement: StepPlacement
+  /** "Into catch", "New arm of Fan out", "After Loop". */
+  label: string
+}
+
 interface StepRowMenuProps {
   nodeId: string
   name: string
   outgoing: readonly StepOutgoingEdge[]
+  /** A branching node (its slots are named, so it never takes a plain "after"). */
+  branching: boolean
+  /** Its slots with nothing in them; each gets its own entry. */
+  openArms: readonly StepOpenArm[]
   onChoose: (placement: StepPlacement) => void
   /** Asks to remove this node: the dialog, or a toast saying why Code can't. */
   onRemove: (nodeId: string) => void
@@ -39,13 +53,16 @@ interface StepRowMenuProps {
 /**
  * The Steps list's row menu. A step with nothing or one connection after it
  * gets one "New step after…"; a branch or container lists one entry per
- * connection, named by its label or the node it leads to. "Remove…" opens
- * the remove dialog, or says in a toast why Code can't remove the node.
+ * connection, named by its label or the node it leads to, and one per empty
+ * slot (an empty arm, a new arm, after the block). "Remove…" opens the remove
+ * dialog, or says in a toast why Code can't remove the node.
  */
 export function StepRowMenu({
   nodeId,
   name,
   outgoing,
+  branching,
+  openArms,
   onChoose,
   onRemove,
   disabled,
@@ -83,7 +100,6 @@ export function StepRowMenu({
   // connection; an arm is spliced before its target, so it needs its own item.
   const only = outgoing.length === 1 ? outgoing[0]! : undefined
   const append = outgoing.length === 0 || (only !== undefined && !only.arm && only.uniqueId)
-  const sharedReason = 'This connection shares its id with another edge. Rename one on the canvas.'
 
   return (
     <DropdownMenu onOpenChange={handleOpenChange}>
@@ -110,20 +126,27 @@ export function StepRowMenu({
         className="min-w-[190px]"
         onCloseAutoFocus={handleCloseAutoFocus}
       >
-        {append ? (
+        {branching ? (
+          <BranchingItems
+            nodeId={nodeId}
+            outgoing={outgoing}
+            openArms={openArms}
+            onChoose={choose}
+          />
+        ) : append ? (
           <DropdownMenuItem onSelect={() => choose({ after: nodeId })} className="text-xs">
             <Plus className="h-3.5 w-3.5" />
             New step after…
           </DropdownMenuItem>
-        ) : outgoing.length === 1 ? (
+        ) : only !== undefined ? (
           <DropdownMenuItem
-            disabled={!only || !only.uniqueId}
-            title={only?.uniqueId ? undefined : sharedReason}
-            onSelect={() => only && choose({ after: nodeId, edgeId: only.id })}
+            disabled={!only.uniqueId}
+            title={only.uniqueId ? undefined : SHARED_REASON}
+            onSelect={() => choose({ after: nodeId, edgeId: only.id })}
             className="text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
-            {only ? edgeLabel(only) : 'New step after…'}
+            {edgeLabel(only)}
           </DropdownMenuItem>
         ) : (
           <DropdownMenuSub>
@@ -133,15 +156,7 @@ export function StepRowMenu({
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {outgoing.map((edge, at) => (
-                <DropdownMenuItem
-                  key={`${at}:${edge.id}`}
-                  disabled={!edge.uniqueId}
-                  title={edge.uniqueId ? undefined : sharedReason}
-                  onSelect={() => choose({ after: nodeId, edgeId: edge.id })}
-                  className="text-xs"
-                >
-                  {edgeLabel(edge)}
-                </DropdownMenuItem>
+                <EdgeItem key={`${at}:${edge.id}`} nodeId={nodeId} edge={edge} onChoose={choose} />
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -156,6 +171,91 @@ export function StepRowMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+const SHARED_REASON = 'This connection shares its id with another edge. Rename one on the canvas.'
+
+interface BranchingItemsProps {
+  nodeId: string
+  outgoing: readonly StepOutgoingEdge[]
+  openArms: readonly StepOpenArm[]
+  onChoose: (placement: StepPlacement) => void
+}
+
+/**
+ * A branching node's two ways to add: after the whole block (its `then`,
+ * spliced before what already follows, or started), and into one of its
+ * arms — a connection to splice into, or an empty arm to start.
+ */
+function BranchingItems({ nodeId, outgoing, openArms, onChoose }: BranchingItemsProps) {
+  const thenEdge = outgoing.find((edge) => edge.label === CONTINUE_LABEL)
+  const thenSlot = openArms.find((slot) => slot.arm === CONTINUE_LABEL)
+  const armEdges = outgoing.filter((edge) => edge.arm)
+  const emptyArms = openArms.filter((slot) => slot !== thenSlot)
+
+  function handleAfter() {
+    if (thenEdge) onChoose({ after: nodeId, edgeId: thenEdge.id })
+    else if (thenSlot) onChoose(thenSlot.placement)
+  }
+
+  return (
+    <>
+      {(thenEdge || thenSlot) && (
+        <DropdownMenuItem
+          disabled={thenEdge !== undefined && !thenEdge.uniqueId}
+          title={thenEdge && !thenEdge.uniqueId ? SHARED_REASON : undefined}
+          onSelect={handleAfter}
+          className="text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New step after…
+        </DropdownMenuItem>
+      )}
+      {armEdges.length + emptyArms.length > 0 && (
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="text-xs">
+            <GitBranch className="h-3.5 w-3.5" />
+            Add to a branch
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {armEdges.map((edge, at) => (
+              <EdgeItem key={`${at}:${edge.id}`} nodeId={nodeId} edge={edge} onChoose={onChoose} />
+            ))}
+            {emptyArms.map((slot) => (
+              <DropdownMenuItem
+                key={slot.label}
+                onSelect={() => onChoose(slot.placement)}
+                className="text-xs"
+              >
+                {slot.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+      )}
+    </>
+  )
+}
+
+function EdgeItem({
+  nodeId,
+  edge,
+  onChoose,
+}: {
+  nodeId: string
+  edge: StepOutgoingEdge
+  onChoose: (placement: StepPlacement) => void
+}) {
+  return (
+    <DropdownMenuItem
+      disabled={!edge.uniqueId}
+      title={edge.uniqueId ? undefined : SHARED_REASON}
+      onSelect={() => onChoose({ after: nodeId, edgeId: edge.id })}
+      className="text-xs"
+    >
+      {edgeLabel(edge)}
+    </DropdownMenuItem>
   )
 }
 

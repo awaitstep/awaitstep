@@ -127,3 +127,53 @@ describe('StepFlowMap', () => {
     expect(onSelect).toHaveBeenLastCalledWith({ first: true })
   })
 })
+
+describe('StepFlowMap — empty arms', () => {
+  const waitNodes = [node('w', 'Wait for sunny', 'wait_for_event'), node('s', 'Sunny')]
+  const waitEdges: (OrderEdge & { id: string })[] = [
+    { id: 'e1', source: 'w', target: 's', label: 'onEvent' },
+  ]
+  const waitRows = orderSteps(
+    waitNodes.map((n, i) => ({ id: n.id, type: n.type, position: { x: 0, y: i * 80 } })),
+    waitEdges,
+  )
+  const waitMap = new Map(waitNodes.map((n) => [n.id, n]))
+
+  function renderWait(placement: StepPlacement | null = null) {
+    const onSelect = vi.fn()
+    render(
+      <StepFlowMap
+        rows={waitRows}
+        nodes={waitMap}
+        edges={waitEdges}
+        entryNodeId="w"
+        reachable={new Set(['w', 's'])}
+        kind="workflow"
+        name="late"
+        choices={flowChoices(true, waitRows, waitMap, waitEdges, 'w')}
+        triggerLabel="POST /orders"
+        placement={placement}
+        onSelect={onSelect}
+      />,
+    )
+    return { onSelect }
+  }
+
+  it('draws a wait as a box with its empty onTimeout arm and an after +', async () => {
+    const user = userEvent.setup()
+    const { onSelect } = renderWait()
+    expect(screen.getByText('onTimeout')).toBeInTheDocument()
+    expect(screen.getByText('Empty')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Into onTimeout' }))
+    expect(onSelect).toHaveBeenCalledWith({ after: 'w', arm: 'onTimeout' })
+    await user.click(screen.getByRole('button', { name: 'After Wait for sunny' }))
+    expect(onSelect).toHaveBeenCalledWith({ after: 'w', arm: 'then' })
+  })
+
+  it('draws the ghost in the empty arm it was placed in', () => {
+    renderWait({ after: 'w', arm: 'onTimeout' })
+    const ghost = screen.getByText('lands here').closest('div')
+    expect(ghost).toHaveTextContent('onTimeout')
+    expect(screen.queryByText('Empty')).toBeNull()
+  })
+})

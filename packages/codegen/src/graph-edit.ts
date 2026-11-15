@@ -1,5 +1,9 @@
 import {
+  WAIT_ARM_FIELDS,
+  isArmContainerType,
   isBuiltinNodeType,
+  openArmSlots,
+  waitArmEdgeOverridden,
   type ArtifactIR,
   type Edge,
   type NodeId,
@@ -10,11 +14,14 @@ import { stepModuleTemplate } from './step-module.js'
 
 /**
  * Where a new step goes, in the graph's own terms: on the way out of a node
- * (spliced into its only outgoing edge, or appended after it), or at the
- * front. `edgeId` names which connection when the node has several — a
- * branch, a container's arms, a fan-out.
+ * (spliced into its only outgoing edge, or appended after it), at the front,
+ * or starting an empty arm of a branching node. `edgeId` names which
+ * connection when the node has several — a branch, a container's arms, a
+ * fan-out. `arm` names an arm with nothing in it yet (`then` for after the
+ * block; null for a new arm of a parallel or race).
  */
-export type StepPlacement = { after: NodeId; edgeId?: string } | { first: true }
+export type StepPlacement =
+  { after: NodeId; edgeId?: string } | { after: NodeId; arm: string | null } | { first: true }
 
 export interface NewStep {
   /** The node's id; the step's file is `steps/<id>.ts`. */
@@ -138,6 +145,7 @@ export function insertNode(
         }
   let node: WorkflowNode
   let edges: Edge[]
+  let nodes: WorkflowNode[] = [...ir.nodes]
   let entryNodeId = ir.entryNodeId
 
   if ('first' in placement) {
@@ -162,8 +170,33 @@ export function insertNode(
       ]
       entryNodeId = newStep.id
     }
+  } else if ('arm' in placement) {
+    const container = anchor!
+    const outgoing = ir.edges.filter((edge) => edge.source === container.id)
+    const open = openArmSlots(container, outgoing, (id) => nodesById.has(id))
+    if (!open.some((slot) => slot.label === placement.arm)) {
+      return refuse(
+        isArmContainerType(container.type)
+          ? `${container.name}’s ${armName(placement.arm)} is not empty any more.`
+          : `${container.name} has no arms.`,
+      )
+    }
+    node = build(rightOf(container))
+    edges = [
+      ...ir.edges,
+      {
+        id: uniqueEdgeId(usedEdgeIds, `${newStep.id}-in`),
+        source: container.id,
+        target: newStep.id,
+        ...(placement.arm !== null && { label: placement.arm }),
+      },
+    ]
+    nodes = withWaitArm(ir.nodes, container, placement.arm, null, newStep.id)
   } else {
     const outgoing = ir.edges.filter((edge) => edge.source === anchor!.id)
+    if (placement.edgeId === undefined && isArmContainerType(anchor!.type)) {
+      return refuse(`Choose which arm of ${anchor!.name} the new ${noun} goes in.`)
+    }
     const matching =
       placement.edgeId === undefined ? [] : ir.edges.filter((edge) => edge.id === placement.edgeId)
     const chosen =
@@ -179,6 +212,11 @@ export function insertNode(
       if (!chosen) return refuse('That connection is not in this version any more.')
       if (chosen.source !== anchor!.id) {
         return refuse('That connection does not leave this step.')
+      }
+      if (waitArmEdgeOverridden(anchor!, chosen, (id) => nodesById.has(id))) {
+        return refuse(
+          `${anchor!.name}’s ${armName(chosen.label ?? null)} runs another node. Change it on the canvas.`,
+        )
       }
     } else if (outgoing.length > 1) {
       return refuse(
@@ -211,14 +249,56 @@ export function insertNode(
       // Replace the edge where it sat, so the source's other connections keep
       // their order (a branch's arms, a container's arms).
       edges = ir.edges.flatMap((edge) => (edge.id === chosen.id ? [intoNew, outOfNew] : [edge]))
+      nodes = withWaitArm(ir.nodes, anchor!, chosen.label, chosen.target, newStep.id)
     }
   }
 
   return {
     ok: true,
-    ir: { ...ir, nodes: [...ir.nodes, node], edges, entryNodeId },
+    ir: { ...ir, nodes: [...nodes, node], edges, entryNodeId },
     node,
   }
+}
+
+function armName(label: string | null): string {
+  if (label === null) return 'new arm'
+  if (label === 'then') return 'way on'
+  return `“${label}” arm`
+}
+
+/**
+ * A wait names each arm's first node twice: on the labelled edge and in its
+ * `onEventNode` / `onTimeoutNode` field, which the generated code reads
+ * first. When a new node takes an arm's first place (spliced in front of
+ * `previousTarget`, or starting the empty arm when that is null), the field
+ * follows it — unless it names some other node, the authored choice, which
+ * stays. Any other node, or a label that is not a wait arm, comes back as is.
+ */
+export function followWaitArm(
+  container: WorkflowNode,
+  label: string | null | undefined,
+  previousTarget: NodeId | null,
+  newId: NodeId,
+): WorkflowNode {
+  if (container.type !== 'wait_for_event' || typeof label !== 'string') return container
+  const field = Object.hasOwn(WAIT_ARM_FIELDS, label) ? WAIT_ARM_FIELDS[label] : undefined
+  if (field === undefined) return container
+  const current = container.data[field]
+  const unset = typeof current !== 'string' || current === ''
+  if (previousTarget !== null && !unset && current !== previousTarget) return container
+  return { ...container, data: { ...container.data, [field]: newId } }
+}
+
+function withWaitArm(
+  nodes: readonly WorkflowNode[],
+  container: WorkflowNode,
+  label: string | null | undefined,
+  previousTarget: NodeId | null,
+  newId: NodeId,
+): WorkflowNode[] {
+  return nodes.map((node) =>
+    node.id === container.id ? followWaitArm(node, label, previousTarget, newId) : node,
+  )
 }
 
 function buildNode(

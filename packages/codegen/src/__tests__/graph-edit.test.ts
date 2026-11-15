@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { validateArtifact, type ArtifactIR, type Edge, type WorkflowNode } from '@awaitstep/ir'
 import { insertNode, insertStep, type NewStep, type StepPlacement } from '../graph-edit.js'
 import { stepModuleProblems } from '../step-module.js'
+import { createGenerationContext } from '../context.js'
+import { generateWaitForEvent } from '../graph/generators/wait-for-event.js'
 
 function node(
   id: string,
@@ -119,7 +121,7 @@ describe('insertStep — splicing into an edge', () => {
     )
     const result = insertStep(ir, { after: 'gate' }, NEW)
     expect(result.ok).toBe(false)
-    if (!result.ok) expect(result.reason).toMatch(/more than one outgoing connection/)
+    if (!result.ok) expect(result.reason).toMatch(/Choose which arm of Gate/)
   })
 })
 
@@ -385,5 +387,193 @@ describe('insertNode — a custom or marketplace node', () => {
     const result = insertNode(ir, { after: 'a' }, { ...HELLO, type: 'step' })
     if (!result.ok) throw new Error(result.reason)
     expect(result.node.data).toEqual({ code: TEMPLATE('Say_hello') })
+  })
+})
+
+function wait(id: string, name: string, data: Record<string, unknown> = {}): WorkflowNode {
+  return {
+    ...node(id, name, 'wait_for_event'),
+    data: { eventType: 'sunny', timeout: '30 seconds', ...data },
+  }
+}
+
+describe('insertStep — a wait’s arms', () => {
+  it('moves the onEvent field to a step spliced in front of its node', () => {
+    const ir = graph(
+      [wait('w', 'Wait'), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const next = insert(ir, { after: 'w', edgeId: 'e1' })
+    expect(next.nodes.find((n) => n.id === 'w')?.data.onEventNode).toBe(NEW.id)
+    expect(next.edges).toEqual([
+      { id: `${NEW.id}-in`, source: 'w', target: NEW.id, label: 'onEvent' },
+      { id: `${NEW.id}-out`, source: NEW.id, target: 's' },
+    ])
+  })
+
+  it('keeps a step spliced into a selected onEvent arm in the generated code', () => {
+    const ir = graph(
+      [wait('w', 'Wait', { onEventNode: 's' }), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const next = insert(ir, { after: 'w', edgeId: 'e1' })
+    const code = generateWaitForEvent(
+      next.nodes.find((n) => n.id === 'w')!,
+      next,
+      createGenerationContext(next.nodes),
+      (n) => `/* ${n.name} */`,
+    )
+    const onEvent = code.slice(code.indexOf('} else {'))
+    expect(onEvent).toContain('$Charge_card(')
+    expect(onEvent.indexOf('$Charge_card(')).toBeLessThan(onEvent.indexOf('$Sunny('))
+  })
+
+  it('moves a field that already named the arm’s node', () => {
+    const ir = graph(
+      [
+        wait('w', 'Wait', { onEventNode: 's', onTimeoutNode: 'late' }),
+        node('s', 'Sunny'),
+        node('late', 'Late'),
+      ],
+      [
+        { id: 'e1', source: 'w', target: 's', label: 'onEvent' },
+        { id: 'e2', source: 'w', target: 'late', label: 'onTimeout' },
+      ],
+    )
+    const next = insert(ir, { after: 'w', edgeId: 'e1' })
+    expect(next.nodes.find((n) => n.id === 'w')?.data).toMatchObject({
+      onEventNode: NEW.id,
+      onTimeoutNode: 'late',
+    })
+  })
+
+  it('starts the empty onTimeout arm, naming the step in its field', () => {
+    const ir = graph(
+      [wait('w', 'Wait', { onEventNode: 's' }), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const next = insert(ir, { after: 'w', arm: 'onTimeout' })
+    expect(next.edges[1]).toEqual({
+      id: `${NEW.id}-in`,
+      source: 'w',
+      target: NEW.id,
+      label: 'onTimeout',
+    })
+    expect(next.nodes.find((n) => n.id === 'w')?.data).toMatchObject({
+      onEventNode: 's',
+      onTimeoutNode: NEW.id,
+    })
+  })
+
+  it('refuses an arm that has a node', () => {
+    const ir = graph(
+      [wait('w', 'Wait'), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const filled = insertStep(ir, { after: 'w', arm: 'onEvent' }, NEW)
+    expect(filled.ok).toBe(false)
+    if (!filled.ok) expect(filled.reason).toBe('Wait’s “onEvent” arm is not empty any more.')
+  })
+
+  it('puts a step after the wait, once either arm is done', () => {
+    const ir = graph(
+      [wait('w', 'Wait'), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const next = insert(ir, { after: 'w', arm: 'then' })
+    expect(next.edges.at(-1)).toMatchObject({ source: 'w', target: NEW.id, label: 'then' })
+    expect(next.nodes.find((n) => n.id === 'w')?.data.onEventNode).toBeUndefined()
+  })
+
+  it('refuses a plain after on a wait: the arm must be named', () => {
+    const ir = graph(
+      [wait('w', 'Wait'), node('s', 'Sunny')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const result = insertStep(ir, { after: 'w' }, NEW)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toBe('Choose which arm of Wait the new step goes in.')
+  })
+})
+
+describe('insertStep — empty arms of every branching node', () => {
+  it('starts a loop’s body, and the way on after it', () => {
+    const ir = graph(
+      [node('a', 'A'), node('loop', 'Loop', 'loop')],
+      [{ id: 'e0', source: 'a', target: 'loop' }],
+    )
+    const body = insert(ir, { after: 'loop', arm: 'body' })
+    expect(body.edges.at(-1)).toMatchObject({ source: 'loop', target: NEW.id, label: 'body' })
+    const after = insert(ir, { after: 'loop', arm: 'then' })
+    expect(after.edges.at(-1)).toMatchObject({ source: 'loop', target: NEW.id, label: 'then' })
+  })
+
+  it('starts a missing try/catch arm', () => {
+    const ir = graph(
+      [node('t', 'Guard', 'try_catch'), node('x', 'X')],
+      [{ id: 'e1', source: 't', target: 'x', label: 'try' }],
+    )
+    const next = insert(ir, { after: 't', arm: 'catch' })
+    expect(next.edges.at(-1)).toMatchObject({ source: 't', target: NEW.id, label: 'catch' })
+    expect(insertStep(ir, { after: 't', arm: 'try' }, NEW).ok).toBe(false)
+  })
+
+  it('starts a branch condition with no connection, and refuses one it doesn’t have', () => {
+    const gate = {
+      ...node('g', 'Gate', 'branch'),
+      data: {
+        branches: [
+          { label: 'yes', condition: 'a' },
+          { label: 'no', condition: '' },
+        ],
+      },
+    }
+    const ir = graph([gate, node('y', 'Y')], [{ id: 'e1', source: 'g', target: 'y', label: 'yes' }])
+    expect(insert(ir, { after: 'g', arm: 'no' }).edges.at(-1)).toMatchObject({
+      label: 'no',
+      target: NEW.id,
+    })
+    expect(insertStep(ir, { after: 'g', arm: 'maybe' }, NEW).ok).toBe(false)
+  })
+
+  it('adds an unlabelled arm to a parallel or race, however many it has', () => {
+    for (const type of ['parallel', 'race']) {
+      const ir = graph(
+        [node('p', 'Fan', type), node('x', 'X'), node('y', 'Y')],
+        [
+          { id: 'e1', source: 'p', target: 'x' },
+          { id: 'e2', source: 'p', target: 'y' },
+        ],
+      )
+      const next = insert(ir, { after: 'p', arm: null })
+      expect(next.edges.at(-1)).toEqual({ id: `${NEW.id}-in`, source: 'p', target: NEW.id })
+    }
+  })
+
+  it('refuses a plain after on an empty container: it would make an edge the code ignores', () => {
+    const ir = graph([node('loop', 'Loop', 'loop')], [])
+    const result = insertStep(ir, { after: 'loop' }, NEW)
+    expect(result.ok).toBe(false)
+  })
+
+  it('refuses an arm on a plain step', () => {
+    const ir = graph([node('a', 'A')], [])
+    const result = insertStep(ir, { after: 'a', arm: 'body' }, NEW)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.reason).toBe('A has no arms.')
+  })
+})
+
+describe('insertStep — a wait arm its field overrides', () => {
+  it('refuses a splice the generated code would skip', () => {
+    const ir = graph(
+      [wait('w', 'Wait', { onEventNode: 'other' }), node('s', 'Sunny'), node('other', 'Other')],
+      [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
+    )
+    const result = insertStep(ir, { after: 'w', edgeId: 'e1' }, NEW)
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.reason).toBe('Wait’s “onEvent” arm runs another node. Change it on the canvas.')
+    }
   })
 })

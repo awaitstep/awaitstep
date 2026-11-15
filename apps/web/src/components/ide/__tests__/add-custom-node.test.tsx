@@ -252,7 +252,7 @@ describe('Add → Custom node on a branch arm', () => {
     const user = userEvent.setup()
     const { onCreateStep } = setup()
     await user.click(screen.getByRole('button', { name: 'Step actions for Paid?' }))
-    await user.hover(screen.getByRole('menuitem', { name: /New step after/ }))
+    await user.hover(screen.getByRole('menuitem', { name: 'Add to a branch' }))
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Into paid' }))
     expect(screen.getByText('Where should it go?')).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Custom node' }))

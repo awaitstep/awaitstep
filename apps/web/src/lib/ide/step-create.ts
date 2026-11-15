@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid'
-import { stepSourcePath } from '@awaitstep/ir'
+import { isArmContainerType, isArmEdgeOf, stepSourcePath, type ArtifactIR } from '@awaitstep/ir'
 import { applyGraphOp, applyGraphOps, insertNode, type StepPlacement } from '@awaitstep/codegen'
 import type { IdeSessionState } from '../../stores/ide-store'
 import { replayBase } from './graph-ops-actions'
@@ -155,7 +155,7 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
       getStore().addGraphOp({
         id: newPendingOpId(),
         op: { kind: 'insert', placement, node: recorded },
-        label: insertLabel(inserted.node.name),
+        label: insertLabel(inserted.node.name, armOf(state.doc, placement)),
       })
       const path = template ? null : stepSourcePath(nodeId)
       if (path) getStore().openFile(path)
@@ -167,4 +167,20 @@ export function createStepCreator(deps: StepCreateDeps): StepCreator {
       return removeOnce(nodeId)
     },
   }
+}
+
+/** The block and arm a placement puts the new node in, or null for a plain place. */
+function armOf(
+  doc: ArtifactIR,
+  placement: StepPlacement,
+): { container: string; arm: string | null } | null {
+  if ('first' in placement) return null
+  const container = doc.nodes.find((node) => node.id === placement.after)
+  if (!container || !isArmContainerType(container.type)) return null
+  if ('arm' in placement) return { container: container.name, arm: placement.arm }
+  const edge = doc.edges.find((e) => e.id === placement.edgeId)
+  if (!edge) return null
+  if (edge.label === 'then') return { container: container.name, arm: 'then' }
+  if (!isArmEdgeOf(container.type, edge.label)) return null
+  return { container: container.name, arm: edge.label || 'an arm' }
 }

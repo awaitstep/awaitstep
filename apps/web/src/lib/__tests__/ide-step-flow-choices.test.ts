@@ -31,6 +31,8 @@ describe('step flow choices', () => {
     expect(placementKey({ first: true })).toBe('first')
     expect(placementKey({ after: 'a' })).toBe(JSON.stringify(['a', null]))
     expect(placementKey({ after: 'a', edgeId: 'e1' })).toBe(JSON.stringify(['a', 'e1']))
+    expect(placementKey({ after: 'a', arm: 'body' })).toBe(JSON.stringify(['a', 'arm', 'body']))
+    expect(placementKey({ after: 'a', arm: null })).not.toBe(placementKey({ after: 'a' }))
   })
 
   it('keeps only plain after choices', () => {
@@ -42,7 +44,8 @@ describe('step flow choices', () => {
       ],
     )
     const choices = placementChoices(g.rows, g.nodes, g.edges)
-    expect(afterChoices(choices).map((c) => c.nodeId)).toEqual(['a', 'b', 'g'])
+    // A branching node never takes a plain after: its slots are named.
+    expect(afterChoices(choices).map((c) => c.nodeId)).toEqual(['a', 'b'])
   })
 
   it('offers before the entry, or before a node with one incoming edge', () => {

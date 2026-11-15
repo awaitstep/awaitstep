@@ -176,3 +176,52 @@ describe('the Inline switch converts the code with it', () => {
     )
   })
 })
+
+describe('insertNodeOnEdge', () => {
+  it('moves a wait’s onEvent field to the node dropped on that arm', () => {
+    const wait: WorkflowNode = {
+      ...irNode('w'),
+      type: 'wait_for_event',
+      data: { eventType: 'sunny', timeout: '30 seconds', onEventNode: 's', onTimeoutNode: 'late' },
+    }
+    seed(wait, irNode('s'), irNode('late'))
+    useWorkflowStore.setState({
+      edges: [
+        { id: 'e1', source: 'w', target: 's', label: 'onEvent' },
+        { id: 'e2', source: 'w', target: 'late', label: 'onTimeout' },
+      ],
+    } as never)
+    useWorkflowStore.getState().insertNodeOnEdge('step', { x: 0, y: 0 }, 'e1')
+    const added = useWorkflowStore.getState().nodes.at(-1)!.id
+    expect(dataOf('w')).toMatchObject({ onEventNode: added, onTimeoutNode: 'late' })
+  })
+})
+
+describe('a wait’s arm fields on the canvas', () => {
+  function seedWait() {
+    const wait: WorkflowNode = {
+      ...irNode('w'),
+      type: 'wait_for_event',
+      data: { eventType: 'sunny', timeout: '30 seconds', onEventNode: 's', onTimeoutNode: 'late' },
+    }
+    seed(wait, irNode('s'), irNode('late'))
+    useWorkflowStore.setState({
+      edges: [
+        { id: 'e1', source: 'w', target: 's', label: 'onEvent' },
+        { id: 'e2', source: 'w', target: 'late', label: 'onTimeout' },
+      ],
+    } as never)
+  }
+
+  it('clears the field of an arm whose connection is deleted', () => {
+    seedWait()
+    useWorkflowStore.getState().onEdgesChange([{ type: 'remove', id: 'e1' }])
+    expect(dataOf('w')).toMatchObject({ onEventNode: '', onTimeoutNode: 'late' })
+  })
+
+  it('clears the field naming a removed node', () => {
+    seedWait()
+    useWorkflowStore.getState().removeNode('late')
+    expect(dataOf('w')).toMatchObject({ onEventNode: 's', onTimeoutNode: '' })
+  })
+})

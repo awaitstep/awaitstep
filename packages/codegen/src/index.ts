@@ -158,7 +158,7 @@ export {
   stepModuleProblem,
   stepModuleProblems,
 } from './step-module.js'
-export { insertNode, insertStep } from './graph-edit.js'
+export { followWaitArm, insertNode, insertStep } from './graph-edit.js'
 export type { InsertStepResult, NewNode, NewStep, StepPlacement } from './graph-edit.js'
 export { removeNode, removalBlocker } from './graph-remove.js'
 export type { EmptiedArm, GraphShape, RemoveNodeResult, RenamedNode } from './graph-remove.js'

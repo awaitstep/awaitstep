@@ -11,13 +11,19 @@ import {
   type OnEdgesChange,
   type Connection,
 } from '@xyflow/react'
+import { withoutWaitArmTo } from '@awaitstep/ir'
 import type { ResourceDeclaration, WorkflowNode, NodeType, WorkflowMetadata } from '@awaitstep/ir'
 import { validateWorkflowForPublish, type PublishValidationResult } from '../lib/validate-workflow'
 import { fallbackPosition } from '../lib/hydrate-workflow'
 import type { NodeRegistry } from '@awaitstep/ir'
 import { simulateWorkflow, type SimulationResult } from '../lib/simulate-workflow'
 import { customAlphabet } from 'nanoid'
-import { computeVarNames, followStepFunctionNames, stepModuleTemplate } from '@awaitstep/codegen'
+import {
+  computeVarNames,
+  followStepFunctionNames,
+  followWaitArm,
+  stepModuleTemplate,
+} from '@awaitstep/codegen'
 import { buildIRFromState } from '../lib/build-ir'
 import { configDefaults } from '../lib/node-defaults'
 import { stepCodeForInline } from '../lib/step-inline'
@@ -238,6 +244,24 @@ interface WorkflowState {
   setWorkflowId: (id: string | null) => void
   markClean: () => void
   reset: () => void
+}
+
+/** `nodes` with the wait `sourceId`'s `label` arm field cleared if it names `target`. */
+function withWaitArmCleared(
+  nodes: FlowNode[],
+  sourceId: string,
+  target: string,
+  label: string,
+): FlowNode[] {
+  let changed = false
+  const next = nodes.map((n) => {
+    if (n.id !== sourceId) return n
+    const cleared = withoutWaitArmTo(n.data.irNode, target, label)
+    if (cleared === n.data.irNode) return n
+    changed = true
+    return { ...n, data: { ...n.data, irNode: cleared } }
+  })
+  return changed ? next : nodes
 }
 
 function createDefaultNode(
@@ -540,8 +564,19 @@ export const useWorkflowStore = create<WorkflowState>()(
         if (changes.length === 0) return
         const dirtyTypes = new Set(['add', 'remove', 'replace'])
         const hasDirtyChange = changes.some((c) => dirtyTypes.has(c.type))
+        // A wait also names each arm's node in a field the code follows: a
+        // deleted arm connection takes that field with it.
+        const removed = new Set(changes.filter((c) => c.type === 'remove').map((c) => c.id))
+        let nodes = get().nodes
+        for (const edge of get().edges) {
+          if (!removed.has(edge.id)) continue
+          const label = typeof edge.label === 'string' ? edge.label : undefined
+          if (label === undefined) continue
+          nodes = withWaitArmCleared(nodes, edge.source, edge.target, label)
+        }
         set({
           edges: applyEdgeChanges(changes, get().edges),
+          ...(nodes !== get().nodes && { nodes }),
           ...(hasDirtyChange && { isDirty: true }),
         })
       },
@@ -638,8 +673,16 @@ export const useWorkflowStore = create<WorkflowState>()(
           { id: nanoid(), source: edge.source, target: irNode.id, label: edge.label },
           { id: nanoid(), source: irNode.id, target: edge.target },
         )
+        // A wait also names its arm's first node in a field the generated code
+        // reads first: it moves to the new node, or the new node is skipped.
+        const label = typeof edge.label === 'string' ? edge.label : undefined
+        const withArm = nodes.map((n) => {
+          if (n.id !== edge.source) return n
+          const moved = followWaitArm(n.data.irNode, label, edge.target, irNode.id)
+          return moved === n.data.irNode ? n : { ...n, data: { ...n.data, irNode: moved } }
+        })
 
-        set({ nodes: [...nodes, flowNode], edges: newEdges, isDirty: true })
+        set({ nodes: [...withArm, flowNode], edges: newEdges, isDirty: true })
       },
 
       updateNodeData: (nodeId, data) => {
@@ -724,11 +767,15 @@ export const useWorkflowStore = create<WorkflowState>()(
 
       removeNode: (nodeId) => {
         if (get().readOnly) return
+        // A wait whose arm field named the removed node no longer runs it.
+        const remaining = get()
+          .nodes.filter((n) => n.id !== nodeId)
+          .map((n) => {
+            const cleared = withoutWaitArmTo(n.data.irNode, nodeId)
+            return cleared === n.data.irNode ? n : { ...n, data: { ...n.data, irNode: cleared } }
+          })
         set({
-          nodes: withFollowedFunctionNames(
-            get().nodes,
-            get().nodes.filter((n) => n.id !== nodeId),
-          ),
+          nodes: withFollowedFunctionNames(get().nodes, remaining),
           edges: get().edges.filter((e) => e.source !== nodeId && e.target !== nodeId),
           selectedNodeId: get().selectedNodeId === nodeId ? null : get().selectedNodeId,
           isDirty: true,

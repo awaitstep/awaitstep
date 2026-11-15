@@ -655,6 +655,36 @@ describe('validateWorkflowForPublish', () => {
       const result = validateWorkflowForPublish(makeMetadata(), nodes, edges)
       expect(result.issues.filter((i) => i.nodeId === 'w1' && i.severity === 'error')).toEqual([])
     })
+
+    it('passes with a step after the wait', () => {
+      const { nodes, edges } = guarded({ onEventNode: 'on-event', onTimeoutNode: 'on-timeout' })
+      const after = makeStepNode('after', { name: 'After' })
+      const result = validateWorkflowForPublish(
+        makeMetadata(),
+        [...nodes, after],
+        [...edges, makeEdge('w1', 'after', 'then')],
+      )
+      expect(result.issues.filter((i) => i.nodeId === 'w1' && i.severity === 'error')).toEqual([])
+    })
+
+    it('errors on a second connection with the same label, or one with no label', () => {
+      const { nodes, edges } = guarded({ onEventNode: 'on-event', onTimeoutNode: 'on-timeout' })
+      const extra = makeStepNode('extra', { name: 'Extra' })
+      for (const label of ['onEvent', undefined]) {
+        const result = validateWorkflowForPublish(
+          makeMetadata(),
+          [...nodes, extra],
+          [...edges, makeEdge('w1', 'extra', label)],
+        )
+        expect(result.issues).toContainEqual(
+          expect.objectContaining({
+            nodeId: 'w1',
+            message:
+              'Wait for Event connects to an on-event path, an on-timeout path and what runs after them',
+          }),
+        )
+      }
+    })
   })
 
   // ── settings validation ──

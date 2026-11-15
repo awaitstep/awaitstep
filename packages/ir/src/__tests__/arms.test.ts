@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { isArmEdgeOf, validateArmsIntoJoins } from '../arms.js'
+import {
+  isArmEdgeOf,
+  openArmSlots,
+  validateArmsIntoJoins,
+  waitArmEdgeOverridden,
+  withoutWaitArmTo,
+} from '../arms.js'
 import { validateIR } from '../validate.js'
 import branchingWorkflow from './fixtures/branching-workflow.json'
 
@@ -126,5 +132,101 @@ describe('validateArmsIntoJoins', () => {
     expect(
       validateArmsIntoJoins(branchingWorkflow as Parameters<typeof validateArmsIntoJoins>[0]),
     ).toEqual([])
+  })
+})
+
+describe('openArmSlots', () => {
+  const exists = () => true
+
+  it('lists a wait’s missing arms and its way on after them', () => {
+    const wait = { type: 'wait_for_event', data: {} }
+    expect(openArmSlots(wait, [{ label: 'onEvent' }], exists)).toEqual([
+      { label: 'onTimeout' },
+      { label: 'then' },
+    ])
+    expect(
+      openArmSlots(wait, [{ label: 'onEvent' }, { label: 'onTimeout' }, { label: 'then' }], exists),
+    ).toEqual([])
+  })
+
+  it('counts a wait arm chosen in its field as filled, unless the node is gone', () => {
+    const wait = { type: 'wait_for_event', data: { onTimeoutNode: 'late' } }
+    const filled = [{ label: 'onEvent' }, { label: 'then' }]
+    expect(openArmSlots(wait, filled, exists)).toEqual([])
+    expect(openArmSlots(wait, filled, () => false)).toEqual([{ label: 'onTimeout' }])
+  })
+
+  it('lists a loop’s body and then, and a try/catch’s missing arms in order', () => {
+    expect(openArmSlots({ type: 'loop', data: {} }, [], exists)).toEqual([
+      { label: 'body' },
+      { label: 'then' },
+    ])
+    expect(
+      openArmSlots({ type: 'try_catch', data: {} }, [{ label: 'try' }, { label: 'then' }], exists),
+    ).toEqual([{ label: 'catch' }, { label: 'finally' }])
+  })
+
+  it('lists each branch condition with no connection, once', () => {
+    const branch = {
+      type: 'branch',
+      data: {
+        branches: [
+          { label: 'yes', condition: 'a' },
+          { label: 'no', condition: '' },
+          { label: 'no', condition: '' },
+        ],
+      },
+    }
+    expect(openArmSlots(branch, [{ label: 'yes' }], exists)).toEqual([
+      { label: 'no' },
+      { label: 'then' },
+    ])
+  })
+
+  it('always offers a parallel or race a new arm', () => {
+    expect(
+      openArmSlots({ type: 'parallel', data: {} }, [{}, {}, { label: 'then' }], exists),
+    ).toEqual([{ label: null }])
+    expect(openArmSlots({ type: 'race', data: {} }, [], exists)).toEqual([
+      { label: null },
+      { label: 'then' },
+    ])
+  })
+
+  it('gives a plain node nothing', () => {
+    expect(openArmSlots({ type: 'step', data: {} }, [], exists)).toEqual([])
+  })
+})
+
+describe('waitArmEdgeOverridden', () => {
+  const exists = () => true
+  const wait = { type: 'wait_for_event', data: { onEventNode: 'other' } }
+
+  it('is true only when the field names another node that exists', () => {
+    expect(waitArmEdgeOverridden(wait, { label: 'onEvent', target: 's' }, exists)).toBe(true)
+    expect(waitArmEdgeOverridden(wait, { label: 'onEvent', target: 'other' }, exists)).toBe(false)
+    expect(waitArmEdgeOverridden(wait, { label: 'onEvent', target: 's' }, () => false)).toBe(false)
+    expect(waitArmEdgeOverridden(wait, { label: 'onTimeout', target: 's' }, exists)).toBe(false)
+    expect(
+      waitArmEdgeOverridden({ type: 'loop', data: {} }, { label: 'body', target: 's' }, exists),
+    ).toBe(false)
+  })
+})
+
+describe('withoutWaitArmTo', () => {
+  const wait = { type: 'wait_for_event', data: { onEventNode: 'x', onTimeoutNode: 'x' } }
+
+  it('clears every field naming the node, or only the arm given', () => {
+    expect(withoutWaitArmTo(wait, 'x').data).toEqual({ onEventNode: '', onTimeoutNode: '' })
+    expect(withoutWaitArmTo(wait, 'x', 'onTimeout').data).toEqual({
+      onEventNode: 'x',
+      onTimeoutNode: '',
+    })
+  })
+
+  it('returns the same node when nothing names it', () => {
+    expect(withoutWaitArmTo(wait, 'y')).toBe(wait)
+    const step = { type: 'step', data: {} }
+    expect(withoutWaitArmTo(step, 'x')).toBe(step)
   })
 })
