@@ -90,7 +90,7 @@ export function configureMonaco(monaco: Monaco): void {
   defineAwaitstepThemes(monaco)
   void remeasureWhenCodeFontLoads(monaco)
 
-  const ts = monaco.languages.typescript
+  const ts = monaco.typescript
   for (const defaults of [ts.typescriptDefaults, ts.javascriptDefaults]) {
     defaults.setCompilerOptions(baseCompilerOptions())
     defaults.setDiagnosticsOptions(diagnosticsOptions(false))
@@ -121,7 +121,7 @@ export function setProjectDiagnostics(
   project: { reportUnresolvedImports: boolean } | null,
 ): void {
   configureMonaco(monaco)
-  const ts = monaco.languages.typescript
+  const ts = monaco.typescript
   const options = diagnosticsOptions(project?.reportUnresolvedImports ?? false)
   ts.typescriptDefaults.setDiagnosticsOptions(options)
   ts.javascriptDefaults.setDiagnosticsOptions(options)
@@ -134,7 +134,7 @@ export function setProjectDiagnostics(
  * Re-applying the diagnostics options is Monaco's own signal to re-check all.
  */
 export function revalidateModels(monaco: Monaco): void {
-  const ts = monaco.languages.typescript
+  const ts = monaco.typescript
   for (const defaults of [ts.typescriptDefaults, ts.javascriptDefaults]) {
     defaults.setDiagnosticsOptions(defaults.getDiagnosticsOptions())
   }
@@ -143,7 +143,7 @@ export function revalidateModels(monaco: Monaco): void {
 /** The two language services (each mirrors only its own language's models) as extra-lib hosts. */
 export function languageHosts(monaco: Monaco): LanguageHosts {
   configureMonaco(monaco)
-  const ts = monaco.languages.typescript
+  const ts = monaco.typescript
   return { typescript: ts.typescriptDefaults, javascript: ts.javascriptDefaults }
 }
 
@@ -160,7 +160,7 @@ export function setProjectCompilerOptions(
   project: Record<string, unknown> | null,
 ): void {
   configureMonaco(monaco)
-  const ts = monaco.languages.typescript
+  const ts = monaco.typescript
   const options = { ...baseCompilerOptions(), ...project }
   ts.typescriptDefaults.setCompilerOptions(options)
   ts.javascriptDefaults.setCompilerOptions(options)

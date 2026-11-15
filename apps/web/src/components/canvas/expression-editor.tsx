@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Braces } from 'lucide-react'
 import * as Popover from '@radix-ui/react-popover'
 import type { editor } from 'monaco-editor'
@@ -22,8 +22,7 @@ import {
 import { useMonacoTheme } from '../../lib/monaco/theme'
 import { debounce } from '../../lib/debounce'
 import { cn } from '../../lib/utils'
-
-const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+import { MonacoEditor } from '../../lib/monaco/runtime'
 
 const EXPRESSION_EDITOR_OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   fontSize: 12,

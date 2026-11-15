@@ -121,7 +121,7 @@ let schemaRegistered = false
 export function registerNodeJsonSchema(monaco: Monaco): void {
   if (schemaRegistered) return
   schemaRegistered = true
-  const json = monaco.languages.json.jsonDefaults
+  const json = monaco.json.jsonDefaults
   const current = json.diagnosticsOptions
   json.setDiagnosticsOptions({
     ...current,

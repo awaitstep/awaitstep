@@ -113,7 +113,7 @@ let last: { monaco: Monaco; dts: string } | undefined
 export function setWorkflowTypeContext(monaco: Monaco, dts: string): void {
   if (last && last.monaco === monaco && last.dts === dts) return
   last = { monaco, dts }
-  const ts = monaco.languages.typescript
+  const ts = monaco.typescript
   ts.typescriptDefaults.addExtraLib(dts, WORKFLOW_CONTEXT_LIB_URI)
   ts.javascriptDefaults.addExtraLib(dts, WORKFLOW_CONTEXT_LIB_URI)
 }

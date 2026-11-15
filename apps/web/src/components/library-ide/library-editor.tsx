@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef } from 'react'
+import { Suspense, useRef } from 'react'
 import type { editor } from 'monaco-editor'
 import { useShallow } from 'zustand/react/shallow'
 import { fileLanguage } from '../../lib/ide/file-tree'
@@ -11,8 +11,7 @@ import type { LibrarySourceFile } from '../../hooks/use-library-sources'
 import { EditorTabs } from '../ide/editor-tabs'
 import { EditorPlaceholder } from '../ide/editor-placeholder'
 import { LibraryFileBanner } from './library-file-banner'
-
-const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+import { MonacoEditor } from '../../lib/monaco/runtime'
 
 interface LibraryEditorProps {
   root: string

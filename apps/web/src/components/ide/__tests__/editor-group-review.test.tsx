@@ -9,13 +9,14 @@ import { makeReviewBindings, sourceFile } from './fixtures/review-bindings'
 
 vi.mock('@monaco-editor/react', () => ({
   default: ({ path }: { path: string }) => <div data-testid="monaco">{path}</div>,
-  useMonaco: () => null,
 }))
 vi.mock('../review-view', () => ({ ReviewView: () => <div data-testid="review-view" /> }))
 vi.mock('../compare-view', () => ({
   CompareView: ({ path }: { path: string }) => <div data-testid="compare-view">{path}</div>,
 }))
-vi.mock('../../../lib/monaco/theme', () => ({ useMonacoTheme: () => 'vs' }))
+vi.mock('../../../lib/monaco/theme', () => ({
+  useMonacoTheme: () => 'vs',
+}))
 vi.mock('../../../lib/monaco/use-workflow-type-context', () => ({
   useWorkflowTypeContext: () => undefined,
 }))

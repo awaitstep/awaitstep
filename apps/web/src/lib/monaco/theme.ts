@@ -1,8 +1,6 @@
-import { loader } from '@monaco-editor/react'
 import type { Monaco } from '@monaco-editor/react'
 import { useThemeStore } from '../../stores/theme-store'
 import type { Theme } from '../theme'
-import { remeasureWhenCodeFontLoads } from './code-font'
 import { composite, parseColor, toHex } from './color'
 
 /**
@@ -111,19 +109,6 @@ export function defineAwaitstepThemes(monaco: Pick<Monaco, 'editor'>): void {
 /** Test seam: forget which Monaco instances already have the themes. */
 export function resetDefinedThemes(): void {
   defined = new WeakSet<object>()
-}
-
-// Editors without a `beforeMount` hook (e.g. the playground response panes)
-// still need the themes before they mount; Monaco loads once, and this runs
-// ahead of every editor's own continuation on that load.
-if (typeof window !== 'undefined') {
-  void loader.init().then(
-    (monaco) => {
-      defineAwaitstepThemes(monaco)
-      void remeasureWhenCodeFontLoads(monaco)
-    },
-    () => {},
-  )
 }
 
 /** The Monaco theme matching the app's current theme. */

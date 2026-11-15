@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
-import { afterEach } from 'vitest'
+import { afterEach, vi } from 'vitest'
 
 // Vitest runs without globals, so testing-library cannot register its own cleanup.
 afterEach(cleanup)
@@ -19,3 +19,17 @@ Element.prototype.hasPointerCapture ??= function hasPointerCapture() {
   return false
 }
 Element.prototype.releasePointerCapture ??= function releasePointerCapture() {}
+
+// The bundled Monaco is browser-only. Tests get the runtime as jsdom had it
+// before the bundle: no instance from `useMonaco`, and editor components
+// taken straight from `@monaco-editor/react`, which tests replace.
+vi.mock('../lib/monaco/runtime', async () => {
+  const { lazy } = await import('react')
+  const editorModule = () => import('@monaco-editor/react')
+  return {
+    loadMonaco: () => new Promise(() => {}),
+    useMonaco: () => null,
+    MonacoEditor: lazy(editorModule),
+    MonacoDiffEditor: lazy(() => editorModule().then((m) => ({ default: m.DiffEditor }))),
+  }
+})

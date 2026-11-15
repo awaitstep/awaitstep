@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { Suspense } from 'react'
 import { AlertTriangle, Code2, Copy, X } from 'lucide-react'
 import { actionToast } from '../../lib/action-toast'
 import { fileLanguage } from '../../lib/ide/file-tree'
@@ -7,8 +7,7 @@ import { READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { configureMonaco } from '../../lib/monaco/setup'
 import { useMonacoTheme } from '../../lib/monaco/theme'
 import { useGeneratedEntry } from '../../hooks/use-generated-entry'
-
-const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+import { MonacoEditor } from '../../lib/monaco/runtime'
 
 interface CodePreviewProps {
   onClose: () => void

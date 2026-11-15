@@ -1,10 +1,9 @@
-import { lazy, Suspense, useState } from 'react'
+import { Suspense, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { StatusBadge } from './playground-badges'
 import { READONLY_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { useMonacoTheme } from '../../lib/monaco/theme'
-
-const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+import { MonacoEditor } from '../../lib/monaco/runtime'
 
 const readOnlyEditorOptions = {
   ...READONLY_EDITOR_OPTIONS,

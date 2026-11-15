@@ -51,9 +51,10 @@ vi.mock('@monaco-editor/react', () => ({
       />
     )
   },
-  useMonaco: () => null,
 }))
-vi.mock('../../../lib/monaco/theme', () => ({ useMonacoTheme: () => 'vs' }))
+vi.mock('../../../lib/monaco/theme', () => ({
+  useMonacoTheme: () => 'vs',
+}))
 vi.mock('../../../hooks/use-min-width', () => ({ useMinWidth: () => true }))
 vi.mock('@tanstack/react-router', () => ({
   useBlocker: () => ({ status: 'idle' }),

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from '../lib/monaco/runtime'
 import { disposeWorkflowModels, syncWorkflowModels } from '../lib/monaco/models'
 import { projectRootOptions, tsconfigEditorOptions } from '../lib/monaco/project-config'
 import { disposeProjectLibs, syncProjectLibs } from '../lib/monaco/project-libs'

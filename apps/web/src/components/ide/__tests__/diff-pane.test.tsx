@@ -70,9 +70,15 @@ vi.mock('@monaco-editor/react', async () => {
     }, [])
     return <div data-testid="monaco-diff" />
   }
-  return { DiffEditor: MockDiff, default: () => null, useMonaco: () => null }
+  return {
+    DiffEditor: MockDiff,
+    default: () => null,
+    useMonaco: () => null,
+  }
 })
-vi.mock('../../../lib/monaco/theme', () => ({ useMonacoTheme: () => 'vs' }))
+vi.mock('../../../lib/monaco/theme', () => ({
+  useMonacoTheme: () => 'vs',
+}))
 
 function renderPane(overrides: Partial<React.ComponentProps<typeof DiffPane>> = {}) {
   const props: React.ComponentProps<typeof DiffPane> = {

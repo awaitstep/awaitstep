@@ -6,7 +6,7 @@ import { useProjectLanguageService } from '../use-project-language-service'
 const monaco = vi.hoisted(() => ({ current: null as unknown }))
 const acquisition = vi.hoisted(() => ({ files: [] as ReadonlyMap<string, unknown>[] }))
 
-vi.mock('@monaco-editor/react', () => ({ useMonaco: () => monaco.current }))
+vi.mock('../../lib/monaco/runtime', () => ({ useMonaco: () => monaco.current }))
 vi.mock('../../lib/monaco/theme', () => ({ defineAwaitstepThemes: vi.fn() }))
 vi.mock('../../lib/monaco/code-font', () => ({
   remeasureWhenCodeFontLoads: () => Promise.resolve(),
@@ -74,14 +74,12 @@ function fakeMonaco() {
       getEditors: () => [],
     },
     Uri: { parse: (value: string) => value },
-    languages: {
-      typescript: {
-        typescriptDefaults,
-        javascriptDefaults,
-        // Monaco's own enums: no ES2022 member.
-        ScriptTarget: { ES2015: 2, ES2017: 4, ES2020: 7, ESNext: 99 },
-        ModuleKind: { ESNext: 99 },
-      },
+    typescript: {
+      typescriptDefaults,
+      javascriptDefaults,
+      // Monaco's own enums: no ES2022 member.
+      ScriptTarget: { ES2015: 2, ES2017: 4, ES2020: 7, ESNext: 99 },
+      ModuleKind: { ESNext: 99 },
     },
   }
 }

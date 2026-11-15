@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from '../lib/monaco/runtime'
 import { collectProblems, type Problem } from '../lib/ide/problems'
 import { parseWorkflowModelPath } from '../lib/monaco/setup'
 

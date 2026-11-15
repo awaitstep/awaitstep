@@ -30,8 +30,8 @@ function apply(monaco: Monaco, id: ProviderTypeId): void {
   if (id === null) return
   const source = id === 'cloudflare' ? CLOUDFLARE_TYPE_PACK : ''
   if (!source) return
-  const dispose = monaco.languages.typescript.typescriptDefaults.addExtraLib(source, LIB_URI)
-  const disposeJs = monaco.languages.typescript.javascriptDefaults.addExtraLib(source, LIB_URI)
+  const dispose = monaco.typescript.typescriptDefaults.addExtraLib(source, LIB_URI)
+  const disposeJs = monaco.typescript.javascriptDefaults.addExtraLib(source, LIB_URI)
   active = {
     id,
     monaco,

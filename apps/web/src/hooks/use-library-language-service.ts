@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from '../lib/monaco/runtime'
 import {
   libraryAcquisitionFiles,
   libraryRootOptions,

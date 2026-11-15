@@ -55,9 +55,14 @@ vi.mock('@monaco-editor/react', async () => {
     }, [path])
     return <div data-testid="monaco">{path}</div>
   }
-  return { default: MockEditor, useMonaco: () => null }
+  return {
+    default: MockEditor,
+    useMonaco: () => null,
+  }
 })
-vi.mock('../../../lib/monaco/theme', () => ({ useMonacoTheme: () => 'vs' }))
+vi.mock('../../../lib/monaco/theme', () => ({
+  useMonacoTheme: () => 'vs',
+}))
 vi.mock('../../../lib/monaco/use-workflow-type-context', () => ({
   useWorkflowTypeContext: () => undefined,
 }))

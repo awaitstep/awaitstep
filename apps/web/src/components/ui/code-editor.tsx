@@ -1,12 +1,11 @@
-import { lazy, Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { Suspense, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { debounce } from '../../lib/debounce'
 import { configureMonaco } from '../../lib/monaco/setup'
 import { BASE_EDITOR_OPTIONS, FULLSCREEN_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { useMonacoTheme } from '../../lib/monaco/theme'
-
-const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+import { MonacoEditor } from '../../lib/monaco/runtime'
 
 interface CodeEditorProps {
   value: string

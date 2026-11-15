@@ -16,7 +16,7 @@ function fakeMonaco() {
   return {
     libs,
     monaco: {
-      languages: { typescript: { typescriptDefaults: host, javascriptDefaults: host } },
+      typescript: { typescriptDefaults: host, javascriptDefaults: host },
     } as never,
   }
 }

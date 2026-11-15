@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from './runtime'
 import { useShallow } from 'zustand/react/shallow'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useNodeRegistry } from '../../contexts/node-registry-context'

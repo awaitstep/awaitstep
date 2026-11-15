@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useMonaco } from '@monaco-editor/react'
+import { useMonaco } from './runtime'
 import { languageHosts } from './setup'
 import { planAcquisition, type AcquisitionPlan } from './type-acquisition'
 import { TypeLibRegistry } from './type-registry'

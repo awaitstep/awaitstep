@@ -38,6 +38,10 @@ export default defineConfig({
   optimizeDeps: {
     include: ['@monaco-editor/react', 'monaco-editor'],
   },
+  // Monaco's language workers are ES modules (lib/monaco/bundled-monaco.ts).
+  worker: {
+    format: 'es',
+  },
   ssr: {
     noExternal: isProduction ? true : undefined,
     // Monaco is browser-only. On Node SSR we mark it external; on CF we rely on

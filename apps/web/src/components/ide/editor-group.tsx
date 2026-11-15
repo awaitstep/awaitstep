@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef } from 'react'
+import { Suspense, useCallback, useEffect, useRef } from 'react'
 import type { editor } from 'monaco-editor'
 import type { GeneratedFile } from '@awaitstep/codegen'
 import { useShallow } from 'zustand/react/shallow'
@@ -27,8 +27,7 @@ import { ReviewView } from './review-view'
 import { EditorTabs } from './editor-tabs'
 import { RestoredDraftsBanner } from './restored-drafts-banner'
 import { RunButton, type RunButtonProps } from './run-button'
-
-const MonacoEditor = lazy(() => import('@monaco-editor/react'))
+import { MonacoEditor } from '../../lib/monaco/runtime'
 
 interface EditorGroupProps {
   workflowId: string

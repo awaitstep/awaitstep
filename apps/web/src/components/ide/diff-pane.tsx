@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState } from 'react'
+import { Suspense, useMemo, useRef, useState } from 'react'
 import type { Monaco } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import { fileLanguage } from '../../lib/ide/file-tree'
@@ -7,10 +7,7 @@ import { IDE_EDITOR_OPTIONS } from '../../lib/monaco/options'
 import { configureMonaco, workflowModelPath } from '../../lib/monaco/setup'
 import { useMonacoTheme } from '../../lib/monaco/theme'
 import { useIdeStore } from '../../stores/ide-store'
-
-const MonacoDiff = lazy(() =>
-  import('@monaco-editor/react').then((m) => ({ default: m.DiffEditor })),
-)
+import { MonacoDiffEditor as MonacoDiff } from '../../lib/monaco/runtime'
 
 /** What the header drives in the diff. */
 export interface DiffPaneApi {
