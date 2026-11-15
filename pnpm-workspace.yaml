@@ -41,6 +41,12 @@ overrides:
   lodash-es: '>=4.18.1'
   next: '>=16.2.6'
 
+# vitepress-plugin-mermaid 2.0.17 (latest) declares mermaid 10 || 11; it only
+# calls initialize/render/registerExternalDiagrams, unchanged in 12.
+peerDependencyRules:
+  allowedVersions:
+    vitepress-plugin-mermaid>mermaid: '12'
+
 # Native/binary postinstall scripts pnpm 12 blocks unless allowlisted.
 allowBuilds:
   better-sqlite3: true
