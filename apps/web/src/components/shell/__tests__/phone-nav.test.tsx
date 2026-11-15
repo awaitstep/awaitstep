@@ -107,7 +107,7 @@ describe('Project menu', () => {
     expect(
       within(dialog).getByRole('link', { name: 'Project Project 101, switch project' }),
     ).toBeInTheDocument()
-    expect(within(dialog).getByRole('link', { name: 'Project' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('link', { name: 'Manage project' })).toBeInTheDocument()
     expect(within(dialog).getByRole('link', { name: 'New' })).toBeInTheDocument()
   })
 

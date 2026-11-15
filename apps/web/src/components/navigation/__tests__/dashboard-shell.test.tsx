@@ -297,7 +297,7 @@ describe('DashboardShell', () => {
       'href',
       '/acme/project-101/sales/overview',
     )
-    expect(screen.getByRole('link', { name: 'Project' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Manage project' })).toHaveAttribute(
       'href',
       '/acme/project-101/workspaces',
     )
