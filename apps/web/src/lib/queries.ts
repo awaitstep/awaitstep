@@ -51,6 +51,13 @@ export function createQueries(client: ApiClient) {
           queryFn: () => client.getWorkflowSource(workflowId, versionId),
           retry: false,
         }),
+      /** The Library modules the edited code imports (`slugs` sorted), as the next deploy resolves them. */
+      libraryModules: (workflowId: string, slugs: readonly string[]) =>
+        queryOptions({
+          queryKey: ['workflow-library-modules', workflowId, slugs] as const,
+          queryFn: () => client.getWorkflowLibraryModules(workflowId, slugs),
+          retry: false,
+        }),
       handlerConversion: (workflowId: string) =>
         queryOptions({
           queryKey: ['workflow-handler-conversion', workflowId] as const,

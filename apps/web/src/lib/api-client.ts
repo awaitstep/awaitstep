@@ -304,6 +304,19 @@ export interface BundledLibraryModule {
   version: string
 }
 
+/**
+ * The Library modules a workflow's code imports, saved or not, resolved as
+ * its next deploy would resolve them (`GET …/source/modules?slugs=`).
+ */
+export interface EditorLibraryModules {
+  /** Every module the imports reach, at their published versions. */
+  modules: BundledLibraryModule[]
+  /** Their files under `modules/<slug>/`, without hashes: Library code is not the workflow's to write. */
+  files: GeneratedFile[]
+  /** Why an import would not resolve or ship; empty when every one would. */
+  diagnostics: SourceDiagnostic[]
+}
+
 /** A published custom node a workflow can place: its registry definition and where it comes from. */
 export interface WorkflowCustomNode {
   itemId: string
@@ -667,6 +680,11 @@ export function createApiClient(scope: () => ApiScope) {
     getWorkflowSource(id: string, versionId?: string): Promise<WorkflowSource> {
       const params = versionId ? `?versionId=${encodeURIComponent(versionId)}` : ''
       return request(withProject(`/workflows/${pathSegment(id)}/source${params}`))
+    },
+
+    getWorkflowLibraryModules(id: string, slugs: readonly string[]): Promise<EditorLibraryModules> {
+      const query = `?slugs=${slugs.map(encodeURIComponent).join(',')}`
+      return request(withProject(`/workflows/${pathSegment(id)}/source/modules${query}`))
     },
 
     /**

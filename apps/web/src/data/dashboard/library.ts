@@ -205,14 +205,16 @@ export function usePublishLibraryItem(place: LibraryPlace) {
 
 /**
  * What a publish changes outside the Library: every workflow's palette,
- * code preview, bundled modules and "redeploy to pick it up" lines. By
+ * code preview, bundled modules (saved, and those only unsaved code
+ * imports) and "redeploy to pick it up" lines. By
  * prefix, since any workflow in reach may use the item.
  */
-function invalidateWorkflowLibraryReads(client: QueryClient): Promise<unknown> {
+export function invalidateWorkflowLibraryReads(client: QueryClient): Promise<unknown> {
   const prefixes = new Set([
     'workflow-custom-nodes',
     'workflow-custom-node-templates',
     'workflow-source',
+    'workflow-library-modules',
   ])
   return client.invalidateQueries({
     predicate: (query) => {

@@ -31,6 +31,13 @@ describe('API paths built from ids', () => {
     expect(url).not.toContain('#')
   })
 
+  it('asks for the library modules of a workflow as one comma-separated list', async () => {
+    await api.getWorkflowLibraryModules(HOSTILE, ['fmt', 'solo'])
+    expect(requested()).toContain(
+      `/workflows/${encodeURIComponent(HOSTILE)}/source/modules?slugs=fmt,solo&projectId=prj_1`,
+    )
+  })
+
   it('encodes nested ids as well', async () => {
     await api.getWorkflowRun('../projects/p1', 'r/1')
     expect(requested()).toContain('/workflows/..%2Fprojects%2Fp1/runs/r%2F1?projectId=prj_1')

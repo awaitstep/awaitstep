@@ -127,6 +127,19 @@ export function setProjectDiagnostics(
   ts.javascriptDefaults.setDiagnosticsOptions(options)
 }
 
+/**
+ * Re-checks every model. Monaco checks a model when it is added and when it
+ * changes, never the models that import it: an importer keeps "Cannot find
+ * module" after the module's files arrive, and keeps none after they go.
+ * Re-applying the diagnostics options is Monaco's own signal to re-check all.
+ */
+export function revalidateModels(monaco: Monaco): void {
+  const ts = monaco.languages.typescript
+  for (const defaults of [ts.typescriptDefaults, ts.javascriptDefaults]) {
+    defaults.setDiagnosticsOptions(defaults.getDiagnosticsOptions())
+  }
+}
+
 /** The two language services (each mirrors only its own language's models) as extra-lib hosts. */
 export function languageHosts(monaco: Monaco): LanguageHosts {
   configureMonaco(monaco)

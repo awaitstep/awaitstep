@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import {
   createWorkspaceClient,
   seedWorkspaceQueries,
@@ -333,5 +333,80 @@ describe('useWorkspaceData: what a Save would refuse', () => {
     const { result } = setup(undefined, { ir: waitIr })
     const messages = result.current.problemGroups.saved.map(({ problem }) => problem.message)
     expect(messages).toContain('Wait: Choose the node to run when the wait times out')
+  })
+})
+
+describe('useWorkspaceData with a Library import only unsaved code makes', () => {
+  const SOLO = {
+    modules: [{ itemId: 'i-solo', slug: 'solo', owner: 'workspace', version: '1.0.0' }],
+    files: [{ path: 'modules/solo/index.ts', source: 'export const a = 1\n', role: 'module' }],
+    diagnostics: [],
+  }
+
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  function setupWithAnswers(answers: [string[], unknown][]) {
+    const client = createWorkspaceClient()
+    seedWorkspaceQueries(client)
+    for (const [slugs, answer] of answers) {
+      client.setQueryData(['workflow-library-modules', WORKFLOW_ID, slugs], answer)
+    }
+    return renderHook(() => useWorkspaceData(WORKFLOW_ID, undefined), {
+      wrapper: workspaceWrapper(client),
+    })
+  }
+
+  function type(source: string) {
+    act(() => useIdeStore.getState().setDraft('workflow.ts', source, 'h1'))
+  }
+
+  function pause() {
+    act(() => vi.advanceTimersByTime(1000))
+  }
+
+  it('lays the module in once typing pauses, read-only and labelled as Library code', () => {
+    const { result } = setupWithAnswers([[['solo'], SOLO]])
+    type("import { a } from '#modules/solo'\n")
+    expect(result.current.files.has('modules/solo/index.ts')).toBe(false)
+    pause()
+    expect(result.current.files.get('modules/solo/index.ts')?.source).toBe('export const a = 1\n')
+    expect(result.current.libraryFiles.get('modules/solo/index.ts')?.slug).toBe('solo')
+    expect(result.current.editabilityOf('modules/solo/index.ts').readOnly).toBe(true)
+    expect(result.current.projectPaths.has('modules/solo/index.ts')).toBe(false)
+    expect(result.current.dirty.has('modules/solo/index.ts')).toBe(false)
+  })
+
+  it('lists why an import would not resolve with the problems', () => {
+    const message =
+      'Cannot resolve "#modules/nope": no module of that name in this workspace or the project'
+    const { result } = setupWithAnswers([
+      [['nope'], { modules: [], files: [], diagnostics: [{ source: 'library', message }] }],
+    ])
+    type("import { a } from '#modules/nope'\n")
+    pause()
+    expect(JSON.stringify(result.current.problemGroups)).toContain(JSON.stringify(message))
+  })
+
+  it('drops the module again once the import is gone', () => {
+    const { result } = setupWithAnswers([[['solo'], SOLO]])
+    type("import { a } from '#modules/solo'\n")
+    pause()
+    expect(result.current.files.has('modules/solo/index.ts')).toBe(true)
+    type('export {}\n')
+    pause()
+    expect(result.current.files.has('modules/solo/index.ts')).toBe(false)
+  })
+
+  it('lays in nothing in an older version, where nothing can be edited', () => {
+    const client = createWorkspaceClient()
+    seedWorkspaceQueries(client, { versionParam: 'v-1' })
+    client.setQueryData(['workflow-library-modules', WORKFLOW_ID, ['solo']], SOLO)
+    useIdeStore.getState().setDraft('workflow.ts', "import { a } from '#modules/solo'\n", 'h1')
+    const { result } = renderHook(() => useWorkspaceData(WORKFLOW_ID, 'v-1'), {
+      wrapper: workspaceWrapper(client),
+    })
+    pause()
+    expect(result.current.baseline.has('modules/solo/index.ts')).toBe(false)
   })
 })

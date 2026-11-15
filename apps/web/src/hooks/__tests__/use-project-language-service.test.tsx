@@ -40,9 +40,13 @@ class FakeModel {
 }
 
 function languageDefaults() {
+  let diagnostics: unknown = {}
   return {
     setCompilerOptions: vi.fn(),
-    setDiagnosticsOptions: vi.fn(),
+    setDiagnosticsOptions: vi.fn((options: unknown) => {
+      diagnostics = options
+    }),
+    getDiagnosticsOptions: () => diagnostics,
     setEagerModelSync: vi.fn(),
     addExtraLib: vi.fn((_content: string, _uri: string) => ({ dispose: vi.fn() })),
   }
@@ -211,5 +215,31 @@ describe('useProjectLanguageService', () => {
     expect(fake.models.every((m) => m.disposed)).toBe(true)
     expect(lastCompilerOptions(fake).baseUrl).toBeUndefined()
     expect(lastIgnoredCodes(fake)).toEqual(MUTED_DIAGNOSTIC_CODES)
+  })
+
+  it('re-checks every file when a file appears or goes, not when one only changes', () => {
+    const fake = fakeMonaco()
+    monaco.current = fake
+    const view = renderHook(
+      (props: { files: ReadonlyMap<string, { source: string }> }) =>
+        useProjectLanguageService('wf', props.files, { reportUnresolvedImports: true }),
+      { initialProps: { files } },
+    )
+    const checks = () => fake.typescriptDefaults.setDiagnosticsOptions.mock.calls.length
+    const before = checks()
+    const edited = new Map(files)
+    edited.set('lib/x.ts', { source: 'export const x = 2' })
+    view.rerender({ files: edited })
+    expect(checks()).toBe(before)
+
+    // A Library module laid in for an unsaved import: its importer must be re-checked.
+    const withModule = new Map(edited)
+    withModule.set('modules/solo/index.ts', { source: 'export const a = 1' })
+    view.rerender({ files: withModule })
+    expect(checks()).toBe(before + 1)
+    expect(lastIgnoredCodes(fake)).not.toContain(2307)
+
+    view.rerender({ files: edited })
+    expect(checks()).toBe(before + 2)
   })
 })

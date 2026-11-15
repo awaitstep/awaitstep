@@ -5,6 +5,7 @@ import { projectRootOptions, tsconfigEditorOptions } from '../lib/monaco/project
 import { disposeProjectLibs, syncProjectLibs } from '../lib/monaco/project-libs'
 import {
   languageHosts,
+  revalidateModels,
   setProjectCompilerOptions,
   setProjectDiagnostics,
 } from '../lib/monaco/setup'
@@ -61,8 +62,13 @@ export function useProjectLanguageService(
 ): void {
   const monaco = useMonaco()
 
+  // A file that appears or goes can change what another file's imports
+  // resolve to (a Library module laid in for an unsaved import), and Monaco
+  // re-checks only the file itself: every model is re-checked then.
   useEffect(() => {
-    if (monaco) syncWorkflowModels(monaco, workflowId, files)
+    if (!monaco) return
+    const { created, disposed } = syncWorkflowModels(monaco, workflowId, files)
+    if (created.length > 0 || disposed.length > 0) revalidateModels(monaco)
   }, [monaco, workflowId, files])
 
   // Everything below restarts the language workers when it changes, so it

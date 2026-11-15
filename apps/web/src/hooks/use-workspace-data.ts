@@ -23,16 +23,23 @@ import { applyFileOps, newFilePaths, vacatedPaths, type PendingFileOp } from '..
 import { editedVersion, pendingNodeIds, pendingStepPaths, waitingOps } from '../lib/ide/graph-ops'
 import { formatClock } from '../lib/ide/session-log'
 import { deriveReadOnlyState } from '../lib/hydrate-workflow'
-import type { SourceFile } from '../lib/api-client'
+import type { BundledLibraryModule, SourceFile } from '../lib/api-client'
 import { useApiReady, useQueries } from '../contexts/api-client-context'
 import { useIdeStore } from '../stores/ide-store'
 import { useDraftOverlay } from './use-draft-overlay'
+import { useUnsavedLibraryModules } from './use-unsaved-library-modules'
+import {
+  libraryRoots,
+  withEditorLibrary,
+  withEditorLibraryDiagnostics,
+} from '../lib/ide/unsaved-library'
 import { useWorkspaceProblems } from './use-workspace-problems'
 import { usePendingGenerated } from './use-pending-generated'
 import { withPendingGenerated } from '../lib/ide/pending-generated'
 import { saveCheck, saveErrors } from '../lib/ide/save-check'
 
 const EMPTY_FILES: ReadonlyMap<string, SourceFile> = new Map()
+const NO_MODULES: readonly BundledLibraryModule[] = []
 const NO_FILE_OPS: readonly PendingFileOp[] = []
 const PENDING_GENERATED_MESSAGE =
   'Generated from the graph, with your unsaved changes. Save to keep them.'
@@ -151,7 +158,7 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   )
   const virtualPaths = useMemo(() => new Set(seeds.map((f) => f.path)), [seeds])
 
-  const baseline = useMemo(() => {
+  const savedFiles = useMemo(() => {
     if (!source || !loaded) return EMPTY_FILES
     const loadedFiles = new Map<string, SourceFile>(source.files.map((file) => [file.path, file]))
     const owned = new Set([...storedPaths, ...seeds.map((seed) => seed.path)])
@@ -163,6 +170,26 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     for (const step of steps.files) map.set(step.path, step)
     return applyFileOps(map, shownFileOps)
   }, [source, loaded, seeds, steps, shownFileOps, pendingCode, storedPaths])
+  // While the edited code imports a module the saved code does not, the
+  // Library comes from the editor's own resolve of the edited imports (as the
+  // next deploy would bundle them): the import resolves before the save.
+  const roots = useMemo(
+    () => libraryRoots(savedFiles, drafts, savedProjectPaths),
+    [savedFiles, drafts, savedProjectPaths],
+  )
+  const editedLibrary = useUnsavedLibraryModules(workflowId, roots, canEdit)
+  const baseline = useMemo(
+    () =>
+      editedLibrary
+        ? withEditorLibrary(
+            savedFiles,
+            source?.library ?? NO_MODULES,
+            editedLibrary,
+            savedProjectPaths,
+          )
+        : savedFiles,
+    [savedFiles, source, editedLibrary, savedProjectPaths],
+  )
   const { files, projectPaths, ghostPaths } = useDraftOverlay(baseline, drafts, savedProjectPaths)
   // Stored files only (neither a virtual seed nor a step source is counted by
   // the server); it changes when files do, not with every keystroke.
@@ -192,8 +219,8 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
   // Trees only depend on which files exist, so a keystroke never rebuilds them.
   // The Library modules the bundle carries, by file: read-only here.
   const libraryFiles = useMemo(
-    () => libraryFilesOf(baseline.keys(), source?.library ?? []),
-    [baseline, source],
+    () => libraryFilesOf(baseline.keys(), editedLibrary?.modules ?? source?.library ?? []),
+    [baseline, source, editedLibrary],
   )
   const libraryPaths = useMemo(() => new Set(libraryFiles.keys()), [libraryFiles])
   const trees = useMemo(() => {
@@ -216,7 +243,9 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
     [version, isHistorical],
   )
   const savedProblems = useMemo(() => {
-    const server = diagnosticProblems(source?.diagnostics ?? [])
+    const server = diagnosticProblems(
+      withEditorLibraryDiagnostics(source?.diagnostics ?? [], editedLibrary),
+    )
     // The server words some of the same checks its own way (a cycle, a node
     // not connected, a name clash): where it already reports on a node (or
     // on the graph), its finding stands and the save check's isn't repeated.
@@ -241,7 +270,7 @@ export function useWorkspaceData(workflowId: string, versionParam: string | unde
         ...(issue.nodeId !== null && { nodeId: issue.nodeId }),
       }))
     return [...server, ...unsaved, ...stepCollisionProblems(steps.collisions)]
-  }, [source, steps, saveIssues])
+  }, [source, steps, saveIssues, editedLibrary])
   const problemGroups = useMemo(
     () => groupProblems(markers, savedProblems, dirty, (nodeId) => stepSourceByNode.get(nodeId)),
     [markers, savedProblems, dirty, stepSourceByNode],
