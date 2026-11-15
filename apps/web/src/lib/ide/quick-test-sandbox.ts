@@ -1,8 +1,10 @@
 import { WORKER_ALIVE } from './quick-test'
+import { QUICK_TEST_SANDBOX_SRC } from './quick-test-sandbox-page'
 
 /**
  * The quick-test isolation boundary: a sandboxed iframe with an opaque
- * origin, hosting the worker that runs the step.
+ * origin, hosting the worker that runs the step. The iframe loads the
+ * sandbox page (quick-test-sandbox-page.ts), which holds the bootstrap.
  *
  * The iframe carries `sandbox="allow-scripts"` and nothing else — no
  * `allow-same-origin` — so the browser gives it a null origin: the step code
@@ -31,44 +33,21 @@ export interface QuickTestSandboxCallbacks {
 }
 
 /**
- * How long the bootstrap gets to say 'ready'. It only has to parse one inline
- * script and open a port, so a quiet three seconds means something — a CSP or
- * an extension blocking the srcdoc script — and the user should hear that,
- * not "the step did not finish".
+ * How long the sandbox page gets to load. It is a network fetch — a cold
+ * Worker or a slow link can take seconds — so it gets its own, generous
+ * budget; a page that never loads (offline, blocked) still fails, as
+ * "unavailable" rather than as a step that did not finish.
+ */
+export const SANDBOX_LOAD_TIMEOUT_MS = 15_000
+
+/**
+ * How long the bootstrap gets to say 'ready', counted from the page's
+ * `load`: by then the page is here, and its script only has to run and open
+ * a port, so a quiet three seconds means something — a CSP or an extension
+ * blocking the sandbox page's script — and the user should hear that, not
+ * "the step did not finish".
  */
 export const SANDBOX_BOOT_TIMEOUT_MS = 3_000
-
-// Runs inside the opaque origin. It only relays: user code executes in the
-// worker, never in this window — and even this window could not reach the
-// app's API, which is the point of the opaque origin. Worker errors are
-// relayed as they come, an empty message included; the page decides what an
-// undescribed one means.
-const BOOTSTRAP_HTML =
-  `<!doctype html><meta charset="utf-8"><script>
-window.onmessage = function (e) {
-  if (!e.data || e.data.type !== 'init' || !e.ports[0]) return;
-  window.onmessage = null;
-  var port = e.ports[0];
-  var worker;
-  try {
-    var url = URL.createObjectURL(new Blob([e.data.workerSource], { type: 'text/javascript' }));
-    worker = new Worker(url);
-  } catch (err) {
-    port.postMessage({ type: 'sandbox-unavailable', message: String((err && err.message) || err) });
-    return;
-  }
-  worker.onmessage = function (we) { port.postMessage({ type: 'worker', data: we.data }); };
-  worker.onerror = function (we) {
-    port.postMessage({ type: 'worker-error', message: we.message || '' });
-  };
-  port.onmessage = function (pe) {
-    if (!pe.data) return;
-    if (pe.data.type === 'start') worker.postMessage(pe.data.args);
-    if (pe.data.type === 'stop') worker.terminate();
-  };
-  port.postMessage({ type: 'ready' });
-};
-</scr` + `ipt>`
 
 interface BootstrapMessage {
   type: 'ready' | 'worker' | 'worker-error' | 'sandbox-unavailable'
@@ -89,7 +68,10 @@ export function createQuickTestSandbox(
   // origin stays opaque. Nothing may ever add allow-same-origin here.
   iframe.setAttribute('sandbox', 'allow-scripts')
   iframe.style.display = 'none'
-  iframe.srcdoc = BOOTSTRAP_HTML
+  // Its own page, under its own policy (quick-test-sandbox-page.ts); the
+  // sandbox attribute is set first, so the page never loads without it.
+  // Fingerprinted, so the browser may cache it across runs and deploys.
+  iframe.src = QUICK_TEST_SANDBOX_SRC
 
   const channel = new MessageChannel()
   let pendingArgs: unknown | undefined
@@ -97,16 +79,20 @@ export function createQuickTestSandbox(
   let destroyed = false
   let workerAlive = false
 
-  const bootTimer = setTimeout(() => {
+  let bootTimer: ReturnType<typeof setTimeout> | undefined
+  let loadTimedOut = false
+  const loadTimer = setTimeout(() => {
     if (ready || destroyed) return
-    callbacks.onUnavailable('the sandbox didn’t boot; a content security policy may block it')
-  }, SANDBOX_BOOT_TIMEOUT_MS)
+    loadTimedOut = true
+    callbacks.onUnavailable('the sandbox page didn’t load')
+  }, SANDBOX_LOAD_TIMEOUT_MS)
 
   channel.port1.onmessage = (event: MessageEvent<BootstrapMessage>) => {
     if (destroyed) return
     const message = event.data
     if (message.type === 'ready') {
       ready = true
+      clearTimeout(loadTimer)
       clearTimeout(bootTimer)
       if (pendingArgs !== undefined) {
         channel.port1.postMessage({ type: 'start', args: pendingArgs })
@@ -143,7 +129,13 @@ export function createQuickTestSandbox(
   iframe.addEventListener(
     'load',
     () => {
-      if (destroyed) return
+      // Already reported as unavailable: a page arriving late starts nothing.
+      if (destroyed || loadTimedOut) return
+      clearTimeout(loadTimer)
+      bootTimer = setTimeout(() => {
+        if (ready || destroyed) return
+        callbacks.onUnavailable('the sandbox didn’t boot; a content security policy may block it')
+      }, SANDBOX_BOOT_TIMEOUT_MS)
       const target = iframe.contentWindow
       if (!target) {
         callbacks.onUnavailable('the sandbox frame has no window')
@@ -173,6 +165,7 @@ export function createQuickTestSandbox(
     destroy() {
       if (destroyed) return
       destroyed = true
+      clearTimeout(loadTimer)
       clearTimeout(bootTimer)
       // Belt and braces: the bootstrap terminates the worker on 'stop', and
       // removing the iframe discards the document — and with it the worker —

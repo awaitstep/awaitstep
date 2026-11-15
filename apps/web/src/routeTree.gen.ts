@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as QuickTestSandboxDothtmlRouteImport } from './routes/quick-test-sandbox[.]html'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AuthedOrgRouteImport } from './routes/_authed/$org'
 import { Route as AuthedOrglessRouteImport } from './routes/_authed/_orgless'
@@ -78,6 +79,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QuickTestSandboxDothtmlRoute = QuickTestSandboxDothtmlRouteImport.update({
+  id: '/quick-test-sandbox.html',
+  path: '/quick-test-sandbox.html',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -414,6 +420,7 @@ const AuthedOrgProjectWorkspaceWorkflowsIdRunsRunIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/quick-test-sandbox.html': typeof QuickTestSandboxDothtmlRoute
   '/sign-in': typeof SignInRoute
   '/$org': typeof AuthedOrgRouteWithChildren
   '/choose-org': typeof AuthedChooseOrgRoute
@@ -475,6 +482,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/quick-test-sandbox.html': typeof QuickTestSandboxDothtmlRoute
   '/sign-in': typeof SignInRoute
   '/choose-org': typeof AuthedChooseOrgRoute
   '/dashboard': typeof AuthedDashboardRoute
@@ -534,6 +542,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
+  '/quick-test-sandbox.html': typeof QuickTestSandboxDothtmlRoute
   '/sign-in': typeof SignInRoute
   '/_authed/$org': typeof AuthedOrgRouteWithChildren
   '/_authed/_orgless': typeof AuthedOrglessRouteWithChildren
@@ -598,6 +607,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/quick-test-sandbox.html'
     | '/sign-in'
     | '/$org'
     | '/choose-org'
@@ -659,6 +669,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/quick-test-sandbox.html'
     | '/sign-in'
     | '/choose-org'
     | '/dashboard'
@@ -717,6 +728,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authed'
+    | '/quick-test-sandbox.html'
     | '/sign-in'
     | '/_authed/$org'
     | '/_authed/_orgless'
@@ -781,6 +793,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
+  QuickTestSandboxDothtmlRoute: typeof QuickTestSandboxDothtmlRoute
   SignInRoute: typeof SignInRoute
   InviteTokenRoute: typeof InviteTokenRoute
 }
@@ -799,6 +812,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/quick-test-sandbox.html': {
+      id: '/quick-test-sandbox.html'
+      path: '/quick-test-sandbox.html'
+      fullPath: '/quick-test-sandbox.html'
+      preLoaderRoute: typeof QuickTestSandboxDothtmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -1411,6 +1431,7 @@ const AuthedRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
+  QuickTestSandboxDothtmlRoute: QuickTestSandboxDothtmlRoute,
   SignInRoute: SignInRoute,
   InviteTokenRoute: InviteTokenRoute,
 }

@@ -14,3 +14,10 @@ export {
 export { MemoryImageStore } from './memory-store.js'
 export type { S3StoreOptions } from './s3-store.js'
 export { S3ImageStore } from './s3-store.js'
+export type { DashboardPolicyOptions } from './dashboard-policy.js'
+export {
+  DASHBOARD_POLICY_ORIGINS,
+  createCspNonce,
+  dashboardContentSecurityPolicy,
+  withDashboardPolicy,
+} from './dashboard-policy.js'

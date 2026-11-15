@@ -24,7 +24,7 @@ import {
 import { loadNodeRegistry } from '../lib/node-registry-fs.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
 import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
-import { DEFAULT_REGISTRY_URL, dashboardImgSrc } from '@awaitstep/storage'
+import { DEFAULT_REGISTRY_URL, withDashboardPolicy } from '@awaitstep/storage'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { startRunSyncLoop } from '../lib/run-sync.js'
 import {
@@ -275,16 +275,6 @@ async function start() {
   const webApp = new Hono()
   const webClientDir = resolve(__appRoot, 'apps/web/dist/client')
 
-  // Images load only from here, the GitHub and Google avatar hosts and the
-  // node registry (its icons).
-  const imgSrc = dashboardImgSrc(registryUrl)
-  webApp.use('*', async (c, next) => {
-    await next()
-    // A copy: the SSR server's response may hold immutable headers.
-    c.res = new Response(c.res.body, c.res)
-    c.res.headers.set('Content-Security-Policy', imgSrc)
-  })
-
   // Static assets (JS/CSS bundles, favicon, logo, etc.)
   webApp.use('/*', serveStatic({ root: webClientDir }))
 
@@ -304,7 +294,13 @@ async function start() {
     headers.delete(PROXY_CLIENT_HEADER)
     headers.set(PROXY_SECRET_HEADER, webHopSecret)
     if (client) headers.set(PROXY_CLIENT_HEADER, client)
-    return ssrServer.fetch(new Request(c.req.raw, { headers }))
+    const ssrRequest = new Request(c.req.raw, { headers })
+    // Pages carry the dashboard's Content-Security-Policy, its script nonce
+    // handed to the router as request context — never read from the request,
+    // so a client cannot choose it. Static assets above go out without one.
+    return withDashboardPolicy((nonce) => ssrServer.fetch(ssrRequest, { context: { nonce } }), {
+      registryUrl,
+    })
   })
 
   serve({ fetch: webApp.fetch, port: webPort })

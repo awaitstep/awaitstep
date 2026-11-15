@@ -106,23 +106,32 @@ export async function runQuickTest(opts: {
   try {
     return await new Promise<QuickTestResult>((resolve) => {
       const timeoutMs = opts.timeoutMs ?? QUICK_TEST_TIMEOUT_MS
-      const timer = setTimeout(() => {
-        settle({
-          status: 'timeout',
-          result: '',
-          error: {
-            message: `The step didn’t finish within ${Math.round(timeoutMs / 1000)}s and was stopped.`,
-          },
-          logs,
-          durationMs: since(),
-        })
-      }, timeoutMs)
+      // The step's budget, started when the step is handed over: loading the
+      // sandbox page is a network fetch with budgets of its own
+      // (quick-test-sandbox.ts), and must not eat the step's time.
+      let timer: ReturnType<typeof setTimeout> | undefined
+      let settled = false
+      function startStepTimer() {
+        if (settled) return
+        timer = setTimeout(() => {
+          settle({
+            status: 'timeout',
+            result: '',
+            error: {
+              message: `The step didn’t finish within ${Math.round(timeoutMs / 1000)}s and was stopped.`,
+            },
+            logs,
+            durationMs: since(),
+          })
+        }, timeoutMs)
+      }
 
       function handleAbort() {
         settle({ status: 'aborted', result: '', error: null, logs, durationMs: since() })
       }
 
       function settle(result: QuickTestResult) {
+        settled = true
         clearTimeout(timer)
         opts.signal?.removeEventListener('abort', handleAbort)
         resolve(result)
@@ -181,6 +190,7 @@ export async function runQuickTest(opts: {
           onUnavailable: handleUnavailable,
           onStarted() {
             startedAt = Date.now()
+            startStepTimer()
           },
         })
       } catch (err) {

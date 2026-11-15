@@ -13,6 +13,7 @@ import { QueryProvider } from '../lib/query-provider'
 import { showCarriedToast } from '../lib/action-toast'
 import { Toaster } from '../components/ui/toaster'
 import { isCanvasRoute } from '../lib/shell-routes'
+import { ZOD_JITLESS_SCRIPT } from '../lib/zod-jitless'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -29,6 +30,8 @@ export const Route = createRootRoute({
         href: '/favicon.ico',
       },
     ],
+    // Before the app's modules: no Zod schema may probe for `eval`.
+    scripts: [{ children: ZOD_JITLESS_SCRIPT }],
   }),
   component: RootComponent,
 })
