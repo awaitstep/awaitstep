@@ -460,10 +460,11 @@ export function createRouter(
   ]) {
     router.get(path, key('workflows', 'read'))
   }
-  // A workflow's custom nodes are Library code: a key needs to read both.
+  // A workflow's custom nodes and modules are Library code: a key needs to read both.
   for (const path of [
     '/workflows/:workflowId/custom-nodes',
     '/workflows/:workflowId/custom-nodes/templates',
+    '/workflows/:workflowId/source/modules',
   ]) {
     router.get(path, key('workflows', 'read'), key('library', 'read'))
   }

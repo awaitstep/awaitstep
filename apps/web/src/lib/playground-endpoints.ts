@@ -367,6 +367,19 @@ export const endpoints: EndpointDef[] = [
     bodyExample:
       '{\n  "files": [{ "path": "lib/retry.ts", "source": "export const retry = 3" }]\n}',
   },
+  {
+    id: 'get-source-library-modules',
+    group: 'Source',
+    method: 'GET',
+    path: '/api/workflows/:workflowId/source/modules',
+    label: 'Resolve the library modules code imports',
+    permission: 'workflows:read, library:read',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'slugs', in: 'query', required: true },
+    ],
+    hasBody: false,
+  },
 
   // Project files
   {

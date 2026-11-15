@@ -182,6 +182,12 @@ export function libraryIconError(source: string): string | null {
 // Bounded like a stored slug (64 characters): a longer one is no import.
 const SLUG = '[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?'
 const IMPORT_SPECIFIER = new RegExp(`(['"\`])#modules/(${SLUG})(?:/[^'"\`\\s]*)?\\1`, 'g')
+const MODULE_SLUG = new RegExp(`^${SLUG}$`)
+
+/** Whether `value` is a slug a `#modules/<slug>` import can name. */
+export function isLibraryModuleSlug(value: string): boolean {
+  return MODULE_SLUG.test(value)
+}
 
 /**
  * The module slugs the sources import as `#modules/<slug>` (or a subpath of

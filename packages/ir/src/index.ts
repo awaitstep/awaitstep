@@ -417,6 +417,7 @@ export {
   MAX_LIBRARY_IMPORTS,
   compareLibraryVersions,
   customNodeType,
+  isLibraryModuleSlug,
   isLibraryVersion,
   libraryFilePathError,
   libraryIconError,

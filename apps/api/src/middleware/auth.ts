@@ -1,6 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import type { Context } from 'hono'
 import { parseKeyPermissions } from '@awaitstep/ir'
+import type { WorkflowCustomNodeReach } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import type { Auth } from '../auth/config.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
@@ -134,6 +135,15 @@ export function isSession(c: Context<AppEnv>): boolean {
 /** The calling key's level — `null` for a session. */
 export function apiKeyLevel(c: Context<AppEnv>): 'organization' | 'project' | 'workspace' | null {
   return c.get('apiKey')?.level ?? null
+}
+
+/**
+ * Whose Library items the caller reaches from a workflow: a workspace key
+ * only its workspace's own (L1's rule for every Library route); a member or
+ * a project key the workflow's workspace and the project.
+ */
+export function libraryReachOf(c: Context<AppEnv>): WorkflowCustomNodeReach {
+  return apiKeyLevel(c) === 'workspace' ? 'workspace-only' : 'workspace-and-project'
 }
 
 /** The live project ids a project-level key reaches; empty for a session or the other levels. */

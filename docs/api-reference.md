@@ -1276,6 +1276,47 @@ save because the step files (`nodes/**`) are generated from it.
 
 An empty `versionId` query (`?versionId=`) counts as none asked for.
 
+### `GET /workflows/:workflowId/source/modules`
+
+The Library modules the workflow's code imports, saved or not, resolved from the workflow's place
+exactly as its next deploy would resolve them (see [Library in a deploy](#library-in-a-deploy)). The
+code workspace calls it while unsaved code imports a module the saved code does not, so the import
+resolves and type-checks before the save that brings the module into the bundle. Name every slug the
+code imports: one slug meaning two modules, and the bundle limits, are judged across all of them.
+Nothing is stored or recorded.
+
+**Permission:** `workflows:read` and `library:read`
+
+| Param        | In    | Required | Description                                                      |
+| ------------ | ----- | -------- | ---------------------------------------------------------------- |
+| `workflowId` | path  | yes      | Workflow ID                                                      |
+| `slugs`      | query | yes      | Comma-separated slugs, as written after `#modules/`; at most 100 |
+
+```json
+{
+  "modules": [{ "itemId": "li_7f…", "slug": "solo", "owner": "workspace", "version": "1.2.0" }],
+  "files": [
+    { "path": "modules/solo/index.ts", "source": "export const a = 1\n", "role": "module" }
+  ],
+  "diagnostics": []
+}
+```
+
+- `modules` is every module the slugs reach, those modules' own imports included, each at its latest
+  published version; `files` are their files under `modules/<slug>/`, without `package.json`, as the
+  bundle carries them.
+- A slug that would not resolve or ship is still `200`, with the deploy's own message in
+  `diagnostics` (`source: "library"`): no module of that name in this workspace or the project, a
+  module never published (none of its code is sent), one slug meaning two modules (neither is sent),
+  an import library code may not make, or more library code than one bundle may reach (nothing is
+  sent). The modules that do resolve are still returned.
+- Unlike a deploy it judges only the modules: not the workflow's own files under `modules/`, nor its
+  custom nodes.
+- A workspace-level key reaches its workspace's own modules only, as on every Library route: a
+  project module's slug answers "Cannot resolve" for it, and none of its code is sent.
+- No slugs, more than 100, or one that cannot name a module (uppercase, a leading or trailing `-`, a
+  `/`, over 64 characters) returns `400`.
+
 ### `POST /workflows/:workflowId/source/check`
 
 Everything `GET /source` finds, without the source. Built for the question

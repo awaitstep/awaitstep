@@ -3,6 +3,7 @@ import { libraryDuplicateFiles, withManifestFields } from '../library-duplicate.
 import { customNodeJsonSchema } from '../library-versions.js'
 import {
   compareLibraryVersions,
+  isLibraryModuleSlug,
   libraryFilePathError,
   libraryIconError,
   libraryBundlePath,
@@ -372,4 +373,17 @@ describe('library modules in a deploy bundle', () => {
   it('has no entries without modules', () => {
     expect(libraryImportsField([])).toEqual({})
   })
+})
+
+describe('isLibraryModuleSlug', () => {
+  it.each(['solo', 'lead-scoring', 'a', 'x1', 'a'.repeat(64)])('accepts %s', (slug) => {
+    expect(isLibraryModuleSlug(slug)).toBe(true)
+  })
+
+  it.each(['', 'Solo', '-solo', 'solo-', 'so lo', 'solo/x', '../solo', 'a'.repeat(65)])(
+    'refuses %j',
+    (slug) => {
+      expect(isLibraryModuleSlug(slug)).toBe(false)
+    },
+  )
 })

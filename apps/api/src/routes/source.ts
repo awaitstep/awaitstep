@@ -9,6 +9,9 @@ import {
   type JudgedState,
 } from '../lib/source-check.js'
 import { contentHash } from '@awaitstep/codegen'
+import { MAX_LIBRARY_IMPORTS, isLibraryModuleSlug } from '@awaitstep/ir'
+import { resolveEditorLibraryModules } from '../lib/library-editor-modules.js'
+import { libraryReachOf } from '../middleware/auth.js'
 import {
   BLANK_CHECKED,
   NO_VERSION_DIAGNOSTIC,
@@ -94,6 +97,31 @@ source.get('/:workflowId/source', async (c) => {
     // not be what the user expects.
     diagnostics: prepared.diagnostics,
   })
+})
+
+/**
+ * The Library modules the workflow's code imports, saved or not, resolved
+ * from its place exactly as its next deploy would: Code types an import
+ * that only unsaved code makes before the save that brings the module into
+ * the bundle. The caller names every slug its code imports, so one slug
+ * meaning two modules and the bundle limits are judged across all of them.
+ * An import that would not resolve or ship is an answer (`diagnostics`),
+ * not an error.
+ */
+source.get('/:workflowId/source/modules', async (c) => {
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const slugs = [...new Set((c.req.query('slugs') ?? '').split(',').filter(Boolean))]
+  if (slugs.length === 0) return c.json({ error: 'Name at least one module in slugs' }, 400)
+  if (slugs.length > MAX_LIBRARY_IMPORTS) {
+    return c.json({ error: `Name at most ${MAX_LIBRARY_IMPORTS} modules` }, 400)
+  }
+  if (!slugs.every(isLibraryModuleSlug)) {
+    return c.json({ error: 'Name modules by their slug: lowercase letters, digits and -' }, 400)
+  }
+  const place = { projectId: workflow.projectId, workspaceId: workflow.workspaceId }
+  const reach = libraryReachOf(c)
+  return c.json(await resolveEditorLibraryModules(c.get('db'), place, slugs.sort(), reach))
 })
 
 /**

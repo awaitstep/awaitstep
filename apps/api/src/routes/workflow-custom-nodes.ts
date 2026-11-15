@@ -1,4 +1,4 @@
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import {
   CUSTOM_NODE_TYPE_PREFIX,
   LIBRARY_NODE_MANIFEST,
@@ -6,9 +6,9 @@ import {
   validateCustomNodeManifest,
   type NodeDefinition,
 } from '@awaitstep/ir'
-import type { WorkflowCustomNode, WorkflowCustomNodeReach } from '@awaitstep/db'
+import type { WorkflowCustomNode } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
-import { apiKeyLevel } from '../middleware/auth.js'
+import { libraryReachOf } from '../middleware/auth.js'
 
 export const workflowCustomNodes = new Hono<AppEnv>()
 
@@ -32,15 +32,6 @@ function iconUrl(svg: string): string {
     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   }
   return `data:image/svg+xml;base64,${btoa(binary)}`
-}
-
-/**
- * Whose nodes the caller reaches: a workspace key only its workspaces' own
- * items (L1's rule for every Library route); a member or project key the
- * workflow's workspace and the project.
- */
-function reachOf(c: Context<AppEnv>): WorkflowCustomNodeReach {
-  return apiKeyLevel(c) === 'workspace' ? 'workspace-only' : 'workspace-and-project'
 }
 
 /** A version's manifest as the registry takes it, or null when it no longer parses. */
@@ -80,7 +71,7 @@ function toEntry(node: WorkflowCustomNode): CustomNodeEntryResponse | null {
 workflowCustomNodes.get('/:workflowId/custom-nodes', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
-  const nodes = await c.get('db').listWorkflowCustomNodes(workflow.id, reachOf(c))
+  const nodes = await c.get('db').listWorkflowCustomNodes(workflow.id, libraryReachOf(c))
   return c.json(nodes.flatMap((node) => toEntry(node) ?? []))
 })
 
@@ -118,7 +109,9 @@ workflowCustomNodes.get('/:workflowId/custom-nodes/templates', async (c) => {
   if (itemIds === null) {
     return c.json({ error: `Name at most ${MAX_TEMPLATE_TYPES} node types` }, 400)
   }
-  const rows = await c.get('db').listWorkflowCustomNodeTemplates(workflow.id, itemIds, reachOf(c))
+  const rows = await c
+    .get('db')
+    .listWorkflowCustomNodeTemplates(workflow.id, itemIds, libraryReachOf(c))
   const templates: Record<string, { cloudflare: string }> = {}
   for (const row of rows) {
     // The same rule as the listing: a version whose manifest no longer parses is left out.

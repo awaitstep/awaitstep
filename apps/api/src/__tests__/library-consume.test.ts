@@ -388,3 +388,171 @@ describe('a node’s icon on the Scripts & nodes page', () => {
     expect((await call(`/library/items/${withIcon}/icon`, {}, 'u-gus')).status).toBe(404)
   })
 })
+
+describe('the library modules a workflow’s code imports, for the editor', () => {
+  beforeEach(async () => {
+    h = createSqliteApp()
+    await seedAcme(h)
+  })
+
+  interface EditorModules {
+    modules: { itemId: string; slug: string; owner: string; version: string }[]
+    files: { path: string; source: string; role: string }[]
+    diagnostics: { source: string; message: string; path?: string }[]
+  }
+
+  const modulesOf = async (workflowId: string, slugs: string, user = 'u-ama') =>
+    call(`/workflows/${workflowId}/source/modules?${PROJECT}&slugs=${slugs}`, {}, user)
+
+  async function moduleIn(name: string, scope: string, files: Record<string, string>) {
+    const id = await createItem({ kind: 'module', name }, scope)
+    const slug = name.toLowerCase().replace(/\s+/g, '-')
+    await put(id, 'package.json', JSON.stringify({ name: slug, version: '1.0.0', type: 'module' }))
+    for (const [path, source] of Object.entries(files)) await put(id, path, source)
+    return id
+  }
+
+  it('serves the published files under modules/<slug>/, without its package.json', async () => {
+    const id = await publishedModule('Solo', '1.2.0', 'export const a = 1\n')
+    const res = await modulesOf('wf-sales', 'solo')
+    expect(res.status).toBe(200)
+    expect(await json<EditorModules>(res)).toEqual({
+      modules: [{ itemId: id, slug: 'solo', owner: 'workspace', version: '1.2.0' }],
+      files: [{ path: 'modules/solo/index.ts', source: 'export const a = 1\n', role: 'module' }],
+      diagnostics: [],
+    })
+  })
+
+  it('serves the published version, not the working copy edited since', async () => {
+    const id = await publishedModule('Solo', '1.2.0', 'export const a = 1\n')
+    await put(id, 'index.ts', 'export const a = 2\n')
+    const body = await json<EditorModules>(await modulesOf('wf-sales', 'solo'))
+    expect(body.files.map((f) => f.source)).toEqual(['export const a = 1\n'])
+  })
+
+  it('brings the modules they import in turn, and the project’s modules', async () => {
+    const base = await moduleIn('Base', PROJECT, { 'index.ts': 'export const b = 1\n' })
+    await publish(base)
+    const top = await moduleIn('Top', SALES, {
+      'index.ts': "export { b } from '#modules/base'\n",
+    })
+    await publish(top)
+    const body = await json<EditorModules>(await modulesOf('wf-sales', 'top'))
+    expect(body.diagnostics).toEqual([])
+    expect(body.modules.map((m) => [m.slug, m.owner])).toEqual([
+      ['base', 'project'],
+      ['top', 'workspace'],
+    ])
+    expect(body.files.map((f) => f.path).sort()).toEqual([
+      'modules/base/index.ts',
+      'modules/top/index.ts',
+    ])
+  })
+
+  it('judges one slug meaning two modules across every slug named, and ships neither', async () => {
+    // The workflow's own `fmt` is the workspace's; the project's `report` imports the project's `fmt`.
+    await publish(await moduleIn('Fmt', SALES, { 'index.ts': 'export const f = 1\n' }))
+    await publish(await moduleIn('Fmt', PROJECT, { 'index.ts': 'export const f = 2\n' }))
+    await publish(
+      await moduleIn('Report', PROJECT, { 'index.ts': "export { f } from '#modules/fmt'\n" }),
+    )
+    const body = await json<EditorModules>(await modulesOf('wf-sales', 'fmt,report'))
+    expect(body.diagnostics.map((d) => d.message)).toEqual([
+      '"#modules/fmt" means the project’s module for Report, but this workspace’s module for this workflow; rename one of them',
+    ])
+    expect(body.files.map((f) => f.path)).toEqual(['modules/report/index.ts'])
+  })
+
+  it('says so, as a deploy would, for a slug no module answers or another workspace owns', async () => {
+    await publish(await moduleIn('Ops only', OPS, { 'index.ts': 'export const o = 1\n' }))
+    const body = await json<EditorModules>(await modulesOf('wf-sales', 'nothing-here,ops-only'))
+    expect(body.files).toEqual([])
+    expect(body.diagnostics.map((d) => d.message)).toEqual([
+      'Cannot resolve "#modules/nothing-here": no module of that name in this workspace or the project',
+      'Cannot resolve "#modules/ops-only": no module of that name in this workspace or the project',
+    ])
+  })
+
+  it('says a module was never published, and sends none of its code', async () => {
+    await moduleIn('Draft', SALES, { 'index.ts': 'export const secretDraft = 1\n' })
+    const body = await json<EditorModules>(await modulesOf('wf-sales', 'draft'))
+    expect(body.modules).toEqual([])
+    expect(body.files).toEqual([])
+    expect(body.diagnostics.map((d) => d.message)).toEqual([
+      'Module "draft" has no published version yet; publish it to use it',
+    ])
+  })
+
+  it('refuses no slugs, too many, and what cannot be a module name', async () => {
+    expect((await modulesOf('wf-sales', '')).status).toBe(400)
+    const many = Array.from({ length: 101 }, (_, i) => `m${i}`).join(',')
+    expect((await modulesOf('wf-sales', many)).status).toBe(400)
+    for (const slugs of ['Solo', 'ok,-x', encodeURIComponent('../x')]) {
+      const res = await modulesOf('wf-sales', slugs)
+      expect(res.status).toBe(400)
+      // The refusal names the rule, not the input it was sent.
+      expect(await res.text()).not.toContain('..')
+    }
+  })
+
+  it('is not found for someone who cannot see the workflow; a viewer may read it', async () => {
+    await publishedModule('Solo', '1.0.0', 'export const a = 1\n')
+    expect((await modulesOf('wf-sales', 'solo', 'u-gus')).status).toBe(404)
+    expect((await modulesOf('wf-sales', 'solo', 'u-eve')).status).toBe(200)
+  })
+
+  it('needs library:read as well as workflows:read from a key, and stays in the key’s workspace', async () => {
+    await publishedModule('Solo', '1.0.0', 'export const a = 1\n')
+    const place = { level: 'workspace' as const, projectId: 'p-101', workspaceId: 'ws-sales' }
+    const bare = await h.seed.key('k-bare', 'u-ama', place, { workflows: ['read'] })
+    const both = await h.seed.key('k-both', 'u-ama', place, {
+      workflows: ['read'],
+      library: ['read'],
+    })
+    const ops = await h.seed.key(
+      'k-ops',
+      'u-ama',
+      { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-ops' },
+      { workflows: ['read'], library: ['read'] },
+    )
+    const url = (wf: string) => `/api/workflows/${wf}/source/modules?slugs=solo`
+    expect((await h.app.request(url('wf-sales'), bare)).status).toBe(403)
+    expect((await h.app.request(url('wf-sales'), both)).status).toBe(200)
+    expect((await h.app.request(url('wf-sales'), ops)).status).toBe(404)
+  })
+
+  it('gives a workspace key its workspace’s modules only, never the project’s code', async () => {
+    await publish(await moduleIn('Crm', PROJECT, { 'index.ts': 'export const projectOnly = 1\n' }))
+    await publish(
+      await moduleIn('Top', SALES, { 'index.ts': "export { projectOnly } from '#modules/crm'\n" }),
+    )
+    const sales = await h.seed.key(
+      'k-sales',
+      'u-ama',
+      { level: 'workspace', projectId: 'p-101', workspaceId: 'ws-sales' },
+      { workflows: ['read'], library: ['read'] },
+    )
+    const project = await h.seed.key(
+      'k-project',
+      'u-ama',
+      { level: 'project', projectId: 'p-101' },
+      { workflows: ['read'], library: ['read'] },
+    )
+    const read = async (auth: RequestInit) =>
+      json<EditorModules>(
+        await h.app.request('/api/workflows/wf-sales/source/modules?slugs=crm,top', auth),
+      )
+    const narrow = await read(sales)
+    expect(narrow.files.map((f) => f.path)).toEqual(['modules/top/index.ts'])
+    expect(JSON.stringify(narrow)).not.toContain('projectOnly = 1')
+    expect(narrow.diagnostics.map((d) => d.message)).toEqual([
+      'Cannot resolve "#modules/crm": no module of that name in this workspace or the project',
+      'top 1.0.0 imports "#modules/crm", which no module it can reach provides',
+    ])
+    const wide = await read(project)
+    expect(wide.files.map((f) => f.path).sort()).toEqual([
+      'modules/crm/index.ts',
+      'modules/top/index.ts',
+    ])
+  })
+})
