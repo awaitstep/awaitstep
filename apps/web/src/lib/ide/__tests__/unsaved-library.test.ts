@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import type { SourceDiagnostic, SourceFile } from '../../api-client'
 import type { Drafts } from '../drafts'
 import {
+  canvasLibraryRoots,
+  canvasSavedCode,
   libraryRoots,
   slugsToResolve,
   withEditorLibrary,
@@ -103,5 +105,19 @@ describe('withEditorLibraryDiagnostics', () => {
     expect(
       withEditorLibraryDiagnostics([unpublished, onNode, compile], { diagnostics: [unpublished] }),
     ).toEqual([onNode, compile, unpublished])
+  })
+})
+
+describe('canvasLibraryRoots', () => {
+  it('reads saved imports from the bundle’s code and edited ones from stored files and the canvas’s node code', () => {
+    const saved = canvasSavedCode([
+      { path: 'lib/x.ts', source: "import '#modules/fmt'", hash: 'h' },
+      { path: 'steps/s1.ts', source: "import '#modules/log'" },
+      { path: 'modules/fmt/index.ts', source: "import '#modules/inner'" },
+    ])
+    expect(canvasLibraryRoots(saved, ["import '#modules/solo'"])).toEqual({
+      saved: ['fmt', 'log'],
+      edited: ['fmt', 'solo'],
+    })
   })
 })

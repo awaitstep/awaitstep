@@ -310,7 +310,11 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
   return (
     <div ref={containerRef} className="h-full w-full">
       {workflowId !== null && (
-        <CanvasLanguageService workflowId={workflowId} versionParam={versionParam} />
+        <CanvasLanguageService
+          workflowId={workflowId}
+          versionParam={versionParam}
+          editable={!readOnly}
+        />
       )}
       <ReactFlow
         nodes={nodes}

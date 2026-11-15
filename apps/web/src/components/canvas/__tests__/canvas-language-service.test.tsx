@@ -1,9 +1,11 @@
 import { render, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { useWorkflowStore } from '../../../stores/workflow-store'
+import type { FlowNode } from '../../../stores/workflow-store'
 import { CanvasLanguageService } from '../canvas-language-service'
 
-const source = vi.hoisted(() => ({ get: vi.fn() }))
+const source = vi.hoisted(() => ({ get: vi.fn(), modules: vi.fn() }))
 const service = vi.hoisted(() => ({ calls: [] as unknown[][] }))
 
 vi.mock('../../../contexts/api-client-context', () => ({
@@ -14,10 +16,15 @@ vi.mock('../../../contexts/api-client-context', () => ({
         queryKey: ['workflow-source', workflowId, versionId],
         queryFn: () => source.get(workflowId, versionId),
       }),
+      libraryModules: (workflowId: string, slugs: readonly string[]) => ({
+        queryKey: ['workflow-library-modules', workflowId, slugs],
+        queryFn: () => source.modules(workflowId, slugs),
+      }),
     },
   }),
 }))
 vi.mock('../../../hooks/use-project-language-service', () => ({
+  WORKER_SYNC_DELAY_MS: 600,
   useProjectLanguageService: (...args: unknown[]) => {
     service.calls.push(args)
   },
@@ -25,7 +32,9 @@ vi.mock('../../../hooks/use-project-language-service', () => ({
 
 beforeEach(() => {
   source.get.mockReset()
+  source.modules.mockReset()
   service.calls.length = 0
+  useWorkflowStore.setState({ nodes: [] })
 })
 
 describe('CanvasLanguageService', () => {
@@ -43,7 +52,7 @@ describe('CanvasLanguageService', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
-        <CanvasLanguageService workflowId="wf" versionParam="v2" />
+        <CanvasLanguageService workflowId="wf" versionParam="v2" editable={false} />
       </QueryClientProvider>,
     )
     expect(source.get).toHaveBeenCalledWith('wf', 'v2')
@@ -73,7 +82,7 @@ describe('CanvasLanguageService', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
       <QueryClientProvider client={client}>
-        <CanvasLanguageService workflowId="wf" />
+        <CanvasLanguageService workflowId="wf" editable />
       </QueryClientProvider>,
     )
     await waitFor(() => {
@@ -83,5 +92,80 @@ describe('CanvasLanguageService', () => {
         'modules/lead-scoring/index.ts',
       ])
     })
+  })
+
+  it('fetches a module only a step’s unsaved code imports, and gives the editor its files', async () => {
+    source.get.mockResolvedValue({
+      versionId: 'v2',
+      files: [
+        { path: 'lib/x.ts', source: 'export const x = 1', role: 'module', hash: 'hx' },
+        { path: 'steps/s1.ts', source: 'return 1', role: 'module' },
+      ],
+      library: [],
+      diagnostics: [],
+    })
+    source.modules.mockResolvedValue({
+      modules: [{ itemId: 'i1', slug: 'solo', owner: 'workspace', version: '1.0.0' }],
+      files: [{ path: 'modules/solo/index.ts', source: 'export const a = 1', role: 'module' }],
+      diagnostics: [],
+    })
+    const step = {
+      id: 's1',
+      data: {
+        irNode: { id: 's1', type: 'step', data: { code: "import { a } from '#modules/solo'" } },
+      },
+    } as unknown as FlowNode
+    useWorkflowStore.setState({ nodes: [step] })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <CanvasLanguageService workflowId="wf" editable />
+      </QueryClientProvider>,
+    )
+    await waitFor(
+      () => {
+        const last = service.calls.at(-1)!
+        expect([...(last[1] as Map<string, unknown>).keys()]).toEqual([
+          'lib/x.ts',
+          'modules/solo/index.ts',
+        ])
+      },
+      { timeout: 3000 },
+    )
+    expect(source.modules).toHaveBeenCalledWith('wf', ['solo'])
+  })
+
+  it('asks for nothing while the canvas cannot be edited (an older version, view-only)', async () => {
+    source.get.mockResolvedValue({ versionId: 'v1', files: [], library: [], diagnostics: [] })
+    const step = {
+      id: 's1',
+      data: { irNode: { id: 's1', type: 'step', data: { code: "import '#modules/solo'" } } },
+    } as unknown as FlowNode
+    useWorkflowStore.setState({ nodes: [step] })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <CanvasLanguageService workflowId="wf" versionParam="v1" editable={false} />
+      </QueryClientProvider>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    expect(source.modules).not.toHaveBeenCalled()
+  })
+
+  it('asks for nothing before the saved bundle is known, so saved imports are not fetched again', async () => {
+    source.get.mockReturnValue(new Promise(() => {}))
+    const step = {
+      id: 's1',
+      data: { irNode: { id: 's1', type: 'step', data: { code: "import '#modules/solo'" } } },
+    } as unknown as FlowNode
+    useWorkflowStore.setState({ nodes: [step] })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <CanvasLanguageService workflowId="wf" editable />
+      </QueryClientProvider>,
+    )
+    await new Promise((resolve) => setTimeout(resolve, 900))
+    expect(source.modules).not.toHaveBeenCalled()
   })
 })

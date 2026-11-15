@@ -45,6 +45,31 @@ export function libraryRoots(
 }
 
 /**
+ * The canvas's saved side, read once per bundle: the imports of the bundle's
+ * own code (its step modules carry each node's saved code), and the stored
+ * files' sources, which stay part of what the canvas edits.
+ */
+export function canvasSavedCode(
+  bundle: readonly { path: string; source: string; hash?: string }[],
+): { slugs: string[]; stored: string[] } {
+  const code = bundle.filter(
+    (file) => isProjectCodePath(file.path) && !isLibraryBundlePath(file.path),
+  )
+  return {
+    slugs: libraryImportSlugs(code.map((file) => file.source)),
+    stored: code.filter((file) => file.hash !== undefined).map((file) => file.source),
+  }
+}
+
+/** The canvas's roots: as saved, and with each node's code as the canvas holds it now. */
+export function canvasLibraryRoots(
+  saved: { slugs: string[]; stored: string[] },
+  nodeCode: readonly string[],
+): LibraryRoots {
+  return { saved: saved.slugs, edited: libraryImportSlugs([...saved.stored, ...nodeCode]) }
+}
+
+/**
  * The slugs to resolve for the editor, or none: only when the edited code
  * imports something the saved code does not, and no more than one bundle
  * may name (a deploy reports that, on save).
