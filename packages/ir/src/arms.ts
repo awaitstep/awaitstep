@@ -232,6 +232,34 @@ export function armMergeTargets(
   return merges
 }
 
+/** Where a branch's or wait's arms meet, and whether an arm leads straight there. */
+export interface ArmJoin {
+  join: string
+  /** An arm leads straight into the join (its own row sits under that arm). */
+  straight: boolean
+}
+
+/**
+ * For every branch and wait whose arms all meet at one node, that node, by
+ * container id, the way codegen's `joinTarget` picks it: a node at least two
+ * connections lead into that every arm reaches, by leading straight into it
+ * or by its chain's last node connecting to it; of two such, the one an arm
+ * leads straight into. Generated code runs the join inside each arm, so a
+ * view that mirrors the code lists it under each arm. One pass over the graph.
+ */
+export function armJoins(
+  nodes: readonly ArmNode[],
+  edges: readonly ArmEdge[],
+): Map<string, ArmJoin> {
+  const index = armIndex(nodes, edges)
+  const joins = new Map<string, ArmJoin>()
+  for (const [containerId, arms] of index.arms) {
+    const join = index.joinOf(containerId)
+    if (join !== null) joins.set(containerId, { join, straight: arms.has(join) })
+  }
+  return joins
+}
+
 /** The node fields the arm rules read: a wait's arm fields win over its edges, as codegen reads them. */
 export interface ArmNode {
   id: string
@@ -259,6 +287,8 @@ interface ArmIndex {
   /** A wait's arms set only by its field, with no connection under that label to the node. */
   fieldArms: { source: string; target: string; label: string; field: string }[]
   mergesAt(containerId: string, join: string): boolean
+  /** Where the container's arms meet as codegen's `joinTarget` judges it, or null. */
+  joinOf(containerId: string): string | null
 }
 
 /**
@@ -378,6 +408,22 @@ function armIndex(nodes: readonly ArmNode[], edges: readonly ArmEdge[]): ArmInde
       if (result) result = (entries.get(join) ?? 0) === targets!.size
       judged.set(key, result)
       return result
+    },
+    joinOf(containerId) {
+      const targets = [...(arms.get(containerId) ?? [])]
+      if (targets.length < 2) return null
+      const successors = (id: string) => (outgoing.get(id) ?? []).map((edge) => edge.target)
+      const reaches = (target: string, join: string): boolean => {
+        if (target === join) return true
+        const end = chainEnd(target)
+        return end !== join && successors(end).includes(join)
+      }
+      const candidates = new Set([...targets, ...targets.flatMap((t) => successors(chainEnd(t)))])
+      const shared = [...candidates].filter(
+        (id) => (inDegree.get(id) ?? 0) >= 2 && targets.every((target) => reaches(target, id)),
+      )
+      const chosen = shared.length === 1 ? shared : shared.filter((id) => targets.includes(id))
+      return chosen.length === 1 ? chosen[0]! : null
     },
   }
 }

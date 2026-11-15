@@ -86,6 +86,8 @@ export type { ValidateNodeDataOptions } from './validate.js'
 export {
   CONTINUE_LABEL,
   WAIT_ARM_FIELDS,
+  armJoins,
+  type ArmJoin,
   armMergeTargets,
   type ArmEdge,
   type ArmNode,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  armJoins,
   armMergeTargets,
   isArmEdgeOf,
   openArmSlots,
@@ -389,5 +390,46 @@ describe('validateArmsIntoJoins: a wait arm set by its field alone', () => {
     expect(withField).toHaveLength(1)
     expect(withField[0]!.path).toBe('nodes.w.data.onEventNode')
     expect(withField[0]!.message).toContain('leads straight into')
+  })
+})
+
+describe('armJoins', () => {
+  const branch = {
+    id: 'b',
+    type: 'branch',
+    data: { branches: [{ label: 'a' }, { label: 'b' }] },
+  }
+
+  it('finds a join each arm reaches through its own steps, and one an arm leads straight into', () => {
+    const through = armJoins(
+      [branch, { id: 'a1', type: 'step' }, { id: 'b1', type: 'step' }, { id: 'j', type: 'step' }],
+      [
+        { source: 'b', target: 'a1', label: 'a' },
+        { source: 'b', target: 'b1', label: 'b' },
+        { source: 'a1', target: 'j' },
+        { source: 'b1', target: 'j' },
+      ],
+    )
+    expect(through.get('b')).toEqual({ join: 'j', straight: false })
+    const straight = armJoins(
+      [branch, { id: 'a1', type: 'step' }, { id: 'j', type: 'step' }],
+      [
+        { source: 'b', target: 'j', label: 'a' },
+        { source: 'b', target: 'a1', label: 'b' },
+        { source: 'a1', target: 'j' },
+      ],
+    )
+    expect(straight.get('b')).toEqual({ join: 'j', straight: true })
+  })
+
+  it('finds none when the arms never meet', () => {
+    const joins = armJoins(
+      [branch, { id: 'a1', type: 'step' }, { id: 'b1', type: 'step' }],
+      [
+        { source: 'b', target: 'a1', label: 'a' },
+        { source: 'b', target: 'b1', label: 'b' },
+      ],
+    )
+    expect(joins.size).toBe(0)
   })
 })

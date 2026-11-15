@@ -1,4 +1,4 @@
-import { CONTINUE_LABEL, armMergeTargets, isArmEdgeOf, labelledArmsOf } from '@awaitstep/ir'
+import { CONTINUE_LABEL, armJoins, isArmEdgeOf, labelledArmsOf } from '@awaitstep/ir'
 
 export interface OrderNode {
   id: string
@@ -94,8 +94,9 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
 
   const rows: StepRow[] = []
   const visited = new Set<string>()
-  // Read once: where each branch's and wait's arms meet, if one leads straight there.
-  const merges = armMergeTargets(nodes, edges)
+  // Read once: where each branch's and wait's arms meet (the generated code
+  // runs that node inside each arm), and whether an arm leads straight there.
+  const joins = armJoins(nodes, edges)
 
   const ready = (id: string): boolean => (incoming.get(id) ?? []).every((from) => visited.has(from))
   const isJoin = (id: string): boolean => (incoming.get(id) ?? []).length > 1
@@ -114,6 +115,12 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
     firstIsArm = false,
     /** The first node is entered though other paths reach it too (an arm into the merge). */
     enterJoin = false,
+    /**
+     * Walk only the chain codegen repeats inside each arm (its `collectChain`):
+     * through a block only by a `then` into a node nothing else reaches; any
+     * other way on is handed back to the level above.
+     */
+    chainOnly = false,
   ): string | null {
     if (depth > MAX_DEPTH) return null
     let id: string | null = startId
@@ -158,7 +165,11 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
       // the generated code runs that node inside each arm, so it shows as that
       // arm, not after the block. That arm is walked last (the others stop at
       // the merge first), then the arms are put back in their own order.
-      const merge = merges.get(node.id) ?? null
+      const join = joins.get(node.id) ?? null
+      const merge = join?.straight ? join.join : null
+      // Arms that each reach the join through steps of their own: the join's
+      // rows go under the first of them, and the rest run it again.
+      const reachedJoin = join && !join.straight ? join.join : null
       const ordered = merge
         ? [
             ...arms.filter((edge) => edge.target !== merge),
@@ -169,6 +180,7 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
       const endsAtMerge: StepRow[] = []
       let mergeRun: string[] = []
       const armRows = new Map<OrderEdge, StepRow[]>()
+      const armStops = new Map<OrderEdge, string | null>()
       for (const edge of ordered) {
         const intoMerge = edge.target === merge
         const armStart = rows.length
@@ -180,7 +192,9 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
           true,
           true,
           intoMerge,
+          intoMerge,
         )
+        armStops.set(edge, stoppedAt)
         if (stoppedAt !== null && !rejoin.includes(stoppedAt)) rejoin.push(stoppedAt)
         // An arm that ends at the merge runs it next, as the generated code does.
         if (merge !== null && !intoMerge && stoppedAt === merge) {
@@ -204,7 +218,46 @@ export function orderSteps(nodes: readonly OrderNode[], edges: readonly OrderEdg
         rows.length = firstArmRow
         for (const edge of arms) rows.push(...(armRows.get(edge) ?? []))
       }
+      if (reachedJoin !== null && rejoin.includes(reachedJoin) && !visited.has(reachedJoin)) {
+        // Only the arms that end at the join run it: an edge under a label
+        // that is not one of the container's arms runs nowhere in the code.
+        const reaching = arms.filter(
+          (edge) => armStops.get(edge) === reachedJoin && (armRows.get(edge) ?? []).length > 0,
+        )
+        const [first, ...others] = reaching
+        if (first) {
+          const joinStart = rows.length
+          const stoppedAt = walk(reachedJoin, depth + 1, id, null, true, false, true, true)
+          const joinRows = rows.splice(joinStart)
+          if (joinRows[0]) joinRows[0].continuesAbove = true
+          const run = joinRows.filter((row) => row.depth === depth + 1).map((row) => row.nodeId)
+          // The join's rows follow the first arm's own; each other arm ends by running them.
+          const firstRows = armRows.get(first) ?? []
+          const after = rows.indexOf(firstRows[firstRows.length - 1]!) + 1
+          rows.splice(after, 0, ...joinRows)
+          for (const edge of others) {
+            const own = (armRows.get(edge) ?? []).filter((row) => row.depth === depth + 1)
+            const last = own[own.length - 1]
+            if (last) last.thenRuns = run
+          }
+          rejoin.splice(rejoin.indexOf(reachedJoin), 1)
+          if (stoppedAt !== null && !rejoin.includes(stoppedAt)) rejoin.push(stoppedAt)
+        }
+      }
 
+      if (isFanOut && chainOnly) {
+        const then = onward.find(
+          (edge) => (incoming.get(edge.target) ?? []).length === 1 && !visited.has(edge.target),
+        )
+        if (then === undefined) {
+          const handBack = [...onward.map((e) => e.target), ...rejoin]
+          return handBack.find((c) => !visited.has(c)) ?? null
+        }
+        id = then.target
+        rejoined = true
+        fromAbove = true
+        continue
+      }
       if (isFanOut) {
         // Where the block ends: what it was told runs after it, or the node its
         // arms meet at. Either belongs here only when nothing outside this

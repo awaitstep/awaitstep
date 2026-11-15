@@ -353,6 +353,168 @@ describe('orderSteps: merged arms in the order the code runs them', () => {
     expect(rows.find((r) => r.nodeId === 'a1')?.thenRuns).toEqual(['j'])
   })
 
+  it('lists a merge every arm reaches through its own steps under the first arm, and runs it after the others', () => {
+    const rows = orderSteps(
+      [
+        {
+          id: 'b',
+          type: 'branch',
+          data: {
+            branches: [
+              { label: 'a', condition: 'x' },
+              { label: 'b', condition: '' },
+            ],
+          },
+        },
+        { id: 'a1', type: 'step' },
+        { id: 'b1', type: 'step' },
+        { id: 'j', type: 'step' },
+        { id: 'end', type: 'step' },
+      ],
+      [
+        { source: 'b', target: 'a1', label: 'a' },
+        { source: 'b', target: 'b1', label: 'b' },
+        { source: 'a1', target: 'j' },
+        { source: 'b1', target: 'j' },
+        { source: 'j', target: 'end' },
+      ],
+    )
+    // As workflow.ts runs it: j and end inside arm a after a1, and again after b1.
+    expect(rows.map((r) => [r.nodeId, r.depth, r.arm])).toEqual([
+      ['b', 0, null],
+      ['a1', 1, 'a'],
+      ['j', 1, null],
+      ['end', 1, null],
+      ['b1', 1, 'b'],
+    ])
+    expect(rows.find((r) => r.nodeId === 'j')?.continuesAbove).toBe(true)
+    expect(rows.find((r) => r.nodeId === 'b1')?.thenRuns).toEqual(['j', 'end'])
+    expect(rows.find((r) => r.nodeId === 'a1')?.thenRuns).toBeUndefined()
+  })
+
+  it('repeats only the chain codegen repeats: a block inside it whose arms meet again runs that meeting point once, after', () => {
+    const rows = orderSteps(
+      [
+        {
+          id: 'b',
+          type: 'branch',
+          data: { branches: [{ label: 'x' }, { label: 'y' }] },
+        },
+        { id: 'a1', type: 'step' },
+        { id: 'b1', type: 'step' },
+        { id: 'j', type: 'step' },
+        { id: 'p', type: 'parallel' },
+        { id: 'p1', type: 'step' },
+        { id: 'p2', type: 'step' },
+        { id: 'q', type: 'step' },
+      ],
+      [
+        { source: 'b', target: 'a1', label: 'x' },
+        { source: 'b', target: 'b1', label: 'y' },
+        { source: 'a1', target: 'j' },
+        { source: 'b1', target: 'j' },
+        { source: 'j', target: 'p' },
+        { source: 'p', target: 'p1' },
+        { source: 'p', target: 'p2' },
+        { source: 'p1', target: 'q' },
+        { source: 'p2', target: 'q' },
+      ],
+    )
+    // workflow.ts: each arm runs a1|b1, j, p{p1, p2}; q runs once after the if/else.
+    expect(rows.map((r) => [r.nodeId, r.depth])).toEqual([
+      ['b', 0],
+      ['a1', 1],
+      ['j', 1],
+      ['p', 1],
+      ['p1', 2],
+      ['p2', 2],
+      ['b1', 1],
+      ['q', 0],
+    ])
+    expect(rows.find((r) => r.nodeId === 'b1')?.thenRuns).toEqual(['j', 'p'])
+  })
+
+  it('stops a merge an arm leads straight into where codegen’s chain stops, too', () => {
+    const rows = orderSteps(
+      [
+        {
+          id: 'b',
+          type: 'branch',
+          data: { branches: [{ label: 'x' }, { label: 'y' }] },
+        },
+        { id: 'b1', type: 'step' },
+        { id: 'j', type: 'step' },
+        { id: 'p', type: 'parallel' },
+        { id: 'p1', type: 'step' },
+        { id: 'p2', type: 'step' },
+        { id: 'q', type: 'step' },
+      ],
+      [
+        { source: 'b', target: 'j', label: 'x' },
+        { source: 'b', target: 'b1', label: 'y' },
+        { source: 'b1', target: 'j' },
+        { source: 'j', target: 'p' },
+        { source: 'p', target: 'p1' },
+        { source: 'p', target: 'p2' },
+        { source: 'p1', target: 'q' },
+        { source: 'p2', target: 'q' },
+      ],
+    )
+    expect(rows.find((r) => r.nodeId === 'q')).toMatchObject({ depth: 0, parentId: null })
+    expect(rows.find((r) => r.nodeId === 'b1')?.thenRuns).toEqual(['j', 'p'])
+  })
+
+  it('runs the merge only on the branch’s own arms, not under a label that is not one of them', () => {
+    const rows = orderSteps(
+      [
+        {
+          id: 'b',
+          type: 'branch',
+          data: { branches: [{ label: 'x' }, { label: 'y' }] },
+        },
+        { id: 'z1', type: 'step' },
+        { id: 'a1', type: 'step' },
+        { id: 'b1', type: 'step' },
+        { id: 'j', type: 'step' },
+      ],
+      [
+        { source: 'b', target: 'z1', label: 'old' },
+        { source: 'b', target: 'a1', label: 'x' },
+        { source: 'b', target: 'b1', label: 'y' },
+        { source: 'a1', target: 'j' },
+        { source: 'b1', target: 'j' },
+      ],
+    )
+    const order = rows.map((r) => r.nodeId)
+    expect(order.indexOf('j')).toBe(order.indexOf('a1') + 1)
+    expect(rows.find((r) => r.nodeId === 'z1')?.thenRuns).toBeUndefined()
+    expect(rows.find((r) => r.nodeId === 'b1')?.thenRuns).toEqual(['j'])
+  })
+
+  it('lists a wait’s merge reached through each arm’s steps the same way', () => {
+    const rows = orderSteps(
+      [
+        { id: 'w', type: 'wait_for_event', data: {} },
+        { id: 'got', type: 'step' },
+        { id: 'late', type: 'step' },
+        { id: 'j', type: 'step' },
+      ],
+      [
+        { source: 'w', target: 'got', label: 'onEvent' },
+        { source: 'w', target: 'late', label: 'onTimeout' },
+        { source: 'got', target: 'j' },
+        { source: 'late', target: 'j' },
+      ],
+    )
+    expect(rows.map((r) => [r.nodeId, r.depth])).toEqual([
+      ['w', 0],
+      ['got', 1],
+      ['j', 1],
+      ['late', 1],
+    ])
+    expect(rows.find((r) => r.nodeId === 'late')?.thenRuns).toEqual(['j'])
+  })
+
   it('gives no shared run when a wait’s field names the merge but no arm goes there', () => {
     const rows = orderSteps(
       [
