@@ -178,3 +178,26 @@ export function defaultFunctionHeader(masked: string): DefaultFunctionHeader | n
   if (masked[i] !== '(') return null
   return { start: match.index, name: name || null, nameStart, nameEnd, paramsOpen: i }
 }
+
+/**
+ * Where brackets (`{`, `(`, `[`) nest deepest in `code`, outside comments
+ * and strings: the offset of the first bracket reaching that depth, and the
+ * depth. One linear pass. Regex literals aren't recognised, so a bracket or
+ * quote in one can skew the count: use it to point at a likely spot, never
+ * to judge code.
+ */
+export function deepestBracket(code: string): { offset: number; depth: number } {
+  const masked = maskNonCode(code)
+  let depth = 0
+  let deepest = { offset: -1, depth: 0 }
+  for (let i = 0; i < masked.length; i++) {
+    const char = masked[i]
+    if (char === '{' || char === '(' || char === '[') {
+      depth++
+      if (depth > deepest.depth) deepest = { offset: i, depth }
+    } else if ((char === '}' || char === ')' || char === ']') && depth > 0) {
+      depth--
+    }
+  }
+  return deepest
+}

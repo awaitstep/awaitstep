@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { defaultFunctionHeader, maskNonCode, matchingBracket } from '../code-text.js'
+import {
+  deepestBracket,
+  defaultFunctionHeader,
+  maskNonCode,
+  matchingBracket,
+} from '../code-text.js'
 
 describe('maskNonCode', () => {
   it('blanks comments and string contents, keeps code, length and newlines', () => {
@@ -54,5 +59,20 @@ describe('matchingBracket', () => {
     expect(matchingBracket('({ a: { b } }, c)', 0, '(', ')')).toBe(16)
     expect(matchingBracket('({ a: { b } }, c)', 1, '{', '}')).toBe(12)
     expect(matchingBracket('{ open', 0, '{', '}')).toBe(-1)
+  })
+})
+
+describe('deepestBracket', () => {
+  it('points at the first bracket reaching the deepest level', () => {
+    expect(deepestBracket('a({[]})[[[ ]]]')).toEqual({ offset: 3, depth: 3 })
+    expect(deepestBracket('plain')).toEqual({ offset: -1, depth: 0 })
+  })
+
+  it('counts a template’s ${ … } as code and its text as text', () => {
+    expect(deepestBracket('`((( ${ ( } `')).toEqual({ offset: 8, depth: 2 })
+  })
+
+  it('does not let stray closers lower the depth below zero', () => {
+    expect(deepestBracket(')))(((')).toEqual({ offset: 5, depth: 3 })
   })
 })

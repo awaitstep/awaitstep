@@ -272,6 +272,31 @@ describe('source routes', () => {
       expect(compile?.nodeId).toBe('step-1')
     })
 
+    it('says code nested too deeply to compile is nested too deeply, on its node', async () => {
+      const deep = {
+        ...validIR,
+        nodes: [{ ...validIR.nodes[0], data: { code: '{'.repeat(200_000) } }],
+      }
+      const version = await mockDb.createVersion({
+        id: 'v-deep',
+        workflowId: 'wf-1',
+        ir: JSON.stringify(deep),
+      })
+      await mockDb.updateWorkflow('wf-1', { currentVersionId: version.id })
+
+      const res = await app.request(url('/api/workflows/wf-1/source'))
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        diagnostics: { source: string; message: string; nodeId?: string }[]
+      }
+      const compile = body.diagnostics.find((d) => d.source === 'compile')
+      expect(compile?.message).toMatch(
+        /^Nested too deeply to compile: 2000\d\d levels of brackets \(\d+:\d+\)$/,
+      )
+      expect(compile?.nodeId).toBe('step-1')
+      expect(body.diagnostics.some((d) => d.message.includes('call stack'))).toBe(false)
+    })
+
     it('names the member of a merged step whose module fails to compile, not its leader', async () => {
       // Two adjacent plain steps coalesce into one durable step under the
       // leader's label; each still has its own module, and the broken one

@@ -190,7 +190,7 @@ export {
   loopBindings,
   blockBindingsOf,
 } from './block-bindings.js'
-export { maskNonCode } from './code-text.js'
+export { deepestBracket, maskNonCode } from './code-text.js'
 
 // ── Provider-neutral graph emission ──
 // The per-node emitters and their shared helpers. Provider packages compose
