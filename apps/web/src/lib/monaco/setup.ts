@@ -1,6 +1,7 @@
 import type { Monaco } from '@monaco-editor/react'
 import { AWAITSTEP_MODULES_DTS } from './awaitstep-modules'
 import { remeasureWhenCodeFontLoads } from './code-font'
+import { keepKeysInEditors } from './key-isolation'
 import type { LanguageHosts } from './project-libs'
 import { defineAwaitstepThemes } from './theme'
 
@@ -83,6 +84,7 @@ export function loadedMonacoInstance(): Monaco | null {
  */
 export function configureMonaco(monaco: Monaco): void {
   loadedMonaco = monaco
+  keepKeysInEditors(monaco)
   if (configured) return
   configured = true
   defineAwaitstepThemes(monaco)

@@ -66,6 +66,8 @@ function fakeMonaco() {
       },
       defineTheme: vi.fn(),
       remeasureFonts: vi.fn(),
+      onDidCreateEditor: vi.fn(),
+      getEditors: () => [],
     },
     Uri: { parse: (value: string) => value },
     languages: {
@@ -114,6 +116,8 @@ describe('useProjectLanguageService', () => {
     const fake = fakeMonaco()
     monaco.current = fake
     renderHook(() => useProjectLanguageService('wf', files, { reportUnresolvedImports: true }))
+    // configureMonaco keeps typing in its editors away from React Flow graphs.
+    expect(fake.editor.onDidCreateEditor).toHaveBeenCalledTimes(1)
     expect(fake.models.map((m) => m.uriString).sort()).toEqual(
       ['data/a.json', 'lib/x.ts', 'tsconfig.json'].map((f) => workflowModelPath('wf', f)).sort(),
     )

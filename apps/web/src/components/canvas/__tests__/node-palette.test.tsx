@@ -24,4 +24,19 @@ describe('NodePalette', () => {
     await userEvent.click(row)
     expect(onBrowse).toHaveBeenCalledTimes(1)
   })
+
+  it('leaves the a key to a Monaco editor instead of toggling the palette', () => {
+    render(
+      <div className="monaco-editor">
+        <div data-testid="input" className="native-edit-context" tabIndex={0} />
+      </div>,
+    )
+    render(<NodePalette onAddNode={vi.fn()} onBrowseMarketplace={vi.fn()} />)
+
+    const event = new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true })
+    screen.getByTestId('input').dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(useCanvasLayoutStore.getState().paletteOpen).toBe(true)
+  })
 })

@@ -12,6 +12,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { actionToast } from '../../lib/action-toast'
+import { isTypingTarget } from '../../lib/typing-target'
 import type { NodeType } from '@awaitstep/ir'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
@@ -213,13 +214,6 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
   }, [])
 
   useEffect(() => {
-    function isTypingTarget(target: EventTarget | null): boolean {
-      const el = target as HTMLElement | null
-      if (!el) return false
-      const tag = el.tagName
-      return tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable
-    }
-
     function handleKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
       if (isTypingTarget(e.target)) return

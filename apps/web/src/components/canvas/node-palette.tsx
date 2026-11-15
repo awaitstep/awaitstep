@@ -3,6 +3,7 @@ import { Plus, X, Store, Search } from 'lucide-react'
 import type { NodeType } from '@awaitstep/ir'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'
+import { isTypingTarget } from '../../lib/typing-target'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { filterNodes, paletteGroups } from '../../lib/node-categories'
 import { PaletteRow } from './node-palette-row'
@@ -65,10 +66,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'a' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const tag = (e.target as HTMLElement)?.tagName
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
-          return
-        }
+        if (isTypingTarget(e.target)) return
         e.preventDefault()
         handleToggle()
       }

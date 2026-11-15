@@ -1,4 +1,5 @@
 import type { Monaco } from '@monaco-editor/react'
+import { keepKeysInEditors } from './key-isolation'
 import type { editor, Position } from 'monaco-editor'
 import {
   analyzeCompletion,
@@ -34,6 +35,7 @@ let registered = false
  * Idempotent — call from every expression editor's beforeMount.
  */
 export function configureExpressionLanguage(monaco: Monaco): void {
+  keepKeysInEditors(monaco)
   if (registered) return
   registered = true
 
