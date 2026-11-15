@@ -260,6 +260,17 @@ export function importSpecifiers(source: string): string[] {
  * and rare enough to accept.
  */
 export function withoutComments(source: string): string {
+  return stripComments(source).replace(TYPE_ONLY_LINE, '')
+}
+
+/**
+ * A source with its comments removed and everything else kept, type-only
+ * imports included: for a reader that needs the types too (the IDE's type
+ * acquisition), where prose such as "reads it from `inputs.error`" in a doc
+ * comment must not read as an import. Same string-aware, linear walk as
+ * {@link withoutComments}.
+ */
+export function stripComments(source: string): string {
   const parts: string[] = []
   let start = 0
   let index = 0
@@ -297,7 +308,7 @@ export function withoutComments(source: string): string {
     index += 1
   }
   parts.push(source.slice(start))
-  return parts.join('').replace(TYPE_ONLY_LINE, '')
+  return parts.join('')
 }
 
 // Not `import type from 'x'`: that imports a value bound as `type`.

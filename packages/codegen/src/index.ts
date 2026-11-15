@@ -130,6 +130,7 @@ export {
   mergeRequirements,
   providerFromAwaitstepImport,
   providerFromSpecifier,
+  stripComments,
   withoutComments,
 } from './requirements.js'
 export type {

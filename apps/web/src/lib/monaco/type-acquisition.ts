@@ -5,8 +5,13 @@
  * so hover, completion and cross-file checks know the real types. Pure
  * functions with an injected fetch; the registry and hook bind them.
  */
-import { importSpecifiers } from '@awaitstep/codegen'
-import { PACKAGE_MANIFEST_PATH, parsePackageManifest, validatePackageManifest } from '@awaitstep/ir'
+import { importSpecifiers, stripComments } from '@awaitstep/codegen'
+import {
+  NPM_PACKAGE_NAME_PATTERN,
+  PACKAGE_MANIFEST_PATH,
+  parsePackageManifest,
+  validatePackageManifest,
+} from '@awaitstep/ir'
 import { fileLanguage } from '../ide/file-tree'
 
 export interface PackageSpec {
@@ -62,9 +67,16 @@ export function packageName(specifier: string): string | null {
   return segments[0] || null
 }
 
-/** `@types` counterpart: `zod` → `@types/zod`, `@scope/pkg` → `@types/scope__pkg`. */
+/**
+ * `@types` counterpart: `zod` → `@types/zod`, `@scope/pkg` → `@types/scope__pkg`.
+ * Lowercase, as DefinitelyTyped names every package (`JSONStream` →
+ * `@types/jsonstream`): a scoped name may not hold capitals.
+ */
 export function typesPackageName(name: string): string {
-  return name.startsWith('@') ? `@types/${name.slice(1).replace('/', '__')}` : `@types/${name}`
+  const types = name.startsWith('@')
+    ? `@types/${name.slice(1).replace('/', '__')}`
+    : `@types/${name}`
+  return types.toLowerCase()
 }
 
 /**
@@ -78,7 +90,10 @@ export function acquirablePackages(
 ): PackageSpec[] {
   const names = new Set<string>()
   for (const source of sources) {
-    for (const specifier of importSpecifiers(source)) {
+    // Comments go first: prose such as "reads it from `inputs.error`" in a
+    // doc comment (the generated runtime has one) is no package to fetch.
+    // Type-only imports stay; they are what needs the types.
+    for (const specifier of importSpecifiers(stripComments(source))) {
       const name = packageName(specifier)
       if (name) names.add(name)
     }
@@ -135,17 +150,55 @@ function isDeclarationFile(path: string): boolean {
   return /\.d\.(c|m)?ts$/.test(path) && !path.includes('/node_modules/')
 }
 
+// npm's rules for a package name (lowercase and URL-safe, with an optional
+// scope), plus the capitals npm still serves in old unscoped names
+// (`JSONStream`) — capitals are URL-safe and such a package deserves types
+// too. And the characters a resolved version can hold. A name from the
+// user's code or package.json that breaks them is never put into a URL.
+const LEGACY_NPM_PACKAGE_NAME = /^[A-Za-z0-9-~][A-Za-z0-9-._~]*$/
+const MAX_NPM_NAME_LENGTH = 214
+const RESOLVED_VERSION = /^[0-9A-Za-z.+-]+$/
+
+function isFetchablePackageName(name: string): boolean {
+  return (
+    name.length <= MAX_NPM_NAME_LENGTH &&
+    (NPM_PACKAGE_NAME_PATTERN.test(name) || LEGACY_NPM_PACKAGE_NAME.test(name))
+  )
+}
+
+/** The package name as a URL path (scope and name each encoded), or null for a name npm would refuse. */
+function packageUrlPath(name: string): string | null {
+  if (!isFetchablePackageName(name)) return null
+  // The scope's `@` is part of the path jsDelivr expects; the rule above
+  // already keeps everything else URL-safe, and encoding is the backstop.
+  return name
+    .split('/')
+    .map((part) =>
+      part.startsWith('@') ? `@${encodeURIComponent(part.slice(1))}` : encodeURIComponent(part),
+    )
+    .join('/')
+}
+
+function fileUrlPath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/')
+}
+
 async function resolveVersion(spec: PackageSpec, fetchFn: FetchLike): Promise<string | null> {
+  const name = packageUrlPath(spec.name)
+  if (name === null) return null
   const res = await fetchFn(
-    `https://data.jsdelivr.com/v1/package/resolve/npm/${spec.name}@${encodeURIComponent(spec.range)}`,
+    `https://data.jsdelivr.com/v1/package/resolve/npm/${name}@${encodeURIComponent(spec.range)}`,
   )
   if (!res.ok) return null
   const body = (await res.json()) as { version?: string | null }
-  return body.version ?? null
+  const version = body.version ?? null
+  return version !== null && RESOLVED_VERSION.test(version) ? version : null
 }
 
 async function listFiles(name: string, version: string, fetchFn: FetchLike): Promise<string[]> {
-  const res = await fetchFn(`https://data.jsdelivr.com/v1/package/npm/${name}@${version}/flat`)
+  const urlName = packageUrlPath(name)
+  if (urlName === null) return []
+  const res = await fetchFn(`https://data.jsdelivr.com/v1/package/npm/${urlName}@${version}/flat`)
   if (!res.ok) return []
   const body = (await res.json()) as { files?: { name: string }[] }
   return (body.files ?? []).map((f) => f.name)
@@ -157,12 +210,16 @@ async function fetchContents(
   paths: string[],
   fetchFn: FetchLike,
 ): Promise<TypeFile[]> {
+  const urlName = packageUrlPath(name)
+  if (urlName === null) return []
   const files: TypeFile[] = []
   for (let i = 0; i < paths.length; i += FETCH_POOL) {
     const batch = paths.slice(i, i + FETCH_POOL)
     const contents = await Promise.all(
       batch.map(async (path) => {
-        const res = await fetchFn(`https://cdn.jsdelivr.net/npm/${name}@${version}${path}`)
+        const res = await fetchFn(
+          `https://cdn.jsdelivr.net/npm/${urlName}@${version}${fileUrlPath(path)}`,
+        )
         return res.ok ? { path, content: await res.text() } : null
       }),
     )
