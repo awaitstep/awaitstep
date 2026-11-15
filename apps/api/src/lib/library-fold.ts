@@ -1,12 +1,8 @@
 import type { SourceDiagnostic } from '@awaitstep/codegen'
 import {
   CUSTOM_NODE_TYPE_PREFIX,
-  LIBRARY_MODULE_IMPORT_PREFIX,
   LIBRARY_NODE_MANIFEST,
   LIBRARY_NODE_TEMPLATE,
-  MAX_LIBRARY_IMPORTS,
-  MAX_PROJECT_FILES,
-  MAX_PROJECT_TOTAL_BYTES,
   PACKAGE_MANIFEST_PATH,
   customNodeType,
   isLibraryBundlePath,
@@ -20,20 +16,26 @@ import {
 } from '@awaitstep/ir'
 import type { DatabaseAdapter, DeploymentLibraryVersion, LibraryBundleItem } from '@awaitstep/db'
 import { libraryImportProblems } from './library-imports.js'
+import {
+  BUNDLE_LIMITS,
+  MAX_LIBRARY_BUNDLE_ITEMS,
+  bundledModule,
+  bySlug,
+  importMessages,
+  label,
+  limitMessage,
+  moduleBundleFiles,
+  slugConflicts,
+  unpublishedMessage,
+  type BundledLibraryModule,
+} from './library-resolution.js'
+
+export type { BundledLibraryModule } from './library-resolution.js'
 
 /** A custom node as the registry layers it: its definition and its template. */
 export interface CustomNodeEntry {
   definition: NodeDefinition
   template: string
-}
-
-/** A module folded into the bundle, as the workflow IDE labels its files. */
-export interface BundledLibraryModule {
-  itemId: string
-  slug: string
-  /** The workflow's workspace owns it, or the project does. */
-  owner: 'workspace' | 'project'
-  version: string
 }
 
 /** One manifest's dependencies, with who asked for them. */
@@ -77,17 +79,6 @@ export function workflowLibraryRoots(ir: ArtifactIR): { slugs: string[]; nodeIte
   return { slugs: libraryImportSlugs(sources), nodeItemIds: [...nodeItemIds].sort() }
 }
 
-/** The most items one bundle may reach. */
-export const MAX_LIBRARY_BUNDLE_ITEMS = MAX_LIBRARY_IMPORTS
-/** The most library code one bundle may carry: twice a project's own total, and four times its files. */
-export const MAX_LIBRARY_BUNDLE_BYTES = 2 * MAX_PROJECT_TOTAL_BYTES
-export const MAX_LIBRARY_BUNDLE_FILES = 4 * MAX_PROJECT_FILES
-
-function label(item: Pick<LibraryBundleItem, 'kind' | 'slug' | 'name' | 'version'>): string {
-  const name = item.kind === 'module' ? item.slug : item.name
-  return item.version ? `${name} ${item.version}` : name
-}
-
 /**
  * Folds the Library into a workflow's IR, the way a deploy bundles it:
  * every module the workflow reaches (directly, through a custom node, or
@@ -117,28 +108,15 @@ export async function foldLibrary(
   }
   if (roots.slugs.length === 0 && roots.nodeItemIds.length === 0) return none
 
-  const { items, truncated, oversize } = await db.resolveLibraryBundle(
-    { ...place, ...roots },
-    {
-      items: MAX_LIBRARY_BUNDLE_ITEMS,
-      bytes: MAX_LIBRARY_BUNDLE_BYTES,
-      files: MAX_LIBRARY_BUNDLE_FILES,
-    },
-  )
+  const bundle = await db.resolveLibraryBundle({ ...place, ...roots }, BUNDLE_LIMITS)
+  const { items } = bundle
   const diagnostics: SourceDiagnostic[] = []
   const report = (message: string, extra: { nodeId?: string; path?: string } = {}) =>
     diagnostics.push({ source: 'library', message, ...extra })
 
-  // Which items were cut is arbitrary, so nothing else said about them would be true.
-  if (truncated) {
-    report(`This workflow reaches more than ${MAX_LIBRARY_BUNDLE_ITEMS} library items`)
-    return { ...none, diagnostics }
-  }
-  // Over a size limit the database sent no file bodies, so nothing can be folded.
-  if (oversize) {
-    report(
-      `The library code this workflow reaches is over ${MAX_LIBRARY_BUNDLE_FILES} files or ${MAX_LIBRARY_BUNDLE_BYTES} bytes`,
-    )
+  const overLimit = limitMessage(bundle)
+  if (overLimit) {
+    report(overLimit)
     return { ...none, diagnostics }
   }
 
@@ -146,29 +124,7 @@ export async function foldLibrary(
   const nodesOfType = (itemId: string) =>
     ir.nodes.filter((node) => node.type === customNodeType(itemId)).map((node) => node.id)
 
-  // What each importer's `#modules/<slug>` reached; an import with no match did not resolve.
-  const reached = new Set<string>()
-  for (const item of items) {
-    if (item.kind !== 'module') continue
-    for (const importer of item.importers) reached.add(`${importer ?? ''}\u0000${item.slug}`)
-  }
-  for (const slug of roots.slugs) {
-    if (!reached.has(`\u0000${slug}`)) {
-      report(
-        `Cannot resolve "${LIBRARY_MODULE_IMPORT_PREFIX}${slug}": no module of that name in this workspace or the project`,
-      )
-    }
-  }
-  for (const item of items) {
-    for (const slug of item.imports) {
-      if (item.kind === 'module' && slug === item.slug) continue
-      if (!reached.has(`${item.id}\u0000${slug}`)) {
-        report(
-          `${label(item)} imports "${LIBRARY_MODULE_IMPORT_PREFIX}${slug}", which no module it can reach provides`,
-        )
-      }
-    }
-  }
+  for (const message of importMessages(items, roots.slugs)) report(message)
 
   for (const itemId of roots.nodeItemIds) {
     const found = byId.get(itemId)
@@ -180,30 +136,8 @@ export async function foldLibrary(
     }
   }
 
-  // One bundle has one `modules/<slug>`: two modules answering one slug cannot both ship.
-  const bySlug = new Map<string, LibraryBundleItem[]>()
-  for (const item of items) {
-    if (item.kind !== 'module') continue
-    bySlug.set(item.slug, [...(bySlug.get(item.slug) ?? []), item])
-  }
-  const conflicted = new Set<string>()
-  for (const [slug, modules] of bySlug) {
-    if (modules.length < 2) continue
-    conflicted.add(slug)
-    const meanings = modules
-      .map((module) => {
-        const owner =
-          module.workspaceId === null ? 'the project’s module' : 'this workspace’s module'
-        const who = module.importers.map((importer) =>
-          importer === null ? 'this workflow' : (byId.get(importer)?.name ?? 'a library item'),
-        )
-        return `${owner} for ${who.join(' and ')}`
-      })
-      .sort()
-    report(
-      `"${LIBRARY_MODULE_IMPORT_PREFIX}${slug}" means ${meanings.join(', but ')}; rename one of them`,
-    )
-  }
+  const { conflicted, messages: conflictMessages } = slugConflicts(items)
+  for (const message of conflictMessages) report(message)
 
   const ownModuleFiles = (ir.runtime?.files ?? [])
     .map((file) => file.path)
@@ -221,8 +155,7 @@ export async function foldLibrary(
   const library: DeploymentLibraryVersion[] = []
   for (const item of items) {
     if (item.version === null) {
-      const what = item.kind === 'module' ? `Module "${item.slug}"` : `Custom node "${item.name}"`
-      const message = `${what} has no published version yet; publish it to use it`
+      const message = unpublishedMessage(item)
       if (item.kind === 'node')
         for (const nodeId of nodesOfType(item.id)) report(message, { nodeId })
       else report(message)
@@ -241,11 +174,7 @@ export async function foldLibrary(
         dependencySources.push({ label: label(item), dependencies: deps })
       }
       if (conflicted.has(item.slug) || ownModuleFiles.length > 0) continue
-      for (const file of item.files) {
-        // A nested package.json would change how `#` imports resolve inside the folder.
-        if (file.path === PACKAGE_MANIFEST_PATH) continue
-        folded.push({ path: libraryBundlePath(item.slug, file.path), source: file.source })
-      }
+      folded.push(...moduleBundleFiles(item))
       continue
     }
     const entry = customNodeEntry(item)
@@ -266,13 +195,8 @@ export async function foldLibrary(
         item.version !== null &&
         folded.some((f) => f.path.startsWith(libraryBundlePath(item.slug, ''))),
     )
-    .map((item) => ({
-      itemId: item.id,
-      slug: item.slug,
-      owner: item.workspaceId === null ? ('project' as const) : ('workspace' as const),
-      version: item.version!,
-    }))
-    .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
+    .map(bundledModule)
+    .sort(bySlug)
 
   return {
     ir:
