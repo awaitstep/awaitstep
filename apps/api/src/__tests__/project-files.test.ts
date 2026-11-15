@@ -193,6 +193,29 @@ describe('project file routes', () => {
     expect((await app.request(url('/api/workflows/wf-1/files/config/a.ts'))).status).toBe(404)
   })
 
+  it('refuses to delete a path no stored file could ever have', async () => {
+    for (const path of ['node_modules/x/index.ts', 'lib/x.exe', 'lib/a//b.ts']) {
+      const res = await app.request(url(`/api/workflows/wf-1/files/${path}`), { method: 'DELETE' })
+      expect(res.status).toBe(422)
+      expect(JSON.stringify(await res.json())).toContain('Invalid project file path')
+    }
+  })
+
+  it('still deletes a file stored before its folder was reserved, as a deploy that refuses it asks', async () => {
+    for (const path of ['steps/s1.ts', 'awaitstep/old.ts', 'modules/old.ts']) {
+      await mockDb.upsertWorkflowFile({
+        id: `f-${path}`,
+        workflowId: 'wf-1',
+        path,
+        source: 'export {}',
+        hash: 'h-legacy',
+        size: 9,
+      })
+      const res = await app.request(url(`/api/workflows/wf-1/files/${path}`), { method: 'DELETE' })
+      expect(res.status).toBe(204)
+    }
+  })
+
   it('snapshots project files into saved versions and ships them in the generated bundle', async () => {
     await putFile(app, 'config/retry.ts', 'export const retry = (n: number) => n')
     await putFile(app, 'data/x.json', '[1]')

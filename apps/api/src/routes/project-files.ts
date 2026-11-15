@@ -399,6 +399,14 @@ projectFiles.delete('/:workflowId/files/:path{.+}', async (c) => {
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
   const path = c.req.param('path')
+  // The rules a stored file is held to (as a stored snapshot is validated):
+  // a path no file could ever have answers 422. A file stored before a
+  // folder was reserved (`steps/`, `awaitstep/`, `modules/`) stays deletable,
+  // which is what a deploy that refuses it asks for.
+  const pathError = projectFilePathError(path, { stored: true })
+  if (pathError) {
+    return c.json({ error: `Invalid project file path "${path}": ${pathError}` }, 422)
+  }
   const expected = requestedHash(c.req.header('If-Match'))
   // The hash rides in the DELETE's own WHERE clause; only a miss needs a
   // second look to tell "gone" from "changed".

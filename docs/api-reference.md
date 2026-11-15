@@ -1649,7 +1649,11 @@ the resulting set breaks a project rule.
 ### `DELETE /workflows/:workflowId/files/:path`
 
 Optional `If-Match` as above. Returns `204`; `404` when the file does not
-exist; `409` when the precondition fails.
+exist; `409` when the precondition fails; `422` for a path no stored file
+could have (an unsafe segment, `node_modules`, an extension project files
+never take). A file stored before its folder was reserved (`steps/`,
+`awaitstep/`, `modules/`) can still be deleted: that is what a deploy that
+refuses it asks for.
 Deleting `handlers.ts` or `package.json` also clears the legacy setting it
 stood in for (`triggerCode` / `dependencies`), so the file does not
 reappear as a seed and the next deploy uses the default handlers / no
