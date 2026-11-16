@@ -33,14 +33,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update && apt-get install -y --no-install-recommends psmisc curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Native module: better-sqlite3 (only runtime dep not bundled by tsup)
+# Native module: better-sqlite3 (only runtime dep not bundled by tsup).
+# It ships N-API prebuilds inside the package; its one dependency
+# (node-addon-api) is only needed to compile it, so lib/, package.json and the
+# glibc Linux binaries (the image is Debian, amd64 or arm64) are all it loads.
 RUN --mount=from=deps,source=/app/node_modules,target=/deps \
-    mkdir -p node_modules/better-sqlite3 node_modules/bindings node_modules/file-uri-to-path && \
+    mkdir -p node_modules/better-sqlite3/prebuilds && \
     cp -rL /deps/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/lib node_modules/better-sqlite3/ && \
-    cp -rL /deps/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/build node_modules/better-sqlite3/ && \
     cp /deps/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/package.json node_modules/better-sqlite3/ && \
-    cp -rL /deps/.pnpm/better-sqlite3@*/node_modules/bindings/* node_modules/bindings/ && \
-    cp -rL /deps/.pnpm/file-uri-to-path@*/node_modules/file-uri-to-path/* node_modules/file-uri-to-path/
+    cp -L /deps/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/prebuilds/linux-x64.node /deps/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/prebuilds/linux-arm64.node node_modules/better-sqlite3/prebuilds/
 
 # Bundled API
 COPY --from=build /app/apps/api/dist ./apps/api/dist

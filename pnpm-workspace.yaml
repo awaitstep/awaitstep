@@ -43,7 +43,6 @@ overrides:
 
 # Native/binary postinstall scripts pnpm 12 blocks unless allowlisted.
 allowBuilds:
-  better-sqlite3: true
   esbuild: true
   sharp: true
   workerd: true
