@@ -31,6 +31,22 @@ export default withMermaid(
         },
       ],
     ],
+    // Mermaid 12 switched its defaults to ELK layout, the `redux-color` theme,
+    // the `neo` look and narrower label wrapping with a minimum node width;
+    // keep the 11.x rendering the diagrams were written for. The plugin still
+    // swaps in `dark` in dark mode.
+    mermaid: {
+      layout: 'dagre',
+      theme: 'default',
+      look: 'classic',
+      flowchart: { wrappingWidth: 200, minNodeWidth: 0 },
+      state: { minNodeWidth: 0 },
+    },
+    // Mermaid 12 bundles ELK as a lazy chunk (~460 KB gzip) and VitePress
+    // preloads every lazy chunk on every page. With dagre it is never run, so
+    // don't preload it; a diagram that asks for ELK still loads it on demand.
+    transformHtml: (html) =>
+      html.replace(/<link rel="modulepreload" href="[^"]*\/elk-[^"]*">/g, ''),
     themeConfig: {
       logo: { src: '/logo.svg', alt: 'AwaitStep' },
       siteTitle: false,
