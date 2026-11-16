@@ -4,8 +4,11 @@ import type { GeneratedBundle } from '@awaitstep/codegen'
 const ROOT = '/project/'
 
 /**
- * Type errors in one generated module, checked the way the editor does:
- * `#app/` and `#awaitstep/` mapped onto the bundle's own files.
+ * Type errors in one generated module, checked close to the way the editor
+ * does: `#app/` and `#awaitstep/` mapped onto the bundle's own files. The
+ * editor maps them through `baseUrl` (Monaco's TS 5.x); this check uses
+ * absolute `paths`, since TS 6 refuses `baseUrl`, so bare specifiers the
+ * editor might resolve through `baseUrl` are stricter here, never looser.
  */
 export function bundleTypeErrors(
   bundle: GeneratedBundle,
@@ -20,8 +23,7 @@ export function bundleTypeErrors(
     strict: options.strict ?? false,
     noEmit: true,
     skipLibCheck: true,
-    baseUrl: ROOT,
-    paths: { '#app/*': ['*'], '#awaitstep/*': ['awaitstep/*'] },
+    paths: { '#app/*': [`${ROOT}*`], '#awaitstep/*': [`${ROOT}awaitstep/*`] },
   }
   const files = new Map(bundle.files.map((file) => [ROOT + file.path, file.source]))
   const host = ts.createCompilerHost(compilerOptions)
