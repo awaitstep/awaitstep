@@ -63,6 +63,30 @@ describe('app', () => {
     expect((await res.json()).error).toBeTruthy()
   })
 
+  it('refuses a cross-site hyperlink-auditing ping (text/ping) that carries a cookie', async () => {
+    // hono < 4.13.16 let `text/ping` POSTs past csrf() (GHSA-46wx-v44x-9hh2).
+    const guarded = createTestApp({ corsOrigin: 'https://app.example.com' })
+    const ping = (headers: Record<string, string>) =>
+      guarded.request(`/api/workflows?projectId=${TEST_PROJECT_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/ping', Cookie: 'session=whatever', ...headers },
+        body: 'PING',
+      })
+
+    const crossSite = await ping({
+      'Sec-Fetch-Site': 'cross-site',
+      'Ping-From': 'https://evil.example.com/',
+      'Ping-To': 'https://evil.example.com/next',
+    })
+    expect(crossSite.status).toBe(403)
+    expect(crossSite.headers.get('content-type')).toContain('application/json')
+
+    // From the app's own origin csrf lets it through; the route then refuses
+    // the body itself (it is not a workflow).
+    const ownOrigin = await ping({ Origin: 'https://app.example.com' })
+    expect(ownOrigin.status).toBe(422)
+  })
+
   it('keeps the headers a refusal carries', async () => {
     // Some refusals are only actionable because of a header —
     // `WWW-Authenticate`, `Retry-After`. Rebuilding the response from the
