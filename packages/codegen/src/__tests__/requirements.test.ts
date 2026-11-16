@@ -9,6 +9,7 @@ import {
   mergeRequirements,
   providerFromAwaitstepImport,
   providerFromSpecifier,
+  stripComments,
   withoutComments,
   type RequirementTarget,
 } from '../requirements.js'
@@ -339,6 +340,23 @@ describe('formatUnsupportedRequirements', () => {
     expect(message).toBe(
       'Cannot deploy to inngest: this workflow requires Cloudflare-only primitives; kv "USERS". Choose a compatible connection or remove the provider-specific code.',
     )
+  })
+})
+
+describe('stripComments', () => {
+  it('drops comments, keeping strings and type-only imports', () => {
+    const source = [
+      '/** reads the fields from `inputs.error` */',
+      "import type { Stripe } from 'stripe' // the client",
+      'const url = "https://example.com" /* not a comment start: */',
+      "export type { X } from './x'",
+    ].join('\n')
+    const stripped = stripComments(source)
+    expect(importSpecifiers(stripped)).toEqual(['stripe', './x'])
+    expect(stripped).toContain('"https://example.com"')
+    expect(stripped).not.toContain('inputs.error')
+    // withoutComments goes further: type-only imports vanish from a bundle.
+    expect(importSpecifiers(withoutComments(source))).toEqual([])
   })
 })
 

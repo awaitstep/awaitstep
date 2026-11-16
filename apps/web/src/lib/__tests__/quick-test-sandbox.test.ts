@@ -2,10 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   createQuickTestSandbox,
   SANDBOX_BOOT_TIMEOUT_MS,
+  SANDBOX_LOAD_TIMEOUT_MS,
   type QuickTestSandbox,
   type QuickTestSandboxCallbacks,
 } from '../ide/quick-test-sandbox'
 import { WORKER_ALIVE } from '../ide/quick-test'
+import { QUICK_TEST_SANDBOX_PATH, QUICK_TEST_SANDBOX_SRC } from '../ide/quick-test-sandbox-page'
 
 /**
  * The boundary's shape and its protocol, over a hand-rolled document and
@@ -50,7 +52,7 @@ class FakeIframe {
   private attributes = new Map<string, string>()
   private loadHandlers: { handler: () => void; once: boolean }[] = []
   style: { display: string } = { display: '' }
-  srcdoc = ''
+  src = ''
   contentWindow = new FakeContentWindow()
   attached = false
 
@@ -151,15 +153,19 @@ describe('createQuickTestSandbox — the boundary', () => {
     const iframe = onlyIframe()
     expect(iframe.getAttribute('sandbox')).toBe('allow-scripts')
     expect(iframe.style.display).toBe('none')
+    // Its own page, not an srcdoc document that would inherit the dashboard's
+    // policy — fingerprinted, so it may be cached.
+    expect(iframe.src).toBe(QUICK_TEST_SANDBOX_SRC)
+    expect(iframe.src.startsWith(`${QUICK_TEST_SANDBOX_PATH}?v=`)).toBe(true)
     expect(iframe.attached).toBe(true)
   })
 
   it('never writes the step code into the document — it travels by message', () => {
-    // Interpolating user code into srcdoc would let `</script>` break out of
-    // the bootstrap and run in the iframe window instead of the worker.
+    // Interpolating user code into the page would let `</script>` break out
+    // of the bootstrap and run in the iframe window instead of the worker.
     create('</scr' + 'ipt><scr' + 'ipt>globalThis.evil = 1')
 
-    expect(onlyIframe().srcdoc).not.toContain('evil')
+    expect(onlyIframe().src).toBe(QUICK_TEST_SANDBOX_SRC)
     onlyIframe().fireLoad()
     const init = onlyIframe().contentWindow.posted[0]!
     expect(init.data).toMatchObject({ type: 'init', workerSource: expect.stringContaining('evil') })
@@ -242,17 +248,70 @@ describe('createQuickTestSandbox — the protocol', () => {
 
   it('reports a sandbox that never boots, instead of letting the run time out', () => {
     create()
+    onlyIframe().fireLoad()
 
     vi.advanceTimersByTime(SANDBOX_BOOT_TIMEOUT_MS)
 
     expect(events).toEqual([expect.stringMatching(/^unavailable:.*didn’t boot/)])
   })
 
-  it('a ready sandbox never reports the boot timeout', () => {
+  it('counts the boot time from the page’s load, not from the iframe’s creation', () => {
+    // The page is a network fetch: a cold Worker or a slow link took longer
+    // than the boot budget, and a healthy sandbox was reported unavailable.
+    const sandbox = create()
+    sandbox.start({ inputs: {} })
+
+    vi.advanceTimersByTime(SANDBOX_BOOT_TIMEOUT_MS * 2)
+    expect(events).toEqual([])
+
+    const port = boot(onlyIframe())
+
+    expect(events).toEqual(['started'])
+    expect(port.peer.sent).toEqual([{ type: 'start', args: { inputs: {} } }])
+  })
+
+  it('gives the boot its full budget once the page has loaded', () => {
+    create()
+    vi.advanceTimersByTime(SANDBOX_LOAD_TIMEOUT_MS - 1)
+    onlyIframe().fireLoad()
+
+    vi.advanceTimersByTime(SANDBOX_BOOT_TIMEOUT_MS - 1)
+    expect(events).toEqual([])
+    vi.advanceTimersByTime(1)
+    expect(events).toEqual([expect.stringMatching(/^unavailable:.*didn’t boot/)])
+  })
+
+  it('reports a sandbox page that never loads', () => {
+    create()
+
+    vi.advanceTimersByTime(SANDBOX_LOAD_TIMEOUT_MS - 1)
+    expect(events).toEqual([])
+    vi.advanceTimersByTime(1)
+
+    expect(events).toEqual([expect.stringMatching(/^unavailable:.*didn’t load/)])
+  })
+
+  it('starts nothing when the page arrives after it was reported as not loading', () => {
+    create()
+    vi.advanceTimersByTime(SANDBOX_LOAD_TIMEOUT_MS)
+    events = []
+
+    onlyIframe().fireLoad()
+    vi.advanceTimersByTime(SANDBOX_BOOT_TIMEOUT_MS)
+
+    expect(onlyIframe().contentWindow.posted).toEqual([])
+    expect(events).toEqual([])
+  })
+
+  it('gives the load budget more room than the boot budget', () => {
+    expect(SANDBOX_LOAD_TIMEOUT_MS).toBeGreaterThan(SANDBOX_BOOT_TIMEOUT_MS)
+  })
+
+  it('a ready sandbox never reports the boot or load timeout', () => {
     create()
     boot(onlyIframe())
 
-    vi.advanceTimersByTime(SANDBOX_BOOT_TIMEOUT_MS * 2)
+    vi.advanceTimersByTime(SANDBOX_LOAD_TIMEOUT_MS * 2)
 
     expect(events).toEqual([])
   })

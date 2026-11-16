@@ -24,6 +24,8 @@ const harness = vi.hoisted(() => {
     static onCreate: ((sandbox: FakeSandbox) => void) | null = null
     /** Makes creation itself throw, as a blocked browser would. */
     static throwOnCreate: string | null = null
+    /** Holds the job until the test boots the sandbox, as a slow sandbox page would. */
+    static holdStart = false
 
     readonly started: unknown[] = []
     destroyed = false
@@ -39,6 +41,7 @@ const harness = vi.hoisted(() => {
 
     start(args: unknown) {
       this.started.push(args)
+      if (FakeSandbox.holdStart) return
       this.callbacks.onStarted()
       FakeSandbox.onStart?.(this, args)
     }
@@ -72,6 +75,7 @@ beforeEach(() => {
   FakeSandbox.onStart = null
   FakeSandbox.onCreate = null
   FakeSandbox.throwOnCreate = null
+  FakeSandbox.holdStart = false
 })
 
 function onlySandbox() {
@@ -228,6 +232,23 @@ describe('runQuickTest', () => {
     expect(result.status).toBe('timeout')
     expect(result.error?.message).toMatch(/didn’t finish/i)
     expect(onlySandbox().destroyed).toBe(true)
+  })
+
+  it('starts the step’s clock when the step is handed over, not while the sandbox loads', async () => {
+    // The sandbox page is a network fetch; a slow load ate the step's time
+    // and a healthy step was reported as not finishing.
+    FakeSandbox.holdStart = true
+    const run = runQuickTest({ path: 'nodes/a.ts', source: SOURCE, args: ARGS, timeoutMs: 20 })
+    await vi.waitFor(() => expect(FakeSandbox.instances).toHaveLength(1))
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    const sandbox = onlySandbox()
+    sandbox.callbacks.onStarted()
+    sandbox.reply({ type: 'done', result: '1' })
+
+    const result = await run
+    expect(result.status).toBe('ok')
+    expect(result.result).toBe('1')
   })
 
   it('destroys the sandbox however the run ended', async () => {

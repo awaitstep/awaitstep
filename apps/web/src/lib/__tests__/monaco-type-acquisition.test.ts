@@ -66,6 +66,8 @@ describe('packageName', () => {
   it('derives the @types package name', () => {
     expect(typesPackageName('lodash')).toBe('@types/lodash')
     expect(typesPackageName('@scope/pkg')).toBe('@types/scope__pkg')
+    // DefinitelyTyped's names are lowercase, and a scoped name may not hold capitals.
+    expect(typesPackageName('JSONStream')).toBe('@types/jsonstream')
   })
 })
 
@@ -101,6 +103,23 @@ describe('acquirablePackages / planAcquisition', () => {
     files.set('package.json', { source: '{"dependencies":{"zod":"npm:zod@3.23.8"}}' })
     expect(planAcquisition(files).specs.find((s) => s.name === 'zod')?.range).toBe('latest')
     expect(planAcquisition(new Map()).key).toBe('')
+  })
+
+  it('reads no package names out of comments, but keeps type-only imports', () => {
+    // The generated awaitstep/runtime.ts says "reads the fields from
+    // `inputs.error`" in a doc comment: the editor asked jsDelivr for a
+    // package named `inputs.error` (404) on every Code page.
+    const runtimeLike = `/**
+ * A Try/Catch around the node reads the fields from \`inputs.error\`.
+ * Call it as you would import 'not-a-package' in prose.
+ */
+// see require("also-not") for details
+import type { Stripe } from 'stripe'
+export class HttpError extends Error {}`
+    expect(acquirablePackages([runtimeLike], {})).toEqual([{ name: 'stripe', range: 'latest' }])
+    expect(planAcquisition(new Map([['awaitstep/runtime.ts', { source: runtimeLike }]])).key).toBe(
+      'stripe@latest',
+    )
   })
 })
 
@@ -172,5 +191,87 @@ describe('fetchPackageTypes', () => {
     expect(packageLibs({ name: 'nope', range: 'latest' }, null)[0]?.content).toContain(
       "declare module 'nope/*'",
     )
+  })
+
+  it('never puts a name npm would refuse into a URL', async () => {
+    const fetchFn = fakeJsDelivr({})
+    for (const name of [
+      '../../evil',
+      'zod?x=1',
+      'zod#frag',
+      '@Scope/pkg',
+      '@scope/Pkg',
+      '@scope/../x',
+      '.hidden',
+      'a b',
+    ]) {
+      await fetchPackageTypes({ name, range: 'latest' }, fetchFn)
+    }
+    // Refused before any request: the test cannot pass by asking nothing of
+    // a name it should have asked about — the next test proves those reach jsDelivr.
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('asks jsDelivr about every name npm serves, old capitalised ones included', async () => {
+    const fetchFn = fakeJsDelivr({})
+    const names = ['@types/node', 'lodash.merge', '@scope/pkg', '@types/scope__pkg', 'JSONStream']
+    for (const name of names) await fetchPackageTypes({ name, range: '^1.0.0' }, fetchFn)
+    const asked = fetchFn.mock.calls.map(([url]) => String(url))
+    for (const name of names) {
+      expect(asked).toContain(`https://data.jsdelivr.com/v1/package/resolve/npm/${name}@%5E1.0.0`)
+    }
+  })
+
+  it('gives an old capitalised package the types DefinitelyTyped has for it', async () => {
+    const fetchFn = fakeJsDelivr({
+      JSONStream: { version: '1.3.5', files: { '/package.json': '{}', '/index.js': 'js' } },
+      '@types/jsonstream': {
+        version: '0.8.33',
+        files: { '/package.json': '{}', '/index.d.ts': 'export declare function parse(): void' },
+      },
+    })
+    const acquired = await fetchPackageTypes({ name: 'JSONStream', range: 'latest' }, fetchFn)
+    expect(acquired?.name).toBe('@types/jsonstream')
+    expect(
+      packageLibs({ name: 'JSONStream', range: 'latest' }, acquired).map((l) => l.uri),
+    ).toEqual([
+      'awaitstep://workflow/node_modules/JSONStream/package.json',
+      'awaitstep://workflow/node_modules/JSONStream/index.d.ts',
+    ])
+  })
+
+  it('encodes each segment of a declaration file’s path', async () => {
+    const urls: string[] = []
+    const fetchFn = async (url: string) => {
+      urls.push(url)
+      const json = url.includes('/resolve/')
+        ? { version: '1.0.0' }
+        : { files: [{ name: '/types/a b#c?.d.ts' }, { name: '/types/%41.d.ts' }] }
+      return { ok: true, status: 200, json: async () => json, text: async () => 'x' }
+    }
+    const acquired = await fetchPackageTypes({ name: '@scope/pkg', range: 'latest' }, fetchFn)
+    expect(urls).toContain('https://cdn.jsdelivr.net/npm/@scope/pkg@1.0.0/types/a%20b%23c%3F.d.ts')
+    expect(urls).toContain('https://cdn.jsdelivr.net/npm/@scope/pkg@1.0.0/types/%2541.d.ts')
+    // The path the editor lays the file under is the package's own, unencoded.
+    expect(acquired?.files.map((f) => f.path)).toEqual(['/types/a b#c?.d.ts', '/types/%41.d.ts'])
+  })
+
+  it('refuses a resolved version that is not a version', async () => {
+    const urls: string[] = []
+    const fetchFn = async (url: string) => {
+      urls.push(url)
+      if (url.includes('/resolve/')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ version: '1.0.0/../../x' }),
+          text: async () => '',
+        }
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '' }
+    }
+    expect(await fetchPackageTypes({ name: '@scope/pkg', range: '^1' }, fetchFn)).toBeNull()
+    expect(urls.every((url) => url.includes('/resolve/'))).toBe(true)
+    expect(urls[0]).toContain('/resolve/npm/@scope/pkg@')
   })
 })
