@@ -33,6 +33,10 @@ overrides:
   source-map-js: '^1.2.2' # DoS on crafted source maps
   lodash-es: '>=4.18.1'
   next: '>=16.2.6'
+  # TS 7 ships no compiler API; `typescript` aliases @typescript/typescript6
+  # for tools that need one. Keep that on 6.0, inside typescript-eslint's
+  # peer range (<6.1.0).
+  '@typescript/typescript6>@typescript/old': 'npm:typescript@~6.0.3'
 
 # vitepress-plugin-mermaid 2.0.17 (latest) declares mermaid 10 || 11; it only
 # calls initialize/render/registerExternalDiagrams, unchanged in 12.
