@@ -23,7 +23,7 @@ overrides:
   # never drag a different consumer across a major (jsdom wants undici 8).
   # Drop a line once every parent ships the fixed version on its own. A
   # scoped line covers only the parents it names: re-run `pnpm audit --prod`
-  # after any astro bump, which can add a parent the selectors miss.
+  # after bumping a parent, which can add a dependency the selectors miss.
   dompurify: '^3.4.17' # sanitizer bypasses (monaco-editor, mermaid)
   vue: '^3.5.44' # @vue/server-renderer XSS (better-auth, vitepress)
   miniflare>undici: '^7.30.1' # DoS in miniflare's pinned 7.29.1 (test sessions, local dev)
@@ -31,13 +31,6 @@ overrides:
   fast-uri: '^3.1.9' # host confusion / SSRF in ajv's URI parsing
   postcss: '^8.5.31' # source-map path traversal
   source-map-js: '^1.2.2' # DoS on crafted source maps
-  astro>devalue: '^5.9.4'
-  astro>http-cache-semantics: '^4.3.0'
-  astro>smol-toml: '^1.9.1'
-  '@astrojs/markdown-remark>smol-toml': '^1.9.1'
-  '@astrojs/internal-helpers>smol-toml': '^1.9.1'
-  astro>svgo: '^4.1.0'
-  astro>vite: '^7.3.7' # astro only — vitepress (vite 5) and apps/web (vite 8) untouched
   lodash-es: '>=4.18.1'
   next: '>=16.2.6'
 

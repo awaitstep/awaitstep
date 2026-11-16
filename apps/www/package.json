@@ -9,11 +9,11 @@
     "preview": "astro preview --port 4100"
   },
   "dependencies": {
-    "astro": "^6.4.8"
+    "astro": "^7.4.12"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "^4.3.3",
-    "vite": "^7.3.7"
+    "vite": "^8.3.8"
   }
 }
