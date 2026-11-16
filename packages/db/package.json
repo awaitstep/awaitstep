@@ -30,7 +30,7 @@
     "better-sqlite3": "12.10.0",
     "drizzle-kit": "^0.31.11",
     "miniflare": "4.20260730.0",
-    "tsup": "8.5.1",
+    "tsup": "9.0.0",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5"
   },
