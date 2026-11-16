@@ -524,7 +524,7 @@ export function generateCustomNodeModule(
   // `inputs` is taken only when a field reads an earlier value or a binding.
   const signature =
     referenced.length > 0
-      ? '{\n  env,\n  inputs,\n}: {\n  env: Record<string, any>\n  inputs: Record<string, any>\n}'
+      ? '{\n  env,\n  inputs = {},\n}: {\n  env: Record<string, any>\n  inputs?: Record<string, any>\n}'
       : '{ env }: { env: Record<string, any> }'
   const before = topLevel.before ? `${topLevel.before}\n\n` : ''
   const after = topLevel.after ? `\n${topLevel.after}\n` : ''
