@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { workflowTemplates } from '../../../lib/workflow-templates'
+import { templateCategories, workflowTemplates } from '../../../lib/workflow-templates'
 import { useWorkflowStore } from '../../../stores/workflow-store'
 import { TemplatePicker } from '../template-picker'
 
@@ -46,5 +46,52 @@ describe('TemplatePicker', () => {
     await userEvent.click(screen.getByRole('button', { name: /Start from scratch/ }))
     expect(useWorkflowStore.getState().isDirty).toBe(false)
     expect(useWorkflowStore.getState().nodes).toHaveLength(0)
+  })
+
+  it('shows one tab per section with its count, and only the open section’s cards', async () => {
+    render(<TemplatePicker onDismiss={vi.fn()} />)
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(templateCategories.length)
+    for (const [i, category] of templateCategories.entries()) {
+      const count = workflowTemplates.filter((t) => t.category === category.id).length
+      expect(tabs[i]).toHaveTextContent(`${category.name} ${count}`)
+    }
+
+    const first = templateCategories[0]!
+    const last = templateCategories.at(-1)!
+    const firstTemplate = workflowTemplates.find((t) => t.category === first.id)!
+    const lastTemplate = workflowTemplates.find((t) => t.category === last.id)!
+    expect(screen.getByRole('button', { name: new RegExp(firstTemplate.name) })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: new RegExp(lastTemplate.name) })).toBeNull()
+
+    await userEvent.click(screen.getByRole('tab', { name: new RegExp(last.name) }))
+    expect(screen.getByRole('button', { name: new RegExp(lastTemplate.name) })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: new RegExp(firstTemplate.name) })).toBeNull()
+  })
+
+  it('names the registry nodes a template needs on its card', () => {
+    render(<TemplatePicker onDismiss={vi.fn()} />)
+    const card = screen.getByRole('button', { name: /Failed payment recovery/ })
+    expect(card).toHaveTextContent('Uses Resend')
+  })
+
+  it('has no Hello World template', () => {
+    render(<TemplatePicker onDismiss={vi.fn()} />)
+    expect(screen.queryByText(/Hello World/)).toBeNull()
+  })
+
+  it('closes from the labelled close button and hands focus back to More actions', async () => {
+    const onDismiss = vi.fn()
+    render(
+      <>
+        <div data-zone="menu">
+          <button type="button">More actions</button>
+        </div>
+        <TemplatePicker onDismiss={onDismiss} />
+      </>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(onDismiss).toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'More actions' })).toHaveFocus()
   })
 })

@@ -1,39 +1,24 @@
 import { fallbackPosition } from '../../lib/hydrate-workflow'
-import {
-  ShoppingCart,
-  ShoppingBag,
-  CreditCard,
-  UserCheck,
-  Database,
-  GitFork,
-  Webhook,
-  Mail,
-  MessageSquare,
-  Siren,
-  Plus,
-  X,
-} from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Plus, X } from 'lucide-react'
 import {
   workflowTemplates,
   templateCategories,
   type WorkflowTemplate,
 } from '../../lib/workflow-templates'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
+import { Button } from '../ui/button'
+import { PillTab, PillTabsList } from '../ui/pill-tabs'
+import { Tabs, TabsContent } from '../ui/tabs'
+import { Tile } from '../ui/tile'
 import { focusMoreActions } from '../workflows/top-bar-focus'
+import { TemplateCard } from './template-card'
 
-const ICON_MAP: Record<string, ReactNode> = {
-  ShoppingCart: <ShoppingCart className="h-5 w-5" />,
-  ShoppingBag: <ShoppingBag className="h-5 w-5" />,
-  CreditCard: <CreditCard className="h-5 w-5" />,
-  UserCheck: <UserCheck className="h-5 w-5" />,
-  Database: <Database className="h-5 w-5" />,
-  GitFork: <GitFork className="h-5 w-5" />,
-  Webhook: <Webhook className="h-5 w-5" />,
-  Mail: <Mail className="h-5 w-5" />,
-  MessageSquare: <MessageSquare className="h-5 w-5" />,
-  Siren: <Siren className="h-5 w-5" />,
-}
+const sections = templateCategories
+  .map((category) => ({
+    ...category,
+    templates: workflowTemplates.filter((t) => t.category === category.id),
+  }))
+  .filter((section) => section.templates.length > 0)
 
 export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
   const loadWorkflow = useWorkflowStore((s) => s.loadWorkflow)
@@ -70,10 +55,15 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
     onDismiss()
   }
 
-  function handleKeyDown(event: React.KeyboardEvent) {
-    if (event.key !== 'Escape' || event.defaultPrevented) return
+  // Focus goes back to the toolbar's "More actions", where Templates is opened from.
+  function handleClose() {
     onDismiss()
     focusMoreActions()
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key !== 'Escape' || event.defaultPrevented) return
+    handleClose()
   }
 
   return (
@@ -85,7 +75,8 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
       onKeyDown={handleKeyDown}
       className="absolute inset-0 z-30 flex items-center justify-center bg-background/90 outline-none"
     >
-      <div className="relative max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-md border border-border bg-card shadow-lg">
+      {/* A fixed height, so switching tabs never resizes the dialog. */}
+      <div className="relative flex h-[min(80vh,46rem)] w-full flex-col max-w-3xl overflow-hidden rounded-md border border-border bg-card shadow-lg">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-foreground">New Workflow</h2>
@@ -93,74 +84,48 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
               Choose a template or start with a blank canvas.
             </p>
           </div>
-          <button
-            onClick={onDismiss}
-            className="rounded-md p-1.5 text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground/60"
-          >
-            <X size={16} />
-          </button>
+          <Button variant="ghost" size="icon" aria-label="Close" onClick={handleClose}>
+            <X />
+          </Button>
         </div>
 
-        <div
-          className="overflow-y-auto p-6 scrollbar-none"
-          style={{ maxHeight: 'calc(80vh - 72px)' }}
-        >
+        <div className="min-h-0 flex-1 overflow-y-auto p-6 scrollbar-none">
           {/* Start from scratch */}
           <button
-            onClick={onDismiss}
+            type="button"
+            onClick={handleClose}
             className="group flex w-full items-center gap-3 rounded-md border border-dashed border-border bg-transparent p-4 text-left transition-all hover:border-border hover:bg-muted/30"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground transition-colors group-hover:bg-muted group-hover:text-foreground/60">
-              <Plus className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-sm font-medium text-foreground">Start from scratch</div>
-              <div className="text-xs text-muted-foreground">
+            <Tile size="sm">
+              <Plus />
+            </Tile>
+            <span className="flex flex-col">
+              <span className="text-sm font-medium text-foreground">Start from scratch</span>
+              <span className="text-xs text-muted-foreground">
                 Empty canvas. Drag nodes from the palette.
-              </div>
-            </div>
+              </span>
+            </span>
           </button>
 
-          {/* Categories */}
-          {templateCategories.map((category) => {
-            const templates = workflowTemplates.filter((t) => t.category === category.id)
-            if (templates.length === 0) return null
-
-            return (
-              <div key={category.id} className="mt-6 space-y-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground/70">{category.name}</h3>
-                  <p className="text-xs text-muted-foreground/60">{category.description}</p>
-                </div>
+          <Tabs defaultValue={sections[0]?.id} className="mt-6">
+            <PillTabsList>
+              {sections.map((section) => (
+                <PillTab key={section.id} value={section.id} count={section.templates.length}>
+                  {section.name}
+                </PillTab>
+              ))}
+            </PillTabsList>
+            {sections.map((section) => (
+              <TabsContent key={section.id} value={section.id} className="pt-4">
+                <p className="mb-3 text-xs text-muted-foreground/60">{section.description}</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {templates.map((template) => (
-                    <button
-                      key={template.id}
-                      onClick={() => handleSelect(template)}
-                      className="group flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-4 text-left transition-all hover:border-primary/30 hover:bg-muted/50"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary/20">
-                          {ICON_MAP[template.icon]}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium text-foreground">
-                            {template.name}
-                          </div>
-                          <div className="text-xs text-muted-foreground/60">
-                            {template.nodeCount} nodes
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        {template.description}
-                      </p>
-                    </button>
+                  {section.templates.map((template) => (
+                    <TemplateCard key={template.id} template={template} onSelect={handleSelect} />
                   ))}
                 </div>
-              </div>
-            )
-          })}
+              </TabsContent>
+            ))}
+          </Tabs>
         </div>
       </div>
     </div>
