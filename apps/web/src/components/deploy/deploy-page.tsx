@@ -205,6 +205,7 @@ export function DeployPage({
 
   let outcome: DeployOutcome = 'deploying'
   if (stream.state === 'success') outcome = 'success'
+  else if (stream.state === 'cancelled') outcome = 'cancelled'
   else if (stream.state === 'error') outcome = stream.failure === 'connection' ? 'lost' : 'error'
   const verb = kind === 'script' ? 'Publish' : 'Deploy'
   const blockedReason = live?.versionLocked ? LOCKED_HERE : undefined
@@ -247,6 +248,10 @@ export function DeployPage({
             overviewHref={links.overview}
             onRetry={startDeploy}
             onBack={stream.retry}
+            canCancel={stream.canCancel}
+            cancelPending={stream.cancelPending}
+            cancelling={stream.cancelling}
+            onCancel={stream.cancelDeploy}
           />
         ) : (
           <DeploySummaryCard

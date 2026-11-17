@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
@@ -15,7 +15,7 @@ import { useDeployStream } from '../use-deploy-stream'
 function sse(events: unknown[], { close = true } = {}): Response {
   const encoder = new TextEncoder()
   const chunks = events.map((event) => {
-    const name = (event as { stage?: string }).stage ? 'progress' : 'result'
+    const name = eventName(event)
     return encoder.encode(`event: ${name}\ndata: ${JSON.stringify(event)}\n\n`)
   })
   // One chunk a read; then the end, or the connection dropping.
@@ -28,6 +28,41 @@ function sse(events: unknown[], { close = true } = {}): Response {
     },
   })
   return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+}
+
+function eventName(event: unknown): string {
+  if ((event as { stage?: string }).stage) return 'progress'
+  if ((event as { success?: boolean }).success !== undefined) return 'result'
+  return 'started'
+}
+
+/** A deploy stream the test writes to as the deploy goes, then ends. */
+function liveStream() {
+  const encoder = new TextEncoder()
+  let controller!: ReadableStreamDefaultController<Uint8Array>
+  const body = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c
+    },
+  })
+  return {
+    response: new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+    send(event: unknown) {
+      controller.enqueue(
+        encoder.encode(`event: ${eventName(event)}\ndata: ${JSON.stringify(event)}\n\n`),
+      )
+    },
+    end() {
+      controller.close()
+    },
+  }
+}
+
+function json(body: unknown, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
 }
 
 let client: QueryClient
@@ -107,5 +142,77 @@ describe('useDeployStream', () => {
     const ended = await deploy(sse([{ stage: 'DEPLOYING', message: '', progress: 65 }]))
     expect(ended.state).toBe('error')
     expect(ended.failure).toBe('connection')
+  })
+})
+
+describe('cancelling from the Deploy page', () => {
+  function start(cancelAnswer: Response) {
+    const stream = liveStream()
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(url.includes('/cancel') ? cancelAnswer : stream.response),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const hook = renderHook(() => useDeployStream({ workflowId: 'wf-1' }), { wrapper })
+    let running!: Promise<void>
+    act(() => {
+      running = hook.result.current.startDeploy('c-1', {})
+    })
+    return { hook, stream, fetchMock, running: () => running }
+  }
+
+  it('can cancel only once the stream named the deployment', async () => {
+    const { hook, stream, running } = start(json({ status: 'cancelling' }, 202))
+    expect(hook.result.current.canCancel).toBe(false)
+    stream.send({ deploymentId: 'dep-1' })
+    await waitFor(() => expect(hook.result.current.canCancel).toBe(true))
+    stream.send({ success: true, deploymentId: 'w' })
+    stream.end()
+    await act(() => running())
+    expect(hook.result.current.canCancel).toBe(false)
+  })
+
+  it('asks by that id, and ends cancelled when the result says so', async () => {
+    const { hook, stream, fetchMock, running } = start(json({ status: 'cancelling' }, 202))
+    stream.send({ deploymentId: 'dep-1' })
+    stream.send({ stage: 'DEPLOYING', message: 'Installing 1 dependency...', progress: 65 })
+    await waitFor(() => expect(hook.result.current.canCancel).toBe(true))
+
+    act(() => hook.result.current.cancelDeploy())
+    await waitFor(() => expect(hook.result.current.cancelling).toBe(true))
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/workflows/wf-1/deployments/dep-1/cancel'),
+      expect.objectContaining({ method: 'POST' }),
+    )
+
+    stream.send({ stage: 'CANCELLED', message: 'Deploy cancelled', progress: 0 })
+    stream.send({ success: false, deploymentId: '', cancelled: true })
+    stream.end()
+    await act(() => running())
+    expect(hook.result.current.state).toBe('cancelled')
+    // CANCELLED is how it ended, not a place: where it stopped stays the last stage.
+    expect(hook.result.current.reachedStage).toBe('DEPLOYING')
+    expect(hook.result.current.error).toBeNull()
+  })
+
+  it('keeps deploying when the cancel is refused', async () => {
+    const { hook, stream, fetchMock, running } = start(
+      json({ error: 'Already uploading to Cloudflare — it can’t be stopped now.' }, 409),
+    )
+    stream.send({ deploymentId: 'dep-1' })
+    await waitFor(() => expect(hook.result.current.canCancel).toBe(true))
+    act(() => hook.result.current.cancelDeploy())
+    // Asked (pending from here on), then refused: no longer cancelling.
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/cancel'),
+        expect.objectContaining({ method: 'POST' }),
+      ),
+    )
+    await waitFor(() => expect(hook.result.current.cancelling).toBe(false))
+    expect(hook.result.current.state).toBe('deploying')
+    stream.send({ success: true, deploymentId: 'w' })
+    stream.end()
+    await act(() => running())
+    expect(hook.result.current.state).toBe('success')
   })
 })

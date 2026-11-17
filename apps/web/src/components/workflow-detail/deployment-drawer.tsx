@@ -22,13 +22,19 @@ interface DeploymentDrawerProps {
 
 const STATE_BADGE: Record<
   DeploymentState,
-  { label: string; variant: 'success' | 'error' | 'neutral' }
+  { label: string; variant: 'success' | 'error' | 'neutral' | 'warning' }
 > = {
   live: { label: 'Live', variant: 'success' },
   failed: { label: 'Failed', variant: 'error' },
   taken_down: { label: 'Taken down', variant: 'neutral' },
   replaced: { label: 'Replaced', variant: 'neutral' },
+  deploying: { label: 'Deploying', variant: 'warning' },
+  cancelling: { label: 'Cancelling', variant: 'warning' },
+  cancelled: { label: 'Cancelled', variant: 'neutral' },
 }
+
+// A row that never went out says when it was started, not "Deployed".
+const NOT_DEPLOYED: ReadonlySet<DeploymentState> = new Set(['deploying', 'cancelling', 'cancelled'])
 
 const COPY_LABEL = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' } as const
 
@@ -55,6 +61,9 @@ export function DeploymentDrawer({
   const badge = state ? STATE_BADGE[state] : null
   const title = d ? `${version} on ${account}` : ''
   const description = badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : null
+  const started = state !== null && NOT_DEPLOYED.has(state)
+  const whenLabel = started ? 'Started' : 'Deployed'
+  const whenAt = started ? d?.startedAt : d?.createdAt
   const actions = rollBack ? (
     <DeployLink
       href={rollBack.href}
@@ -93,10 +102,16 @@ export function DeploymentDrawer({
           </DetailCard>
           <DetailCard>
             <Detail label="Version">{version}</Detail>
-            <Detail label="Deployed">
-              {format(new Date(d.createdAt), 'd MMM yyyy, HH:mm')}
+            <Detail label={whenLabel}>
+              {format(new Date(whenAt ?? d.createdAt), 'd MMM yyyy, HH:mm')}
               {d.createdByName ? ` by ${d.createdByName}` : ''}
             </Detail>
+            {d.status === 'cancelled' && (
+              <Detail label="Cancelled">
+                {format(new Date(d.createdAt), 'd MMM yyyy, HH:mm')}
+                {d.cancelledByName ? ` by ${d.cancelledByName}` : ''}
+              </Detail>
+            )}
             {d.versionId && (
               <Detail label="Version ID" copy={d.versionId} mono>
                 {d.versionId}

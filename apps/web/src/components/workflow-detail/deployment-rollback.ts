@@ -31,7 +31,7 @@ export function rollBackFor(d: DeploymentSummary, rules: RollBackRules): RollBac
   if (
     !rules.rollBackHref ||
     rules.liveIds.has(d.id) ||
-    d.status === 'failed' ||
+    !wentOut(d.status) ||
     !d.versionId ||
     !d.connectionId ||
     !rules.offeredIds.has(d.connectionId) ||
@@ -48,9 +48,23 @@ export function rollBackFor(d: DeploymentSummary, rules: RollBackRules): RollBac
   }
 }
 
-export type DeploymentState = 'live' | 'failed' | 'taken_down' | 'replaced'
+export type DeploymentState =
+  'live' | 'failed' | 'taken_down' | 'replaced' | 'deploying' | 'cancelling' | 'cancelled'
 
-/** Live, Failed, Taken down, or Replaced (a later deploy took its place on that account). */
+/** A row of a deploy still running: preparing, uploading, or stopping after a cancel. */
+export function isRunning(status: string): boolean {
+  return status === 'deploying' || status === 'uploading' || status === 'cancelling'
+}
+
+/** A deploy that reached its account: never one still running, failed or cancelled. */
+function wentOut(status: string): boolean {
+  return status === 'success' || status === 'taken_down'
+}
+
+/**
+ * Live, Failed, Taken down, Replaced (a later deploy took its place on that
+ * account), Deploying (uploading too), Cancelling or Cancelled.
+ */
 export function deploymentState(
   d: DeploymentSummary,
   liveIds: ReadonlySet<string>,
@@ -58,5 +72,13 @@ export function deploymentState(
   if (liveIds.has(d.id)) return 'live'
   if (d.status === 'failed') return 'failed'
   if (d.status === 'taken_down') return 'taken_down'
+  if (d.status === 'cancelling') return 'cancelling'
+  if (d.status === 'cancelled') return 'cancelled'
+  if (isRunning(d.status)) return 'deploying'
   return 'replaced'
+}
+
+/** A running deploy that can still be cancelled: one that hasn't started uploading. */
+export function cancellable(d: DeploymentSummary): boolean {
+  return d.status === 'deploying'
 }

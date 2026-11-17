@@ -201,13 +201,22 @@ export interface DeploymentSummary {
   versionId: string | null
   connectionId: string | null
   serviceName: string
-  /** 'success', 'failed' or 'taken_down' (kept as history once its account was taken down). */
+  /**
+   * 'success', 'failed' or 'taken_down' (kept as history once its account was
+   * taken down); while it runs 'deploying', 'cancelling' or 'uploading', and
+   * 'cancelled' when it was stopped before the upload.
+   */
   status: string
   error: string | null
+  /** When it settled (while it runs, when it started). */
   createdAt: string
+  /** When it started; null on deployments from before it was kept. */
+  startedAt?: string | null
   takenDownAt?: string | null
   /** Who deployed it; null before authors were kept (or once they're removed). */
   createdByName?: string | null
+  /** Who cancelled it; null unless it was cancelled (or once they're removed). */
+  cancelledByName?: string | null
   /** In a list: its version's number (kept after the version is deleted) and lock (1 locked). */
   version?: number | null
   versionLocked?: number | null
@@ -982,6 +991,16 @@ export function createApiClient(scope: () => ApiScope) {
         {
           method: 'POST',
         },
+      )
+    },
+
+    /** Asks a running deploy to stop before it uploads; 409 once it can't. */
+    cancelDeployment(workflowId: string, deploymentId: string): Promise<{ status: 'cancelling' }> {
+      return request(
+        withProject(
+          `/workflows/${pathSegment(workflowId)}/deployments/${pathSegment(deploymentId)}/cancel`,
+        ),
+        { method: 'POST' },
       )
     },
 

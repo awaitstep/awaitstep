@@ -6,6 +6,8 @@ import { readSseStream } from '../lib/sse-stream'
 import { usePollingStore } from '../stores/polling-store'
 import { useApi } from '../contexts/api-client-context'
 import { pathSegment } from '../lib/api-path'
+import { isPlaceStage } from '../components/deploy/deploy-phases'
+import { useCancelDeploy } from './use-cancel-deploy'
 
 export interface DeployProgress {
   stage: string
@@ -19,9 +21,11 @@ export interface DeployResult {
   url?: string
   dashboardUrl?: string
   error?: string
+  /** It was cancelled before the upload; nothing reached the provider. */
+  cancelled?: boolean
 }
 
-export type DeployState = 'idle' | 'deploying' | 'success' | 'error'
+export type DeployState = 'idle' | 'deploying' | 'success' | 'error' | 'cancelled'
 
 /**
  * Who ended a failed deploy: the server said so (a refusal, a FAILED stage, a
@@ -52,6 +56,10 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
   const [startedAt, setStartedAt] = useState<number | null>(null)
   const [finishedAt, setFinishedAt] = useState<number | null>(null)
   const [failure, setFailure] = useState<DeployFailure | null>(null)
+  // The running deploy's row, from the stream's first event: what Cancel asks by.
+  const [deploymentId, setDeploymentId] = useState<string | null>(null)
+  const cancel = useCancelDeploy(workflowId)
+  const resetCancel = cancel.reset
 
   function invalidateDeployQueries() {
     queryClient.invalidateQueries({ queryKey: ['workflow', workflowId] })
@@ -88,6 +96,8 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
       setStartedAt(Date.now())
       setFinishedAt(null)
       setFailure(null)
+      setDeploymentId(null)
+      resetCancel()
 
       try {
         const response = await fetch(
@@ -119,9 +129,15 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
         await readSseStream(response, (event) => {
           const data = JSON.parse(event.data)
 
+          // The deployment's id comes first: it is what a cancel is asked by.
+          if (event.event === 'started') {
+            setDeploymentId(data.deploymentId)
+            return true
+          }
+
           if (data.stage) {
             setProgress(data)
-            if (data.stage !== 'FAILED') setReachedStage(data.stage)
+            if (isPlaceStage(data.stage)) setReachedStage(data.stage)
             if (data.stage === 'FAILED') {
               setError(data.message)
               setFailure('server')
@@ -136,7 +152,11 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
           if (data.success !== undefined) {
             setResult(data)
             setFinishedAt(Date.now())
-            if (data.success) {
+            if (data.cancelled) {
+              // Asked for on this page or elsewhere; the card says so, no toast.
+              setState('cancelled')
+              invalidateDeployQueries()
+            } else if (data.success) {
               setState('success')
               invalidateDeployQueries()
               usePollingStore.getState().start('all-deployments')
@@ -173,13 +193,20 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
         }
       }
     },
-    [api, workflowId, versionId, queryClient],
+    [api, workflowId, versionId, queryClient, resetCancel],
   )
 
   function retry() {
     setState('idle')
     setError(null)
     setFailure(null)
+    setDeploymentId(null)
+    resetCancel()
+  }
+
+  /** Asks the running deploy to stop; the stream's result says when it did. */
+  function cancelDeploy() {
+    if (deploymentId) cancel.mutate(deploymentId)
   }
 
   return {
@@ -193,5 +220,12 @@ export function useDeployStream({ workflowId, versionId }: UseDeployStreamOption
     failure,
     startDeploy,
     retry,
+    /** Known once the stream named it: until then there is nothing to cancel. */
+    canCancel: state === 'deploying' && deploymentId !== null,
+    /** The cancel request is on its way; nothing is claimed until it is accepted. */
+    cancelPending: cancel.isPending,
+    /** Accepted: the deploy is stopping before its upload. A refusal (409) never sets it. */
+    cancelling: cancel.isSuccess,
+    cancelDeploy,
   }
 }

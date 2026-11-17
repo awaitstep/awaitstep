@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { LiveDeployment } from '@awaitstep/ir'
+import { api } from '../../../lib/api-client'
 import { DeploymentsTab } from '../deployments-tab'
 import { BASE, VERSIONS, VIEWER, renderWithPages } from './fixtures/workspace-pages'
 
@@ -35,6 +36,8 @@ const deploy = (
   status,
   error: null as string | null,
   createdAt: '2026-11-05T09:00:00.000Z',
+  startedAt: null as string | null,
+  cancelledByName: null as string | null,
   createdByName: by,
   version: NUMBERS[versionId] ?? null,
   versionLocked,
@@ -277,5 +280,71 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
     expect(
       within(drawer).queryByRole('link', { name: 'Roll back to this' }),
     ).not.toBeInTheDocument()
+  })
+
+  describe('a deploy still running, and one cancelled', () => {
+    const cancelDeployment = vi.fn()
+
+    beforeEach(() => {
+      cancelDeployment.mockReset().mockResolvedValue({ status: 'cancelling' })
+      vi.spyOn(api, 'cancelDeployment').mockImplementation(cancelDeployment)
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('tags them, offers Cancel only while it can still stop, and never Roll back', () => {
+      renderTab([
+        deploy('d5', 'v3', 'deploying', 'c-prod', 'Ama Mensah'),
+        deploy('d4', 'v3', 'uploading', 'c-stage', 'Ama Mensah'),
+        deploy('d3', 'v3', 'cancelled', 'c-prod', 'Ama Mensah'),
+        deploy('d2', 'v2', 'success', 'c-prod', null),
+      ])
+      const [running, uploading, cancelled] = rows()
+      expect(running).toHaveTextContent('deploying')
+      expect(within(running!).getByRole('button', { name: 'Cancel' })).toBeEnabled()
+      expect(within(running!).queryByRole('link', { name: 'Roll back' })).toBeNull()
+      // Uploading: past the point a cancel can stop it.
+      expect(uploading).toHaveTextContent('deploying')
+      expect(within(uploading!).queryByRole('button', { name: 'Cancel' })).toBeNull()
+      expect(cancelled).toHaveTextContent('cancelled')
+      expect(within(cancelled!).queryByRole('button', { name: 'Cancel' })).toBeNull()
+      expect(within(cancelled!).queryByRole('link', { name: 'Roll back' })).toBeNull()
+    })
+
+    it('asks to cancel the row it is on', async () => {
+      renderTab([deploy('d5', 'v3', 'deploying', 'c-prod', null)])
+      await userEvent.click(within(rows()[0]!).getByRole('button', { name: 'Cancel' }))
+      expect(cancelDeployment).toHaveBeenCalledWith('wf_1', 'd5')
+    })
+
+    it('shows a row already stopping as Cancelling', () => {
+      renderTab([deploy('d5', 'v3', 'cancelling', 'c-prod', null)])
+      expect(rows()[0]).toHaveTextContent('cancelling')
+      expect(within(rows()[0]!).getByRole('button', { name: 'Cancelling…' })).toBeDisabled()
+    })
+
+    it('offers a viewer no Cancel', () => {
+      renderTab([deploy('d5', 'v3', 'deploying', 'c-prod', null)], [], true, VIEWER)
+      expect(within(rows()[0]!).queryByRole('button', { name: 'Cancel' })).toBeNull()
+    })
+
+    it('says in the drawer when a running or cancelled deploy started', async () => {
+      renderTab([
+        {
+          ...deploy('d3', 'v3', 'cancelled', 'c-prod', 'Ama Mensah'),
+          startedAt: '2026-11-05T08:58:00.000Z',
+          cancelledByName: 'Lena Ortiz',
+        },
+      ])
+      await userEvent.click(screen.getByRole('button', { name: /^Details for v12/ }))
+      const drawer = await screen.findByRole('dialog')
+      expect(drawer).toHaveTextContent('Cancelled')
+      // Started when it began, not when it was cancelled (createdAt), and by whom.
+      expect(drawer).toHaveTextContent(/Started5 Nov 2026, \d\d:58 by Ama Mensah/)
+      expect(drawer).toHaveTextContent('by Lena Ortiz')
+      expect(drawer).not.toHaveTextContent('Deployed')
+    })
   })
 })

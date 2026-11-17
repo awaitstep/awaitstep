@@ -21,7 +21,7 @@ vi.mock('../../../lib/api-client', async (original) => ({
 
 // The stream itself is the hook's; the page only reads its state.
 const stream = vi.hoisted(() => ({
-  state: 'idle' as 'idle' | 'deploying' | 'success' | 'error',
+  state: 'idle' as 'idle' | 'deploying' | 'success' | 'error' | 'cancelled',
   progress: null,
   error: null as string | null,
   result: null as { url?: string } | null,
@@ -31,6 +31,10 @@ const stream = vi.hoisted(() => ({
   failure: null as 'server' | 'connection' | null,
   startDeploy: vi.fn(),
   retry: vi.fn(),
+  canCancel: false,
+  cancelPending: false,
+  cancelling: false,
+  cancelDeploy: vi.fn(),
 }))
 const streamSignal = vi.hoisted(() => ({ n: 0, listeners: new Set<() => void>() }))
 vi.mock('../../../hooks/use-deploy-stream', async () => {
@@ -148,9 +152,13 @@ beforeEach(() => {
     startedAt: null,
     finishedAt: null,
     failure: null,
+    canCancel: false,
+    cancelPending: false,
+    cancelling: false,
   })
   stream.startDeploy.mockReset()
   stream.retry.mockReset()
+  stream.cancelDeploy.mockReset()
   useOrgStore.setState({
     appReady: true,
     organizations: [{ id: 'org-1', name: 'Acme', slug: 'acme', createdAt: '' }],
@@ -343,7 +351,7 @@ describe('DeployPage roll back', () => {
 describe('DeployPage progress', () => {
   it('shows three phases while deploying, and keeps the account from changing', async () => {
     getDeployConnections.mockResolvedValue(TWO)
-    Object.assign(stream, { state: 'deploying', reachedStage: 'DEPLOYING', startedAt: Date.now() })
+    Object.assign(stream, { state: 'deploying', reachedStage: 'UPLOADING', startedAt: Date.now() })
     renderPage()
     const card = await screen.findByRole('region', { name: 'Deploy progress' })
     expect(card).toHaveTextContent('Deploying v13')
@@ -412,7 +420,7 @@ describe('DeployPage progress', () => {
     getDeployConnections.mockResolvedValue({ ...TWO, deployedWith: [liveOn('c-ownb84d', 12)] })
     Object.assign(stream, {
       state: 'error',
-      reachedStage: 'DEPLOYING',
+      reachedStage: 'UPLOADING',
       error: 'Authentication error [code: 10000]',
     })
     const { unmount } = renderPage()
@@ -438,6 +446,90 @@ describe('DeployPage progress', () => {
     expect(card).not.toHaveTextContent('What Cloudflare said')
     expect(card).toHaveTextContent('v12 is untouched and still serving.')
     expect(card).toHaveTextContent('Nothing changed on Cloudflare.')
+  })
+
+  it('offers Cancel while it prepares, and asks the stream to stop', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    Object.assign(stream, {
+      state: 'deploying',
+      reachedStage: 'DEPLOYING',
+      startedAt: Date.now(),
+      canCancel: true,
+    })
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Deploy progress' })
+    expect(card).toHaveTextContent('Compiling')
+    expect(within(card).getByRole('button', { name: 'Deploying…' })).toBeDisabled()
+    await userEvent.click(within(card).getByRole('button', { name: 'Cancel deploy' }))
+    expect(stream.cancelDeploy).toHaveBeenCalledTimes(1)
+  })
+
+  it('says it is cancelling, and that nothing reached the provider', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    Object.assign(stream, {
+      state: 'deploying',
+      reachedStage: 'DEPLOYING',
+      startedAt: Date.now(),
+      canCancel: true,
+      cancelling: true,
+    })
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Deploy progress' })
+    expect(card).toHaveTextContent('Cancelling v13')
+    expect(within(card).getByRole('button', { name: 'Cancelling…' })).toBeDisabled()
+    expect(card).toHaveTextContent('Nothing has reached Cloudflare.')
+  })
+
+  it('claims nothing while the cancel request is still on its way', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    Object.assign(stream, {
+      state: 'deploying',
+      reachedStage: 'DEPLOYING',
+      startedAt: Date.now(),
+      canCancel: true,
+      cancelPending: true,
+    })
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Deploy progress' })
+    expect(within(card).getByRole('button', { name: 'Cancelling…' })).toBeDisabled()
+    // It may yet be refused (the upload started): no title change, no claim.
+    expect(card).toHaveTextContent('Deploying v13')
+    expect(card).not.toHaveTextContent('Nothing has reached')
+  })
+
+  it('offers no Cancel once the upload started', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    Object.assign(stream, {
+      state: 'deploying',
+      reachedStage: 'UPLOADING',
+      startedAt: Date.now(),
+      canCancel: true,
+    })
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Deploy progress' })
+    expect(card).toHaveTextContent('Creating the worker')
+    expect(within(card).queryByRole('button', { name: 'Cancel deploy' })).not.toBeInTheDocument()
+  })
+
+  it('shows a cancelled deploy, where it stopped, and the way to deploy again', async () => {
+    getDeployConnections.mockResolvedValue({ ...TWO, deployedWith: [liveOn('c-ownb84d', 12)] })
+    Object.assign(stream, {
+      state: 'cancelled',
+      reachedStage: 'DEPLOYING',
+      startedAt: Date.now() - 9_000,
+      finishedAt: Date.now(),
+    })
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Deploy progress' })
+    expect(card).toHaveTextContent('Deploy cancelled')
+    expect(card).toHaveTextContent('Stopped while compiling')
+    expect(card).toHaveTextContent('Cancelled here')
+    expect(card).toHaveTextContent('Nothing changed on Cloudflare.')
+    expect(card).not.toHaveTextContent('Deploy failed')
+    await userEvent.click(within(card).getByRole('button', { name: 'Deploy again' }))
+    expect(stream.startDeploy).toHaveBeenCalledWith('c-ownb84d', DEFAULTS)
+    await userEvent.click(within(card).getByRole('button', { name: 'Back to settings' }))
+    expect(stream.retry).toHaveBeenCalled()
   })
 
   it('keeps edits through Back to settings, and Retry sends them', async () => {

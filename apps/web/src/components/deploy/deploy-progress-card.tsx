@@ -1,9 +1,11 @@
-import { Check, CircleHelp, Loader2, X } from 'lucide-react'
+import { Check, CircleHelp, Loader2, Minus, X } from 'lucide-react'
 import { timeAgo } from '../../lib/time'
 import { cn } from '../../lib/utils'
 import { Button, buttonVariants } from '../ui/button'
 import { RouterShellLink } from '../navigation/router-shell-link'
 import {
+  cancellableAt,
+  cancelledAtLine,
   deployPhases,
   failedBeforeUpload,
   stoppedAtLine,
@@ -34,6 +36,13 @@ interface DeployProgressCardProps {
   overviewHref: string
   onRetry: () => void
   onBack: () => void
+  /** The page knows which deploy is running, so it can ask to stop it. */
+  canCancel: boolean
+  /** A cancel request is on its way: the button waits, nothing is claimed yet. */
+  cancelPending: boolean
+  /** A cancel was asked for and accepted; the deploy is stopping. */
+  cancelling: boolean
+  onCancel: () => void
 }
 
 function seconds(from: number | null, to: number | null): string | null {
@@ -41,7 +50,7 @@ function seconds(from: number | null, to: number | null): string | null {
   return `${Math.max(1, Math.round((to - from) / 1000))}s`
 }
 
-/** A deploy under way, live or failed, in place of the summary (25d–25f). */
+/** A deploy under way, live, failed or cancelled, in place of the summary (25d–25i). */
 export function DeployProgressCard(props: DeployProgressCardProps) {
   const { outcome, reached, version, accountName, startedAt, finishedAt } = props
   const v = version !== undefined ? `v${version}` : 'This version'
@@ -66,8 +75,11 @@ export function DeployProgressCard(props: DeployProgressCardProps) {
   } else if (outcome === 'lost') {
     title = 'Lost the connection'
     sub = 'It may still be deploying. Check Deployments before you deploy again.'
+  } else if (outcome === 'cancelled') {
+    title = 'Deploy cancelled'
+    sub = cancelledAtLine(reached)
   } else {
-    title = `Deploying ${v}`
+    title = props.cancelling ? `Cancelling ${v}` : `Deploying ${v}`
     sub = startedAt ? `Started ${timeAgo(new Date(startedAt))}` : 'Starting'
   }
 
@@ -85,7 +97,8 @@ export function DeployProgressCard(props: DeployProgressCardProps) {
         'flex flex-col overflow-hidden rounded border bg-card',
         outcome === 'success' && 'border-status-success/40',
         outcome === 'error' && 'border-status-error/40',
-        (outcome === 'deploying' || outcome === 'lost') && 'border-border',
+        (outcome === 'deploying' || outcome === 'lost' || outcome === 'cancelled') &&
+          'border-border',
       )}
     >
       <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
@@ -105,7 +118,11 @@ export function DeployProgressCard(props: DeployProgressCardProps) {
                   'text-sm font-medium',
                   phase.state === 'idle' && 'text-muted-foreground/70',
                   phase.state === 'failed' && 'text-status-error',
-                  phase.state !== 'idle' && phase.state !== 'failed' && 'text-foreground',
+                  phase.state === 'stopped' && 'text-muted-foreground',
+                  phase.state !== 'idle' &&
+                    phase.state !== 'failed' &&
+                    phase.state !== 'stopped' &&
+                    'text-foreground',
                 )}
               >
                 {phase.label}
@@ -148,13 +165,13 @@ function OutcomeMark({ outcome }: { outcome: DeployOutcome }) {
       </span>
     )
   }
-  if (outcome === 'lost') {
+  if (outcome === 'lost' || outcome === 'cancelled') {
     return (
       <span
         aria-hidden="true"
         className="flex size-[30px] shrink-0 items-center justify-center rounded-[9px] bg-muted text-muted-foreground"
       >
-        <CircleHelp className="size-4" />
+        {outcome === 'lost' ? <CircleHelp className="size-4" /> : <Minus className="size-4" />}
       </span>
     )
   }
@@ -195,10 +212,10 @@ function PhaseMark({ state }: { state: DeployPhaseState }) {
       </span>
     )
   }
-  if (state === 'unknown') {
+  if (state === 'unknown' || state === 'stopped') {
     return (
       <span aria-hidden="true" className={cn(base, 'bg-muted text-muted-foreground')}>
-        <CircleHelp className="size-3" />
+        {state === 'unknown' ? <CircleHelp className="size-3" /> : <Minus className="size-3" />}
       </span>
     )
   }
@@ -208,6 +225,7 @@ function PhaseMark({ state }: { state: DeployPhaseState }) {
 function phaseNote(state: DeployPhaseState, note: string): string {
   if (state === 'idle') return 'Not reached'
   if (state === 'unknown') return 'No word since'
+  if (state === 'stopped') return 'Cancelled here'
   return note
 }
 
@@ -219,11 +237,25 @@ function ProgressActions({
   overviewHref,
   onRetry,
   onBack,
+  canCancel,
+  cancelPending,
+  cancelling,
+  onCancel,
 }: DeployProgressCardProps) {
+  // Until the upload starts nothing has reached the provider: it can still stop.
+  const showCancel =
+    outcome === 'deploying' &&
+    (cancelling || cancelPending || (canCancel && cancellableAt(reached)))
+  const cancelBusy = cancelling || cancelPending
+
   let foot: string | null
-  if (outcome === 'deploying') foot = 'You can leave this page — it keeps going.'
-  else if (outcome === 'success') foot = 'Now serving every request.'
+  if (outcome === 'deploying') {
+    foot = cancelling
+      ? `Nothing has reached ${providerName}.`
+      : 'You can leave this page — it keeps going.'
+  } else if (outcome === 'success') foot = 'Now serving every request.'
   else if (outcome === 'lost') foot = null
+  else if (outcome === 'cancelled') foot = `Nothing changed on ${providerName}.`
   else foot = failedBeforeUpload(reached) ? `Nothing changed on ${providerName}.` : null
 
   return (
@@ -232,6 +264,21 @@ function ProgressActions({
         <Button type="button" size="lg" disabled>
           Deploying…
         </Button>
+      )}
+      {showCancel && (
+        <Button type="button" variant="outline" disabled={cancelBusy} onClick={onCancel}>
+          {cancelBusy ? 'Cancelling…' : 'Cancel deploy'}
+        </Button>
+      )}
+      {outcome === 'cancelled' && (
+        <>
+          <Button type="button" size="lg" onClick={onRetry}>
+            Deploy again
+          </Button>
+          <Button type="button" variant="outline" onClick={onBack}>
+            Back to settings
+          </Button>
+        </>
       )}
       {(outcome === 'success' || outcome === 'lost') && (
         <>

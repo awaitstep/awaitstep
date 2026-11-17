@@ -14,7 +14,14 @@ import { Button } from '../ui/button'
 import { plural } from '../../lib/plural'
 import { DeployLink } from './parts/deploy-link'
 import { DeploymentDrawer } from './deployment-drawer'
-import { deploymentState, rollBackFor, type RollBackRules } from './deployment-rollback'
+import {
+  cancellable,
+  deploymentState,
+  isRunning,
+  rollBackFor,
+  type RollBackRules,
+} from './deployment-rollback'
+import { useCancelDeploy } from '../../hooks/use-cancel-deploy'
 import { ABOVE_LINK, STRETCHED_LINK } from '../ui/linked-row'
 import { DataTable, type DataColumn } from '../ui/data-table'
 import { LoadMoreButton } from '../ui/load-more-button'
@@ -22,6 +29,8 @@ import { ListCardSkeleton, LoadingRegion } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
 import { useQueries } from '../../contexts/api-client-context'
 import type { WorkflowOverview } from './use-workflow-overview'
+
+const RUNNING_REFRESH_MS = 3_000
 
 interface DeploymentsTabProps {
   workflow: WorkflowSummary
@@ -47,8 +56,16 @@ export function DeploymentsTab({
   const workflowId = workflow.id
   const links = useWorkflowLinks(workflowId)
   const { canDeploy } = useEditorAccess()
-  const query = useInfiniteQuery(queries.deployments.byWorkflow(workflowId))
+  const query = useInfiniteQuery({
+    ...queries.deployments.byWorkflow(workflowId),
+    // A deploy that is still running settles within minutes: read it again
+    // until it has, so its row (and a cancel's) doesn't stay stale.
+    refetchInterval: (q) =>
+      flatPages(q.state.data).some((d) => isRunning(d.status)) ? RUNNING_REFRESH_MS : false,
+  })
   const deployments = flatPages(query.data)
+  const cancel = useCancelDeploy(workflowId)
+  const cancellingId = cancel.isPending ? (cancel.variables ?? null) : null
   const { live, offeredIds, lockedOn } = overview
   const [openId, setOpenId] = useState<string | null>(null)
   // The last row opened stays in the drawer while it slides shut.
@@ -72,8 +89,10 @@ export function DeploymentsTab({
           setOpenId(deploymentId)
           setShownId(deploymentId)
         },
+        onCancel: canDeploy ? cancel.mutate : undefined,
+        cancellingId,
       }),
-    [rules, accounts],
+    [rules, accounts, canDeploy, cancel.mutate, cancellingId],
   )
   const shown = deployments.find((d) => d.id === shownId) ?? null
   const shownState = shown ? deploymentState(shown, rules.liveIds) : null
@@ -195,12 +214,18 @@ interface HistoryColumnsOptions {
   accounts: Map<string, string>
   /** Opens a row's details (24h). */
   onOpen: (deploymentId: string) => void
+  /** Cancels a running deploy; left out for someone who can't deploy. */
+  onCancel?: (deploymentId: string) => void
+  /** The row whose cancel is being asked for right now. */
+  cancellingId: string | null
 }
 
 function historyColumns({
   rules,
   accounts,
   onOpen,
+  onCancel,
+  cancellingId,
 }: HistoryColumnsOptions): DataColumn<DeploymentSummary>[] {
   return [
     {
@@ -245,6 +270,15 @@ function historyColumns({
         const rollBack = rollBackFor(d, rules)
         return (
           <span className="flex items-center justify-end gap-2">
+            {onCancel && (cancellable(d) || d.status === 'cancelling') && (
+              <span className={ABOVE_LINK}>
+                <CancelButton
+                  deploymentId={d.id}
+                  pending={d.status === 'cancelling' || cancellingId === d.id}
+                  onCancel={onCancel}
+                />
+              </span>
+            )}
             {rollBack && (
               <span className={ABOVE_LINK}>
                 <DeployLink
@@ -302,6 +336,32 @@ function VersionCell({
       {live && <Badge variant="success">live</Badge>}
       {d.status === 'taken_down' && <Badge variant="neutral">taken down</Badge>}
       {d.status === 'failed' && <Badge variant="error">failed</Badge>}
+      {(d.status === 'deploying' || d.status === 'uploading') && (
+        <Badge variant="warning">deploying</Badge>
+      )}
+      {d.status === 'cancelling' && <Badge variant="warning">cancelling</Badge>}
+      {d.status === 'cancelled' && <Badge variant="neutral">cancelled</Badge>}
     </span>
+  )
+}
+
+function CancelButton({
+  deploymentId,
+  pending,
+  onCancel,
+}: {
+  deploymentId: string
+  /** Asked for, here or elsewhere: the deploy is stopping. */
+  pending: boolean
+  onCancel: (deploymentId: string) => void
+}) {
+  function handleCancel() {
+    onCancel(deploymentId)
+  }
+
+  return (
+    <Button type="button" variant="outline" size="sm" disabled={pending} onClick={handleCancel}>
+      {pending ? 'Cancelling…' : 'Cancel'}
+    </Button>
   )
 }
