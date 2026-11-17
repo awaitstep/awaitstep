@@ -1,0 +1,47 @@
+/* Satoshi (Indian Type Foundry / Fontshare), self-hosted as one variable WOFF2
+   per style. Bundlers fingerprint the files, so the URLs change per release and
+   can be cached immutably. The 300–900 range is the whole weight axis;
+   400/500/600/700 (normal, medium, semibold, bold) come from this one file.
+   Shared by apps/web and apps/www so both render the same face and weights. */
+@font-face {
+  font-family: 'Satoshi Variable';
+  src: url('./fonts/Satoshi-Variable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Satoshi Variable';
+  src: url('./fonts/Satoshi-VariableItalic.woff2') format('woff2');
+  font-weight: 300 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* App-owned font variables: the TanStack Start dev styles endpoint appends the
+   raw tailwindcss/index.css after the app stylesheet, redefining
+   --font-sans/--font-mono with the defaults. App-owned names keep the cascade
+   override-proof. */
+:root {
+  --app-font-sans:
+    'Satoshi Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Segoe UI Symbol', 'Noto Color Emoji';
+  --app-font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+  --app-font-code:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    'Liberation Mono', 'Courier New', monospace;
+}
+
+/* Base copy style shared by the dashboard and the marketing site: Satoshi
+   Medium, matching the reference body copy. Utility classes still override per
+   element. */
+@layer base {
+  body {
+    font-family: var(--app-font-sans);
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

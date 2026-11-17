@@ -41,7 +41,8 @@ function HomePage() {
         style={{
           width: '800px',
           height: '600px',
-          background: 'radial-gradient(ellipse, oklch(0.7 0.15 160 / 6%) 0%, transparent 70%)',
+          background:
+            'radial-gradient(ellipse, color-mix(in oklab, var(--primary) 8%, transparent) 0%, transparent 70%)',
         }}
       />
 

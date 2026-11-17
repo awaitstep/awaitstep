@@ -1,26 +1,11 @@
-@import '@fontsource-variable/outfit';
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* Shared with apps/www: Satoshi faces, font variables and base copy style. */
+@import '@awaitstep/theme/theme.css';
 
 @custom-variant dark (&:is(.dark *));
 @custom-variant sidebar-collapsed (&:is(html[data-sidebar='collapsed'] *));
-
-/* App-owned font variables: the TanStack Start dev styles endpoint appends the
-   raw tailwindcss/index.css after this file, redefining --font-sans/--font-mono
-   with the defaults. Using our own names keeps the cascade override-proof. */
-:root {
-  --app-font-sans:
-    'Outfit Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
-  --app-font-mono:
-    'Outfit Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
-  /* The code font (Monaco). Outfit is a UI face and misaligns columns. */
-  --app-font-code:
-    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    'Liberation Mono', 'Courier New', monospace;
-}
 
 @theme inline {
   --font-sans: var(--app-font-sans);
@@ -140,33 +125,33 @@
   --tone-info: color-mix(in oklab, var(--status-info) 14%, transparent);
 }
 
-/* Dark */
+/* Dark: deep indigo navy with the green accent. */
 html.dark {
   color-scheme: dark;
-  --background: oklch(0.13 0.004 260);
-  --foreground: oklch(0.93 0 0);
-  --card: oklch(0.155 0.004 260);
-  --card-foreground: oklch(0.93 0 0);
+  --background: oklch(0.18 0.055 285);
+  --foreground: oklch(0.96 0.012 285);
+  --card: oklch(0.215 0.05 285);
+  --card-foreground: oklch(0.96 0.012 285);
   --primary: oklch(0.7 0.15 160);
   --primary-foreground: oklch(0.13 0.004 260);
-  --secondary: oklch(0.22 0.004 260);
-  --secondary-foreground: oklch(0.93 0 0);
-  --muted: oklch(0.22 0.004 260);
-  --muted-foreground: oklch(0.62 0.01 260);
-  --accent: oklch(0.22 0.004 260);
-  --accent-foreground: oklch(0.93 0 0);
+  --secondary: oklch(0.255 0.05 285);
+  --secondary-foreground: oklch(0.96 0.012 285);
+  --muted: oklch(0.255 0.05 285);
+  --muted-foreground: oklch(0.73 0.03 285);
+  --accent: oklch(0.255 0.05 285);
+  --accent-foreground: oklch(0.96 0.012 285);
   --destructive: oklch(0.65 0.2 25);
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
   --ring: oklch(0.7 0.15 160);
-  --surface-overlay: oklch(0.155 0.004 260);
-  /* Backdrop behind Monaco: matches the editor theme, not the app card. */
-  --editor: oklch(0.12 0 0);
-  --sidebar: oklch(0.115 0.004 260);
-  --sidebar-foreground: oklch(0.93 0 0);
-  --sidebar-accent: oklch(0.19 0.004 260);
-  --sidebar-accent-foreground: oklch(0.93 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
+  --surface-overlay: oklch(0.215 0.05 285);
+  /* Backdrop behind Monaco: a step below the page, still navy. */
+  --editor: oklch(0.155 0.05 285);
+  --sidebar: oklch(0.155 0.055 285);
+  --sidebar-foreground: oklch(0.96 0.012 285);
+  --sidebar-accent: oklch(0.25 0.05 285);
+  --sidebar-accent-foreground: oklch(0.96 0.012 285);
+  --sidebar-border: oklch(1 0 0 / 10%);
   --status-success: oklch(0.72 0.14 155);
   --status-error: oklch(0.68 0.17 22);
   --status-warning: oklch(0.78 0.12 75);
@@ -198,9 +183,9 @@ html.dark {
   --workspace-rose: oklch(0.385 0.093 4);
   --workspace-rose-foreground: oklch(0.926 0.041 359);
   /* Toasts (board Toasts): one step above the page, the state on border, icon and title. */
-  --toast-surface: #15171b;
-  --toast-muted: #9aa0a8;
-  --toast-faint: #8a8f98;
+  --toast-surface: #17122f;
+  --toast-muted: #a9a1c4;
+  --toast-faint: #9189ad;
   --toast-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
   --toast-success: #7be0b5;
   --toast-success-line: #2d6b51;
@@ -210,25 +195,25 @@ html.dark {
   --toast-warning-line: #6e4e24;
   --toast-info: #a9b8ff;
   --toast-info-line: #39427f;
-  --toast-neutral: #9aa0a8;
-  --toast-neutral-line: #2a2d33;
+  --toast-neutral: #a9a1c4;
+  --toast-neutral-line: #2b2547;
 }
 
-/* Light */
+/* Light: white page, near-black text and the green accent. */
 html.light {
   color-scheme: light;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.16 0.005 260);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.15 0 0);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.16 0.005 260);
+  --card-foreground: oklch(0.15 0 0);
   --primary: oklch(0.5 0.14 160);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.94 0.005 260);
-  --secondary-foreground: oklch(0.22 0.005 260);
-  --muted: oklch(0.94 0.005 260);
-  --muted-foreground: oklch(0.45 0.01 260);
-  --accent: oklch(0.94 0.005 260);
-  --accent-foreground: oklch(0.22 0.005 260);
+  --secondary: oklch(0.965 0.008 285);
+  --secondary-foreground: oklch(0.21 0.01 285);
+  --muted: oklch(0.965 0.008 285);
+  --muted-foreground: oklch(0.47 0.02 285);
+  --accent: oklch(0.965 0.008 285);
+  --accent-foreground: oklch(0.21 0.01 285);
   --destructive: oklch(0.55 0.2 25);
   --border: oklch(0 0 0 / 8%);
   --input: oklch(0 0 0 / 10%);
@@ -236,10 +221,10 @@ html.light {
   --surface-overlay: oklch(1 0 0);
   /* Backdrop behind Monaco: matches the editor theme, not the app card. */
   --editor: oklch(1 0 0);
-  --sidebar: oklch(0.965 0.003 260);
-  --sidebar-foreground: oklch(0.16 0.005 260);
-  --sidebar-accent: oklch(0.92 0.005 260);
-  --sidebar-accent-foreground: oklch(0.16 0.005 260);
+  --sidebar: oklch(0.975 0.006 285);
+  --sidebar-foreground: oklch(0.15 0 0);
+  --sidebar-accent: oklch(0.94 0.012 285);
+  --sidebar-accent-foreground: oklch(0.15 0 0);
   --sidebar-border: oklch(0 0 0 / 8%);
   --status-success: oklch(0.48 0.14 155);
   --status-error: oklch(0.5 0.2 25);
@@ -302,7 +287,6 @@ html.light {
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--app-font-sans);
   }
 }
 

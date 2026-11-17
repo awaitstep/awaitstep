@@ -1,0 +1,10 @@
+{
+  "name": "@awaitstep/theme",
+  "version": "1.4.14",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./theme.css": "./src/theme.css",
+    "./fonts/*": "./src/fonts/*"
+  }
+}

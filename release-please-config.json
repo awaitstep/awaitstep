@@ -19,7 +19,8 @@
         "packages/db/package.json",
         "packages/email/package.json",
         "packages/node-cli/package.json",
-        "packages/provider-cloudflare/package.json"
+        "packages/provider-cloudflare/package.json",
+        "packages/theme/package.json"
       ]
     }
   },

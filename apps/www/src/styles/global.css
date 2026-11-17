@@ -1,12 +1,10 @@
 @import 'tailwindcss';
+/* Shared with apps/web: Satoshi faces, font variables and base copy style. */
+@import '@awaitstep/theme/theme.css';
 
 @theme inline {
-  --font-sans:
-    'Geist', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Segoe UI Symbol', 'Noto Color Emoji';
-  --font-mono:
-    'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-    'Courier New', monospace;
+  --font-sans: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
 
   --color-background: #fafafa;
   --color-foreground: #0a0a0a;
@@ -45,7 +43,6 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: var(--font-sans);
     font-size: 0.875rem;
   }
   a {

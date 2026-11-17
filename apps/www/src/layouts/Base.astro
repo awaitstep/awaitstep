@@ -1,4 +1,7 @@
 ---
+import satoshiWoff2 from '@awaitstep/theme/fonts/Satoshi-Variable.woff2?url'
+import '../styles/global.css'
+
 interface Props {
   title?: string
   description?: string
@@ -31,21 +34,14 @@ const {
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
-    <!-- Fonts -->
+    <!-- Fonts: Satoshi is shared with the dashboard; Caveat is the handwriting accent. -->
+    <link rel="preload" href={satoshiWoff2} as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap"
       rel="stylesheet"
     />
-    <link
-      href="https://cdn.jsdelivr.net/npm/geist@1/dist/fonts/geist-sans/style.css"
-      rel="stylesheet"
-    />
-
-    <style is:global>
-      @import '../styles/global.css';
-    </style>
   </head>
   <body>
     <slot />

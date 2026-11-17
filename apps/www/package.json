@@ -9,6 +9,7 @@
     "preview": "astro preview --port 4100"
   },
   "dependencies": {
+    "@awaitstep/theme": "workspace:*",
     "astro": "^7.4.12"
   },
   "devDependencies": {

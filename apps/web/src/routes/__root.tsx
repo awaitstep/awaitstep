@@ -14,6 +14,7 @@ import { showCarriedToast } from '../lib/action-toast'
 import { Toaster } from '../components/ui/toaster'
 import { isCanvasRoute } from '../lib/shell-routes'
 import { ZOD_JITLESS_SCRIPT } from '../lib/zod-jitless'
+import satoshiWoff2 from '@awaitstep/theme/fonts/Satoshi-Variable.woff2?url'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -25,6 +26,14 @@ export const Route = createRootRoute({
     ],
     title: 'AwaitStep',
     links: [
+      // The body face: start the download with the document, not after the CSS.
+      {
+        rel: 'preload',
+        href: satoshiWoff2,
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
       {
         rel: 'icon',
         href: '/favicon.ico',
