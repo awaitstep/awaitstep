@@ -6,6 +6,7 @@ import { createApp, createAuth } from '../index.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
+import { parseAppOrigins } from '../lib/app-origins.js'
 import { imageStoreFromEnv } from '../lib/image-store-env.js'
 import { discardOwnerImages } from '../lib/images.js'
 import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
@@ -34,8 +35,9 @@ export interface Env {
   TOKEN_ENCRYPTION_KEY: string
   BETTER_AUTH_SECRET: string
   BETTER_AUTH_URL?: string
+  /** The app's origin, or a comma-separated list of them; the first is the dashboard's. */
   CORS_ORIGIN?: string
-  /** The web app's origin, for invite links; defaults to CORS_ORIGIN, then the API's URL. */
+  /** The web app's origin, for invite links; defaults to CORS_ORIGIN's first, then the API's URL. */
   WEB_URL?: string
   /** `1` logs invite links instead of sending them when RESEND_API_KEY is unset — QA only. */
   LOG_EMAIL_LINKS?: string
@@ -84,12 +86,12 @@ function isTopOfHour(scheduledTime: number): boolean {
 
 /** The web origin links are built on when no request supplies one (the cron). */
 function cronWebOrigin(env: Env): string | undefined {
-  return env.WEB_URL ?? env.CORS_ORIGIN ?? env.BETTER_AUTH_URL
+  return env.WEB_URL ?? parseAppOrigins(env.CORS_ORIGIN)[0] ?? env.BETTER_AUTH_URL
 }
 
 /** The app's mail for this deployment: Resend when a key is set, else logged. */
 function workerEmails(env: Env, baseURL: string, logger: ReturnType<typeof createLogger>) {
-  const webUrl = env.WEB_URL || env.CORS_ORIGIN || baseURL
+  const webUrl = env.WEB_URL || parseAppOrigins(env.CORS_ORIGIN)[0] || baseURL
   let emailService: EmailService | null = null
   let sendMagicLink:
     ((data: { email: string; url: string; token: string }) => Promise<void>) | undefined
@@ -153,7 +155,7 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
     onAccountEvent: (event) => recordAccountEvent(db, event),
     onImageOwnerDeleted: (owner) => discardOwnerImages(db, imageStore, owner),
     database: drizzleAdapter(drizzleDb, { provider: 'sqlite', schema: sqliteSchema }),
-    trustedOrigins: [baseURL, ...(env.CORS_ORIGIN ? [env.CORS_ORIGIN] : [])],
+    trustedOrigins: [...new Set([baseURL, ...parseAppOrigins(env.CORS_ORIGIN)])],
     sendMagicLink,
     github: env.GITHUB_CLIENT_ID
       ? { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET! }
@@ -183,19 +185,21 @@ async function buildApp(env: Env, baseURL: string): Promise<ReturnType<typeof cr
   )
   const sessionSleepAfter = containerSleepAfter(resolveTestSessionLimits(testSessionLimits))
 
+  const appOrigins = parseAppOrigins(env.CORS_ORIGIN)
+
   return createApp({
     accountProviders: accountProvidersOf(authOptions),
     db,
     auth,
     logger,
-    corsOrigin: env.CORS_ORIGIN ?? baseURL,
+    corsOrigin: appOrigins.length > 0 ? appOrigins : baseURL,
     isDev: false,
     enableLocalDev: false,
     runtime: 'workers',
     // A Worker has no stub: only a real client in the environment turns the
     // OAuth routes on.
     cloudflareOAuth,
-    webUrl: env.WEB_URL || env.CORS_ORIGIN || baseURL,
+    webUrl: env.WEB_URL || appOrigins[0] || baseURL,
     // Cloudflare's edge writes cf-connecting-ip on every request; the web
     // Worker forwards it across the service binding.
     clientIpPolicy: { mode: 'edge', header: 'cf-connecting-ip' },

@@ -10,6 +10,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
+import { parseAppOrigins } from '../lib/app-origins.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
@@ -69,10 +70,9 @@ async function start() {
   }
   // Dev accepts a comma-separated CORS_ORIGIN list so the web app can run on
   // alternate ports (e.g. 3003) and still pass auth trusted-origin checks.
-  const corsOrigins = (process.env['CORS_ORIGIN'] ?? 'http://localhost:3000,http://localhost:3003')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean)
+  const corsOrigins = parseAppOrigins(
+    process.env['CORS_ORIGIN'] ?? 'http://localhost:3000,http://localhost:3003',
+  )
   const resendApiKey = process.env['RESEND_API_KEY']
   const appName = process.env['APP_NAME']
   // The web app's origin, for invite links: the first CORS origin is the Vite dev server.

@@ -16,6 +16,27 @@ A key acts with the standing of whoever minted it: a key minted by a Viewer cann
 
 Base URL: `https://app.awaitstep.dev/api` (cloud) or `http://localhost:8080/api` (self-hosted, adjust to match your instance URL)
 
+## Calling from a browser
+
+How a request signs in decides which pages may call it:
+
+| Signed in with        | From                                            | CORS answer                                                |
+| --------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| An API key (`Bearer`) | any origin                                      | `Access-Control-Allow-Origin: *`, no credentials           |
+| A session cookie      | only the instance's own origins (`CORS_ORIGIN`) | that origin, with `Access-Control-Allow-Credentials: true` |
+
+- A page on any site can call the API with a key. It can read `X-Request-Id` and `Retry-After`
+  off the answer. Use a key with only the permissions the page needs: anyone who loads the
+  page can read a key in its code.
+- A session only works from the dashboard. A write (`POST`, `PUT`, `PATCH`, `DELETE`) that
+  carries the session cookie from any other page is `403`
+  `{ "error": "Cross-origin request refused" }`, whatever its content type. Clients that aren't
+  browsers send neither `Origin` nor `Sec-Fetch-Site` and aren't affected.
+- Sign-in (`/api/auth/*`) and uploaded images (`/api/images/*`) answer no other origin. Images
+  still show in an `<img>` on any page.
+- `CORS_ORIGIN` takes one origin or a comma-separated list. The first one is the dashboard's,
+  and links in emails are built on it.
+
 ## Addressing scope
 
 Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the dashboard's URLs carry: `?org=<org slug>&project=<project slug>`. Either way the project and your membership are resolved in one read; a project you are not a member of answers `404`, exactly like one that does not exist. Organization-scoped routes take `?organizationId=<id>` or `?org=<slug>`.
@@ -3604,7 +3625,7 @@ as a boolean), `signInMethods`, `sessions`, and `memberships` with each
 organization's `role`, project roles (`projects`) and workspace roles
 (`workspaces`). Nothing the organizations own (workflows, runs, connections,
 other people). Recorded as `account.export`; 10 an hour. A `POST` so that a
-cross-site link can't write audit rows (the CSRF check covers it).
+cross-site page can't write audit rows (see "Calling from a browser").
 
 #### Through better-auth (`/api/auth/*`)
 

@@ -19,6 +19,7 @@ import { createCloudflareOAuthStub } from './dev/cloudflare-oauth-stub.js'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
+import { corsPolicy } from './middleware/cors-policy.js'
 import { originCheck } from './middleware/origin-check.js'
 import { imageResponseHeaders, images } from './routes/images.js'
 import { databaseImageStore } from './lib/images.js'
@@ -137,15 +138,19 @@ export function createApp(deps: AppDeps) {
     )
   }
 
-  // CORS — must be before auth handler so preflight and response headers apply
+  // CORS — before the auth handler so preflights and response headers apply.
+  // The app's origins get credentials; any other origin is answered only for
+  // API-key requests (middleware/cors-policy.ts).
   app.use(
     '/api/*',
-    cors({
-      origin: deps.corsOrigin ?? 'http://localhost:3000',
-      allowHeaders: ['Content-Type', 'Authorization'],
-      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      credentials: true,
-    }),
+    wildcardOrigin
+      ? cors({
+          origin: '*',
+          allowHeaders: ['Content-Type', 'Authorization'],
+          allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+          credentials: true,
+        })
+      : corsPolicy(appOrigins),
   )
 
   // Body size limit — 1MB default for all API routes. The refusal is JSON
