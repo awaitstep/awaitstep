@@ -54,6 +54,29 @@ describe('resolveStepNode', () => {
     expect(stepLabelBase('fetch-1')).toBe('fetch')
   })
 
+  it('maps named labels back to their node through the id in brackets', () => {
+    const named = {
+      irHash: 'x',
+      steps: [
+        {
+          nodeId: 'k3-9',
+          stepName: 'Send email (k3-9)',
+          kind: 'do' as const,
+          varName: 'Send_email',
+        },
+        { nodeId: 'w1', varName: 'Wait_for_sunny' },
+        { nodeId: 'sub-1', varName: 'Run_child' },
+      ],
+    }
+    expect(resolveStepNode(named, 'Send email (k3-9)-1')).toBe('k3-9')
+    // A wait claims no step name; a rename since deploy no longer matches the manifest's.
+    expect(resolveStepNode(named, 'wait for sunny (w1)-1')).toBe('w1')
+    expect(resolveStepNode(named, 'Old name (k3-9)-2')).toBe('k3-9')
+    expect(resolveStepNode(named, 'Child run (sub-1)--create-1')).toBe('sub-1')
+    expect(stepLabelBase('Send email (k3-9)-1')).toBe('k3-9')
+    expect(stepLabelBase('Child run (sub-1)--await')).toBe('sub-1')
+  })
+
   it('returns undefined for labels the manifest cannot claim', () => {
     expect(resolveStepNode(manifest, 'unknown-step')).toBeUndefined()
   })

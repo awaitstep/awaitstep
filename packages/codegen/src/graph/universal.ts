@@ -13,7 +13,7 @@ import {
   RUNTIME_MODULE_PATH,
   workflowRuntimeImport,
 } from '../runtime.js'
-import { stepLabel } from '../naming.js'
+import { maskStepLabels, stepLabel } from '../naming.js'
 import type { GeneratorLookup } from '../node-generator.js'
 import { sanitizeIdentifier } from '../sanitize.js'
 import { normalizeStepModules } from '../step-module.js'
@@ -430,8 +430,10 @@ function generateFunction(
     if (!match) continue
     const planned = plan.get(node.id)
     const isNested = match[1]!.length > 0
+    // A reference is the bare identifier: not the node's name inside a step
+    // label, not the `$name` module import at its call.
     const refMatches = [
-      ...graphBody.matchAll(new RegExp(`(?<![$"'])\\b${varName}\\b(?!["'])`, 'g')),
+      ...maskStepLabels(graphBody).matchAll(new RegExp(`(?<![$"'])\\b${varName}\\b(?!["'])`, 'g')),
     ]
     const isReferencedElsewhere = refMatches.length > 1
 

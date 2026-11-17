@@ -22,6 +22,7 @@ import {
   normalizeStepModules,
   projectBundleFiles,
   stepLabel,
+  maskStepLabels,
   topologicalSort,
   validateBundle,
   withoutComments,
@@ -303,9 +304,11 @@ function generateScriptInternal(
 
     const planned = plan.get(node.id)
     const isNested = m[1].length > 0
-    // A reference is the bare identifier: not the step's own label in
-    // `flow.step("name"`, not the `$name` module import at its call.
-    const refMatches = [...graphBody.matchAll(new RegExp(`(?<![$"'])\\b${v}\\b(?!["'])`, 'g'))]
+    // A reference is the bare identifier: not the node's name inside a step
+    // label, not the `$name` module import at its call.
+    const refMatches = [
+      ...maskStepLabels(graphBody).matchAll(new RegExp(`(?<![$"'])\\b${v}\\b(?!["'])`, 'g')),
+    ]
     const isReferencedElsewhere = refMatches.length > 1
 
     if (planned) {

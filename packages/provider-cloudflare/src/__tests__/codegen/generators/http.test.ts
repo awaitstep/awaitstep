@@ -49,7 +49,7 @@ describe('generateHttp', () => {
       makeNode({ data: { url: 'https://a.example', method: 'POST', durable: true } }),
     )
     expect(code).toContain(
-      'await flow.step("http-1", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async () => flow.http({',
+      'await flow.step("Fetch data (http-1)", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async () => flow.http({',
     )
     expect(code).toContain('method: "POST"')
   })
@@ -191,7 +191,7 @@ describe('generateHttp', () => {
       }),
     )
     expect(code).toContain(
-      'flow.step("http-1", { retries: { limit: 3, delay: "5 seconds" }, timeout: "30 seconds" },',
+      'flow.step("Fetch data (http-1)", { retries: { limit: 3, delay: "5 seconds" }, timeout: "30 seconds" },',
     )
   })
 
@@ -206,15 +206,15 @@ describe('generateHttp', () => {
     expect(code).toContain('const fetch_user_data =')
   })
 
-  it('labels are id-derived, so quotes in the node name never reach the source', () => {
+  it('labels carry the cleaned node name, so quotes in the node name never reach the source', () => {
     const code = generate(
       makeNode({
         name: 'Fetch "important" data',
         data: { url: 'https://a.example', durable: true },
       }),
     )
-    expect(code).toContain('flow.step("http-1"')
-    expect(code).not.toContain('important')
+    expect(code).toContain('flow.step("Fetch important data (http-1)"')
+    expect(code).not.toContain('"important"')
   })
 
   it('emits header/query keys and the method as JSON literals', () => {
@@ -289,7 +289,7 @@ describe('generateHttp in a bundle', () => {
       trigger: { type: 'http' },
     } as ScriptIR)
     for (const code of [workflow, script]) {
-      expect(code).toContain('flow.step("http-1", { retries:')
+      expect(code).toContain('flow.step("Fetch data (http-1)", { retries:')
     }
   })
 })

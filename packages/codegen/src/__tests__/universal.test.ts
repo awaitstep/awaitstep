@@ -62,7 +62,7 @@ describe('generateUniversalWorkflowBundle', () => {
       ir([node('w1', 'wait_for_event', 'Wait for approval', { eventType: 'approval' })]),
     )
     expect(withWait).toContain('waitForEventOrTimeout')
-    expect(withWait).toContain('waitForEventOrTimeout(flow, "w1", {')
+    expect(withWait).toContain('waitForEventOrTimeout(flow, "Wait for approval (w1)", {')
     expect(withWait).not.toContain('.catch(')
     expect(withWait).not.toContain('_timedOut')
     expect(withWait).not.toMatch(/^\s*let /m)
@@ -180,13 +180,37 @@ describe('generateUniversalWorkflowBundle', () => {
     )
     expect(bundle.manifest?.steps).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ nodeId: 's1', filePath: 'steps/s1.ts', stepName: 's1' }),
+        expect.objectContaining({
+          nodeId: 's1',
+          filePath: 'steps/s1.ts',
+          stepName: 'Fetch data (s1)',
+        }),
       ]),
     )
   })
 })
 
 describe('generateUniversalFunctionBundle', () => {
+  it('drops an unread binding even when the node’s name is its variable name', () => {
+    // The label `transform (transform)` carries the name twice (SDK ids are often
+    // the name); neither is a read of `transform`.
+    const script = {
+      ...ir(
+        [
+          node('transform', 'step', 'transform', { code: 'return 1' }),
+          node('s2', 'step', 'Result', { code: 'return 2', export: true }),
+        ],
+        { edges: [{ id: 'e1', source: 'transform', target: 's2' }], entryNodeId: 'transform' },
+      ),
+      kind: 'script' as const,
+    }
+    const source = generateUniversalFunctionBundle(script).files.find(
+      (file) => file.path === UNIVERSAL_FUNCTION_PATH,
+    )!.source
+    expect(source).toContain('flow.step("transform (transform)"')
+    expect(source).not.toContain('const transform =')
+  })
+
   it('emits a portable runGraph with no provider bootstrap', () => {
     const script = {
       ...ir([node('s1', 'step', 'Fetch data', { code: 'return 42', export: true })]),

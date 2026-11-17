@@ -110,8 +110,8 @@ describe('coalesced bundle emission', () => {
     const bundle = generateWorkflowBundle(ir)
     const entry = workflowSource(bundle)
     expect(entry.match(/flow\.step\(/g)).toHaveLength(2) // group + configured d
-    expect(entry).toContain('flow.step("a"')
-    expect(entry).toContain('flow.step("d"')
+    expect(entry).toContain('flow.step("Node a (a)"')
+    expect(entry).toContain('flow.step("Node d (d)"')
   })
 
   it('stores only outside-consumed members; intra-group refs stay local consts', () => {
@@ -119,7 +119,7 @@ describe('coalesced bundle emission', () => {
     const entry = workflowSource(bundle)
     // Node_b is read by d (outside the group) → returned and destructured.
     // Node_a is only read inside the group → local const, not stored.
-    expect(entry).toContain('const { Node_b } = await flow.step("a"')
+    expect(entry).toContain('const { Node_b } = await flow.step("Node a (a)"')
     expect(entry).toContain('return { Node_b };')
     expect(entry).toContain('const Node_a = await')
     expect(entry).not.toContain('return { Node_a')
@@ -148,7 +148,7 @@ describe('coalesced bundle emission', () => {
     const bundle = generateWorkflowBundle(ir)
     const steps = bundle.manifest!.steps
     expect(steps.map((s) => s.nodeId)).toEqual(['a', 'b', 'c', 'd'])
-    expect(steps[0]).toMatchObject({ stepName: 'a', kind: 'do' })
+    expect(steps[0]).toMatchObject({ stepName: 'Node a (a)', kind: 'do' })
     expect(steps[1]!.stepName).toBeUndefined()
     expect(steps[2]!.stepName).toBeUndefined()
     // Members link to the leader so run telemetry can attribute the merged
@@ -156,7 +156,7 @@ describe('coalesced bundle emission', () => {
     expect(steps[1]!.coalescedInto).toBe('a')
     expect(steps[2]!.coalescedInto).toBe('a')
     expect(steps[0]!.coalescedInto).toBeUndefined()
-    expect(steps[3]).toMatchObject({ stepName: 'd', kind: 'do' })
+    expect(steps[3]).toMatchObject({ stepName: 'Node d (d)', kind: 'do' })
     expect(steps[3]!.coalescedInto).toBeUndefined()
   })
 })

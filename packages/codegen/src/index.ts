@@ -106,7 +106,7 @@ export type { NodeGenerator, NodeGeneratorArgs, GeneratorLookup } from './node-g
 export { indent } from './format.js'
 export { contentHash, resolveStepNode, stepLabelBase } from './manifest.js'
 export type { StepManifest, StepManifestEntry, StepKind } from './manifest.js'
-export { stepLabel, sanitizeStepLabel, derivedStepLabel } from './naming.js'
+export { stepLabel, sanitizeStepLabel, derivedStepLabel, maskStepLabels } from './naming.js'
 export { outputFieldToType, outputSchemaToType, propertyKey, escapeJsdoc } from './output-types.js'
 export {
   AWAITSTEP_IMPORT_PREFIX,

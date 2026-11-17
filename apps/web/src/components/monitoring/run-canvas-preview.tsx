@@ -5,7 +5,7 @@ import '@xyflow/react/dist/style.css'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { nodeTypes } from '../canvas/nodes'
 import { LabeledEdge } from '../canvas/labeled-edge'
-import type { FlowNode } from '../../stores/workflow-store'
+import { toFlowType, type FlowNode } from '../../stores/workflow-store'
 import { useRunOverlayStore, type StepStatus } from '../../stores/run-overlay-store'
 import { NodeRegistryProvider } from '../../contexts/node-registry-context'
 
@@ -36,7 +36,9 @@ export function RunCanvasPreview({ workflowId, ir, nodeStatuses }: RunCanvasPrev
 
       const flowNodes: FlowNode[] = parsed.nodes.map((n, i) => ({
         id: n.id,
-        type: n.type,
+        // Marketplace and Library nodes carry their own IR type; React Flow
+        // knows them only as `custom`, and an unknown type draws an empty box.
+        type: toFlowType(n.type),
         position: n.position ?? fallbackPosition(i),
         data: { irNode: n },
       }))

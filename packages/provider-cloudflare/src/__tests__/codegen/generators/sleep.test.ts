@@ -3,7 +3,7 @@ import type { WorkflowNode } from '@awaitstep/ir'
 import { generateSleep, generateSleepUntil } from '@awaitstep/codegen'
 
 describe('generateSleep', () => {
-  it('generates sleep with string duration under the node-id label', () => {
+  it('generates sleep with string duration under the name-and-id label', () => {
     const node: WorkflowNode = {
       id: 'sleep-1',
       type: 'sleep',
@@ -14,7 +14,7 @@ describe('generateSleep', () => {
       data: { duration: '10 seconds' },
     }
     const code = generateSleep(node)
-    expect(code).toBe('await flow.sleep("sleep-1", "10 seconds");')
+    expect(code).toBe('await flow.sleep("Wait 10s (sleep-1)", "10 seconds");')
   })
 
   it('generates sleep with numeric duration', () => {
@@ -28,10 +28,10 @@ describe('generateSleep', () => {
       data: { duration: 5000 },
     }
     const code = generateSleep(node)
-    expect(code).toBe('await flow.sleep("sleep-1", 5000);')
+    expect(code).toBe('await flow.sleep("Wait (sleep-1)", 5000);')
   })
 
-  it('labels are id-derived, so quotes in the node name never reach the source', () => {
+  it('labels carry the cleaned node name, so quotes in the node name never reach the source', () => {
     const node: WorkflowNode = {
       id: 'sleep-1',
       type: 'sleep',
@@ -42,13 +42,13 @@ describe('generateSleep', () => {
       data: { duration: '1 minute' },
     }
     const code = generateSleep(node)
-    expect(code).toContain('flow.sleep("sleep-1"')
-    expect(code).not.toContain('event')
+    expect(code).toContain('flow.sleep("Wait for event (sleep-1)"')
+    expect(code).not.toContain('"event"')
   })
 })
 
 describe('generateSleepUntil', () => {
-  it('generates sleepUntil with timestamp under the node-id label', () => {
+  it('generates sleepUntil with timestamp under the name-and-id label', () => {
     const node: WorkflowNode = {
       id: 'sleep-until-1',
       type: 'sleep_until',
@@ -59,10 +59,12 @@ describe('generateSleepUntil', () => {
       data: { timestamp: '2026-01-01T00:00:00Z' },
     }
     const code = generateSleepUntil(node)
-    expect(code).toBe('await flow.sleepUntil("sleep-until-1", new Date("2026-01-01T00:00:00Z"));')
+    expect(code).toBe(
+      'await flow.sleepUntil("Wait until midnight (sleep-until-1)", new Date("2026-01-01T00:00:00Z"));',
+    )
   })
 
-  it('labels are id-derived, so quotes in the node name never reach the source', () => {
+  it('labels carry the cleaned node name, so quotes in the node name never reach the source', () => {
     const node: WorkflowNode = {
       id: 'sleep-until-1',
       type: 'sleep_until',
@@ -73,7 +75,7 @@ describe('generateSleepUntil', () => {
       data: { timestamp: '2026-06-01T00:00:00Z' },
     }
     const code = generateSleepUntil(node)
-    expect(code).toContain('sleepUntil("sleep-until-1"')
-    expect(code).not.toContain('deadline')
+    expect(code).toContain('sleepUntil("Wait for deadline (sleep-until-1)"')
+    expect(code).not.toContain('"deadline"')
   })
 })

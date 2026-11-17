@@ -41,6 +41,8 @@ export { contentHash } from '@awaitstep/ir'
 
 const LOOP_SUFFIX = / \[\d+\]$/
 const DERIVED_SEPARATOR = '--'
+/** `<name> (<id>)`, optionally with a derived `--<suffix>`: the id is in the brackets. */
+const NAMED_LABEL = / \(([A-Za-z0-9_-]+)\)(?:--[A-Za-z0-9_-]+)?$/
 /** The occurrence count a provider appends to a step's name (`<label>-1`, `-2`, …). */
 const OCCURRENCE_SUFFIX = /-\d+$/
 
@@ -50,16 +52,15 @@ function bareLabel(label: string): string {
 }
 
 /**
- * The node id a generated step label was derived from: strips the
+ * The node id a generated step label was derived from: the id in a named
+ * label's `(<id>)` tail, otherwise (an id-only label) the label with the
  * provider's occurrence count (`<id>-1`), the loop iteration suffix
- * (`<id> [3]`) and the derived multi-step suffix (`<id>--create`). Container
+ * (`<id> [3]`) and the derived multi-step suffix (`<id>--create`) stripped. Container
  * children run under their bare node id as label, so this is also how
  * consumers attribute labels the manifest does not list.
  */
 export function stepLabelBase(label: string): string {
-  const base = bareLabel(label)
-  const sep = base.indexOf(DERIVED_SEPARATOR)
-  return sep > 0 ? base.slice(0, sep) : base
+  return derivedBase(bareLabel(label))
 }
 
 /**
@@ -89,6 +90,8 @@ export function resolveStepNode(manifest: StepManifest, label: string): string |
 }
 
 function derivedBase(label: string): string {
+  const named = NAMED_LABEL.exec(label)
+  if (named) return named[1]!
   const sep = label.indexOf(DERIVED_SEPARATOR)
   return sep > 0 ? label.slice(0, sep) : label
 }

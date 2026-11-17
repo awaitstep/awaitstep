@@ -129,7 +129,7 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(providerEntrySource(bundle)).toContain('WorkflowEntrypoint')
       expect(providerEntrySource(bundle)).toContain('class TestWorkflow')
       const workflow = bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!
-      expect(workflow.source).toContain('flow.step("step-1"')
+      expect(workflow.source).toContain('flow.step("Hello (step-1)"')
     })
 
     it('uses default trigger code when no triggerCode provided', () => {

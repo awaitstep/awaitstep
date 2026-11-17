@@ -106,7 +106,7 @@ describe('a custom node as its own module', () => {
       runtime: { defaultRetries: 3, defaultTimeout: '30 seconds' },
     })
     expect(call).toBe(
-      'const Say_hello = await flow.step("say", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, () => $Say_hello({ env }));',
+      'const Say_hello = await flow.step("Say hello (say)", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, () => $Say_hello({ env }));',
     )
     expect(call).not.toContain('runTemplate')
     const module = ctx.files.find((f) => f.path === 'nodes/Say_hello.ts')!

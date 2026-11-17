@@ -54,7 +54,9 @@ describe('generateWaitForEvent', () => {
       ),
       (node) => `// ${node.id}`,
     )
-    expect(code).toContain('const wait_1 = await waitForEventOrTimeout(flow, "wait-1", {')
+    expect(code).toContain(
+      'const wait_1 = await waitForEventOrTimeout(flow, "Wait for approval (wait-1)", {',
+    )
     expect(code).toContain('type: "user-approval",')
     expect(code).toContain('timeout: "48 hours",')
     expect(code).toContain('if (typeof wait_1 === "symbol") {')
@@ -84,14 +86,14 @@ describe('generateWaitForEvent', () => {
   it('sanitizes the node id for the variable name', () => {
     const code = generateWaitForEvent(makeNode({ id: 'wait-for-payment' }))
     expect(code).toContain(
-      'const wait_for_payment = await waitForEventOrTimeout(flow, "wait-for-payment", {',
+      'const wait_for_payment = await waitForEventOrTimeout(flow, "Wait for approval (wait-for-payment)", {',
     )
     expect(code).toContain('if (typeof wait_for_payment === "symbol") {')
   })
 
-  it('labels are id-derived, so quotes in the node name never reach the source', () => {
+  it('labels carry the cleaned node name, so quotes in the node name never reach the source', () => {
     const code = generateWaitForEvent(makeNode({ name: 'Wait for "yes"' }))
-    expect(code).toContain('waitForEventOrTimeout(flow, "wait-1"')
-    expect(code).not.toContain('yes')
+    expect(code).toContain('waitForEventOrTimeout(flow, "Wait for yes (wait-1)"')
+    expect(code).not.toContain('"yes"')
   })
 })

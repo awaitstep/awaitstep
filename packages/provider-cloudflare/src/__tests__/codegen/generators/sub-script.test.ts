@@ -54,7 +54,7 @@ describe('workerNameToBinding', () => {
 describe('generateSubScript', () => {
   it('emits a service-binding primitive call wrapped in flow.step (workflow mode)', () => {
     const code = generateSubScript(makeNode(), 'workflow')
-    expect(code).toContain('flow.step("sub1"')
+    expect(code).toContain('flow.step("Call email service (sub1)"')
     expect(code).toContain('await service(env, "EMAIL_SERVICE").fetch("https://invoke/"')
     expect(code).toContain('method: "POST"')
     expect(code).toContain('return response.json()')

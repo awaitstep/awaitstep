@@ -75,8 +75,8 @@ describe('generateBranch', () => {
     const code = generateBranch(node, ir, ctx, generateNodeCode)
     expect(code).toContain('if (state.active === true) {')
     expect(code).toContain('} else {')
-    expect(code).toContain('flow.step("a"')
-    expect(code).toContain('flow.step("b"')
+    expect(code).toContain('flow.step("Active path (a)"')
+    expect(code).toContain('flow.step("Fallback (b)"')
   })
 
   it('generates if/else if/else chain', () => {
@@ -207,11 +207,11 @@ describe('generateBranch', () => {
     }
     const node = ir.nodes[0]!
     const code = generateBranch(node, ir, ctx, generateNodeCode)
-    expect(code).toContain('flow.sleep("wait"')
-    expect(code).toContain('flow.step("log"')
+    expect(code).toContain('flow.sleep("Wait (wait)"')
+    expect(code).toContain('flow.step("Log (log)"')
   })
 
-  it('stops chain at nodes with in-degree > 1', () => {
+  it('runs a merge every arm leads into at the end of each arm', () => {
     const ir: WorkflowIR = {
       metadata: { name: 'test', version: 1, createdAt: '', updatedAt: '' },
       nodes: [
@@ -267,9 +267,9 @@ describe('generateBranch', () => {
     }
     const node = ir.nodes[0]!
     const code = generateBranch(node, ir, ctx, generateNodeCode)
-    expect(code).not.toContain('Join')
-    expect(code).toContain('flow.step("step-a"')
-    expect(code).toContain('flow.step("step-b"')
+    const [ifArm, elseArm] = code.split('} else {')
+    expect(ifArm).toMatch(/flow\.step\("A \(step-a\)"[\s\S]*flow\.step\("Join \(join\)"/)
+    expect(elseArm).toMatch(/flow\.step\("B \(step-b\)"[\s\S]*flow\.step\("Join \(join\)"/)
   })
 })
 

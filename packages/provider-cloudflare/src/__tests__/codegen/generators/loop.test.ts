@@ -56,7 +56,7 @@ describe('generateLoop', () => {
   it('wraps loop in step.do for durable caching', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('await flow.step("loop-1"')
+    expect(code).toContain('await flow.step("My Loop (loop-1)"')
     expect(code).toContain('for (let _loop_i')
   })
 
@@ -68,7 +68,7 @@ describe('generateLoop', () => {
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     // Counter comes from .entries() destructure — no separate `let _loop_i = 0` declaration.
     expect(code).toContain('for (const [_loop_i, customer] of (get_customers.customers).entries())')
-    expect(code).toContain('send [${_loop_i}]')
+    expect(code).toContain('Send Email (send) [${_loop_i}]')
     expect(code).not.toContain('let _loop_i = 0')
   })
 
@@ -99,7 +99,7 @@ describe('generateLoop', () => {
     const ir = makeLoopIR({ loopType: 'while' }, [step('poll', 'Poll Status')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('while (true)')
-    expect(code).toContain('flow.step(`poll ')
+    expect(code).toContain('flow.step(`Poll Status (poll) ')
   })
 
   it('generates while loop with condition', () => {
@@ -114,13 +114,13 @@ describe('generateLoop', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 5 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     expect(code).toContain('for (let _loop_i = 0; _loop_i < 5; _loop_i++)')
-    expect(code).toContain('flow.step(`work ')
+    expect(code).toContain('flow.step(`Do Work (work) ')
   })
 
   it('suffixes step names with loop counter for CF idempotency', () => {
     const ir = makeLoopIR({ loopType: 'times', count: 3 }, [step('work', 'Do Work')])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('work [${_loop_i}]')
+    expect(code).toContain('Do Work (work) [${_loop_i}]')
     expect(code).not.toContain('flow.step("work"')
   })
 
@@ -131,8 +131,8 @@ describe('generateLoop', () => {
     ])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
     // One suffixed step.do under the leader's label; the member label is gone.
-    expect(code).toContain('s1 [${_loop_i}]')
-    expect(code).not.toContain('s2 [${_loop_i}]')
+    expect(code).toContain('Step 1 (s1) [${_loop_i}]')
+    expect(code).not.toContain('Step 2 (s2) [${_loop_i}]')
     // Two step.do total: the loop's own durable wrapper + the merged group.
     expect(code.match(/flow\.step\(/g)).toHaveLength(2)
     // Both member results stay referenceable via the destructured return.
@@ -150,8 +150,8 @@ describe('generateLoop', () => {
       configured,
     ])
     const code = generateLoop(ir.nodes[0]!, ir, generateNodeCode)
-    expect(code).toContain('s1 [${_loop_i}]')
-    expect(code).toContain('s2 [${_loop_i}]')
+    expect(code).toContain('Step 1 (s1) [${_loop_i}]')
+    expect(code).toContain('Step 2 (s2) [${_loop_i}]')
   })
 
   it('assigns result when _output is used in body', () => {

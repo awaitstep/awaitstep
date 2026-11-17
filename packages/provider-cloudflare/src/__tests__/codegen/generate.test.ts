@@ -51,13 +51,13 @@ describe('generateWorkflow', () => {
           const env = flow.env;
           const event = flow.event;
           const step = durableStep(flow);
-          await flow.step("step-1", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
+          await flow.step("Fetch data (step-1)", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
             await $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx }));
           });
 
-          await flow.sleep("sleep-1", "10 seconds");
+          await flow.sleep("Wait 10s (sleep-1)", "10 seconds");
 
-          await flow.step("step-2", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async (ctx) => {
+          await flow.step("Process data (step-2)", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async (ctx) => {
             await $Process_data(stepArgs({ env, event, inputs: {}, step, ctx }));
           });
         },
@@ -138,7 +138,7 @@ describe('generateWorkflow', () => {
     const code = workflowSource(generateWorkflowBundle(ir))
     expect(code).toContain('if (true) {')
     expect(code).not.toContain('} else {')
-    expect(code).toContain('flow.step("s1"')
+    expect(code).toContain('flow.step("Inside (s1)"')
   })
 
   it('emits a "then" continuation node AFTER the branch block', () => {
@@ -182,16 +182,16 @@ describe('generateWorkflow', () => {
     const code = programOf(ir)
     // Branch body present
     expect(code).toContain('if (true) {')
-    expect(code).toContain('flow.step("s1"')
+    expect(code).toContain('flow.step("Inside (s1)"')
     // Continuation step also present, AFTER the branch's closing brace
-    expect(code).toContain('flow.step("s2"')
+    expect(code).toContain('flow.step("After branch (s2)"')
     const branchCloseIdx = code.lastIndexOf('}')
-    const afterBranchIdx = code.indexOf('flow.step("s2"')
+    const afterBranchIdx = code.indexOf('flow.step("After branch (s2)"')
     // The continuation must appear in the source after the branch close — i.e.,
     // not inlined inside the if/else.
     expect(afterBranchIdx).toBeGreaterThan(0)
     // Sanity: the inside step appears BEFORE the continuation step
-    const insideIdx = code.indexOf('flow.step("s1"')
+    const insideIdx = code.indexOf('flow.step("Inside (s1)"')
     expect(insideIdx).toBeLessThan(afterBranchIdx)
     expect(branchCloseIdx).toBeGreaterThan(0) // matched some closing brace
   })
@@ -199,10 +199,10 @@ describe('generateWorkflow', () => {
   it('generates a parallel workflow', () => {
     const code = programOf(parallelWorkflow as unknown as WorkflowIR)
     expect(code).toContain('Promise.allSettled')
-    expect(code).toContain('flow.step("task_a"')
+    expect(code).toContain('flow.step("Task A (task_a)"')
     // task_b is an HTTP node: a plain request, not a step, unless it is durable.
     expect(code).toContain('flow.http({ url: "https://api.example.com/data"')
-    expect(code).not.toContain('flow.step("task_b"')
+    expect(code).not.toContain('flow.step("Task B (task_b)"')
   })
 
   it('runs the merge after a wait on both paths, each with its own scope', () => {
@@ -309,7 +309,7 @@ describe('generateWorkflow', () => {
       ],
     }
     const code = programOf(ir)
-    expect(code.match(/const Join = await flow\.step\("join"/g)).toHaveLength(2)
+    expect(code.match(/const Join = await flow\.step\("Join \(join\)"/g)).toHaveLength(2)
     const inputs = /\$Join2\(stepArgs\(\{ env, event, inputs: \{ ([^}]*) \}/.exec(code)
     expect(inputs?.[1]).toBe('Side')
   })
@@ -425,15 +425,15 @@ describe('generateWorkflow', () => {
     const code = programOf(ir)
     // The loop's step.do appears before update's step.do — i.e. update is
     // emitted inside the loop body, not after the loop has closed.
-    const loopIdx = code.indexOf('await flow.step("loop"')
-    const updateIdx = code.indexOf('await flow.step(`update')
+    const loopIdx = code.indexOf('await flow.step("iterate (loop)"')
+    const updateIdx = code.indexOf('await flow.step(`update (update)')
     const closeIdx = code.indexOf('return _output;')
     expect(loopIdx).toBeGreaterThan(-1)
     expect(updateIdx).toBeGreaterThan(loopIdx)
     expect(updateIdx).toBeLessThan(closeIdx)
     // Step name has been suffixed with the loop counter, proving it sits
     // inside the loop's scope.
-    expect(code).toContain('update [${_loop_i}]')
+    expect(code).toContain('update (update) [${_loop_i}]')
   })
 })
 
@@ -511,8 +511,8 @@ describe('generateWorkflow with custom nodes', () => {
     expect(code).toContain('fetch(ctx.config.url')
     expect(code).toContain('return $runTemplate({ env, config: $fields, inputs: $fields });')
     // Step calls use the modules
-    expect(code).toContain('const Fetch_Data = await flow.step("step-1"')
-    expect(code).toContain('const Send_Webhook = await flow.step("webhook-1"')
+    expect(code).toContain('const Fetch_Data = await flow.step("Fetch Data (step-1)"')
+    expect(code).toContain('const Send_Webhook = await flow.step("Send Webhook (webhook-1)"')
     expect(code).toContain('"url": "https://hook.example.com/endpoint"')
     expect(code).toContain('retries: { limit: 3, delay: "5 seconds" }')
     // Env vars from template are in the Env interface

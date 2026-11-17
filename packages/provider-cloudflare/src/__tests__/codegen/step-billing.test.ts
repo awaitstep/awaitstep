@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
-import { bundleCodeFiles } from '@awaitstep/codegen'
+import { bundleCodeFiles, stepLabelBase } from '@awaitstep/codegen'
 import { generateWorkflowBundle } from '../../codegen/generate.js'
 
 /**
@@ -78,11 +78,13 @@ function emittedLabels(code: string): string[] {
   return [...code.matchAll(LABEL_RE)].map((m) => m[2]!)
 }
 
-/** Reverses the generated label transforms: loop suffix, derived suffix. */
+/** The loop iteration suffix is template source here (`[${_loop_i}]`), not a runtime label. */
+function withoutLoopSuffix(label: string): string {
+  return label.replace(/ \[\$\{\w+\}\]$/, '')
+}
+
 function baseNodeId(label: string): string {
-  const unsuffixed = label.replace(/ \[\$\{\w+\}\]$/, '').replace(/ \[\d+\]$/, '')
-  const sep = unsuffixed.indexOf('--')
-  return sep > 0 ? unsuffixed.slice(0, sep) : unsuffixed
+  return stepLabelBase(withoutLoopSuffix(label))
 }
 
 describe('step billing audit', () => {
@@ -111,7 +113,7 @@ describe('step billing audit', () => {
     for (const step of bundle.manifest!.steps) {
       if (step.stepName === undefined) continue
       // A loop body's label carries the iteration suffix in the text.
-      expect(labels.map(baseNodeId)).toContain(step.stepName)
+      expect(labels.map(withoutLoopSuffix)).toContain(step.stepName)
     }
   })
 })

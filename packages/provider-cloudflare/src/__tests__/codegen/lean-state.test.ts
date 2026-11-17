@@ -85,7 +85,7 @@ describe('lean stored state in generated workflows', () => {
       ],
     )
     const code = workflowSource(generateWorkflowBundle(demo))
-    expect(code).toMatch(/const Node_producer = await flow\.step\("producer"/)
+    expect(code).toMatch(/const Node_producer = await flow\.step\("Node producer \(producer\)"/)
     expect(code).not.toContain('async (ctx) => {')
   })
 
@@ -110,18 +110,18 @@ describe('lean stored state in generated workflows', () => {
     )
     const entry = workflowSource(generateWorkflowBundle(demo))
     // Referenced through an http url expression → stored.
-    expect(entry).toContain('const Node_used = await flow.step("used"')
+    expect(entry).toContain('const Node_used = await flow.step("Node used (used)"')
     // Unreferenced → no const, return discarded by the braced wrapper.
     expect(entry).not.toContain('const Node_unused')
     expect(entry).toMatch(
-      /await flow\.step\("unused", \{ retries: [^\n]*\}, async \(ctx\) => \{\s+await \$Node_unused\(/,
+      /await flow\.step\("Node unused \(unused\)", \{ retries: [^\n]*\}, async \(ctx\) => \{\s+await \$Node_unused\(/,
     )
   })
 
   it('an EXPORT_-named step keeps its stored return even when unreferenced', () => {
     const demo = ir([node('out', 'step', { code: 'return 42;' }, { name: 'EXPORT_Result' })], [])
     const entry = workflowSource(generateWorkflowBundle(demo))
-    expect(entry).toContain('const Result = await flow.step("out"')
+    expect(entry).toContain('const Result = await flow.step("EXPORT_Result (out)"')
   })
 
   it('container children are never leaned — container glue reads their vars', () => {

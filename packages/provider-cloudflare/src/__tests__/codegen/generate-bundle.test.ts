@@ -77,10 +77,10 @@ describe('generateWorkflowBundle', () => {
     expect(entry).toContain('import $Fetch_data from "#app/steps/fetch.js";')
     expect(entry).toContain('import $Report from "#app/steps/report.js";')
     expect(entry).toContain(
-      'const Fetch_data = await flow.step("fetch", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx })),\n    );',
+      'const Fetch_data = await flow.step("Fetch data (fetch)", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx })),\n    );',
     )
     expect(entry).toMatch(
-      /await flow\.step\("report", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(stepArgs\(\{ env, event, inputs: \{ Fetch_data \}, step, ctx \}\)\);/,
+      /await flow\.step\("Report \(report\)", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(stepArgs\(\{ env, event, inputs: \{ Fetch_data \}, step, ctx \}\)\);/,
     )
     // No user code left in the entry to need env rewriting.
     expect(entry).not.toContain('z.object')
@@ -196,7 +196,7 @@ export default async function(ctx) {
     expect(entry).toContain('import $Post_webhook from "#app/nodes/Post_webhook.js";')
     // Wrapped: the call outgrows the line once indented into `run`.
     expect(entry).toMatch(
-      /await flow\.step\("hook", \(\) =>\s*\$Post_webhook\(\{ env, inputs: \{ Fetch_data \} \}\)/,
+      /await flow\.step\("Post webhook \(hook\)", \(\) =>\s*\$Post_webhook\(\{ env, inputs: \{ Fetch_data \} \}\)/,
     )
     expect(entry).not.toContain('runTemplate')
   })
