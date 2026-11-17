@@ -42,6 +42,7 @@ import type {
   InspectOptions,
   GeneratedBundle,
   DeployResult,
+  DeployRunOptions,
   ProviderConfig,
   WorkflowRunStatus,
   WorkflowRunDetail,
@@ -109,10 +110,13 @@ export type DeployStage =
   | 'BINDINGS_READY'
   | 'CREATING_WORKER'
   | 'DEPLOYING'
+  // The build is being handed to Cloudflare; from here the deploy can't be cancelled.
+  | 'UPLOADING'
   | 'WORKER_DEPLOYED'
   | 'UPDATING_WORKFLOW'
   | 'COMPLETED'
   | 'FAILED'
+  | 'CANCELLED'
 
 export interface DeployProgress {
   stage: DeployStage
@@ -522,25 +526,18 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     })
   }
 
-  async deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult> {
-    return this._doDeploy(bundle, config)
-  }
-
-  async deployWithProgress(
+  async deploy(
     bundle: GeneratedBundle,
     config: ProviderConfig,
-    onProgress?: OnDeployProgress,
+    run?: DeployRunOptions,
   ): Promise<DeployResult> {
-    return this._doDeploy(bundle, config, onProgress)
-  }
-
-  private async _doDeploy(
-    bundle: GeneratedBundle,
-    config: ProviderConfig,
-    onProgress?: OnDeployProgress,
-  ): Promise<DeployResult> {
+    const onProgress: OnDeployProgress | undefined = run?.onProgress
     const report = (stage: DeployStage, message: string, progress: number) => {
       onProgress?.({ stage, message, progress })
+    }
+    const cancelled = (): DeployResult => {
+      report('CANCELLED', 'Deploy cancelled', 0)
+      return { success: false, deploymentId: '', cancelled: true }
     }
 
     report('INITIALIZING', 'Preparing deployment', 5)
@@ -744,11 +741,26 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       return { success: false, deploymentId: '', error: 'No deployer configured' }
     }
 
+    if (run?.signal?.aborted) return cancelled()
+
+    // Until the deployer reaches the upload its messages are preparation
+    // (installing, checking the build); from `UPLOADING` on, the deploy has
+    // gone to Cloudflare and can't be cancelled.
+    let uploading = false
     const deployerProgress = onProgress
       ? (_stage: string, message: string) => {
-          report('DEPLOYING', message, 65)
+          if (uploading) report('UPLOADING', message, 70)
+          else report('DEPLOYING', message, 65)
         }
       : undefined
+    const beforeUpload = async (): Promise<boolean> => {
+      const go = run?.beforeUpload ? await run.beforeUpload() : true
+      if (go) {
+        uploading = true
+        report('UPLOADING', 'Uploading to Cloudflare', 70)
+      }
+      return go
+    }
 
     const result = await this.deployer.deploy(
       compiledBundle,
@@ -781,8 +793,10 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         queueConsumers,
       },
       deployerProgress,
+      { signal: run?.signal, beforeUpload },
     )
 
+    if (result.cancelled) return cancelled()
     if (!result.success) {
       report('FAILED', result.error ?? 'Deploy failed', 0)
       return { success: false, deploymentId: '', error: result.error ?? 'Deploy failed' }

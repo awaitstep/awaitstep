@@ -4,6 +4,7 @@ import type { RequirementSupport, RuntimeRequirement } from './requirements.js'
 import type {
   GeneratedBundle,
   DeployResult,
+  DeployRunOptions,
   ProviderConfig,
   WorkflowRunStatus,
   WorkflowRunDetail,
@@ -176,7 +177,15 @@ export interface WorkflowProvider {
     declarations: Record<string, unknown>,
   ): Record<string, unknown>
 
-  deploy(bundle: GeneratedBundle, config: ProviderConfig): Promise<DeployResult>
+  /**
+   * Deploys the bundle. Never throws: a failure, or a cancel through
+   * `run.signal` / `run.beforeUpload`, comes back as the result.
+   */
+  deploy(
+    bundle: GeneratedBundle,
+    config: ProviderConfig,
+    run?: DeployRunOptions,
+  ): Promise<DeployResult>
 
   /**
    * Calls a deployed function from the server: a POST of the body to its URL.

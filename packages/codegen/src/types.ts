@@ -114,6 +114,32 @@ export interface DeployResult {
   url?: string
   dashboardUrl?: string
   error?: string
+  /** It stopped because it was cancelled, before anything reached the provider. */
+  cancelled?: boolean
+}
+
+/** One progress report from a running deploy. */
+export interface DeployProgressEvent {
+  /** The provider's stage word; `UPLOADING` marks the point past which it can't be cancelled. */
+  stage: string
+  message: string
+  progress: number
+}
+
+/** How one deploy runs: where it reports progress, and how it is stopped. */
+export interface DeployRunOptions {
+  onProgress?: (progress: DeployProgressEvent) => void
+  /**
+   * Aborted when the deploy is cancelled. The provider stops what it is
+   * running (child processes, a sandbox) and returns `{ cancelled: true }`.
+   */
+  signal?: AbortSignal
+  /**
+   * Asked once, right before the provider is handed the build. `false` means
+   * a cancel got there first: nothing is uploaded and the deploy ends
+   * cancelled. Past a `true`, the deploy is no longer cancellable.
+   */
+  beforeUpload?: () => Promise<boolean>
 }
 
 export interface LocalDevSession {

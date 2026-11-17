@@ -5,6 +5,8 @@ export type {
   GeneratedBundle,
   ProviderConfig,
   DeployResult,
+  DeployProgressEvent,
+  DeployRunOptions,
   WorkflowStatus,
   WorkflowRunStatus,
   WorkflowRunDetail,
