@@ -741,6 +741,19 @@ export const endpoints: EndpointDef[] = [
     bodyExample: JSON.stringify({ connectionId: '', versionId: '' }, null, 2),
   },
   {
+    id: 'cancel-deploy',
+    group: 'Deployments',
+    method: 'POST',
+    path: '/api/workflows/:workflowId/deployments/:deploymentId/cancel',
+    label: 'Cancel a running deploy',
+    permission: 'workflows:deploy',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'deploymentId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
     // The way an API key runs a workflow or calls a function (D-1); the dashboard's
     // trigger, call and Run again are session-only and not offered here.
     id: 'run',

@@ -43,6 +43,21 @@ describe('renderAuditEvent', () => {
     })
   })
 
+  it('says a deploy was cancelled, with its version and account', () => {
+    expect(
+      renderAuditEvent('workflow.deploy_cancel', {
+        name: 'Lead enrichment',
+        version: 13,
+        provider: 'Acme production',
+      }),
+    ).toEqual({
+      kind: 'deploy',
+      action: 'cancelled the deploy of',
+      target: 'Lead enrichment v13',
+      detail: 'Acme production',
+    })
+  })
+
   it('names the person in access events and the role change in the detail', () => {
     expect(
       renderAuditEvent('workspace_member.add', {

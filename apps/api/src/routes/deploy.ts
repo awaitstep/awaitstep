@@ -4,14 +4,10 @@ import { z } from 'zod'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import type {
-  ProviderConfig,
-  GeneratedBundle,
-  DeployResult,
-  DeployConfigResponse,
-} from '@awaitstep/codegen'
+import type { DeployResult, DeployConfigResponse } from '@awaitstep/codegen'
 import type { Workflow } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
+import { recordAudit } from '../lib/audit.js'
 import { deploymentPageRecord } from '../lib/list-records.js'
 import { runDetailRecord } from '../lib/run-records.js'
 import { callFunction } from './function-call.js'
@@ -23,21 +19,11 @@ import {
 } from '../lib/run-start.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError, CONNECTION_NOT_SERVING } from '../lib/deploy-prepare.js'
+import { runDeploy } from '../lib/deploy-run.js'
 import { deployConnections } from '../lib/connection-fields.js'
 import { liveDeploymentRecords } from '../lib/live-deployments.js'
-import { auditActor, recordAudit } from '../lib/audit.js'
-import { sharedDeployGroupKey } from '@awaitstep/ir'
-import { notify } from '../lib/notify.js'
-import { createLogger } from '../lib/logger.js'
 
-const log = createLogger('deploy')
-
-/** What a deploy that crashed inside the provider says: no internals, an id to look it up by. */
-export function unexpectedDeployFailure(requestId: string | undefined): string {
-  return requestId
-    ? `The deploy failed unexpectedly. Error ID ${requestId}.`
-    : 'The deploy failed unexpectedly.'
-}
+export { unexpectedDeployFailure } from '../lib/deploy-run.js'
 
 const deploySchema = z.object({
   connectionId: z.string().min(1),
@@ -64,41 +50,23 @@ export function deployAnswer(result: DeployResult): Omit<DeployResult, 'deployed
   return answer
 }
 
+/** Why a cancel was refused, by what the deployment's row said. */
+export const CANCEL_TOO_LATE = 'Already uploading to Cloudflare — it can’t be stopped now.'
+export const CANCEL_FINISHED = 'This deploy has already finished.'
+export const CANCEL_INTERRUPTED =
+  'This deploy stopped without finishing; there is nothing to cancel.'
+/** The `error` of a deploy answered as cancelled. */
+export const DEPLOY_CANCELLED = 'Deploy cancelled'
+
 export const deploy = new Hono<AppEnv>()
 
-/**
- * A workflow shared to its project runs in every workspace of it: a new
- * deploy reaches the admins of the others. Filed at the project — they can't
- * open the workspace it lives in.
- */
-async function tellSharedDeploy(
-  c: Context<AppEnv>,
-  workflow: Workflow,
-  version: number,
-): Promise<void> {
-  if (!workflow.sharedAt || !workflow.workspaceId) return
-  await notify(c, {
-    event: 'workflow.deploy.shared',
-    organizationId: c.get('organizationId'),
-    projectId: workflow.projectId,
-    // One row a workflow an hour: a loop of deploys counts up instead of burying the Inbox.
-    groupKey: sharedDeployGroupKey(workflow.id, new Date()),
-    onRepeat: 'fold',
-    meta: { person: auditActor(c).actor.actorName, workflow: workflow.name, version },
-    recipients: {
-      otherWorkspaceAdmins: { projectId: workflow.projectId, workspaceId: workflow.workspaceId },
-    },
-  })
-}
-
 deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) => {
-  const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
 
   const prepared = await prepareDeploy({
-    db,
+    db: c.get('db'),
     workflow,
     organizationId: c.get('organizationId'),
     projectId: c.get('projectId'),
@@ -114,69 +82,21 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
   }
 
-  const { adapter, bundle, providerConfig, versionId, connectionId } = prepared
-  const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
-  // The deployment row's snapshot additionally pins the step manifest of the
-  // code actually shipped — run telemetry joins step labels to nodes through
-  // it. The reusable deployment_configs copy stays schema-clean.
-  const deploymentSnapshot = bundle.manifest
-    ? JSON.stringify({
-        ...(prepared.resolvedDeploymentConfig as Record<string, unknown>),
-        stepManifest: bundle.manifest,
-      })
-    : configSnapshot
-  const result = await adapter.deploy(bundle, providerConfig)
-
-  await db.createDeployment({
-    id: nanoid(),
-    workflowId: workflow.id,
-    versionId,
-    versionNumber: prepared.versionNumber,
-    connectionId,
-    serviceName: result.deploymentId || '',
-    serviceUrl: result.url,
-    deployedName: result.deployedName,
-    status: result.success ? 'success' : 'failed',
-    error: result.error,
-    configSnapshot: deploymentSnapshot,
-    createdBy: c.get('userId'),
-    libraryVersions: prepared.library,
-  })
-
-  // Post-deploy: persist config only on success
-  if (result.success) {
-    await db.upsertDeploymentConfig({
-      id: nanoid(),
-      workflowId: workflow.id,
-      connectionId,
-      provider: prepared.connectionProvider,
-      config: configSnapshot,
-      updatedBy: c.get('userId'),
-    })
-    await recordAudit(c, {
-      event: 'workflow.deploy',
-      facts: {
-        name: workflow.name,
-        version: prepared.versionNumber,
-        provider: prepared.connectionName,
-      },
-      projectId: workflow.projectId,
-      workspaceId: workflow.workspaceId,
-    })
-    await tellSharedDeploy(c, workflow, prepared.versionNumber)
+  const { deploymentId: id, result } = await runDeploy(c, workflow, prepared)
+  // A cancel (from another request, for this one) is an answer, not a fault.
+  if (result.cancelled) {
+    return c.json({ ...deployAnswer(result), id, error: DEPLOY_CANCELLED }, 409)
   }
-
-  return c.json(deployAnswer(result), result.success ? 200 : 500)
+  return c.json({ ...deployAnswer(result), id }, result.success ? 200 : 500)
 })
 
 deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), async (c) => {
-  const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
   const body = c.req.valid('json')
 
   const prepared = await prepareDeploy({
-    db,
+    db: c.get('db'),
     workflow,
     organizationId: c.get('organizationId'),
     projectId: c.get('projectId'),
@@ -192,101 +112,65 @@ deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), asyn
     return c.json({ error: prepared.error, details: prepared.details }, prepared.status as 400)
   }
 
-  const { adapter, bundle, providerConfig, versionId, connectionId } = prepared
-  const configSnapshot = JSON.stringify(prepared.resolvedDeploymentConfig)
-  // The deployment row's snapshot additionally pins the step manifest of the
-  // code actually shipped — run telemetry joins step labels to nodes through
-  // it. The reusable deployment_configs copy stays schema-clean.
-  const deploymentSnapshot = bundle.manifest
-    ? JSON.stringify({
-        ...(prepared.resolvedDeploymentConfig as Record<string, unknown>),
-        stepManifest: bundle.manifest,
-      })
-    : configSnapshot
-
+  // Leaving the page doesn't stop the deploy: only a cancel does. The stream
+  // carries the deployment's id first, which is what a cancel is asked by.
   return streamSSE(c, async (stream) => {
     let eventId = 0
-    const onProgress = async (progress: unknown) => {
-      await stream.writeSSE({
-        id: String(eventId++),
-        event: 'progress',
-        data: JSON.stringify(progress),
-      })
-    }
-
-    const adapterRecord = adapter as unknown as Record<string, unknown>
-    const hasProgressDeploy =
-      'deployWithProgress' in adapter && typeof adapterRecord.deployWithProgress === 'function'
-
-    let result: DeployResult
-    try {
-      result = hasProgressDeploy
-        ? await (
-            adapterRecord.deployWithProgress as (
-              a: GeneratedBundle,
-              c: ProviderConfig,
-              p: (progress: unknown) => Promise<void>,
-            ) => Promise<DeployResult>
-          )(bundle, providerConfig, onProgress)
-        : await adapter.deploy(bundle, providerConfig)
-    } catch (err) {
-      // Adapter contract is to return DeployResult; an uncaught exception is
-      // a provider bug. Without this catch the SSE stream would close silently
-      // and the client would see no failure event. Its text (bundler output,
-      // paths, upstream errors) goes to the log; the stream and the deployment
-      // row get a generic reason with the request id to find it.
-      const requestId = c.get('requestId')
-      // The error itself as the data, so the log keeps its stack (the logger
-      // serialises a top-level Error only); the ids go in the message.
-      log.error(`Provider deploy threw (request ${requestId ?? '-'}, workflow ${workflow.id})`, err)
-      result = { success: false, deploymentId: '', error: unexpectedDeployFailure(requestId) }
-    }
-
-    await db.createDeployment({
-      id: nanoid(),
-      workflowId: workflow.id,
-      versionId,
-      versionNumber: prepared.versionNumber,
-      connectionId,
-      serviceName: result.deploymentId || '',
-      serviceUrl: result.url,
-      deployedName: result.deployedName,
-      status: result.success ? 'success' : 'failed',
-      error: result.error,
-      configSnapshot: deploymentSnapshot,
-      createdBy: c.get('userId'),
-      libraryVersions: prepared.library,
+    const { result } = await runDeploy(c, workflow, prepared, {
+      onStarted: async (deploymentId) => {
+        await stream.writeSSE({
+          id: String(eventId++),
+          event: 'started',
+          data: JSON.stringify({ deploymentId }),
+        })
+      },
+      onProgress: async (progress) => {
+        await stream.writeSSE({
+          id: String(eventId++),
+          event: 'progress',
+          data: JSON.stringify(progress),
+        })
+      },
     })
-
-    // Post-deploy: persist config only on success
-    if (result.success) {
-      await db.upsertDeploymentConfig({
-        id: nanoid(),
-        workflowId: workflow.id,
-        connectionId,
-        provider: prepared.connectionProvider,
-        config: configSnapshot,
-        updatedBy: c.get('userId'),
-      })
-      await recordAudit(c, {
-        event: 'workflow.deploy',
-        facts: {
-          name: workflow.name,
-          version: prepared.versionNumber,
-          provider: prepared.connectionName,
-        },
-        projectId: workflow.projectId,
-        workspaceId: workflow.workspaceId,
-      })
-      await tellSharedDeploy(c, workflow, prepared.versionNumber)
-    }
-
     await stream.writeSSE({
       id: String(eventId++),
       event: 'result',
       data: JSON.stringify(deployAnswer(result)),
     })
   })
+})
+
+/**
+ * Asks a running deploy of this workflow to stop. It stops before it uploads:
+ * 202 once asked (the deploy's own stream, or its row, says when it ended);
+ * 409 once the upload started or the deploy finished; 404 for a deployment
+ * that isn't this workflow's.
+ */
+deploy.post('/:workflowId/deployments/:deploymentId/cancel', async (c) => {
+  const workflow = c.get('workflow')
+  if (!workflow) return c.json({ error: 'Not found' }, 404)
+  const userId = c.get('userId') ?? null
+  const answer = await c
+    .get('db')
+    .requestDeploymentCancel(workflow.id, c.req.param('deploymentId'), userId)
+  if (answer.outcome === 'not_found') return c.json({ error: 'Not found' }, 404)
+  if (answer.outcome === 'uploading') return c.json({ error: CANCEL_TOO_LATE }, 409)
+  if (answer.outcome === 'finished') return c.json({ error: CANCEL_FINISHED }, 409)
+  if (answer.outcome === 'interrupted') return c.json({ error: CANCEL_INTERRUPTED }, 409)
+  // Recorded here, by the request that asked: its actor is the canceller. Only
+  // by the ask that stopped it; asking again records nothing more.
+  if (answer.asked) {
+    await recordAudit(c, {
+      event: 'workflow.deploy_cancel',
+      facts: {
+        name: workflow.name,
+        ...(answer.versionNumber !== null && { version: answer.versionNumber }),
+      },
+      projectId: workflow.projectId,
+      workspaceId: workflow.workspaceId,
+    })
+  }
+  return c.json({ status: 'cancelling' as const }, 202)
 })
 
 /** The accounts Deploy offers this workflow: its project's, its workspace's (else the project's) default chosen. */

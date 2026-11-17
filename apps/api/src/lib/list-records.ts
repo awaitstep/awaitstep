@@ -12,8 +12,11 @@ export interface DeploymentListRecord {
   status: string
   error: string | null
   createdAt: string
+  startedAt: string | null
   takenDownAt: string | null
   createdByName: string | null
+  /** Who cancelled it; null unless it was cancelled. */
+  cancelledByName: string | null
   version: number | null
   versionLocked: number | null
   connectionName: string | null
@@ -31,8 +34,10 @@ export function deploymentListRecord(
     status: row.status,
     error: row.error,
     createdAt: row.createdAt,
+    startedAt: row.startedAt,
     takenDownAt: row.takenDownAt,
     createdByName: row.createdByName ?? null,
+    cancelledByName: row.cancelledByName ?? null,
     version: row.version ?? row.versionNumber,
     versionLocked: row.versionLocked ?? null,
     connectionName: row.connectionName ?? null,

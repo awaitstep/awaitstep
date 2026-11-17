@@ -301,6 +301,12 @@ export const AUDIT_EVENTS = {
     target: versioned,
     detail: (f) => f.provider,
   },
+  'workflow.deploy_cancel': {
+    kind: 'deploy',
+    action: fixed('cancelled the deploy of'),
+    target: versioned,
+    detail: (f) => f.provider,
+  },
   'workflow.deploy_config': {
     kind: 'deploy',
     action: fixed('updated deployment settings for'),

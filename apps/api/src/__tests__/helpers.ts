@@ -30,7 +30,9 @@ import type {
   RunTrigger,
   WorkflowLibraryUses,
   DeploymentLibraryVersion,
+  CancelDeploymentOutcome,
 } from '@awaitstep/db'
+import { STALE_DEPLOY_MS } from '@awaitstep/db'
 import type {
   GeneratedBundle,
   ProcessLogEntry,
@@ -1687,9 +1689,96 @@ const mockDb: DatabaseAdapter = {
       createdAt: now(),
       takenDownAt: null,
       takenDownBy: null,
+      startedAt: null,
+      cancelledBy: null,
+      cancelledAt: null,
     }
     store.deployments.set(d.id, d)
     return d
+  },
+  async startDeployment({ libraryVersions, ...data }, staleBefore) {
+    // As the real statement: this workflow's stale running rows settle as interrupted first.
+    for (const d of store.deployments.values()) {
+      if (
+        d.workflowId === data.workflowId &&
+        ['deploying', 'uploading', 'cancelling'].includes(d.status) &&
+        d.startedAt !== null &&
+        d.startedAt < staleBefore
+      ) {
+        store.deployments.set(d.id, {
+          ...d,
+          status: 'failed',
+          error: 'Interrupted — the server stopped during this deploy.',
+        })
+      }
+    }
+    if (libraryVersions?.length) store.deploymentLibraryVersions.set(data.id, libraryVersions)
+    const at = now()
+    store.deployments.set(data.id, {
+      ...data,
+      serviceName: '',
+      serviceUrl: null,
+      deployedName: null,
+      status: 'deploying',
+      error: null,
+      configSnapshot: data.configSnapshot ?? null,
+      createdBy: data.createdBy ?? null,
+      createdAt: at,
+      takenDownAt: null,
+      takenDownBy: null,
+      startedAt: at,
+      cancelledBy: null,
+      cancelledAt: null,
+    })
+  },
+  async markDeploymentUploading(id) {
+    const d = store.deployments.get(id)
+    if (d?.status !== 'deploying') return false
+    store.deployments.set(id, { ...d, status: 'uploading' })
+    return true
+  },
+  async settleDeployment(id, outcome) {
+    const d = store.deployments.get(id)
+    if (!d) return
+    store.deployments.set(id, {
+      ...d,
+      status: outcome.status,
+      serviceName: outcome.serviceName ?? '',
+      serviceUrl: outcome.serviceUrl ?? null,
+      deployedName: outcome.deployedName ?? null,
+      error: outcome.error ?? null,
+      createdAt: now(),
+    })
+  },
+  async requestDeploymentCancel(workflowId, id, userId) {
+    const d = store.deployments.get(id)
+    if (!d || d.workflowId !== workflowId) {
+      return { outcome: 'not_found', versionNumber: null, asked: false }
+    }
+    // As the real statement: a row left running past the window was interrupted.
+    const stale = d.startedAt === null || Date.parse(d.startedAt) < Date.now() - STALE_DEPLOY_MS
+    const running = ['deploying', 'uploading', 'cancelling'].includes(d.status)
+    const answer = (outcome: CancelDeploymentOutcome, asked = false) => ({
+      outcome,
+      versionNumber: d.versionNumber,
+      asked,
+    })
+    if (running && stale) return answer('interrupted')
+    if (d.status === 'deploying') {
+      store.deployments.set(id, {
+        ...d,
+        status: 'cancelling',
+        cancelledBy: userId,
+        cancelledAt: now(),
+      })
+      return answer('cancelling', true)
+    }
+    if (d.status === 'cancelling') return answer('cancelling')
+    if (d.status === 'uploading') return answer('uploading')
+    return answer('finished')
+  },
+  async readDeploymentStatus(id) {
+    return store.deployments.get(id)?.status ?? null
   },
   async isLiveVersionLocked(workflowId, connectionId) {
     // As the real query: the account's live row, then its version (gone: unlocked).
@@ -1710,6 +1799,7 @@ const mockDb: DatabaseAdapter = {
               ? (store.connections.get(d.connectionId)?.name ?? null)
               : null,
             createdByName: null,
+            cancelledByName: null,
             version: v?.version ?? d.versionNumber,
             versionLocked: v?.locked ?? null,
           }

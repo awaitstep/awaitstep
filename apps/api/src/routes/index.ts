@@ -284,6 +284,7 @@ export function createRouter(
   router.use('/workflows/:workflowId/takedown', requireWorkflowAccess)
   router.use('/workflows/:workflowId/runs/*', requireWorkflowAccess)
   router.use('/workflows/:workflowId/deployments', requireWorkflowAccess)
+  router.use('/workflows/:workflowId/deployments/:deploymentId/cancel', requireWorkflowAccess)
   router.use('/workflows/:workflowId/test-sessions', requireWorkflowAccess)
   // The API's own way to run (D-1): a project or workspace key, the workflow
   // found by its id alone; a person runs from the dashboard's routes.
@@ -308,6 +309,7 @@ export function createRouter(
   for (const path of [
     '/workflows/:workflowId/deploy',
     '/workflows/:workflowId/deploy-stream',
+    '/workflows/:workflowId/deployments/:deploymentId/cancel',
     '/workflows/:workflowId/takedown',
     '/workflows/:workflowId/deploy-config/*',
   ]) {
@@ -489,6 +491,7 @@ export function createRouter(
   router.put('/workflows/:workflowId/deploy-config/:connectionId', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/deploy', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/deploy-stream', key('workflows', 'deploy'))
+  router.post('/workflows/:workflowId/deployments/:deploymentId/cancel', key('workflows', 'deploy'))
   router.post('/workflows/:workflowId/takedown', key('workflows', 'deploy'))
   // Triggering, calling and running again from the dashboard are a person's
   // (D-7): with no mapping, the catch-all refuses a key there. A key runs
@@ -593,6 +596,7 @@ export function createRouter(
   router.put('/projects/:id/workspaces/:workspaceId/connection', writeLimit)
   router.use('/workflows/:workflowId/deploy', deployLimit)
   router.use('/workflows/:workflowId/deploy-stream', deployLimit)
+  router.use('/workflows/:workflowId/deployments/:deploymentId/cancel', writeLimit)
   router.use('/workflows/:workflowId/trigger', writeLimit)
   // A call can hold an outbound request open for 30 s: as many a minute as triggers.
   router.use('/workflows/:workflowId/call', writeLimit)

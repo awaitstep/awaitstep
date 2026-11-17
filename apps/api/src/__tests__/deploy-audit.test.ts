@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { DeployRunOptions } from '@awaitstep/codegen'
 import type * as ProviderResolver from '../lib/provider-resolver.js'
 import {
   createTestApp,
@@ -27,22 +28,18 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
       return new Proxy(adapter, {
         get(target, property, receiver) {
           if (property === 'verifyCredentials') return () => Promise.resolve({ valid: true })
-          if (property === 'deployWithProgress' && deployGate) {
+          if (property === 'deploy' && deployGate) {
             const gate = deployGate
             // Like the Cloudflare adapter's `report`: progress is sent without waiting on it.
-            return async (_b: unknown, _c: unknown, progress: (p: unknown) => Promise<void>) => {
-              void progress({ stage: 'INITIALIZING', message: 'Starting', progress: 0 })
+            return async (_b: unknown, _c: unknown, run?: DeployRunOptions) => {
+              run?.onProgress?.({ stage: 'INITIALIZING', message: 'Starting', progress: 0 })
               await gate
-              void progress({ stage: 'DEPLOYING', message: 'Uploading', progress: 60 })
-              void progress({ stage: 'COMPLETED', message: 'Done', progress: 100 })
+              run?.onProgress?.({ stage: 'DEPLOYING', message: 'Uploading', progress: 60 })
+              run?.onProgress?.({ stage: 'COMPLETED', message: 'Done', progress: 100 })
               return { success: true, deploymentId: 'awaitstep-wf-1' }
             }
           }
-          if (
-            property === 'deploy' ||
-            property === 'deployWithProgress' ||
-            property === 'destroy'
-          ) {
+          if (property === 'deploy' || property === 'destroy') {
             return () =>
               outcome.throws
                 ? Promise.reject(new Error('wrangler failed in /srv/build/acct-123/worker.js'))
@@ -162,7 +159,7 @@ describe('deploys in the audit log', () => {
         },
       ],
     })
-    const created = vi.spyOn(mockDb, 'createDeployment')
+    const created = vi.spyOn(mockDb, 'startDeployment')
     expect((await post(app, '/deploy', { connectionId: 'conn-1' })).status).toBe(200)
     await (await post(app, '/deploy-stream', { connectionId: 'conn-1' })).text()
     expect(created.mock.calls.map(([data]) => data.libraryVersions)).toEqual([

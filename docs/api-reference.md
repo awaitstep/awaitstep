@@ -1969,6 +1969,15 @@ before authors were kept, plus `version` and `versionLocked` (`1` when locked):
 the deployed version's number (kept after that version is deleted) and its lock (`null` then). Deployed with an API key, the user is the key's creator.
 `status` is `success`, `failed` or `taken_down` (with `takenDownAt` and `takenDownBy`, the
 user who took it down); what is live on an account is its newest `success` row.
+A deploy is listed from the moment it starts: `deploying` while it prepares,
+`cancelling` once a cancel was asked for, `uploading` once its build is going to
+the provider, and `cancelled` when it was stopped before the upload
+(`cancelledByName` names who asked). `startedAt` is when it began
+(`null` on deployments from before it was kept); `createdAt` is when it settled
+(while it runs, when it started). Running and cancelled deploys are never live.
+A deploy still listed as running 15 minutes after it started was left by a
+server that stopped: it is listed as `failed`, with the error
+`Interrupted — the server stopped during this deploy.`
 `connectionName` names its account (`null` once the account is deleted).
 
 **Permission:** `runs:read`
@@ -2126,6 +2135,12 @@ Deploy a workflow version to a connection. Validates environment variables and c
 }
 ```
 
+Answers `200` with `{ "success": true, "deploymentId": "<worker name>", "id": "<deployment id>" }`,
+`500` with `success: false` and `error` when it failed, and `409` with
+`"cancelled": true` and `"error": "Deploy cancelled"` when it was cancelled before its upload. The deployment is
+listed (as `deploying`) while the request is still open, so another request can
+cancel it by its `id` from `GET /workflows/:workflowId/deployments`.
+
 ### `POST /workflows/:workflowId/deploy-stream`
 
 Deploy a workflow with real-time progress updates via Server-Sent Events. Same request body as `/deploy`.
@@ -2143,13 +2158,49 @@ Deploy a workflow with real-time progress updates via Server-Sent Events. Same r
 }
 ```
 
-Progress events follow this sequence:
+The first event is `started`, with the deployment's id — what a cancel is
+asked by:
+
+```
+event: started
+data: {"deploymentId":"<deployment id>"}
+```
+
+`progress` events follow this sequence:
 
 ```
 INITIALIZING → GENERATING_CODE → CODE_READY → DETECTING_BINDINGS →
-BINDINGS_READY → CREATING_WORKER → DEPLOYING → WORKER_DEPLOYED →
+BINDINGS_READY → CREATING_WORKER → DEPLOYING → UPLOADING → WORKER_DEPLOYED →
 UPDATING_WORKFLOW → COMPLETED
 ```
+
+`DEPLOYING` covers the provider's preparation (installing dependencies,
+checking the build); `UPLOADING` marks the build going to the provider, after
+which the deploy can no longer be cancelled. A failure ends with `FAILED`, a
+cancel with `CANCELLED`. The last event is `result`: the deploy's answer, with
+`"cancelled": true` for a cancelled one. Closing the stream does not stop the
+deploy; only a cancel does.
+
+### `POST /workflows/:workflowId/deployments/:deploymentId/cancel`
+
+Asks a running deploy to stop. It stops before it uploads: whatever it was
+running (dependency install, build check) is stopped, nothing reaches the
+provider, and the deployment ends as `cancelled`. No body.
+
+**Permission:** `workflows:deploy`
+
+| Param          | In   | Required | Description                                        |
+| -------------- | ---- | -------- | -------------------------------------------------- |
+| `workflowId`   | path | yes      | Workflow ID                                        |
+| `deploymentId` | path | yes      | The deployment's id (the stream's `started` event) |
+
+| Status | Body                                                                                | When                                                                                                                                                   |
+| ------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `202`  | `{ "status": "cancelling" }`                                                        | Asked; the deploy stops within seconds. Asking again answers the same, and the audit log records the cancel once, as the person or key who asked first |
+| `409`  | `{ "error": "Already uploading to Cloudflare — it can’t be stopped now." }`         | The upload has started                                                                                                                                 |
+| `409`  | `{ "error": "This deploy has already finished." }`                                  | It succeeded, failed or was cancelled                                                                                                                  |
+| `409`  | `{ "error": "This deploy stopped without finishing; there is nothing to cancel." }` | Left running by a server that stopped                                                                                                                  |
+| `404`  | `{ "error": "Not found" }`                                                          | No such deployment of this workflow                                                                                                                    |
 
 ### `POST /run/:workflowId`
 
@@ -3393,7 +3444,7 @@ address is never stored. `scope` names the place as it is now
 | `danger` | `project.delete`, `project.delete.blocked`, `project.move.out`, `project.move.in` (a move is logged in both organizations), `project.move.blocked`, `workspace.delete`, `workspace.delete.blocked`, `workflow.delete`, `workflow.takedown`, `version.delete`, `account.delete` (in each organization the person was in, just before)          |
 | `key`    | `api_key.create`, `api_key.revoke`, `connection.create`, `connection.update`, `connection.delete`, `variable.create`, `variable.update`, `variable.delete`                                                                                                                                                                                    |
 | `access` | `member.join`, `organization.update`, `workflow.move`, `invitation.create`, `invitation.cancel`, `member.access`, `member.remove`, `project_member.add`, `workspace_member.add`, `workspace_member.role`, `workspace_member.remove`, `access_request.approve`, `access_request.decline`, `workflow.share`, `workflow.unshare`, `member.leave` |
-| `deploy` | `workflow.deploy`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                                                          |
+| `deploy` | `workflow.deploy`, `workflow.deploy_cancel`, `version.revert`, `node.install`, `node.update`, `node.uninstall`                                                                                                                                                                                                                                |
 | `lock`   | `project.lock`, `project.unlock`, `workspace.lock`, `workspace.unlock` (only when the lock actually changes)                                                                                                                                                                                                                                  |
 | `auth`   | `signin`, `account.method_connect`, `account.method_disconnect`, `session.revoke`, `account.export` (each once in every organization the person belongs to), `connection.verify.failed`, `connection.verify.locked`                                                                                                                           |
 
