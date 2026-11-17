@@ -495,6 +495,9 @@ export const deployments = pgTable(
     // When it was taken down from its account, and by whom (a user id): the row stays as history.
     takenDownAt: timestamp('taken_down_at', { mode: 'string' }),
     takenDownBy: text('taken_down_by'),
+    startedAt: timestamp('started_at', { mode: 'string' }),
+    cancelledBy: text('cancelled_by'),
+    cancelledAt: timestamp('cancelled_at', { mode: 'string' }),
   },
   (table) => [
     index('idx_deployments_workflow_id').on(table.workflowId),

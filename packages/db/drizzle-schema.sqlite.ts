@@ -555,6 +555,9 @@ export const deployments = sqliteTable(
     // When it was taken down from its account, and by whom (a user id): the row stays as history.
     takenDownAt: text('taken_down_at'),
     takenDownBy: text('taken_down_by'),
+    startedAt: text('started_at'),
+    cancelledBy: text('cancelled_by'),
+    cancelledAt: text('cancelled_at'),
   },
   (table) => [
     index('idx_deployments_workflow_id').on(table.workflowId),

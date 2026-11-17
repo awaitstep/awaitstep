@@ -34,6 +34,13 @@ export const deployments = pgTable(
     // When it was taken down from its account, and by whom (a user id): the row stays as history.
     takenDownAt: isoTimestamp('taken_down_at'),
     takenDownBy: text('taken_down_by'),
+    // When the deploy began. Null on rows from before deploys were recorded
+    // as they ran; `created_at` stays the moment it settled.
+    startedAt: isoTimestamp('started_at'),
+    // Who cancelled it (a user id), on a row whose status is 'cancelling' or 'cancelled'.
+    cancelledBy: text('cancelled_by'),
+    // When the cancel was asked for; a cancel request reads it back to know it was the one.
+    cancelledAt: isoTimestamp('cancelled_at'),
   },
   (table) => [
     index('idx_deployments_workflow_id').on(table.workflowId),

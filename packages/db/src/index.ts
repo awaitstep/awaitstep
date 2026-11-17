@@ -252,3 +252,17 @@ export type {
   WorkflowCustomNodeTemplate,
   WorkflowCustomNodeReach,
 } from './library-types.js'
+export {
+  IN_FLIGHT_DEPLOYMENT_STATUSES,
+  INTERRUPTED_DEPLOY_ERROR,
+  INTERRUPTED_UPLOAD_ERROR,
+  STALE_DEPLOY_MS,
+} from './deployment-status.js'
+export type {
+  CancelDeploymentAnswer,
+  CancelDeploymentOutcome,
+  DeploymentStatus,
+  SettleDeploymentData,
+  SettledDeploymentStatus,
+  StartDeploymentData,
+} from './deployment-status.js'

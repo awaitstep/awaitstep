@@ -597,6 +597,8 @@ export type DeploymentListItem = Deployment &
     versionLocked: number | null
     /** Its account's name; null once the account is deleted. */
     connectionName: string | null
+    /** Who cancelled it; null unless it was cancelled (or once they're removed). */
+    cancelledByName: string | null
   }
 export type ApiKey = InferSelectModel<typeof apiKeys>
 

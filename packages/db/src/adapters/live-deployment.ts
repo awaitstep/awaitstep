@@ -1,8 +1,22 @@
 import { sql, type SQL } from 'drizzle-orm'
+import { IN_FLIGHT_DEPLOYMENT_STATUSES } from '../deployment-status.js'
 import { aliasedFrom } from './json-array.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
+
+const NOT_AN_ATTEMPT = sql.raw(
+  [...IN_FLIGHT_DEPLOYMENT_STATUSES, 'cancelled'].map((status) => `'${status}'`).join(', '),
+)
+
+/**
+ * `d` is a deploy that went somewhere: it settled, and not as cancelled. A
+ * running deploy, or one cancelled before the upload, says nothing about the
+ * workflow's state, so "its newest deploy" skips them.
+ */
+export function settledAttempt(d: AnyTable): SQL {
+  return sql`${d.status} not in (${NOT_AN_ATTEMPT})`
+}
 
 /**
  * `d` is what its account runs: a successful deploy with no newer successful

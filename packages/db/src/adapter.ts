@@ -1,4 +1,9 @@
 import type {
+  CancelDeploymentAnswer,
+  SettleDeploymentData,
+  StartDeploymentData,
+} from './deployment-status.js'
+import type {
   CreateLibraryItemData,
   DeploymentLibraryVersion,
   LibraryBundle,
@@ -946,6 +951,23 @@ export interface DatabaseAdapter {
     /** The library versions it bundled, written in the same unit. */
     libraryVersions?: DeploymentLibraryVersion[]
   }): Promise<Deployment>
+  /**
+   * Records a deploy as it starts (`deploying`); settles this workflow's
+   * running rows started before `staleBefore` as interrupted.
+   */
+  startDeployment(data: StartDeploymentData, staleBefore: string): Promise<void>
+  /** `deploying` → `uploading`; false when a cancel was asked for first. */
+  markDeploymentUploading(id: string): Promise<boolean>
+  /** Settles a deploy as `success`, `failed` or `cancelled`. */
+  settleDeployment(id: string, outcome: SettleDeploymentData): Promise<void>
+  /** Asks a running deploy of this workflow to stop; says what it found. */
+  requestDeploymentCancel(
+    workflowId: string,
+    id: string,
+    userId: string | null,
+  ): Promise<CancelDeploymentAnswer>
+  /** A deployment's status, or null when the row is gone. */
+  readDeploymentStatus(id: string): Promise<string | null>
   /** The version live on that account (its newest successful deploy) is locked. */
   isLiveVersionLocked(workflowId: string, connectionId: string): Promise<boolean>
   listDeploymentsByWorkflow(

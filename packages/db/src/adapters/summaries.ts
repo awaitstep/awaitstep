@@ -26,7 +26,7 @@ import {
 } from './json-array.js'
 import { FAILED_RUN_STATUSES, OverviewFields, type OverviewTables } from './overview-fields.js'
 import { reachesProject, reachesWorkspace } from './variable-reach.js'
-import { liveOnItsAccount } from './live-deployment.js'
+import { liveOnItsAccount, settledAttempt } from './live-deployment.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -460,7 +460,7 @@ export class SummaryAdapter {
         sql`x.created_at desc, x.id desc`,
       )
     }
-    const currentDeploy = deploy(sql`1 = 1`)
+    const currentDeploy = deploy(settledAttempt(d))
     const lastSuccess = deploy(
       sql`${d.status} = 'success' and ${d.connectionId} is not null and ${c.id} is not null`,
     )

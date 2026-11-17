@@ -211,7 +211,13 @@ import { RunsAdapter } from './runs.js'
 import { RunStepsAdapter } from './run-steps.js'
 import { WorkflowFilesAdapter } from './workflow-files.js'
 import { TestSessionsAdapter } from './test-sessions.js'
-import { DeploymentsAdapter } from './deployments.js'
+import { DeploymentsAdapter, staleView } from './deployments.js'
+import { settledAttempt } from './live-deployment.js'
+import type {
+  CancelDeploymentAnswer,
+  SettleDeploymentData,
+  StartDeploymentData,
+} from '../deployment-status.js'
 import { ApiKeysAdapter } from './api-keys.js'
 import { EnvVarsAdapter } from './env-vars.js'
 import { ProjectsAdapter } from './projects.js'
@@ -1028,10 +1034,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
           ),
         // 'success' while it is live on any account (a successful row on an account
         // that still exists); else its newest deploy's status, or null when it never went out
-        // (a success on a deleted account is live nowhere, so it is skipped).
+        // (a success on a deleted account is live nowhere, so it is skipped; a running or
+        // cancelled deploy changed nothing, so it is skipped too).
         deployStatus: sql<
           string | null
-        >`(CASE WHEN EXISTS (SELECT 1 FROM ${d} WHERE ${d.workflowId} = ${wId} AND ${d.status} = 'success' AND ${d.connectionId} IS NOT NULL) THEN 'success' ELSE (SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${wId} AND NOT (${d.status} = 'success' AND ${d.connectionId} IS NULL) ORDER BY ${d.createdAt} DESC, ${d.id} DESC LIMIT 1) END)`.as(
+        >`(CASE WHEN EXISTS (SELECT 1 FROM ${d} WHERE ${d.workflowId} = ${wId} AND ${d.status} = 'success' AND ${d.connectionId} IS NOT NULL) THEN 'success' ELSE (SELECT ${d.status} FROM ${d} WHERE ${d.workflowId} = ${wId} AND NOT (${d.status} = 'success' AND ${d.connectionId} IS NULL) AND ${settledAttempt(d)} ORDER BY ${d.createdAt} DESC, ${d.id} DESC LIMIT 1) END)`.as(
           'deploy_status',
         ),
         deployVersionId: sql<
@@ -1656,6 +1663,25 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }): Promise<Deployment> {
     return this._deployments.create(data)
   }
+  startDeployment(data: StartDeploymentData, staleBefore: string): Promise<void> {
+    return this._deployments.start(data, staleBefore)
+  }
+  markDeploymentUploading(id: string): Promise<boolean> {
+    return this._deployments.markUploading(id)
+  }
+  settleDeployment(id: string, outcome: SettleDeploymentData): Promise<void> {
+    return this._deployments.settle(id, outcome)
+  }
+  requestDeploymentCancel(
+    workflowId: string,
+    id: string,
+    userId: string | null,
+  ): Promise<CancelDeploymentAnswer> {
+    return this._deployments.requestCancel(workflowId, id, userId)
+  }
+  readDeploymentStatus(id: string): Promise<string | null> {
+    return this._deployments.readStatus(id)
+  }
   async isLiveVersionLocked(workflowId: string, connectionId: string): Promise<boolean> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const d = this._schema.deployments as any
@@ -1717,8 +1743,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
         versionId: d.versionId,
         connectionId: d.connectionId,
         serviceName: d.serviceName,
-        status: d.status,
-        error: d.error,
+        // Stale running rows read as interrupted here too, as in a workflow's own list.
+        ...staleView(d),
         configSnapshot: d.configSnapshot,
         createdAt: d.createdAt,
       })
