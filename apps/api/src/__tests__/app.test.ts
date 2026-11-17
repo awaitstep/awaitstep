@@ -43,15 +43,12 @@ describe('app', () => {
   })
 
   it('answers a middleware refusal in JSON, with its own status', async () => {
-    // CSRF throws an HTTPException with a plain-text body. Returned as-is
-    // a client parsing JSON chokes; mapped to a 500 it reads as a server
-    // fault. Neither is what happened.
+    // A refused cross-origin write answers 403 in JSON — not plain text a
+    // client parsing JSON chokes on, and not a 500 that blames the server.
     const guarded = createTestApp({ corsOrigin: 'https://app.example.com' })
     const res = await guarded.request(`/api/workflows?projectId=${TEST_PROJECT_ID}`, {
       method: 'POST',
       headers: {
-        // A form-submittable content type is what CSRF guards; JSON is
-        // exempt because a form cannot send it cross-origin.
         'Content-Type': 'text/plain',
         Cookie: 'session=whatever',
         Origin: 'https://evil.example.com',
@@ -64,7 +61,8 @@ describe('app', () => {
   })
 
   it('refuses a cross-site hyperlink-auditing ping (text/ping) that carries a cookie', async () => {
-    // hono < 4.13.16 let `text/ping` POSTs past csrf() (GHSA-46wx-v44x-9hh2).
+    // hono < 4.13.16 let `text/ping` POSTs past csrf() (GHSA-46wx-v44x-9hh2);
+    // the origin check that replaced it must not either.
     const guarded = createTestApp({ corsOrigin: 'https://app.example.com' })
     const ping = (headers: Record<string, string>) =>
       guarded.request(`/api/workflows?projectId=${TEST_PROJECT_ID}`, {
@@ -81,7 +79,7 @@ describe('app', () => {
     expect(crossSite.status).toBe(403)
     expect(crossSite.headers.get('content-type')).toContain('application/json')
 
-    // From the app's own origin csrf lets it through; the route then refuses
+    // From the app's own origin the origin check lets it through; the route then refuses
     // the body itself (it is not a workflow).
     const ownOrigin = await ping({ Origin: 'https://app.example.com' })
     expect(ownOrigin.status).toBe(422)

@@ -1,7 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { cors } from 'hono/cors'
-import { csrf } from 'hono/csrf'
 import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
 import { logger as honoLogger } from 'hono/logger'
@@ -20,6 +19,7 @@ import { createCloudflareOAuthStub } from './dev/cloudflare-oauth-stub.js'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
 import { createRouter } from './routes/index.js'
+import { originCheck } from './middleware/origin-check.js'
 import { imageResponseHeaders, images } from './routes/images.js'
 import { databaseImageStore } from './lib/images.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
@@ -127,6 +127,16 @@ export function createApp(deps: AppDeps) {
   // Health check — no auth, no CORS
   app.get('/api/health', (c) => c.json({ status: 'ok', runtime: deps.runtime ?? 'node' }))
 
+  // The app's own origins. The wildcard is for development only: it turns
+  // both origin checks off, so it is refused anywhere else.
+  const appOrigins = [deps.corsOrigin ?? 'http://localhost:3000'].flat()
+  const wildcardOrigin = appOrigins.includes('*')
+  if (wildcardOrigin && !deps.isDev) {
+    throw new Error(
+      'Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.',
+    )
+  }
+
   // CORS — must be before auth handler so preflight and response headers apply
   app.use(
     '/api/*',
@@ -149,27 +159,12 @@ export function createApp(deps: AppDeps) {
     }),
   )
 
-  // CSRF protection — origin check for cookie-based auth
-  // Skips when: (a) using bearer token auth, or (b) no cookie header (no session to abuse)
-  const csrfOrigin = deps.corsOrigin ?? 'http://localhost:3000'
-  if (csrfOrigin === '*') {
-    if (!deps.isDev) {
-      throw new Error(
-        'Wildcard CORS origin is not allowed in production (credentials: true). Set CORS_ORIGIN to a specific origin.',
-      )
-    }
-    log.warn('CSRF protection disabled — corsOrigin is set to wildcard')
+  // A session cookie counts on a write only from the app's own origins,
+  // whatever the content type (middleware/origin-check.ts).
+  if (wildcardOrigin) {
+    log.warn('Cross-origin write protection disabled — corsOrigin is set to wildcard')
   } else {
-    const csrfMiddleware = csrf({ origin: csrfOrigin })
-    app.use('/api/*', async (c, next) => {
-      if (c.req.header('Authorization')?.startsWith('Bearer ')) {
-        return next()
-      }
-      if (!c.req.header('Cookie')) {
-        return next()
-      }
-      return csrfMiddleware(c, next)
-    })
+    app.use('/api/*', originCheck(appOrigins))
   }
 
   // Better-auth handler. Its own limiter guards the sensitive paths (sign-in,

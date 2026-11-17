@@ -2597,7 +2597,7 @@ export function createTestApp(options?: {
   remoteNodeRegistry?: AppDeps['remoteNodeRegistry']
   testSessionRunner?: AppDeps['testSessionRunner']
   testSessionLimits?: AppDeps['testSessionLimits']
-  /** A concrete origin turns CSRF checking on, as a deployment has it. */
+  /** A concrete origin turns the CORS split and the origin check on, as a deployment has it. */
   corsOrigin?: AppDeps['corsOrigin']
   enableLocalDev?: AppDeps['enableLocalDev']
   connectionAddress?: AppDeps['connectionAddress']
