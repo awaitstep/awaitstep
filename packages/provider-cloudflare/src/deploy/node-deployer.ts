@@ -5,8 +5,14 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { assertSafeBundlePath, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import type { GeneratedBundle } from '@awaitstep/codegen'
-import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
+import type {
+  DeployControl,
+  WranglerDeployer,
+  DeployOptions,
+  WranglerDeployResult,
+} from './deployer.js'
 import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
+import { DeployCancelledError, runToEnd, throwIfCancelled } from './run-to-end.js'
 import { DEFAULT_WORKER_PACKAGE_NAME, buildWorkerPackageJson } from './package-manifest.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
@@ -20,14 +26,17 @@ export class NodeWranglerDeployer implements WranglerDeployer {
     bundle: GeneratedBundle,
     options: DeployOptions,
     onProgress?: (stage: string, message: string) => void,
+    control?: DeployControl,
   ): Promise<WranglerDeployResult> {
     const name = workerName(options.workflowId)
     const className = options.className ?? workflowClassName(options.workflowName)
     const deployDir = join(tmpdir(), `awaitstep-deploy-${Date.now()}`)
     // Beside the project, not inside it: the checked build is what uploads.
     const buildDir = `${deployDir}-build`
+    const signal = control?.signal
 
     try {
+      throwIfCancelled(signal)
       await mkdir(deployDir, { recursive: true })
 
       // 1. Write the bundle: generated code, project modules, assets, config
@@ -84,6 +93,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         options.dependencies,
         buildDir,
         onProgress,
+        signal,
       )
 
       // 4. Write secrets for the same upload. `wrangler secret bulk` after a
@@ -110,11 +120,18 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         CLOUDFLARE_API_TOKEN: options.apiToken,
       })
 
+      // The last point a cancel can stop it. Past here the upload runs to its
+      // end: stopping it halfway could leave a new version live.
+      throwIfCancelled(signal)
+      if (control?.beforeUpload && !(await control.beforeUpload())) {
+        return { success: false, workerName: name, cancelled: true }
+      }
+
       onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
       const wrangler = wranglerCommand()
       // `-c` because a script argument otherwise makes wrangler look for a
       // config beside the script — and deploy without bindings.
-      const { stdout } = await execFileAsync(
+      const { stdout } = await runToEnd(
         wrangler.command,
         [
           ...wrangler.args,
@@ -125,7 +142,15 @@ export class NodeWranglerDeployer implements WranglerDeployer {
           ...(bulk.json ? ['--secrets-file', SECRETS_BULK_FILENAME] : []),
           builtEntry,
         ],
-        { cwd: deployDir, env: deployEnv, timeout: 120_000 },
+        {
+          cwd: deployDir,
+          env: deployEnv,
+          timeout: 120_000,
+          label: 'wrangler deploy',
+          // An upload is never cut short, by a cancel or by the API exiting:
+          // stopped halfway it could leave a version partly live.
+          killOnExit: false,
+        },
       )
 
       // 6. Extract URL
@@ -137,6 +162,9 @@ export class NodeWranglerDeployer implements WranglerDeployer {
       // from the server (a route's host is whatever pattern was typed).
       return { success: true, workerName: name, workerUrl: urlMatch?.[0] ?? routeUrl }
     } catch (err) {
+      if (err instanceof DeployCancelledError) {
+        return { success: false, workerName: name, cancelled: true }
+      }
       const error = err as Error & { stderr?: string }
       const safeError = error.stderr
         ? redactSensitive(error.stderr)

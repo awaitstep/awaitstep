@@ -1,7 +1,5 @@
 import { writeFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
 import {
   assertSafeBundlePath,
   bundleCodeFiles,
@@ -21,8 +19,7 @@ import { generateWranglerConfig } from './wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from './naming.js'
 import { buildWorkerPackageJson, hasDependencies } from './deploy/package-manifest.js'
 import { assertBundleContained, buildContainedBundle } from './bundle-containment.js'
-
-const execFileAsync = promisify(execFile)
+import { runToEnd } from './deploy/run-to-end.js'
 
 const INSTALL_TIMEOUT_MS = 60_000
 const SECRET_FILE_MODE = 0o600
@@ -171,6 +168,7 @@ async function installDependencies(
   dir: string,
   dependencies: Record<string, string> | undefined,
   onProgress?: (stage: string, message: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   if (!hasDependencies(dependencies)) return
   assertRegistryDependencies(dependencies)
@@ -179,14 +177,12 @@ async function installDependencies(
     'INSTALLING_DEPS',
     `Installing ${count} ${count === 1 ? 'dependency' : 'dependencies'}...`,
   )
-  await execFileAsync(
-    'npm',
-    ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'],
-    {
-      cwd: dir,
-      timeout: INSTALL_TIMEOUT_MS,
-    },
-  )
+  await runToEnd('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], {
+    cwd: dir,
+    timeout: INSTALL_TIMEOUT_MS,
+    signal,
+    label: 'npm install',
+  })
   onProgress?.('INSTALLING_DEPS', 'Dependencies installed')
 }
 
@@ -212,14 +208,17 @@ export async function prepareHostWorkspace(
  * Readies a written workspace for a deploy: installs, then builds into
  * `outdir` and proves that build reads nothing outside `dir`. Returns the
  * bundled entry, to be deployed with `--no-bundle` so the upload is the
- * build that was checked. `outdir` is the caller's to remove.
+ * build that was checked. `outdir` is the caller's to remove. Aborting
+ * `signal` stops whichever step is running and rejects with a
+ * `DeployCancelledError`.
  */
 export async function prepareHostDeploy(
   dir: string,
   dependencies: Record<string, string> | undefined,
   outdir: string,
   onProgress?: (stage: string, message: string) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
-  await installDependencies(dir, dependencies, onProgress)
-  return buildContainedBundle(dir, outdir)
+  await installDependencies(dir, dependencies, onProgress, signal)
+  return buildContainedBundle(dir, outdir, signal)
 }

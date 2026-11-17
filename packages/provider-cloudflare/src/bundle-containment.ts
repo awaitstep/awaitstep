@@ -1,14 +1,11 @@
-import { execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { mkdtemp, readdir, readFile, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
-import { promisify } from 'node:util'
 import { GenerateInputError } from '@awaitstep/codegen'
 import { redactSensitive } from './deploy/deployer.js'
+import { DeployCancelledError, runToEnd } from './deploy/run-to-end.js'
 import { wranglerCommand, wranglerEnv, wranglerFailureReason } from './wrangler-exec.js'
-
-const execFileAsync = promisify(execFile)
 
 const DRY_RUN_TIMEOUT_MS = 120_000
 
@@ -101,7 +98,11 @@ async function filesByBasename(root: string): Promise<Map<string, string[]>> {
  * Fails closed: a build that cannot be produced or read is not deployed.
  * `outdir` must be outside `dir`, empty, and the caller's to remove.
  */
-export async function buildContainedBundle(dir: string, outdir: string): Promise<string> {
+export async function buildContainedBundle(
+  dir: string,
+  outdir: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const root = await realpath(dir)
   const metaDir = await mkdtemp(join(tmpdir(), 'awaitstep-metafile-'))
   try {
@@ -110,12 +111,19 @@ export async function buildContainedBundle(dir: string, outdir: string): Promise
     const metafilePath = join(metaDir, 'meta.json')
     const wrangler = wranglerCommand()
     try {
-      await execFileAsync(
+      await runToEnd(
         wrangler.command,
         [...wrangler.args, 'deploy', '--dry-run', '--outdir', outdir, '--metafile', metafilePath],
-        { cwd: root, env: wranglerEnv(), timeout: DRY_RUN_TIMEOUT_MS },
+        {
+          cwd: root,
+          env: wranglerEnv(),
+          timeout: DRY_RUN_TIMEOUT_MS,
+          signal,
+          label: 'The build check',
+        },
       )
     } catch (err) {
+      if (err instanceof DeployCancelledError) throw err
       const { stderr = '', stdout = '' } = err as { stderr?: string; stdout?: string }
       const detail = redactSensitive(wranglerFailureReason(`${stdout}\n${stderr}`))
       throw new Error(

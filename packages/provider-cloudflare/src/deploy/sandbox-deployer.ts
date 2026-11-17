@@ -1,7 +1,12 @@
 import { assertRegistryDependencies } from '@awaitstep/ir'
 import { assertSafeBundlePath, bundleDeployFiles, bundlePackageManifest } from '@awaitstep/codegen'
 import type { GeneratedBundle } from '@awaitstep/codegen'
-import type { WranglerDeployer, DeployOptions, WranglerDeployResult } from './deployer.js'
+import type {
+  DeployControl,
+  WranglerDeployer,
+  DeployOptions,
+  WranglerDeployResult,
+} from './deployer.js'
 import { buildSecretsBulkJson, redactSensitive, SECRETS_BULK_FILENAME } from './deployer.js'
 import {
   DEFAULT_WORKER_PACKAGE_NAME,
@@ -46,9 +51,13 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
     bundle: GeneratedBundle,
     options: DeployOptions,
     onProgress?: (stage: string, message: string) => void,
+    control?: DeployControl,
   ): Promise<WranglerDeployResult> {
     const name = workerName(options.workflowId)
     const className = options.className ?? workflowClassName(options.workflowName)
+    const signal = control?.signal
+    const cancelled: WranglerDeployResult = { success: false, workerName: name, cancelled: true }
+    if (signal?.aborted) return cancelled
     const sandboxId = `deploy-${options.workflowId}-${Date.now()}`.toLowerCase()
     const sandbox = this.getSandbox(sandboxId)
 
@@ -57,6 +66,13 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
     const killTimer = setTimeout(() => {
       sandbox.destroy().catch(() => {})
     }, this.maxDeployMs)
+    // A cancel destroys the container the same way: whatever runs in it stops,
+    // and the step waiting on it fails. Each step's result is read only after
+    // checking the signal, so a cancel never reads as a failure.
+    const stopOnCancel = () => {
+      sandbox.destroy().catch(() => {})
+    }
+    signal?.addEventListener('abort', stopOnCancel, { once: true })
 
     try {
       // 1. Write generated code (entry + any per-node modules). Path checks
@@ -78,8 +94,12 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         await sandbox.exec(`mkdir -p ${nestedDirs.join(' ')}`, { cwd: '/workspace' })
       }
       for (const file of deployFiles) {
+        // After a cancel's destroy the next call may start a fresh container:
+        // stop between steps instead of carrying on in it.
+        if (signal?.aborted) return cancelled
         await sandbox.writeFile(`/workspace/${file.path}`, file.compiled ?? file.source)
       }
+      if (signal?.aborted) return cancelled
 
       // 2. Write wrangler config
       const wranglerConfig = generateWranglerConfig({
@@ -106,6 +126,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         queueConsumers: options.queueConsumers,
       })
       await sandbox.writeFile('/workspace/wrangler.json', wranglerConfig)
+      if (signal?.aborted) return cancelled
 
       // 3. package.json (project manifest + #/ import map) and npm dependencies
       await sandbox.writeFile(
@@ -117,6 +138,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
           libraryModules: bundle.libraryModules,
         }),
       )
+      if (signal?.aborted) return cancelled
       if (hasDependencies(options.dependencies)) {
         assertRegistryDependencies(options.dependencies)
         const depNames = Object.keys(options.dependencies)
@@ -129,6 +151,7 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
           'npm install --omit=dev --ignore-scripts --no-audit --no-fund',
           { cwd: '/workspace', timeout: 60_000 },
         )
+        if (signal?.aborted) return cancelled
         if (!installResult.success) {
           return { success: false, workerName: name, error: redactSensitive(installResult.stderr) }
         }
@@ -148,6 +171,12 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         )
         await sandbox.writeFile(`/workspace/${SECRETS_BULK_FILENAME}`, bulk.json)
       }
+
+      // The last point a cancel can stop it. Past here the upload runs to its
+      // end: stopping it halfway could leave a new version live.
+      if (signal?.aborted) return cancelled
+      if (control?.beforeUpload && !(await control.beforeUpload())) return cancelled
+      signal?.removeEventListener('abort', stopOnCancel)
 
       // 5. Deploy with wrangler
       onProgress?.('DEPLOYING', 'Uploading worker to Cloudflare...')
@@ -182,9 +211,12 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
       // from the server (a route's host is whatever pattern was typed).
       return { success: true, workerName: name, workerUrl: urlMatch?.[0] ?? routeUrl }
     } catch (err) {
+      // A step cut short by the cancel's destroy fails; that is the cancel.
+      if (signal?.aborted) return cancelled
       return { success: false, workerName: name, error: redactSensitive((err as Error).message) }
     } finally {
       clearTimeout(killTimer)
+      signal?.removeEventListener('abort', stopOnCancel)
       await sandbox.destroy().catch(() => {})
     }
   }

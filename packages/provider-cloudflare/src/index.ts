@@ -70,11 +70,21 @@ export type {
   CFInstanceListItem,
   CFListInstancesOptions,
 } from './api.js'
-export { NodeWranglerDeployer, SandboxWranglerDeployer } from './deploy/index.js'
+export {
+  NodeWranglerDeployer,
+  SandboxWranglerDeployer,
+  DeployCancelledError,
+  killTrackedGroups,
+  runToEnd,
+  throwIfCancelled,
+} from './deploy/index.js'
 export type {
+  DeployControl,
   WranglerDeployer,
   DeployOptions as WranglerDeployOptions,
   WranglerDeployResult,
+  RunFailure,
+  RunToEndOptions,
 } from './deploy/index.js'
 export { createBuiltinGeneratorRegistry, builtinGenerators } from './codegen/generator-registry.js'
 export { appliedStepSettings } from '@awaitstep/codegen'

@@ -117,6 +117,20 @@ export interface WranglerDeployResult {
   workerName: string
   workerUrl?: string
   error?: string
+  /** Stopped by a cancel before the upload; nothing reached Cloudflare. */
+  cancelled?: boolean
+}
+
+/** How a deploy is stopped before it uploads. */
+export interface DeployControl {
+  /** Aborting it stops the running step; the deploy returns `cancelled`. */
+  signal?: AbortSignal
+  /**
+   * Asked once, right before `wrangler deploy`. `false`: cancelled — the
+   * deployer uploads nothing and returns `cancelled`. After `true` the upload
+   * runs to its end whatever the signal does.
+   */
+  beforeUpload?: () => Promise<boolean>
 }
 
 export interface WranglerDeployer {
@@ -124,6 +138,7 @@ export interface WranglerDeployer {
     bundle: GeneratedBundle,
     options: DeployOptions,
     onProgress?: (stage: string, message: string) => void,
+    control?: DeployControl,
   ): Promise<WranglerDeployResult>
 
   deleteWorker(
