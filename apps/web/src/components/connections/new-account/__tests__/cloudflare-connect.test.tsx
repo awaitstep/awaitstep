@@ -2,9 +2,10 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const oauth = vi.hoisted(() => ({ enabled: false }))
+const oauth = vi.hoisted(() => ({ enabled: false, start: vi.fn() }))
 vi.mock('../../../../data/dashboard/org-settings', () => ({
   useOAuthStatus: () => ({ data: { enabled: oauth.enabled } }),
+  useStartCloudflareOAuth: () => ({ start: oauth.start, starting: false }),
 }))
 
 import { CloudflareConnect } from '../cloudflare-connect'
@@ -33,13 +34,16 @@ function renderStep(onSubmit = vi.fn(), place: { org: string; project?: string }
 describe('CloudflareConnect', () => {
   beforeEach(() => {
     oauth.enabled = false
+    oauth.start.mockReset()
   })
 
-  it('offers Setup with Cloudflare.com first, or the token form', () => {
+  it('offers Setup with Cloudflare.com first, or the token form', async () => {
     oauth.enabled = true
     renderStep()
-    const link = screen.getByRole('link', { name: 'Setup with Cloudflare.com' })
-    expect(link.getAttribute('href')).toContain('project=project-101')
+    const link = screen.getByRole('button', { name: 'Setup with Cloudflare.com' })
+    // A POST from the page, not a link: a cross-site page can't start one.
+    await userEvent.click(link)
+    expect(oauth.start).toHaveBeenCalledWith({ org: 'acme', options: { project: 'project-101' } })
     expect(screen.getByText('or')).toBeInTheDocument()
     expect(screen.getByLabelText('API token')).toBeInTheDocument()
     // Sign-in comes before the form.
@@ -49,14 +53,11 @@ describe('CloudflareConnect', () => {
     ).toBeTruthy()
   })
 
-  it('signs in for the organization when no project is named', () => {
+  it('signs in for the organization when no project is named', async () => {
     oauth.enabled = true
     renderStep(vi.fn(), { org: 'acme' })
-    const href = screen
-      .getByRole('link', { name: 'Setup with Cloudflare.com' })
-      .getAttribute('href')
-    expect(href).toContain('org=acme')
-    expect(href).not.toContain('project=')
+    await userEvent.click(screen.getByRole('button', { name: 'Setup with Cloudflare.com' }))
+    expect(oauth.start).toHaveBeenCalledWith({ org: 'acme', options: {} })
     // The org's sign-in always covers every project, whatever the dialog's picker says.
     expect(
       screen.getByText('Signing in with Cloudflare connects the account for every project.'),
@@ -91,7 +92,7 @@ describe('CloudflareConnect', () => {
 
   it('shows only the form where sign-in with Cloudflare isn’t set up', () => {
     renderStep()
-    expect(screen.queryByRole('link', { name: 'Setup with Cloudflare.com' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Setup with Cloudflare.com' })).toBeNull()
     expect(screen.queryByText('or')).toBeNull()
     expect(screen.getByLabelText('Account ID')).toBeInTheDocument()
   })

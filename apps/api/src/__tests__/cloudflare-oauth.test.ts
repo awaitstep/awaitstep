@@ -51,10 +51,19 @@ function stubCloudflare(overrides?: { token?: Response; accounts?: Response }) {
   return mock
 }
 
+/** Starts an authorization, the body built from a query-style string. */
+function postStart(app: ReturnType<typeof createTestApp>, query: string) {
+  return app.request('/api/oauth/cloudflare/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.fromEntries(new URLSearchParams(query))),
+  })
+}
+
 async function start(app: ReturnType<typeof createTestApp>): Promise<URL> {
-  const res = await app.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)
-  expect(res.status).toBe(302)
-  return new URL(res.headers.get('location')!)
+  const res = await postStart(app, `org=${TEST_ORG_SLUG}`)
+  expect(res.status).toBe(200)
+  return new URL(((await res.json()) as { url: string }).url)
 }
 
 describe('Cloudflare OAuth routes', () => {
@@ -86,18 +95,18 @@ describe('Cloudflare OAuth routes', () => {
   })
 
   it('refuses a start without an org', async () => {
-    const res = await app.request('/api/oauth/cloudflare/start')
-    expect(res.status).toBe(400)
+    const res = await postStart(app, '')
+    expect(res.status).toBe(422)
   })
 
   it('refuses a start for an org the caller is not in', async () => {
-    const res = await app.request('/api/oauth/cloudflare/start?org=somebody-else')
+    const res = await postStart(app, 'org=somebody-else')
     expect(res.status).toBe(404)
   })
 
   it('refuses a start by a member who cannot manage the organization', async () => {
     setTestOrgRole('member')
-    const res = await app.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)
+    const res = await postStart(app, `org=${TEST_ORG_SLUG}`)
     expect(res.status).toBe(403)
   })
 
@@ -273,11 +282,9 @@ describe('Cloudflare OAuth routes', () => {
 
   it('caps how many authorizations one person can keep pending', async () => {
     for (let i = 0; i < 5; i++) {
-      expect((await app.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)).status).toBe(
-        302,
-      )
+      expect((await postStart(app, `org=${TEST_ORG_SLUG}`)).status).toBe(200)
     }
-    const sixth = await app.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)
+    const sixth = await postStart(app, `org=${TEST_ORG_SLUG}`)
     expect(sixth.status).toBe(429)
   })
 
@@ -288,9 +295,44 @@ describe('Cloudflare OAuth routes', () => {
     await expect(res.text()).resolves.toContain('expired')
   })
 
+  it('counts a start against the write limit, not just the pending cap', async () => {
+    const res = await postStart(app, `org=${TEST_ORG_SLUG}`)
+    expect(res.status).toBe(200)
+    // The write limiter's own budget (30 a minute), as its headers report it.
+    const limits = [...res.headers.entries()].filter(([name]) => name.startsWith('ratelimit'))
+    expect(limits.map(([, value]) => value).join(' ')).toMatch(/\b30\b/)
+  })
+
+  it('starts nothing from a link: a GET is not a start', async () => {
+    const res = await app.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)
+    expect(res.status).toBe(404)
+    // The cap would still allow five starts: the GET recorded none.
+    for (let i = 0; i < 5; i++) {
+      expect((await postStart(app, `org=${TEST_ORG_SLUG}`)).status).toBe(200)
+    }
+  })
+
+  it('refuses a start sent with the session from another site', async () => {
+    const guarded = createTestApp({
+      cloudflareOAuth: CONFIG,
+      webUrl: 'http://web.test',
+      corsOrigin: 'http://web.test',
+    })
+    const res = await guarded.request('/api/oauth/cloudflare/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: 'session=whatever',
+        Origin: 'https://evil.example.com',
+      },
+      body: JSON.stringify({ org: TEST_ORG_SLUG }),
+    })
+    expect(res.status).toBe(403)
+  })
+
   it('does not exist when no client is configured', async () => {
     const unconfigured = createTestApp()
-    const res = await unconfigured.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)
+    const res = await postStart(unconfigured, `org=${TEST_ORG_SLUG}`)
     expect(res.status).toBe(404)
   })
 
@@ -299,11 +341,11 @@ describe('Cloudflare OAuth routes', () => {
     const create = vi
       .spyOn(mockDb, 'createProjectConnection')
       .mockResolvedValue({ id: 'pc-1', name: 'Acme', isDefault: true })
-    const location = await app.request(
-      `/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}`,
-    )
-    expect(location.status).toBe(302)
-    const state = new URL(location.headers.get('location')!).searchParams.get('state')!
+    const location = await postStart(app, `org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}`)
+    expect(location.status).toBe(200)
+    const state = new URL(((await location.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
     const res = await app.request(
       `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
     )
@@ -331,10 +373,13 @@ describe('Cloudflare OAuth routes', () => {
       connectionName: 'Acme',
       changed: true,
     })
-    const location = await app.request(
-      `/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&workspaceId=${TEST_WORKSPACE_ID}`,
+    const location = await postStart(
+      app,
+      `org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&workspaceId=${TEST_WORKSPACE_ID}`,
     )
-    const state = new URL(location.headers.get('location')!).searchParams.get('state')!
+    const state = new URL(((await location.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
     const res = await app.request(
       `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
     )
@@ -376,10 +421,13 @@ describe('Cloudflare OAuth routes', () => {
       wasDefault: false,
       workspacesCleared: 0,
     })
-    const location = await app.request(
-      `/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&workspaceId=${TEST_WORKSPACE_ID}`,
+    const location = await postStart(
+      app,
+      `org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&workspaceId=${TEST_WORKSPACE_ID}`,
     )
-    const state = new URL(location.headers.get('location')!).searchParams.get('state')!
+    const state = new URL(((await location.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
     const res = await app.request(
       `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
     )
@@ -411,11 +459,11 @@ describe('Cloudflare OAuth routes', () => {
       token: { status: 'active', expiresAt: null, checkedAt: new Date().toISOString() },
     })
 
-    const location = await app.request(
-      `/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}&connection=c-reconnect`,
-    )
-    expect(location.status).toBe(302)
-    const state = new URL(location.headers.get('location')!).searchParams.get('state')!
+    const location = await postStart(app, `org=${TEST_ORG_SLUG}&connection=c-reconnect`)
+    expect(location.status).toBe(200)
+    const state = new URL(((await location.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
     const res = await app.request(
       `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
     )
@@ -472,10 +520,13 @@ describe('Cloudflare OAuth routes', () => {
     } as never)
     const createProject = vi.spyOn(mockDb, 'createProjectConnection')
 
-    const location = await app.request(
-      `/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&connection=pc-1`,
+    const location = await postStart(
+      app,
+      `org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}&connection=pc-1`,
     )
-    const state = new URL(location.headers.get('location')!).searchParams.get('state')!
+    const state = new URL(((await location.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
     const res = await app.request(
       `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
     )
@@ -492,8 +543,10 @@ describe('Cloudflare OAuth routes', () => {
   it('refuses a callback whose authorization is older than the state TTL', async () => {
     stubCloudflare()
     vi.useFakeTimers({ now: Date.now() })
-    const location = await app.request(`/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}`)
-    const state = new URL(location.headers.get('location')!).searchParams.get('state')!
+    const location = await postStart(app, `org=${TEST_ORG_SLUG}`)
+    const state = new URL(((await location.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
     vi.setSystemTime(Date.now() + 11 * 60_000)
     const res = await app.request(
       `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
@@ -533,9 +586,7 @@ describe('Cloudflare OAuth routes', () => {
       credentials: JSON.stringify({ accountId: 'acct-1', apiToken: 'tok' }),
       name: 'Acme',
     })
-    const res = await app.request(
-      `/api/oauth/cloudflare/start?org=${TEST_ORG_SLUG}&connection=c-token`,
-    )
+    const res = await postStart(app, `org=${TEST_ORG_SLUG}&connection=c-token`)
     expect(res.status).toBe(400)
   })
 

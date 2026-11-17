@@ -1,15 +1,13 @@
 import { useState, type ChangeEvent, type SubmitEvent } from 'react'
 import { Check } from 'lucide-react'
 import { CLOUDFLARE_PERMISSIONS } from '@awaitstep/provider-cloudflare/oauth-permissions'
-import { useOAuthStatus } from '../../../data/dashboard/org-settings'
-import { oauthStartUrl } from '../../org-settings/oauth-start'
-import { buttonVariants } from '../../ui/button'
+import { useOAuthStatus, useStartCloudflareOAuth } from '../../../data/dashboard/org-settings'
+import { Button } from '../../ui/button'
 import { FormField } from '../../ui/form-field'
 import { Input } from '../../ui/input'
 import { Separator } from '../../ui/separator'
 import { CloudflareLogo } from './cloudflare-logo'
 import type { ConnectStepProps } from './providers'
-import { cn } from '../../../lib/utils'
 
 const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/?to=/:account/api-tokens'
 
@@ -20,6 +18,7 @@ const CLOUDFLARE_TOKENS_URL = 'https://dash.cloudflare.com/?to=/:account/api-tok
 export function CloudflareConnect({ formId, place, errorOn, onSubmit, onEdit }: ConnectStepProps) {
   const oauthStatus = useOAuthStatus()
   const oauthEnabled = oauthStatus.data?.enabled === true
+  const startOAuth = useStartCloudflareOAuth()
   const [name, setName] = useState('')
   const [accountId, setAccountId] = useState('')
   const [token, setToken] = useState('')
@@ -44,23 +43,27 @@ export function CloudflareConnect({ formId, place, errorOn, onSubmit, onEdit }: 
     onSubmit({ name, accountId, token })
   }
 
+  function handleOAuth() {
+    startOAuth.start({
+      org: place.org,
+      options: place.project ? { project: place.project } : {},
+    })
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {oauthEnabled && (
         <>
-          <a
-            className={cn(
-              buttonVariants({
-                variant: 'default',
-                size: 'lg',
-              }),
-              'w-full bg-orange-500 hover:bg-orange-600',
-            )}
-            href={oauthStartUrl(place.org, place.project ? { project: place.project } : {})}
+          <Button
+            type="button"
+            size="lg"
+            className="w-full bg-orange-500 hover:bg-orange-600"
+            disabled={startOAuth.starting}
+            onClick={handleOAuth}
           >
             <CloudflareLogo className="mr-2" fill1="#FFF" fill2="#fff" />
             Setup with Cloudflare.com
-          </a>
+          </Button>
           {!place.project && (
             <p className="text-xs text-muted-foreground">
               Signing in with Cloudflare connects the account for every project.

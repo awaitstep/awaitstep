@@ -20,8 +20,10 @@ interface ChangeWorkspaceDialogProps {
   pending: boolean
   /** Null: back to the project default. */
   onSubmit: (connectionId: string | null) => void
-  /** OAuth start for a new account that becomes this workspace's default. */
-  oauthHref?: string
+  /** Starts OAuth for a new account that becomes this workspace's default; absent, no button. */
+  onConnectNew?: () => void
+  /** The start request is out. */
+  connectPending?: boolean
   onClose: () => void
 }
 
@@ -32,7 +34,8 @@ export function ChangeWorkspaceDialog({
   error,
   pending,
   onSubmit,
-  oauthHref,
+  onConnectNew,
+  connectPending = false,
   onClose,
 }: ChangeWorkspaceDialogProps) {
   const formId = useId()
@@ -86,10 +89,17 @@ export function ChangeWorkspaceDialog({
         <FormField label="Deploys to" error={error}>
           <Select value={value} onValueChange={setValue} options={options} className="w-full" />
         </FormField>
-        {oauthHref && (
+        {onConnectNew && (
           <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4">
-            <Button asChild variant="outline" size="sm" className="w-fit">
-              <a href={oauthHref}>Connect a new account</a>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              disabled={connectPending}
+              onClick={onConnectNew}
+            >
+              Connect a new account
             </Button>
             <span className="text-2xs text-muted-foreground">
               A new account connected here becomes this workspace’s default.

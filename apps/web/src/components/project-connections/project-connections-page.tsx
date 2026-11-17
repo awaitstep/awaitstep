@@ -23,8 +23,7 @@ import { Tile } from '../ui/tile'
 import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { TextFieldDialog } from '../org-settings/text-field-dialog'
-import { useOAuthStatus } from '../../data/dashboard/org-settings'
-import { oauthStartUrl } from '../org-settings/oauth-start'
+import { useOAuthStatus, useStartCloudflareOAuth } from '../../data/dashboard/org-settings'
 import { useProjectScope } from '../project-settings/use-project-scope'
 import { OverviewCard } from '../workspaces/parts/overview-card'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
@@ -68,6 +67,7 @@ export function ProjectConnectionsPage({
   const replace = useReplaceProjectConnectionToken(slugs.org, slugs.project)
   const rename = useRenameProjectConnection(slugs.org, slugs.project)
   const remove = useRemoveProjectConnection(slugs.org, slugs.project)
+  const startOAuth = useStartCloudflareOAuth()
   const [overlay, setOverlay] = useState<Overlay>(null)
 
   if (!scope) return null
@@ -110,15 +110,24 @@ export function ProjectConnectionsPage({
       onRename: () => open({ kind: 'rename', connection }),
       onReplaceToken: () => open({ kind: 'token', connection }),
       onReconnect: () =>
-        window.location.assign(
-          oauthStartUrl(slugs.org, { project: slugs.project, connectionId: connection.id }),
-        ),
+        startOAuth.start({
+          org: slugs.org,
+          options: { project: slugs.project, connectionId: connection.id },
+        }),
       onRemove: () => open({ kind: 'remove', connection }),
     }
   }
 
   function handleChangeWorkspace(workspace: ProjectWorkspaceConnection) {
     open({ kind: 'workspace', workspace })
+  }
+
+  function handleConnectWorkspaceAccount() {
+    if (overlay?.kind !== 'workspace') return
+    startOAuth.start({
+      org: slugs.org,
+      options: { project: slugs.project, workspaceId: overlay.workspace.workspaceId },
+    })
   }
 
   function handleWorkspaceSubmit(connectionId: string | null) {
@@ -276,14 +285,8 @@ export function ProjectConnectionsPage({
           connections={listed.data.connections}
           error={setWorkspace.error?.message}
           pending={setWorkspace.isPending}
-          oauthHref={
-            oauthEnabled
-              ? oauthStartUrl(slugs.org, {
-                  project: slugs.project,
-                  workspaceId: overlay.workspace.workspaceId,
-                })
-              : undefined
-          }
+          onConnectNew={oauthEnabled ? handleConnectWorkspaceAccount : undefined}
+          connectPending={startOAuth.starting}
           onSubmit={handleWorkspaceSubmit}
           onClose={handleCloseOverlay}
         />

@@ -17,7 +17,12 @@ import type {
 } from '../../types/dashboard/org-settings'
 import type { OrgSummary } from '../../types/dashboard/session'
 import { toInvitation, toOrgMember, toPersonAccess } from './api/access'
-import { toConnection, toProjectsBody } from './api/connections'
+import {
+  oauthStartBody,
+  toConnection,
+  toProjectsBody,
+  type OAuthStartOptions,
+} from './api/connections'
 import { allPages } from './api/pages'
 import { DEPLOY_CONNECTIONS } from './project-connections'
 import { dashKeys, invalidateAll } from './keys'
@@ -194,6 +199,43 @@ export function useOAuthStatus(enabled = true) {
     enabled,
     staleTime: 60_000,
   })
+}
+
+/**
+ * Starts connecting a Cloudflare account: the API records the pending
+ * authorization, and the browser goes to Cloudflare. A refusal (no rights,
+ * too many pending) is toasted with the server's reason and the page stays.
+ *
+ * `starting` holds from the request until the page is gone, and `start` does
+ * nothing meanwhile: each start is a pending authorization counted against
+ * the person's cap, so a double click must not make two. Coming back with
+ * the browser's Back button restores the page as it was, so it lets go then.
+ */
+export function useStartCloudflareOAuth() {
+  const mutation = useMutation({
+    meta: { toast: { success: null, error: 'Couldn’t start connecting the account' } },
+    mutationFn: async (input: { org: string; options?: OAuthStartOptions }) => {
+      const answer = await dashboardApi.startCloudflareOAuth(
+        oauthStartBody(input.org, input.options),
+      )
+      // Only a web address: never a `javascript:` URL from a misconfigured API.
+      if (!/^https?:$/.test(new URL(answer.url, window.location.href).protocol)) {
+        throw new Error('The sign-in address isn’t a web address')
+      }
+      return answer
+    },
+    onSuccess: ({ url }) => {
+      window.addEventListener('pageshow', () => mutation.reset(), { once: true })
+      window.location.assign(url)
+    },
+  })
+  const starting = mutation.isPending || mutation.isSuccess
+
+  function start(input: { org: string; options?: OAuthStartOptions }) {
+    if (!starting) mutation.mutate(input)
+  }
+
+  return { start, starting }
 }
 
 /**

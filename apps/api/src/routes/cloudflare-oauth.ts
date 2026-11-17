@@ -1,5 +1,6 @@
 import { Hono, type Context } from 'hono'
 import { nanoid } from 'nanoid'
+import { z } from 'zod'
 import {
   authorizationUrl,
   CloudflareOAuthError,
@@ -13,6 +14,7 @@ import {
 import type { AppEnv } from '../types.js'
 import type { CloudflareOAuthRuntime } from '../lib/cloudflare-oauth-config.js'
 import { parseOrgRole } from '../lib/org-role.js'
+import { zValidator } from '../lib/validation.js'
 import { createLogger } from '../lib/logger.js'
 import { recordAudit } from '../lib/audit.js'
 import { parseCredentials } from '../lib/connection-token.js'
@@ -42,6 +44,17 @@ interface PendingAuthorization {
   workspaceId?: string
   createdAt: number
 }
+
+const slug = z.string().min(1)
+
+/** Where the account goes: the organization, or a project (and its workspace), and a reconnect. */
+const startSchema = z.object({
+  org: slug,
+  project: slug.optional(),
+  workspace: slug.optional(),
+  workspaceId: slug.optional(),
+  connection: slug.optional(),
+})
 
 interface Options {
   config: CloudflareOAuthRuntime
@@ -153,13 +166,17 @@ export function createCloudflareOAuthRoutes(options: Options) {
 
   const routes = new Hono<AppEnv>()
 
-  routes.get('/start', async (c) => {
-    const orgSlug = c.req.query('org')
-    if (!orgSlug) return c.json({ error: 'Missing org query parameter' }, 400)
-
-    const projectSlugParam = c.req.query('project')
-    const workspaceSlugParam = c.req.query('workspace')
-    const workspaceIdParam = c.req.query('workspaceId')
+  // A POST, not a link: starting records a pending authorization, and a
+  // cross-site page must not be able to make one with the user's session.
+  // The page sends it, then sends the browser to the `url` it gets back.
+  routes.post('/start', zValidator('json', startSchema), async (c) => {
+    const {
+      org: orgSlug,
+      project: projectSlugParam,
+      workspace: workspaceSlugParam,
+      workspaceId: workspaceIdParam,
+      connection: connectionId,
+    } = c.req.valid('json')
     if ((workspaceSlugParam || workspaceIdParam) && !projectSlugParam) {
       return c.json({ error: 'A workspace connection also names its project' }, 400)
     }
@@ -209,7 +226,6 @@ export function createCloudflareOAuthRoutes(options: Options) {
     // Reconnecting names the row to update, never a second row. An org page
     // reconnects an organization account, a project page its own; an API
     // token is replaced through its own dialog.
-    const connectionId = c.req.query('connection')
     let reconnect: string | undefined
     if (connectionId) {
       const existing = await c.get('db').getProviderConnectionById(connectionId, orgId)
@@ -250,17 +266,16 @@ export function createCloudflareOAuthRoutes(options: Options) {
       createdAt: Date.now(),
     })
     log.info('Cloudflare OAuth start', { org: orgSlug, stub: options.config.stub })
-    return c.redirect(
+    return c.json({
       // A stored connection needs a refresh token, which `offline_access`
       // asks for. The stub keeps no token and the stub client has no refresh
       // grant, so it is requested only for a real client.
-      authorizationUrl(options.config, {
+      url: authorizationUrl(options.config, {
         state,
         codeChallenge: pkce.challenge,
         offlineAccess: !options.config.stub,
       }),
-      302,
-    )
+    })
   })
 
   routes.get('/callback', async (c) => {

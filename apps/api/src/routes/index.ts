@@ -662,6 +662,8 @@ export function createRouter(
   // configured; start/callback only exist when there is a client.
   router.route('/oauth/cloudflare', createCloudflareOAuthStatusRoutes(options?.cloudflareOAuth))
   if (options?.cloudflareOAuth) {
+    // Each start holds a pending authorization against the instance-wide cap.
+    router.post('/oauth/cloudflare/start', writeLimit)
     router.route(
       '/oauth/cloudflare',
       createCloudflareOAuthRoutes({

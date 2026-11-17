@@ -601,6 +601,15 @@ export interface KeySlugs {
   workspace?: string
 }
 
+/** What `POST /oauth/cloudflare/start` is sent: where the account goes. */
+export interface OAuthStartBody {
+  org: string
+  project?: string
+  workspace?: string
+  workspaceId?: string
+  connection?: string
+}
+
 export const dashboardApi = {
   getScope(slugs: { org: string; project?: string; workspace?: string }): Promise<ApiScope> {
     return request(apiPath`/scope` + query(slugs))
@@ -909,6 +918,14 @@ export const dashboardApi = {
   /** Whether this deployment can offer the OAuth connect flow (and whether it is the dev stub). */
   getOAuthStatus(): Promise<{ enabled: boolean }> {
     return request(apiPath`/oauth/cloudflare/status`)
+  },
+
+  /** Records a pending authorization; the browser is then sent to the `url`. */
+  startCloudflareOAuth(body: OAuthStartBody): Promise<{ url: string }> {
+    return request(apiPath`/oauth/cloudflare/start`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
   },
 
   /** `project` (a slug) narrows the list to the accounts that deploy that project. */

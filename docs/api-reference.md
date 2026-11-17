@@ -3522,6 +3522,40 @@ The **whole-key kill-switch**: revoke the key for every scope at once, by its ow
 
 **Per-consumer revoke**: the addressed project (`?org=&project=`) or workspace (`?org=&project=&workspace=`) drops its own slice of a shared key, without touching the others. When it is the key's last live slice, the key is stamped dead too. By that place's admins; a key that does not reach it is `404`.
 
+### Connect a Cloudflare account (OAuth)
+
+These only exist when the instance has a Cloudflare OAuth client configured, and they only
+work with a session: an API key is refused (`403`). `GET /oauth/cloudflare/status` always
+answers `{ "enabled": boolean }`.
+
+#### `POST /oauth/cloudflare/start`
+
+Records a pending authorization (10 minutes) and answers
+`{ "url": "<Cloudflare's authorize URL>" }`, where the page sends the browser.
+It's a `POST` so a link or another site can't start one with your session; from another
+site it is `403` `Cross-origin request refused`. It counts as a write (30 a minute).
+
+| Field         | Required | Description                                                  |
+| ------------- | -------- | ------------------------------------------------------------ |
+| `org`         | yes      | The organization's slug                                      |
+| `project`     | no       | A project's slug: the account becomes the project's own      |
+| `workspace`   | no       | A workspace's slug (needs `project`): it becomes its default |
+| `workspaceId` | no       | The same, by id                                              |
+| `connection`  | no       | An OAuth connection to re-authorize in place                 |
+
+Answers:
+
+- `403` if you can't manage that organization's or project's settings;
+- `404` for a place, or a connection, you can't reach;
+- `400` for a workspace without its project, or a connection that uses an API token;
+- `422` without `org`, or with a field that is empty or not a string;
+- `429` once 5 of yours, 50 of the organization's or 500 on the instance are pending.
+
+#### `GET /oauth/cloudflare/callback`
+
+Where Cloudflare sends the browser back. It saves the account, then redirects to the
+Connections page. An expired or unknown `state` gets a short HTML page.
+
 ### Your account
 
 The person's own rows, the same in every organization (B10): no `?org=`, and

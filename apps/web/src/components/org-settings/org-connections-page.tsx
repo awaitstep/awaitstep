@@ -4,6 +4,7 @@ import {
   useConnections,
   useRemoveConnection,
   useReplaceToken,
+  useStartCloudflareOAuth,
   useUpdateConnection,
 } from '../../data/dashboard/org-settings'
 import { useProjects } from '../../data/dashboard/projects'
@@ -16,7 +17,6 @@ import { PageBody, PageIntro } from '../shell/page-intro'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { AddAccountDialog } from './add-account-dialog'
-import { oauthStartUrl } from './oauth-start'
 import { ConnectionCard } from './parts/connection-card'
 import { TextFieldDialog } from './text-field-dialog'
 import { useOrgScope } from './use-org-scope'
@@ -41,6 +41,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
   const update = useUpdateConnection(org)
   const replace = useReplaceToken(org)
   const remove = useRemoveConnection(org)
+  const startOAuth = useStartCloudflareOAuth()
   const [overlay, setOverlay] = useState<Overlay>(null)
 
   if (!scope) return null
@@ -51,7 +52,7 @@ export function OrgConnectionsPage({ org, connectOpen, onConnectChange }: OrgCon
   }
 
   function handleReconnect(connection: Connection) {
-    window.location.assign(oauthStartUrl(org, { connectionId: connection.id }))
+    startOAuth.start({ org, options: { connectionId: connection.id } })
   }
 
   function handleCloseConnect() {
