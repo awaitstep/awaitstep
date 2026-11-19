@@ -63,6 +63,8 @@ import { Route as AuthedOrgProjectSettingsMembersRouteImport } from './routes/_a
 import { Route as AuthedOrgProjectSettingsSharedRouteImport } from './routes/_authed/$org.$project.settings.shared'
 import { Route as AuthedOrgProjectSettingsVariablesRouteImport } from './routes/_authed/$org.$project.settings.variables'
 import { Route as AuthedOrgProjectSettingsWorkspacesRouteImport } from './routes/_authed/$org.$project.settings.workspaces'
+import { Route as AuthedOrgSettingsExtSplatRouteImport } from './routes/_authed/$org.settings.ext.$'
+import { Route as AuthedOrgProjectWorkspaceExtSplatRouteImport } from './routes/_authed/$org.$project.$workspace.ext.$'
 import { Route as AuthedOrgProjectWorkspaceScriptsNodesCodeRouteImport } from './routes/_authed/$org.$project.$workspace.scripts-nodes_.code'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id'
 import { Route as AuthedOrgProjectWorkspaceWorkflowsIdIndexRouteImport } from './routes/_authed/$org.$project.$workspace.workflows_.$id.index'
@@ -369,6 +371,18 @@ const AuthedOrgProjectSettingsWorkspacesRoute =
     path: '/settings/workspaces',
     getParentRoute: () => AuthedOrgProjectRoute,
   } as any)
+const AuthedOrgSettingsExtSplatRoute =
+  AuthedOrgSettingsExtSplatRouteImport.update({
+    id: '/settings/ext/$',
+    path: '/settings/ext/$',
+    getParentRoute: () => AuthedOrgRoute,
+  } as any)
+const AuthedOrgProjectWorkspaceExtSplatRoute =
+  AuthedOrgProjectWorkspaceExtSplatRouteImport.update({
+    id: '/ext/$',
+    path: '/ext/$',
+    getParentRoute: () => AuthedOrgProjectWorkspaceRoute,
+  } as any)
 const AuthedOrgProjectWorkspaceScriptsNodesCodeRoute =
   AuthedOrgProjectWorkspaceScriptsNodesCodeRouteImport.update({
     id: '/scripts-nodes_/code',
@@ -469,8 +483,10 @@ export interface FileRoutesByFullPath {
   '/$org/$project/settings/shared': typeof AuthedOrgProjectSettingsSharedRoute
   '/$org/$project/settings/variables': typeof AuthedOrgProjectSettingsVariablesRoute
   '/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
+  '/$org/settings/ext/$': typeof AuthedOrgSettingsExtSplatRoute
   '/$org/$project/$workspace/': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/$org/$project/settings/': typeof AuthedOrgProjectSettingsIndexRoute
+  '/$org/$project/$workspace/ext/$': typeof AuthedOrgProjectWorkspaceExtSplatRoute
   '/$org/$project/$workspace/scripts-nodes/code': typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   '/$org/$project/$workspace/workflows/$id': typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
   '/$org/$project/$workspace/workflows/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
@@ -528,8 +544,10 @@ export interface FileRoutesByTo {
   '/$org/$project/settings/shared': typeof AuthedOrgProjectSettingsSharedRoute
   '/$org/$project/settings/variables': typeof AuthedOrgProjectSettingsVariablesRoute
   '/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
+  '/$org/settings/ext/$': typeof AuthedOrgSettingsExtSplatRoute
   '/$org/$project/$workspace': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/$org/$project/settings': typeof AuthedOrgProjectSettingsIndexRoute
+  '/$org/$project/$workspace/ext/$': typeof AuthedOrgProjectWorkspaceExtSplatRoute
   '/$org/$project/$workspace/scripts-nodes/code': typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   '/$org/$project/$workspace/workflows/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
   '/$org/$project/$workspace/workflows/$id/deployments': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeploymentsRoute
@@ -592,8 +610,10 @@ export interface FileRoutesById {
   '/_authed/$org/$project/settings/shared': typeof AuthedOrgProjectSettingsSharedRoute
   '/_authed/$org/$project/settings/variables': typeof AuthedOrgProjectSettingsVariablesRoute
   '/_authed/$org/$project/settings/workspaces': typeof AuthedOrgProjectSettingsWorkspacesRoute
+  '/_authed/$org/settings/ext/$': typeof AuthedOrgSettingsExtSplatRoute
   '/_authed/$org/$project/$workspace/': typeof AuthedOrgProjectWorkspaceIndexRoute
   '/_authed/$org/$project/settings/': typeof AuthedOrgProjectSettingsIndexRoute
+  '/_authed/$org/$project/$workspace/ext/$': typeof AuthedOrgProjectWorkspaceExtSplatRoute
   '/_authed/$org/$project/$workspace/scripts-nodes_/code': typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   '/_authed/$org/$project/$workspace/workflows_/$id': typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
   '/_authed/$org/$project/$workspace/workflows_/$id/deploy': typeof AuthedOrgProjectWorkspaceWorkflowsIdDeployRoute
@@ -656,8 +676,10 @@ export interface FileRouteTypes {
     | '/$org/$project/settings/shared'
     | '/$org/$project/settings/variables'
     | '/$org/$project/settings/workspaces'
+    | '/$org/settings/ext/$'
     | '/$org/$project/$workspace/'
     | '/$org/$project/settings/'
+    | '/$org/$project/$workspace/ext/$'
     | '/$org/$project/$workspace/scripts-nodes/code'
     | '/$org/$project/$workspace/workflows/$id'
     | '/$org/$project/$workspace/workflows/$id/deploy'
@@ -715,8 +737,10 @@ export interface FileRouteTypes {
     | '/$org/$project/settings/shared'
     | '/$org/$project/settings/variables'
     | '/$org/$project/settings/workspaces'
+    | '/$org/settings/ext/$'
     | '/$org/$project/$workspace'
     | '/$org/$project/settings'
+    | '/$org/$project/$workspace/ext/$'
     | '/$org/$project/$workspace/scripts-nodes/code'
     | '/$org/$project/$workspace/workflows/$id/deploy'
     | '/$org/$project/$workspace/workflows/$id/deployments'
@@ -778,8 +802,10 @@ export interface FileRouteTypes {
     | '/_authed/$org/$project/settings/shared'
     | '/_authed/$org/$project/settings/variables'
     | '/_authed/$org/$project/settings/workspaces'
+    | '/_authed/$org/settings/ext/$'
     | '/_authed/$org/$project/$workspace/'
     | '/_authed/$org/$project/settings/'
+    | '/_authed/$org/$project/$workspace/ext/$'
     | '/_authed/$org/$project/$workspace/scripts-nodes_/code'
     | '/_authed/$org/$project/$workspace/workflows_/$id'
     | '/_authed/$org/$project/$workspace/workflows_/$id/deploy'
@@ -1178,6 +1204,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedOrgProjectSettingsWorkspacesRouteImport
       parentRoute: typeof AuthedOrgProjectRoute
     }
+    '/_authed/$org/settings/ext/$': {
+      id: '/_authed/$org/settings/ext/$'
+      path: '/settings/ext/$'
+      fullPath: '/$org/settings/ext/$'
+      preLoaderRoute: typeof AuthedOrgSettingsExtSplatRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/$project/$workspace/ext/$': {
+      id: '/_authed/$org/$project/$workspace/ext/$'
+      path: '/ext/$'
+      fullPath: '/$org/$project/$workspace/ext/$'
+      preLoaderRoute: typeof AuthedOrgProjectWorkspaceExtSplatRouteImport
+      parentRoute: typeof AuthedOrgProjectWorkspaceRoute
+    }
     '/_authed/$org/$project/$workspace/scripts-nodes_/code': {
       id: '/_authed/$org/$project/$workspace/scripts-nodes_/code'
       path: '/scripts-nodes/code'
@@ -1275,6 +1315,7 @@ interface AuthedOrgProjectWorkspaceRouteChildren {
   AuthedOrgProjectWorkspaceSettingsRoute: typeof AuthedOrgProjectWorkspaceSettingsRoute
   AuthedOrgProjectWorkspaceWorkflowsRoute: typeof AuthedOrgProjectWorkspaceWorkflowsRoute
   AuthedOrgProjectWorkspaceIndexRoute: typeof AuthedOrgProjectWorkspaceIndexRoute
+  AuthedOrgProjectWorkspaceExtSplatRoute: typeof AuthedOrgProjectWorkspaceExtSplatRoute
   AuthedOrgProjectWorkspaceScriptsNodesCodeRoute: typeof AuthedOrgProjectWorkspaceScriptsNodesCodeRoute
   AuthedOrgProjectWorkspaceWorkflowsIdRoute: typeof AuthedOrgProjectWorkspaceWorkflowsIdRouteWithChildren
 }
@@ -1293,6 +1334,8 @@ const AuthedOrgProjectWorkspaceRouteChildren: AuthedOrgProjectWorkspaceRouteChil
     AuthedOrgProjectWorkspaceWorkflowsRoute:
       AuthedOrgProjectWorkspaceWorkflowsRoute,
     AuthedOrgProjectWorkspaceIndexRoute: AuthedOrgProjectWorkspaceIndexRoute,
+    AuthedOrgProjectWorkspaceExtSplatRoute:
+      AuthedOrgProjectWorkspaceExtSplatRoute,
     AuthedOrgProjectWorkspaceScriptsNodesCodeRoute:
       AuthedOrgProjectWorkspaceScriptsNodesCodeRoute,
     AuthedOrgProjectWorkspaceWorkflowsIdRoute:
@@ -1367,6 +1410,7 @@ interface AuthedOrgRouteChildren {
   AuthedOrgSettingsMembersRoute: typeof AuthedOrgSettingsMembersRoute
   AuthedOrgAccountIndexRoute: typeof AuthedOrgAccountIndexRoute
   AuthedOrgSettingsIndexRoute: typeof AuthedOrgSettingsIndexRoute
+  AuthedOrgSettingsExtSplatRoute: typeof AuthedOrgSettingsExtSplatRoute
 }
 
 const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
@@ -1387,6 +1431,7 @@ const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
   AuthedOrgSettingsMembersRoute: AuthedOrgSettingsMembersRoute,
   AuthedOrgAccountIndexRoute: AuthedOrgAccountIndexRoute,
   AuthedOrgSettingsIndexRoute: AuthedOrgSettingsIndexRoute,
+  AuthedOrgSettingsExtSplatRoute: AuthedOrgSettingsExtSplatRoute,
 }
 
 const AuthedOrgRouteWithChildren = AuthedOrgRoute._addFileChildren(

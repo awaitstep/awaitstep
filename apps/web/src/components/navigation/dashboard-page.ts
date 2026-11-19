@@ -7,6 +7,7 @@ import type {
   WorkspacePage,
 } from '../../lib/dashboard-paths'
 import type { ItemKind } from '../../types/dashboard/items'
+import type { ExtensionPageKey, ExtensionPageScope } from '../../extensions/types'
 
 /** A workflow or function page's own pages, and one run of it. */
 export type ItemDetailPage = ItemPage | 'run'
@@ -35,6 +36,18 @@ export type DashboardPage =
   | { kind: 'editor' }
   /** A workflow or function's Overview, Runs, one run, Deployments or Deploy, in its workspace. */
   | { kind: 'item'; page: ItemDetailPage; item?: FramedItem }
+  /**
+   * A page an extension adds (`…/ext/{id}/{path}`). Its route declares only the
+   * scope; the shell adds which page it is once the URL resolves to one.
+   */
+  | { kind: 'extension'; scope: ExtensionPageScope; page?: FramedExtensionPage }
+
+/** The extension page the URL names, as the frame needs it. */
+export interface FramedExtensionPage {
+  /** `extensionPageKey(id, path)`: what its nav item or tab is marked by. */
+  key: ExtensionPageKey
+  title: string
+}
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
@@ -109,6 +122,8 @@ export function pageLabel(page: DashboardPage): string {
       return 'Editor'
     case 'item':
       return ITEM_PAGE_LABEL[page.page]
+    case 'extension':
+      return page.page?.title ?? 'Page not found'
   }
 }
 

@@ -1,0 +1,43 @@
+import { useItemApiScope } from '../contexts/api-client-context'
+import { useEditorScope } from '../contexts/editor-scope-context'
+import { useEnabledExtensions } from './registry'
+import type { SlotName } from './types'
+
+type EditorSlot = Extract<SlotName, 'canvas.toolbar' | 'ide.toolbar'>
+
+interface EditorExtensionsProps {
+  slot: EditorSlot
+  workflowId: string
+  canEdit: boolean
+}
+
+/**
+ * The enabled extensions' controls for an editor's top bar. Nothing outside
+ * a workspace URL, or before its ids are known: there is no scope to hand them.
+ */
+export function EditorExtensions({ slot, workflowId, canEdit }: EditorExtensionsProps) {
+  const extensions = useEnabledExtensions()
+  const scope = useEditorScope()
+  const ids = useItemApiScope()
+  if (!scope || !ids) return null
+  const controls = extensions.flatMap((extension) => {
+    const Control = extension.slots?.[slot]
+    return Control ? [{ id: extension.id, Control }] : []
+  })
+  if (controls.length === 0) return null
+  return (
+    <div data-zone="extensions" className="flex shrink-0 items-center gap-1">
+      {controls.map(({ id, Control }) => (
+        <Control
+          key={id}
+          workflowId={workflowId}
+          org={scope.org}
+          project={scope.project}
+          workspace={scope.workspace}
+          ids={ids}
+          canEdit={canEdit}
+        />
+      ))}
+    </div>
+  )
+}

@@ -25,6 +25,7 @@ import { UnifiedTopBar, type TopBarToggle, type TopBarVersion } from '../workflo
 import type { EditorView } from '../workflows/view-switch'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { readOnlyReason } from '../../lib/workflows/read-only-reason'
+import { EditorExtensions } from '../../extensions/editor-extensions'
 
 interface IdeHeaderProps {
   workflowId: string
@@ -222,6 +223,13 @@ export function IdeHeader({
         onSelectView={handleSelectView}
         toggles={toggles}
         accessBadge={viewOnlyReason ? { label: 'View only', title: viewOnlyReason } : undefined}
+        extensions={
+          <EditorExtensions
+            slot="ide.toolbar"
+            workflowId={workflowId}
+            canEdit={canEdit && historicalVersion === undefined}
+          />
+        }
         save={{
           label: 'Save all',
           count: dirtyCount,

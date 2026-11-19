@@ -69,6 +69,8 @@ export interface UnifiedTopBarProps {
   toggles: TopBarToggle[]
   /** Surface-specific controls left of Save (the canvas's undo and redo). */
   history?: ReactNode
+  /** Controls enabled extensions add (`EditorExtensions`), before the history controls. */
+  extensions?: ReactNode
   /** Save state shown beside the Save button (saving, unsaved, error). */
   saveStatus?: ReactNode
   /** Why the viewer can't edit, when it is a permission rather than an old version. */
@@ -105,6 +107,7 @@ export function UnifiedTopBar({
   onSelectView,
   toggles,
   history,
+  extensions,
   saveStatus,
   accessBadge,
   save,
@@ -235,6 +238,7 @@ export function UnifiedTopBar({
               {accessBadge.label}
             </span>
           )}
+          {extensions}
           {history}
           {saveStatus}
           <SaveButton save={save} />

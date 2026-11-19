@@ -14,6 +14,7 @@ import { deployBadge } from '../../lib/workflows/deploy-badge'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { SaveStatusIndicator } from './save-status-indicator'
+import { EditorExtensions } from '../../extensions/editor-extensions'
 import { readOnlyReason } from '../../lib/workflows/read-only-reason'
 import { BLANK_DEPLOY_REASON, canvasMenuGroups, canvasTopBarVersion } from './canvas-toolbar-menu'
 
@@ -225,6 +226,9 @@ export function EditorToolbar({
         onSelectView={handleSelectView}
         toggles={toggles}
         accessBadge={viewOnly ? { label: 'View only', title: viewOnlyReason } : undefined}
+        extensions={
+          <EditorExtensions slot="canvas.toolbar" workflowId={workflowId} canEdit={!readOnly} />
+        }
         history={readOnly ? undefined : <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} />}
         saveStatus={
           readOnly ? undefined : (

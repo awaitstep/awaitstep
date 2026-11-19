@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { ORG_PAGES, ORG_SETTINGS_PAGES } from '../../../lib/dashboard-paths'
 import { pageTitle } from '../dashboard-page'
 import { breadcrumbs, panelModel, railModel, tabBarEntries } from '../nav-model'
+import { testExtension } from '../../../extensions/__tests__/fixtures/test-extension'
 
 const ORG = { org: 'acme' }
 const PROJECT = { org: 'acme', project: 'project-101' }
@@ -279,5 +280,64 @@ describe('a workflow’s own pages', () => {
 
   it('title the tab', () => {
     expect(pageTitle({ kind: 'item', page: 'deploy' })).toBe('Deploy · AwaitStep')
+  })
+})
+
+describe('extension slots', () => {
+  const page = { kind: 'extension', scope: 'workspace' } as const
+
+  it('lists an enabled extension’s workspace links after Runs, before Settings', () => {
+    const panel = panelModel({ kind: 'workspace', page: 'runs' }, SALES, [testExtension])
+    if (panel.mode !== 'workspace') throw new Error('expected the workspace panel')
+    expect(panel.items.map((item) => [item.key, item.href])).toEqual([
+      ['overview', '/acme/project-101/sales/overview'],
+      ['workflows', '/acme/project-101/sales/workflows'],
+      ['functions', '/acme/project-101/sales/functions'],
+      ['scripts-nodes', '/acme/project-101/sales/scripts-nodes'],
+      ['runs', '/acme/project-101/sales/runs'],
+      ['ext:test-ext/history', '/acme/project-101/sales/ext/test-ext/history'],
+      ['settings', '/acme/project-101/sales/settings'],
+    ])
+  })
+
+  it('adds nothing to the panel with no enabled extensions', () => {
+    const panel = panelModel({ kind: 'workspace', page: 'runs' }, SALES)
+    if (panel.mode !== 'workspace') throw new Error('expected the workspace panel')
+    expect(panel.items.map((item) => item.key)).not.toContain('ext:test-ext/history')
+  })
+
+  it('marks the extension page’s link on its workspace page, and Projects in the rail', () => {
+    const framed = {
+      ...page,
+      page: { key: 'ext:test-ext/history', title: 'Assistant history' },
+    } as const
+    const panel = panelModel(framed, SALES, [testExtension])
+    expect(panel.mode === 'workspace' && panel.activeKey).toBe('ext:test-ext/history')
+    expect(railModel('acme', framed, QUIET).activeKey).toBe('projects')
+    expect(breadcrumbs(framed, SALES, NAMES).map((crumb) => crumb.label)).toEqual([
+      'Acme Inc',
+      'Project 101',
+      'Sales',
+      'Assistant history',
+    ])
+    expect(pageTitle(framed)).toBe('Assistant history · AwaitStep')
+  })
+
+  it('frames an extension’s settings tab as Org Settings: no panel, Settings in the rail', () => {
+    const framed = {
+      kind: 'extension',
+      scope: 'org-settings',
+      page: { key: 'ext:test-ext/usage', title: 'Usage' },
+    } as const
+    expect(panelModel(framed, ORG, [testExtension])).toEqual({ mode: 'none' })
+    expect(railModel('acme', framed, QUIET).activeKey).toBe('settings')
+    expect(breadcrumbs(framed, ORG, NAMES).map((crumb) => crumb.label)).toEqual([
+      'Acme Inc',
+      'Settings',
+    ])
+  })
+
+  it('titles an extension URL no page claims as not found', () => {
+    expect(pageTitle(page)).toBe('Page not found · AwaitStep')
   })
 })
