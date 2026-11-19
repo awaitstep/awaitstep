@@ -3,7 +3,7 @@ import { isExtensionId, isInstalledCopy, isLinkedPackageEntry } from '../extensi
 
 describe('isExtensionId', () => {
   it('accepts lowercase letters, digits and inner dashes up to 64 characters', () => {
-    for (const id of ['a', 'x1', 'agent-chat', 'a'.repeat(64)]) expect(isExtensionId(id)).toBe(true)
+    for (const id of ['a', 'x1', 'my-feature', 'a'.repeat(64)]) expect(isExtensionId(id)).toBe(true)
   })
 
   it('refuses anything that is not one lowercase URL segment', () => {
