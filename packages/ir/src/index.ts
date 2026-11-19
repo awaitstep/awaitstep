@@ -249,7 +249,12 @@ export {
   slugify,
   type SlugLevel,
 } from './slugs.js'
-export { EXTENSION_ID_PATTERN, isExtensionId } from './extension-id.js'
+export {
+  EXTENSION_ID_PATTERN,
+  isExtensionId,
+  isInstalledCopy,
+  isLinkedPackageEntry,
+} from './extension-id.js'
 export {
   WORKSPACE_COLOURS,
   isWorkspaceColour,
