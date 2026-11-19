@@ -22,13 +22,15 @@ export function isInstalledCopy(path: string): boolean {
 /**
  * Whether an extensions package may be loaded: its folder (real path,
  * symlinks followed) is linked from source rather than installed, and the
- * entry it resolves to lies inside that folder, outside any `node_modules`. An installed package's
- * legacy `main` can point outside its own folder; judging the entry alone
- * would let it through. The API and the dashboard load an extensions package
+ * entry it resolves to lies inside that folder, outside any `node_modules`.
+ * An installed package's export target or a symlink can land outside its own
+ * folder; judging the entry alone would let it through. The API and the dashboard load an extensions package
  * only when this holds, so a look-alike from a registry never runs.
  */
 export function isLinkedPackageEntry(packageDir: string, entry: string): boolean {
   if (isInstalledCopy(packageDir) || isInstalledCopy(entry)) return false
   const dir = packageDir.replace(/[\\/]+$/, '')
+  // A filesystem root (`/`, `C:`) would contain every entry.
+  if (dir === '' || /^[A-Za-z]:$/.test(dir)) return false
   return entry.startsWith(`${dir}/`) || entry.startsWith(`${dir}\\`)
 }
