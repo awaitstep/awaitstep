@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { isExtensionId } from '@awaitstep/ir'
-import type { AppEnv, AppExtension, ScheduledContext } from '../types.js'
-import type { Logger } from './logger.js'
+import type { AppEnv, AppExtension } from '../types.js'
 
 /**
  * Refuses, at startup, a set of extensions the app could not mount
@@ -28,26 +27,4 @@ export function mountExtensions(router: Hono<AppEnv>, extensions: readonly AppEx
     extension.routes(sub)
     router.route(`/ext/${extension.id}`, sub)
   }
-}
-
-/**
- * Runs every extension's scheduled hook. One failing is logged and does not
- * stop the others, nor reject: the core's own cron jobs settle beside it.
- */
-export async function runScheduledExtensions(
-  extensions: readonly AppExtension[],
-  ctx: ScheduledContext,
-  log: Logger,
-): Promise<void> {
-  const hooked = extensions.filter((extension) => extension.scheduled)
-  // async: a hook that throws before returning its promise becomes a rejection, not a throw out of map.
-  const results = await Promise.allSettled(
-    hooked.map(async (extension) => extension.scheduled!(ctx)),
-  )
-  results.forEach((result, i) => {
-    if (result.status === 'rejected') {
-      const reason = result.reason instanceof Error ? result.reason.message : String(result.reason)
-      log.error('Extension scheduled hook failed', { extension: hooked[i]!.id, error: reason })
-    }
-  })
 }

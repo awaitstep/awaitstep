@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { presetPermissions } from '@awaitstep/ir'
 import type { AppExtension } from '../types.js'
-import { checkExtensions, runScheduledExtensions } from '../lib/extensions.js'
+import { checkExtensions } from '../lib/extensions.js'
 import { KEYS_NOT_ALLOWED } from '../middleware/key-permissions.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
-import { createLogger } from '../lib/logger.js'
 import { requireOrganization, requireOrgCan } from '../index.js'
 import {
   createTestApp,
@@ -162,70 +161,5 @@ describe('app extensions', () => {
       checkExtensions([{ id: 'a' }, { id: 'b-2' }, { id: 'x'.repeat(64) }]),
     ).not.toThrow()
     expect(() => createTestApp({ extensions: [{ id: 'Bad' }] })).toThrow(/not valid/)
-  })
-})
-
-describe('runScheduledExtensions', () => {
-  it('runs every hook, logging a failing one without stopping the rest', async () => {
-    const log = createLogger('test')
-    const error = vi.spyOn(log, 'error').mockImplementation(() => {})
-    const ran: string[] = []
-    const now = new Date('2026-11-18T12:00:00Z')
-    await expect(
-      runScheduledExtensions(
-        [
-          {
-            id: 'fails',
-            scheduled: async () => {
-              throw new Error('boom')
-            },
-          },
-          { id: 'no-hook' },
-          {
-            id: 'works',
-            scheduled: async (ctx) => {
-              ran.push(ctx.now.toISOString())
-            },
-          },
-        ],
-        { db: mockDb, now, env: {} },
-        log,
-      ),
-    ).resolves.toBeUndefined()
-    expect(ran).toEqual([now.toISOString()])
-    expect(error).toHaveBeenCalledWith('Extension scheduled hook failed', {
-      extension: 'fails',
-      error: 'boom',
-    })
-  })
-
-  it('isolates a hook that throws before returning its promise', async () => {
-    const log = createLogger('test')
-    const error = vi.spyOn(log, 'error').mockImplementation(() => {})
-    const ran: string[] = []
-    const env = { BINDING: 'x' }
-    await runScheduledExtensions(
-      [
-        {
-          id: 'sync-throw',
-          scheduled: (() => {
-            throw new Error('early')
-          }) as AppExtension['scheduled'],
-        },
-        {
-          id: 'after',
-          scheduled: async (ctx) => {
-            ran.push((ctx.env as typeof env).BINDING)
-          },
-        },
-      ],
-      { db: mockDb, now: new Date(), env },
-      log,
-    )
-    expect(ran).toEqual(['x'])
-    expect(error).toHaveBeenCalledWith('Extension scheduled hook failed', {
-      extension: 'sync-throw',
-      error: 'early',
-    })
   })
 })
