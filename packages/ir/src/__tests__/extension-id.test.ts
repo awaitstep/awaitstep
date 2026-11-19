@@ -37,12 +37,12 @@ describe('isInstalledCopy', () => {
 
   it('passes a path linked from source, even one that merely mentions node_modules', () => {
     expect(isInstalledCopy('/a/my_node_modules/b.js')).toBe(false)
-    expect(isInstalledCopy('/work/cloud/packages/web-extensions/src/index.ts')).toBe(false)
+    expect(isInstalledCopy('/work/cloud/packages/extensions/src/index.ts')).toBe(false)
   })
 })
 
 describe('isLinkedPackageEntry', () => {
-  const dir = '/work/cloud/packages/web-extensions'
+  const dir = '/work/cloud/packages/extensions'
 
   it('takes an entry inside a linked folder', () => {
     expect(isLinkedPackageEntry(dir, `${dir}/src/index.ts`)).toBe(true)
@@ -57,5 +57,10 @@ describe('isLinkedPackageEntry', () => {
     expect(isLinkedPackageEntry(dir, '/work/cloud/packages/other/index.ts')).toBe(false)
     expect(isLinkedPackageEntry(dir, `${dir}-evil/index.ts`)).toBe(false)
     expect(isLinkedPackageEntry(dir, `${dir}/node_modules/dep/index.js`)).toBe(false)
+  })
+
+  it('refuses a filesystem root as the package folder', () => {
+    expect(isLinkedPackageEntry('/', '/etc/x.js')).toBe(false)
+    expect(isLinkedPackageEntry('C:\\', 'C:\\x\\y.js')).toBe(false)
   })
 })

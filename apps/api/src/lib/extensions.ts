@@ -51,21 +51,3 @@ export async function runScheduledExtensions(
     }
   })
 }
-
-/**
- * The Node entries' counterpart of the Worker cron: runs the extensions'
- * scheduled hooks every `intervalMs` (a minute, like the cron). Returns the
- * stop function; with no hooked extension it starts no timer.
- */
-export function startScheduledExtensionsLoop(
-  extensions: readonly AppExtension[],
-  ctx: Omit<ScheduledContext, 'now'>,
-  log: Logger,
-  intervalMs = 60_000,
-): () => void {
-  if (!extensions.some((extension) => extension.scheduled)) return () => {}
-  const tick = () => void runScheduledExtensions(extensions, { ...ctx, now: new Date() }, log)
-  const timer = setInterval(tick, intervalMs)
-  if (typeof timer.unref === 'function') timer.unref()
-  return () => clearInterval(timer)
-}

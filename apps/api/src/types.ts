@@ -175,11 +175,7 @@ export interface ScheduledContext {
   db: DatabaseAdapter
   /** The tick's scheduled time. */
   now: Date
-  /**
-   * The runtime's bindings and secrets as the entry received them: a Worker's
-   * `env`, or `process.env` (strings only) on the Node dev server. The
-   * extension narrows it, and must not assume Worker bindings exist in dev.
-   */
+  /** The runtime's bindings and secrets as the entry received them (a Worker's `env`); the extension narrows it. */
   env: unknown
 }
 

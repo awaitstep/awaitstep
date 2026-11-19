@@ -5,11 +5,12 @@ import { findPackageDir as findPackageDirOnDisk } from './package-dir-fs'
 export const EXTENSIONS_MODULE = 'virtual:awaitstep/extensions'
 
 /**
- * The package that plugs extensions into the dashboard. It is not part of this
- * repository: a workspace that wraps this one installs it, and plain module
+ * The package that plugs extensions in: its `./web` entry lists the
+ * dashboard's, its `./api` entry the API's. It is not part of this
+ * repository: a workspace that wraps this one links it, and plain module
  * resolution from the web app finds it there.
  */
-export const EXTENSIONS_PACKAGE = '@awaitstep/web-extensions'
+export const EXTENSIONS_PACKAGE = '@awaitstep/extensions'
 
 export interface ExtensionsPluginOptions {
   /** Absolute path of the empty stub used when the package is not installed. */
@@ -21,8 +22,8 @@ export interface ExtensionsPluginOptions {
 }
 
 /**
- * Resolves `virtual:awaitstep/extensions` to the extensions package's default
- * export when it is installed, else to the stub that lists none. Presence of
+ * Resolves `virtual:awaitstep/extensions` to the extensions package's `./web`
+ * entry when it is installed, else to the stub that lists none. Presence of
  * the package decides; there is no flag to set.
  *
  * The package ships source that imports the app's own modules
@@ -49,6 +50,7 @@ export function extensionsPlugin({
     name: 'awaitstep:extensions',
     enforce: 'pre',
     config() {
+      // Both match by package name, so they cover the ./web entry too.
       return { ssr: { noExternal: [packageName] }, optimizeDeps: { exclude: [packageName] } }
     },
     configResolved(config) {
@@ -56,14 +58,14 @@ export function extensionsPlugin({
     },
     async resolveId(id, importer) {
       if (id !== EXTENSIONS_MODULE) return null
-      const installed = await this.resolve(packageName, importer, { skipSelf: true })
+      const installed = await this.resolve(`${packageName}/web`, importer, { skipSelf: true })
       if (!installed) return stub
       // Installed but left out of the bundle: the stub would hide it without a word.
       if (installed.external) {
         this.error(`${packageName} is installed but resolved as external; it must be bundled.`)
       }
-      // The folder decides, not just the entry: an installed package's legacy
-      // `main` can point outside node_modules.
+      // The folder decides, not just the entry: an installed package's export
+      // target or a symlink can land outside node_modules.
       const entry = installed.id.split('?')[0]!
       const packageDir = await findPackageDir(importer ?? stub, packageName)
       if (!packageDir || !isLinkedPackageEntry(packageDir, entry)) {

@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { presetPermissions } from '@awaitstep/ir'
 import type { AppExtension } from '../types.js'
-import {
-  checkExtensions,
-  runScheduledExtensions,
-  startScheduledExtensionsLoop,
-} from '../lib/extensions.js'
+import { checkExtensions, runScheduledExtensions } from '../lib/extensions.js'
 import { KEYS_NOT_ALLOWED } from '../middleware/key-permissions.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import { createLogger } from '../lib/logger.js'
@@ -231,51 +227,5 @@ describe('runScheduledExtensions', () => {
       extension: 'sync-throw',
       error: 'early',
     })
-  })
-})
-
-describe('startScheduledExtensionsLoop', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
-  it('runs the hooks once per interval with that tick’s time, and stops when told', async () => {
-    const log = createLogger('test')
-    const ticks: string[] = []
-    const env = { NAME: 'dev' }
-    vi.setSystemTime(new Date('2026-11-19T10:00:00Z'))
-    const stop = startScheduledExtensionsLoop(
-      [
-        {
-          id: 'ticker',
-          scheduled: async (ctx) => {
-            ticks.push(`${(ctx.env as typeof env).NAME}@${ctx.now.toISOString()}`)
-          },
-        },
-      ],
-      { db: mockDb, env },
-      log,
-      60_000,
-    )
-    expect(ticks).toEqual([])
-    await vi.advanceTimersByTimeAsync(60_000)
-    await vi.advanceTimersByTimeAsync(60_000)
-    expect(ticks).toEqual(['dev@2026-11-19T10:01:00.000Z', 'dev@2026-11-19T10:02:00.000Z'])
-    stop()
-    await vi.advanceTimersByTimeAsync(180_000)
-    expect(ticks).toHaveLength(2)
-  })
-
-  it('starts no timer when no extension has a scheduled hook', () => {
-    const stop = startScheduledExtensionsLoop(
-      [{ id: 'routes-only' }],
-      { db: mockDb, env: {} },
-      createLogger('test'),
-    )
-    expect(vi.getTimerCount()).toBe(0)
-    stop()
   })
 })

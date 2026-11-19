@@ -6,8 +6,8 @@ import {
 } from '../lib/extensions-package-fs.js'
 
 const PACKAGE = '@awaitstep/test-extensions'
-const LINKED_DIR = '/work/cloud/packages/api-extensions'
-const LINKED = `${LINKED_DIR}/src/index.ts`
+const LINKED_DIR = '/work/cloud/packages/extensions'
+const LINKED = `${LINKED_DIR}/src/api.ts`
 const INSTALLED_DIR = '/home/me/node_modules/@awaitstep/test-extensions'
 
 /**
@@ -47,6 +47,12 @@ describe('loadExtensionsPackage', () => {
     expect(loader.load).not.toHaveBeenCalled()
   })
 
+  it('resolves the package’s ./api entry, not its root', async () => {
+    const resolve = vi.fn(() => `file://${LINKED}`)
+    await loadExtensionsPackage(PACKAGE, loaderAt(LINKED, [], { resolve }))
+    expect(resolve).toHaveBeenCalledWith(`${PACKAGE}/api`)
+  })
+
   it('loads the default export of a package linked from source', async () => {
     const extensions: AppExtension[] = [{ id: 'one' }, { id: 'two' }]
     const loader = loaderAt(LINKED, extensions)
@@ -54,9 +60,11 @@ describe('loadExtensionsPackage', () => {
     expect(loader.load).toHaveBeenCalledWith(`file://${LINKED}`)
   })
 
-  it('refuses a copy installed under node_modules without running it', async () => {
-    const loader = loaderAt(`${INSTALLED_DIR}/index.js`, [], { packageDir: INSTALLED_DIR })
+  it('refuses a copy installed under node_modules without resolving or running it', async () => {
+    const resolve = vi.fn(() => `file://${INSTALLED_DIR}/index.js`)
+    const loader = loaderAt(`${INSTALLED_DIR}/index.js`, [], { packageDir: INSTALLED_DIR, resolve })
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
+    expect(resolve).not.toHaveBeenCalled()
     expect(loader.load).not.toHaveBeenCalled()
   })
 
@@ -66,8 +74,8 @@ describe('loadExtensionsPackage', () => {
     expect(loader.load).not.toHaveBeenCalled()
   })
 
-  it('refuses an installed package whose main points outside its folder', async () => {
-    // A legacy `main` such as ../../../x.js lands outside node_modules; the folder still decides.
+  it('refuses an installed package whose entry lands outside its folder', async () => {
+    // An export target or a symlink that escapes node_modules: the folder still decides.
     const loader = loaderAt('/home/me/x.js', [], { packageDir: INSTALLED_DIR })
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
     expect(loader.load).not.toHaveBeenCalled()
