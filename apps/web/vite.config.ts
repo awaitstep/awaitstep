@@ -3,6 +3,7 @@ import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { extensionsPlugin } from './src/extensions/vite-plugin.ts'
 
@@ -21,7 +22,15 @@ const plugins = [extensions, tailwindcss(), tanstackStart(), react()]
 // test run never needs it.
 if (isCloudflare && !isTest) {
   const { cloudflare } = await import('@cloudflare/vite-plugin')
-  plugins.unshift(cloudflare({ viteEnvironment: { name: 'ssr' } }))
+  // The deploy's patched config (scripts/patch-wrangler-config.mjs writes it
+  // beside wrangler.jsonc, gitignored) when there is one, else the source.
+  const patched = fileURLToPath(new URL('./wrangler.json', import.meta.url))
+  plugins.unshift(
+    cloudflare({
+      viteEnvironment: { name: 'ssr' },
+      configPath: existsSync(patched) ? patched : undefined,
+    }),
+  )
 }
 
 export default defineConfig({
