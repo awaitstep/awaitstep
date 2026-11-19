@@ -1,7 +1,9 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/entry/serve.ts', 'src/entry/dev.ts'],
+  // The dev entry runs under tsx only (`pnpm dev`): it loads a wrapping
+  // workspace's extensions from TypeScript source, which a bundle cannot.
+  entry: ['src/index.ts', 'src/entry/serve.ts'],
   format: ['esm'],
   target: 'node22',
   splitting: false,

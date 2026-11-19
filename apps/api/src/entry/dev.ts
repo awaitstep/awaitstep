@@ -9,6 +9,8 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
+import { startScheduledExtensionsLoop } from '../lib/extensions.js'
+import { loadExtensionsPackage, API_EXTENSIONS_PACKAGE } from '../lib/extensions-package-fs.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { parseAppOrigins } from '../lib/app-origins.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
@@ -131,6 +133,15 @@ async function start() {
   )
   logger.info(`Image store: ${imageStore.kind}`)
 
+  // A workspace that wraps this repo plugs its features in by linking the
+  // extensions package; a plain clone has none.
+  const extensions = await loadExtensionsPackage()
+  if (extensions.length > 0) {
+    logger.info(
+      `Extensions from ${API_EXTENSIONS_PACKAGE}: ${extensions.map((e) => e.id).join(', ')}`,
+    )
+  }
+
   // Load node registry (built by `pnpm nodes:build`)
   const registryPath = resolve(__dirname, '../../../../nodes/registry.json')
   let nodeRegistry
@@ -175,6 +186,7 @@ async function start() {
     testSessionLimits,
     emails,
     imageStore,
+    extensions,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     // The Vite dev server is not a trusted hop: in dev, SSR calls are keyed
@@ -197,6 +209,11 @@ async function start() {
     { db, runner: testSessionRunner, limits: resolveTestSessionLimits(testSessionLimits) },
     30_000,
   )
+  const stopScheduledExtensions = startScheduledExtensionsLoop(
+    extensions,
+    { db, env: process.env },
+    createLogger('scheduled'),
+  )
   const abandoned = await abandonStaleNodeSessions(db)
   if (abandoned > 0) {
     logger.info(`Wrote off ${abandoned} test session(s) left by a previous run`)
@@ -207,6 +224,7 @@ async function start() {
     stopRunSync()
     stopMaintenance()
     stopTestSessionReaper()
+    stopScheduledExtensions()
     releaseClaimedPorts()
   }
 

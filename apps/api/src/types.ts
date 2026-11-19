@@ -175,7 +175,11 @@ export interface ScheduledContext {
   db: DatabaseAdapter
   /** The tick's scheduled time. */
   now: Date
-  /** The runtime's bindings and secrets as the entry received them (a Worker's `env`); the extension narrows it. */
+  /**
+   * The runtime's bindings and secrets as the entry received them: a Worker's
+   * `env`, or `process.env` (strings only) on the Node dev server. The
+   * extension narrows it, and must not assume Worker bindings exist in dev.
+   */
   env: unknown
 }
 
@@ -187,7 +191,8 @@ export interface ScheduledContext {
  * permission maps. No scope middleware runs: a route that needs the caller's
  * organization, project or workspace adds `requireOrganization` /
  * `requireProject` / `requireWorkspace` (and the `require*Can` role gates)
- * itself, all exported by this package. The cross-origin write check, like
+ * itself, all exported by this package; without them a route knows only
+ * `userId` and must scope every query by it, in the SQL. The cross-origin write check, like
  * the core's, passes GET, HEAD and OPTIONS: a handler that writes must be
  * POST, PUT, PATCH or DELETE, never GET or `all`.
  */

@@ -16,7 +16,7 @@
     "d1:migrate": "wrangler d1 migrations apply awaitstep --remote",
     "d1:migrate:local": "wrangler d1 migrations apply awaitstep --local",
     "test": "vitest run --passWithNoTests",
-    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.dev.json",
     "lint": "eslint src/"
   },
   "devDependencies": {
