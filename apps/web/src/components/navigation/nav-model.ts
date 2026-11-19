@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import {
   accountPath,
+  DEFAULT_WORKSPACE_PAGE,
   itemPagePath,
   orgPath,
   withOverlay,
@@ -29,11 +30,14 @@ import {
   projectWorkspacesPath,
   projectPagePath,
   workspacePath,
+  workspaceExtensionPath,
   type ProjectPage,
   type WorkspacePage,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
 import { plural } from '../../lib/plural'
+import { extensionPageKey } from '../../extensions/registry'
+import type { WebExtension } from '../../extensions/types'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { RailEntry } from '../shell/org-rail'
 import type { Crumb } from '../shell/top-bar'
@@ -153,6 +157,8 @@ function railActiveKey(page: DashboardPage): string {
       return page.page
     case 'org-settings':
       return 'settings'
+    case 'extension':
+      return page.scope === 'org-settings' ? 'settings' : 'projects'
     case 'account':
       // Your account isn't one of the rail's places.
       return ''
@@ -164,7 +170,10 @@ function railActiveKey(page: DashboardPage): string {
   }
 }
 
-function workspaceItems(slugs: Required<ScopeSlugs>): NavItem[] {
+function workspaceItems(
+  slugs: Required<ScopeSlugs>,
+  extensions: readonly WebExtension[],
+): NavItem[] {
   const item = (page: WorkspacePage, icon: LucideIcon): NavItem => ({
     key: page,
     href: workspacePath(slugs, page),
@@ -177,8 +186,24 @@ function workspaceItems(slugs: Required<ScopeSlugs>): NavItem[] {
     item('functions', Code),
     item('scripts-nodes', Library),
     item('runs', CirclePlay),
+    ...workspaceExtensionItems(slugs, extensions),
     item('settings', Settings),
   ]
+}
+
+/** The `workspace.nav` links of the enabled extensions, after the built-in pages. */
+function workspaceExtensionItems(
+  slugs: Required<ScopeSlugs>,
+  extensions: readonly WebExtension[],
+): NavItem[] {
+  return extensions.flatMap((extension) =>
+    (extension.slots?.['workspace.nav'] ?? []).map((link) => ({
+      key: extensionPageKey(extension.id, link.path),
+      href: workspaceExtensionPath(slugs, extension.id, link.path),
+      icon: link.icon,
+      label: link.label,
+    })),
+  )
 }
 
 function projectItems(slugs: { org: string; project: string }): NavItem[] {
@@ -200,7 +225,15 @@ function projectItems(slugs: { org: string; project: string }): NavItem[] {
   ]
 }
 
-export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
+/**
+ * The panel beside a page. `extensions` are the enabled ones (`useEnabledExtensions`):
+ * their links join the workspace panel.
+ */
+export function panelModel(
+  page: DashboardPage,
+  slugs: ScopeSlugs,
+  extensions: readonly WebExtension[] = [],
+): PanelModel {
   switch (page.kind) {
     case 'org':
     case 'org-settings':
@@ -217,17 +250,27 @@ export function panelModel(page: DashboardPage, slugs: ScopeSlugs): PanelModel {
         activeKey: page.page,
       }
     case 'workspace':
-      return workspacePanel(slugs, page.page, page.page)
+      return workspacePanel(slugs, page.page, page.page, extensions)
     case 'item': {
       // An item's pages sit under the list it's in; until its kind loads,
       // nothing is marked rather than guessing Workflows for a function.
       const list = itemListPage(page.item)
-      return workspacePanel(slugs, list ?? 'workflows', list ?? '')
+      return workspacePanel(slugs, list ?? 'workflows', list ?? '', extensions)
     }
+    case 'extension':
+      // Org Settings' extension tabs are tabs on that page, like its own.
+      if (page.scope === 'org-settings') return { mode: 'none' }
+      // Switching workspace from an extension's page opens the new one's Overview.
+      return workspacePanel(slugs, DEFAULT_WORKSPACE_PAGE, page.page?.key ?? '', extensions)
   }
 }
 
-function workspacePanel(slugs: ScopeSlugs, page: WorkspacePage, activeKey: string): PanelModel {
+function workspacePanel(
+  slugs: ScopeSlugs,
+  page: WorkspacePage,
+  activeKey: string,
+  extensions: readonly WebExtension[],
+): PanelModel {
   // A workspace page's route always has all three slugs.
   const workspace: WorkspaceSlugs = {
     org: slugs.org,
@@ -238,7 +281,7 @@ function workspacePanel(slugs: ScopeSlugs, page: WorkspacePage, activeKey: strin
     mode: 'workspace',
     slugs: workspace,
     page,
-    items: workspaceItems(workspace),
+    items: workspaceItems(workspace, extensions),
     activeKey,
     projectHref: projectWorkspacesPath(workspace),
   }
@@ -264,11 +307,14 @@ export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: Scope
   }
   const crumbs: Crumb[] = [{ label: names.org, href: orgPath(slugs.org) }]
   // Settings' sections are tabs on the page: the crumb stops at Settings.
-  if (page.kind === 'org-settings') {
+  if (
+    page.kind === 'org-settings' ||
+    (page.kind === 'extension' && page.scope === 'org-settings')
+  ) {
     crumbs.push({ label: 'Settings' })
     return crumbs
   }
-  const inWorkspace = page.kind === 'workspace' || page.kind === 'item'
+  const inWorkspace = page.kind === 'workspace' || page.kind === 'item' || page.kind === 'extension'
   if (page.kind === 'project' || inWorkspace) {
     crumbs.push({
       label: names.project ?? slugs.project!,

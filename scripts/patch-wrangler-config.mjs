@@ -6,15 +6,37 @@
  * without committing secrets or account-specific values.
  *
  * Usage:
- *   node scripts/patch-wrangler-config.mjs
+ *   node scripts/patch-wrangler-config.mjs [--api-config <path>] [--web-config <path>]
+ *
+ * The paths default to this repo's apps/api/wrangler.jsonc and
+ * apps/web/wrangler.jsonc; a repo that wraps this one passes its own
+ * (relative paths resolve against the cwd). Each patched config is written
+ * to `wrangler.json` beside its source, which git ignores: the tracked
+ * sources are never rewritten with an account's values. Wrangler prefers
+ * `wrangler.json` on its own; the web build's vite.config.ts points the
+ * Cloudflare plugin at it.
  *
  * All configuration is read from environment variables (prefixed with CF_).
  */
 
 import { readFileSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { parseArgs } from 'node:util'
 
 const ROOT = new URL('..', import.meta.url).pathname
+
+const { values: args } = parseArgs({
+  options: {
+    'api-config': { type: 'string' },
+    'web-config': { type: 'string' },
+  },
+})
+const API_CONFIG = args['api-config']
+  ? resolve(args['api-config'])
+  : resolve(ROOT, 'apps/api/wrangler.jsonc')
+const WEB_CONFIG = args['web-config']
+  ? resolve(args['web-config'])
+  : resolve(ROOT, 'apps/web/wrangler.jsonc')
 
 function stripJsonComments(text) {
   // Remove single-line comments that are NOT inside strings.
@@ -67,7 +89,7 @@ function env(key) {
 // --- API Worker config ---
 
 function patchApiConfig() {
-  const configPath = resolve(ROOT, 'apps/api/wrangler.jsonc')
+  const configPath = API_CONFIG
   const config = readJsonc(configPath)
 
   // D1 database ID (required)
@@ -133,7 +155,7 @@ function patchApiConfig() {
     config.vars.SANDBOX_SLEEP_AFTER = sandboxSleepAfter
   }
 
-  const outPath = resolve(ROOT, 'apps/api/wrangler.json')
+  const outPath = resolve(dirname(API_CONFIG), 'wrangler.json')
   writeJson(outPath, config)
   console.log(`[patch] API config written to ${outPath}`)
   return config
@@ -142,7 +164,7 @@ function patchApiConfig() {
 // --- Web Worker config ---
 
 function patchWebConfig(apiWorkerName) {
-  const configPath = resolve(ROOT, 'apps/web/wrangler.jsonc')
+  const configPath = WEB_CONFIG
   const config = readJsonc(configPath)
 
   // Worker name
@@ -210,9 +232,9 @@ function patchWebConfig(apiWorkerName) {
     config.compatibility_date = compatDate
   }
 
-  // Write patched config back to jsonc (Vite reads this during BUILD_TARGET=cf build,
-  // then generates dist/server/wrangler.json with resolved virtual modules)
-  const outPath = resolve(ROOT, 'apps/web/wrangler.jsonc')
+  // Beside the source and gitignored, like the API's; vite.config.ts reads it
+  // during the BUILD_TARGET=cf build and generates dist/server/wrangler.json.
+  const outPath = resolve(dirname(WEB_CONFIG), 'wrangler.json')
   writeJson(outPath, config)
   console.log(`[patch] Web config written to ${outPath}`)
 }

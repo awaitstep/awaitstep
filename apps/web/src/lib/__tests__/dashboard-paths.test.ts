@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   accessEditorPath,
+  orgSettingsExtensionPath,
+  workspaceExtensionPath,
   accountPath,
   dashboardPath,
   invitePath,
@@ -255,5 +257,24 @@ describe('isOverlayToggle', () => {
         at(PAGE, { view: 'canvas', version: 'v2', open: 'marketplace' }),
       ),
     ).toBe(false)
+  })
+})
+
+describe('extension page addresses', () => {
+  const SALES = { org: 'acme', project: 'project-101', workspace: 'sales' }
+
+  it('puts a workspace page under ext/{id}, and a settings tab under settings/ext/{id}', () => {
+    expect(workspaceExtensionPath(SALES, 'x', 'history')).toBe(
+      '/acme/project-101/sales/ext/x/history',
+    )
+    expect(orgSettingsExtensionPath('acme', 'x', 'usage')).toBe('/acme/settings/ext/x/usage')
+    expect(orgSettingsExtensionPath('acme', 'x', '')).toBe('/acme/settings/ext/x')
+  })
+
+  it('drops empty segments and encodes each one', () => {
+    expect(workspaceExtensionPath(SALES, 'x', '/a//b c/')).toBe(
+      '/acme/project-101/sales/ext/x/a/b%20c',
+    )
+    expect(orgSettingsExtensionPath('a/b', 'x', 'q?')).toBe('/a%2Fb/settings/ext/x/q%3F')
   })
 })

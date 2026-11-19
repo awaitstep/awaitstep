@@ -32,6 +32,17 @@ function leafRoute(path: string): string | null {
 }
 
 describe('dashboard route tree', () => {
+  it('sends extension pages to their two catch-all routes and nothing else', () => {
+    expect(leafRoute('/acme/settings/ext/x/usage')).toBe('/_authed/$org/settings/ext/$')
+    expect(leafRoute('/acme/project-101/sales/ext/x/history/r_1')).toBe(
+      '/_authed/$org/$project/$workspace/ext/$',
+    )
+    // Built-in neighbours keep their own routes.
+    expect(leafRoute('/acme/settings/general')).toBe('/_authed/$org/settings/general')
+    expect(leafRoute('/acme/project-101/sales/runs')).toBe('/_authed/$org/$project/$workspace/runs')
+    expect(leafRoute('/acme/project-101/ext/x')).not.toContain('/ext/$')
+  })
+
   const paths = [
     ...ORG_PAGES.map((page) => orgPath('acme', page)),
     ...ORG_SETTINGS_PAGES.map((page) => orgSettingsPath('acme', page)),

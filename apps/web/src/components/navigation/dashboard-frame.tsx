@@ -11,6 +11,7 @@ import { OrgRail } from '../shell/org-rail'
 import { PanelItem, PanelSection } from '../shell/panel-item'
 import { RailAccountButton, RailOrgButton } from '../shell/rail-item'
 import { TopBar } from '../shell/top-bar'
+import { useEnabledExtensions } from '../../extensions/registry'
 import type { DashboardPage } from './dashboard-page'
 import { DashboardAccountMenu } from './account-menu-container'
 import { MobileProjectMenu } from './mobile-project-menu'
@@ -70,7 +71,8 @@ export function DashboardFrame({
 }: DashboardFrameProps) {
   const rail = railModel(scope.slugs.org, page ?? { kind: 'org', page: 'projects' }, overlays)
   const whatsNewHref = withOverlay(overlays.here, 'whats-new')
-  const panel = page ? panelModel(page, scope.slugs) : { mode: 'none' as const }
+  const extensions = useEnabledExtensions()
+  const panel = page ? panelModel(page, scope.slugs, extensions) : { mode: 'none' as const }
   const crumbs = page
     ? breadcrumbs(page, scope.slugs, {
         org: scope.org.name,

@@ -108,6 +108,20 @@ export function workspacePath(
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/${page}`
 }
 
+/** An extension's page in a workspace: `/{org}/{project}/{workspace}/ext/{id}/{path}`. */
+export function workspaceExtensionPath(slugs: WorkspaceSlugs, id: string, path: string): string {
+  return `${projectPath(slugs)}/${segment(slugs.workspace)}/ext/${extensionTail(id, path)}`
+}
+
+/** An extension's tab in Org Settings: `/{org}/settings/ext/{id}/{path}`. */
+export function orgSettingsExtensionPath(org: string, id: string, path: string): string {
+  return `/${segment(org)}/settings/ext/${extensionTail(id, path)}`
+}
+
+function extensionTail(id: string, path: string): string {
+  return [id, ...path.split('/').filter(Boolean)].map(segment).join('/')
+}
+
 /** A Library's place: a workspace's, or the project's own when no workspace is named. */
 export interface LibraryPlaceSlugs extends ProjectSlugs {
   workspace?: string

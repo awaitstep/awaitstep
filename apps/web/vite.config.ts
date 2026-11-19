@@ -3,19 +3,34 @@ import { defineConfig } from 'vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { extensionsPlugin } from './src/extensions/vite-plugin.ts'
 
 const isProduction = process.env.NODE_ENV === 'production'
 const isCloudflare = process.env.BUILD_TARGET === 'cf'
 // Vitest extends this config; the Cloudflare plugin starts a worker runner that dies there.
 const isTest = Boolean(process.env.VITEST)
 
+// Extensions plugged in from outside this repo, or none (src/extensions/stub.ts).
+const extensions = extensionsPlugin({
+  stub: fileURLToPath(new URL('./src/extensions/stub.ts', import.meta.url)),
+})
+const plugins = [extensions, tailwindcss(), tanstackStart(), react()]
 // Imported only for a Cloudflare build: it pulls in wrangler, whose undici
 // wants a Node newer than the one tests may run on. A plain dev server or a
 // test run never needs it.
-const plugins = [tailwindcss(), tanstackStart(), react()]
 if (isCloudflare && !isTest) {
   const { cloudflare } = await import('@cloudflare/vite-plugin')
-  plugins.unshift(cloudflare({ viteEnvironment: { name: 'ssr' } }))
+  // The deploy's patched config (scripts/patch-wrangler-config.mjs writes it
+  // beside wrangler.jsonc, gitignored) when there is one, else the source.
+  const patched = fileURLToPath(new URL('./wrangler.json', import.meta.url))
+  plugins.unshift(
+    cloudflare({
+      viteEnvironment: { name: 'ssr' },
+      configPath: existsSync(patched) ? patched : undefined,
+    }),
+  )
 }
 
 export default defineConfig({

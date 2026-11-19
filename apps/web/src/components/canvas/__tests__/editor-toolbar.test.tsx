@@ -551,3 +551,15 @@ describe('EditorToolbar when Code changed the workflow', () => {
     expect(reload).toHaveAttribute('aria-busy', 'true')
   })
 })
+
+describe('EditorToolbar extension slot', () => {
+  it('adds nothing to the bar when no extension is installed, even inside a workspace', async () => {
+    const { EditorScopeProvider } = await import('../../../contexts/editor-scope-context')
+    const { container } = render(
+      <EditorScopeProvider value={{ org: 'acme', project: 'p', workspace: 'w' }}>
+        <EditorToolbar {...props()} />
+      </EditorScopeProvider>,
+    )
+    expect(container.querySelector('[data-zone="extensions"]')).toBeNull()
+  })
+})

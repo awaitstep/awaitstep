@@ -4,33 +4,17 @@ import { getRequestHeader, setCookie } from '@tanstack/react-start/server'
 import { safeRedirectPath } from '../lib/auth-redirect'
 import { apiFetch } from '../lib/cf-context'
 import { sendsToDashboard } from '../lib/shell-routes'
-import { useAuthStore, type SessionData } from '../stores/auth-store'
-import { type Organization, useOrgStore } from '../stores/org-store'
+import { useAuthStore } from '../stores/auth-store'
+import { useInstanceStore } from '../stores/instance-store'
+import { loadAuthData, type AuthData } from '../lib/auth-data'
+import { useOrgStore } from '../stores/org-store'
 import OrgWrapper from '../wrappers/org'
 
-interface LoaderData {
-  sessionData: SessionData
-  organizations: Organization[]
-}
-
 const getAuthData = createServerFn({ method: 'GET' }).handler(
-  async (): Promise<LoaderData | null> => {
+  async (): Promise<AuthData | null> => {
     const cookie = getRequestHeader('cookie')
     if (!cookie) return null
-
-    const headers = { cookie }
-
-    const sessionRes = await apiFetch('/api/auth/get-session', { headers })
-    if (!sessionRes.ok) return null
-
-    const sessionData = (await sessionRes.json()) as { session?: unknown }
-    if (!sessionData?.session) return null
-
-    const orgsRes = await apiFetch('/api/auth/organization/list', { headers })
-    const orgsBody = orgsRes.ok ? await orgsRes.json() : []
-    const organizations: Organization[] = Array.isArray(orgsBody) ? orgsBody : []
-
-    return { sessionData: sessionData as SessionData, organizations }
+    return loadAuthData(apiFetch, cookie)
   },
 )
 
@@ -66,6 +50,7 @@ function AuthedLayout() {
   const addedOrgs = useOrgStore((s) => s.organizations.length)
 
   useAuthStore.getState().setSession(loaderData.sessionData)
+  useInstanceStore.getState().setFeatures(loaderData.features)
 
   // The old pages need an organization: with none, /dashboard offers to make one (D-DB-7).
   if (sendsToDashboard(loaderData.organizations.length, addedOrgs, matches)) {
