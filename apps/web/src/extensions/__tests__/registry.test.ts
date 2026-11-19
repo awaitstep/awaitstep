@@ -20,7 +20,7 @@ const other = { id: 'other', pages: [] }
 // under node_modules (the plugin refuses those, so the build would fail).
 function extensionsPackageLinked(): boolean {
   try {
-    return !isInstalledCopy(createRequire(import.meta.url).resolve(EXTENSIONS_PACKAGE))
+    return !isInstalledCopy(createRequire(import.meta.url).resolve(`${EXTENSIONS_PACKAGE}/web`))
   } catch {
     return false
   }

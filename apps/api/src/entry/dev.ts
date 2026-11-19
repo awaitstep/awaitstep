@@ -9,7 +9,7 @@ import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
 import { createApp, createAuth } from '../index.js'
-import { loadExtensionsPackage, API_EXTENSIONS_PACKAGE } from '../lib/extensions-package-fs.js'
+import { loadExtensionsPackage, EXTENSIONS_PACKAGE } from '../lib/extensions-package-fs.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { parseAppOrigins } from '../lib/app-origins.js'
 import { cleanupLocalDevSessions } from '../routes/local-dev.js'
@@ -137,7 +137,7 @@ async function start() {
   const extensions = await loadExtensionsPackage()
   if (extensions.length > 0) {
     logger.info(
-      `Extensions from ${API_EXTENSIONS_PACKAGE}: ${extensions.map((e) => e.id).join(', ')}`,
+      `Extensions from ${EXTENSIONS_PACKAGE}/api: ${extensions.map((e) => e.id).join(', ')}`,
     )
   }
 

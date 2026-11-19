@@ -3,7 +3,7 @@ import { EXTENSIONS_MODULE, EXTENSIONS_PACKAGE, extensionsPlugin } from '../vite
 
 type Resolved = { id: string; external?: boolean } | null
 
-const LINKED_DIR = '/private/packages/web-ext'
+const LINKED_DIR = '/private/packages/extensions'
 
 async function resolveWith(
   found: Resolved,
@@ -31,10 +31,10 @@ async function resolveWith(
 
 describe('extensionsPlugin', () => {
   it('resolves the virtual module to the extensions package when it is installed', async () => {
-    const { result, resolve } = await resolveWith({ id: `${LINKED_DIR}/src/index.ts` })
-    expect(result).toBe(`${LINKED_DIR}/src/index.ts`)
+    const { result, resolve } = await resolveWith({ id: `${LINKED_DIR}/src/web.ts` })
+    expect(result).toBe(`${LINKED_DIR}/src/web.ts`)
     expect(resolve).toHaveBeenCalledWith(
-      EXTENSIONS_PACKAGE,
+      `${EXTENSIONS_PACKAGE}/web`,
       '/repo/apps/web/src/extensions/registry.ts',
       { skipSelf: true },
     )
@@ -62,9 +62,9 @@ describe('extensionsPlugin', () => {
 
   it('refuses a copy installed from a registry, wherever node_modules is', async () => {
     for (const dir of [
-      '/home/me/node_modules/@awaitstep/web-extensions',
-      '/repo/node_modules/.pnpm/@awaitstep+web-extensions@1.0.0/node_modules/@awaitstep/web-extensions',
-      'C:\\Users\\me\\node_modules\\@awaitstep\\web-extensions',
+      '/home/me/node_modules/@awaitstep/extensions',
+      '/repo/node_modules/.pnpm/@awaitstep+extensions@1.0.0/node_modules/@awaitstep/extensions',
+      'C:\\Users\\me\\node_modules\\@awaitstep\\extensions',
     ]) {
       await expect(
         resolveWith({ id: `${dir}/src/index.ts` }, EXTENSIONS_MODULE, dir),
@@ -72,8 +72,8 @@ describe('extensionsPlugin', () => {
     }
   })
 
-  it('refuses an installed package whose entry points outside node_modules', async () => {
-    // A legacy `main` such as ../../../x.js: the entry alone would pass.
+  it('refuses an installed package whose entry lands outside node_modules', async () => {
+    // An export target or a symlink that escapes node_modules: the entry alone would pass.
     await expect(
       resolveWith({ id: '/home/me/x.js' }, EXTENSIONS_MODULE, '/home/me/node_modules/pkg'),
     ).rejects.toThrow('installed copy')
@@ -82,7 +82,7 @@ describe('extensionsPlugin', () => {
   it('refuses an entry outside the linked folder, or when no folder holds the package', async () => {
     await expect(resolveWith({ id: '/elsewhere/index.ts' })).rejects.toThrow('installed copy')
     await expect(
-      resolveWith({ id: `${LINKED_DIR}/src/index.ts` }, EXTENSIONS_MODULE, null),
+      resolveWith({ id: `${LINKED_DIR}/src/web.ts` }, EXTENSIONS_MODULE, null),
     ).rejects.toThrow('not found')
   })
 

@@ -1,15 +1,16 @@
 import { access, realpath } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { isLinkedPackageEntry } from '@awaitstep/ir'
+import { isInstalledCopy, isLinkedPackageEntry } from '@awaitstep/ir'
 import type { AppExtension } from '../types.js'
 
 /**
- * The package that plugs API extensions into the local dev server. It is not
- * part of this repository: a workspace that wraps this one links it, and
- * plain module resolution from the API finds it there.
+ * The package that plugs extensions in: its `./api` entry lists the API's,
+ * its `./web` entry the dashboard's. It is not part of this repository: a
+ * workspace that wraps this one links it, and plain module resolution from
+ * the API finds it there.
  */
-export const API_EXTENSIONS_PACKAGE = '@awaitstep/api-extensions'
+export const EXTENSIONS_PACKAGE = '@awaitstep/extensions'
 
 export interface ExtensionsPackageLoader {
   /**
@@ -17,7 +18,7 @@ export interface ExtensionsPackageLoader {
    * the API's folder up to `/` (where Node's resolution looks), or null.
    */
   findPackage: (packageName: string) => Promise<string | null>
-  /** Resolves the package to a file URL from the API's own location. */
+  /** Resolves a specifier to a file URL from the API's own location. */
   resolve: (specifier: string) => string
   /** The file's real path, symlinks followed. */
   realpath: (path: string) => Promise<string>
@@ -47,7 +48,8 @@ const nodeLoader: ExtensionsPackageLoader = {
 }
 
 /**
- * The extensions the wrapping workspace's package exports as its default, or
+ * The API extensions the wrapping workspace's package exports (its `./api`
+ * entry's default), or
  * none when it is not installed. Presence of the package decides; there is
  * no flag to set. A package that is there but cannot be loaded throws: the
  * server must not quietly start without it.
@@ -60,23 +62,26 @@ const nodeLoader: ExtensionsPackageLoader = {
  * would otherwise run with the server's database and secrets; that is refused.
  */
 export async function loadExtensionsPackage(
-  packageName = API_EXTENSIONS_PACKAGE,
+  packageName = EXTENSIONS_PACKAGE,
   loader: ExtensionsPackageLoader = nodeLoader,
 ): Promise<AppExtension[]> {
   const found = await loader.findPackage(packageName)
   if (!found) return []
-  const [packageDir, path] = await Promise.all([
-    loader.realpath(found),
-    loader.realpath(fileURLToPath(loader.resolve(packageName))),
-  ])
-  if (!isLinkedPackageEntry(packageDir, path)) {
-    throw new Error(
-      `${packageName} at ${packageDir} (entry ${path}) is not linked from source. Only a workspace link (workspace:*) is used.`,
-    )
-  }
+  const packageDir = await loader.realpath(found)
+  // Judged before anything is resolved: an installed copy is never looked into.
+  if (isInstalledCopy(packageDir)) throw notLinked(packageName, packageDir)
+  const path = await loader.realpath(fileURLToPath(loader.resolve(`${packageName}/api`)))
+  if (!isLinkedPackageEntry(packageDir, path)) throw notLinked(packageName, packageDir, path)
   const extensions = (await loader.load(pathToFileURL(path).href)).default
   if (!Array.isArray(extensions)) {
-    throw new Error(`${packageName} must export an array of extensions as its default.`)
+    throw new Error(`${packageName}/api must export an array of extensions as its default.`)
   }
   return extensions as AppExtension[]
+}
+
+function notLinked(packageName: string, packageDir: string, entry?: string): Error {
+  const where = entry ? `${packageDir} (entry ${entry})` : packageDir
+  return new Error(
+    `${packageName} at ${where} is not linked from source. Only a workspace link (workspace:*) is used.`,
+  )
 }
