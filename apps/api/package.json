@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./worker": "./src/entry/worker-app.ts"
   },
   "scripts": {
     "build": "tsup",
@@ -15,7 +16,7 @@
     "d1:migrate": "wrangler d1 migrations apply awaitstep --remote",
     "d1:migrate:local": "wrangler d1 migrations apply awaitstep --local",
     "test": "vitest run --passWithNoTests",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
     "lint": "eslint src/"
   },
   "devDependencies": {

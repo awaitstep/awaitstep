@@ -4,5 +4,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["node_modules", "dist", "src/entry"]
+  "exclude": ["node_modules", "dist", "src/entry", "src/__tests__/worker-app.test.ts"]
 }
