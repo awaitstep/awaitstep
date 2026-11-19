@@ -4,7 +4,7 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@awaitstep/db/d1'
 import { createApp, createAuth, type AppDeps } from '../index.js'
 import type { AppExtension } from '../types.js'
-import { checkExtensions, runScheduledExtensions } from '../lib/extensions.js'
+import { checkExtensions } from '../lib/extensions.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
@@ -228,7 +228,7 @@ function testSessionRunnerFor(env: Env, sleepAfter: string): SandboxTestSessionR
 }
 
 export interface WorkerOptions {
-  /** Features plugged into the app and its cron; the public Worker passes none. */
+  /** Features plugged into the app (their routes); the public Worker passes none. */
   extensions?: readonly AppExtension[]
 }
 
@@ -281,8 +281,8 @@ export function createWorker(options: WorkerOptions = {}) {
         testSessionLimitsFromEnv(env as unknown as Record<string, string | undefined>),
       )
       const sleepAfter = containerSleepAfter(limits)
-      // allSettled, not all: one task rejecting would otherwise end the other
-      // one's waitUntil partway through, leaving sessions unreaped.
+      // allSettled, not all: one task rejecting would otherwise end the others'
+      // waitUntil partway through, leaving sessions unreaped.
       ctx.waitUntil(
         Promise.allSettled([
           // No request here, so no origin to fall back on: without a configured
@@ -301,11 +301,6 @@ export function createWorker(options: WorkerOptions = {}) {
             runner: testSessionRunnerFor(env, sleepAfter),
             limits,
           }),
-          runScheduledExtensions(
-            extensions,
-            { db, now: new Date(controller.scheduledTime), env },
-            createLogger('cron'),
-          ),
         ]),
       )
     },

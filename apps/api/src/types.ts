@@ -169,16 +169,6 @@ export interface AppEnv {
   }
 }
 
-/** What an extension's scheduled hook is handed on each cron tick. */
-export interface ScheduledContext {
-  /** The full adapter, credential decryption included: extensions are trusted code. */
-  db: DatabaseAdapter
-  /** The tick's scheduled time. */
-  now: Date
-  /** The runtime's bindings and secrets as the entry received them (a Worker's `env`); the extension narrows it. */
-  env: unknown
-}
-
 /**
  * A feature an entry point plugs into the app without the app knowing it.
  * Its routes mount under `/api/ext/<id>`, behind the same rate limit,
@@ -197,6 +187,4 @@ export interface AppExtension {
   id: string
   /** Registers the extension's routes on a router mounted at `/api/ext/<id>`. */
   routes?: (router: Hono<AppEnv>) => void
-  /** Runs on the Workers entry's cron tick, next to the core's own jobs. The Node entries do not run it yet. */
-  scheduled?: (ctx: ScheduledContext) => Promise<void>
 }
