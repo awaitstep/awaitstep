@@ -1,4 +1,6 @@
 import type { Logger, Plugin } from 'vite'
+import { isLinkedPackageEntry } from '@awaitstep/ir'
+import { findPackageDir as findPackageDirOnDisk } from './package-dir-fs'
 
 export const EXTENSIONS_MODULE = 'virtual:awaitstep/extensions'
 
@@ -14,6 +16,8 @@ export interface ExtensionsPluginOptions {
   stub: string
   /** Overrides the package looked for (tests). */
   packageName?: string
+  /** Finds the package's folder (real path) as seen from a module, as `findPackageDir` does (tests). */
+  findPackageDir?: (fromFile: string, packageName: string) => Promise<string | null>
 }
 
 /**
@@ -28,7 +32,8 @@ export interface ExtensionsPluginOptions {
  * the modules it imports).
  *
  * Only a package linked from the wrapping workspace's own source is taken
- * (`workspace:*`, so its real path is outside every `node_modules`). Module
+ * (`workspace:*`, so its folder's real path is outside every `node_modules`),
+ * and only an entry inside that folder. Module
  * resolution walks up to `/`, so a copy installed from a registry — in a
  * parent folder, the home folder, or hoisted in as someone's dependency —
  * would otherwise run in every page and in the server bundle; that is refused.
@@ -36,6 +41,7 @@ export interface ExtensionsPluginOptions {
 export function extensionsPlugin({
   stub,
   packageName = EXTENSIONS_PACKAGE,
+  findPackageDir = findPackageDirOnDisk,
 }: ExtensionsPluginOptions): Plugin {
   let logger: Logger | undefined
   let announced = false
@@ -56,9 +62,13 @@ export function extensionsPlugin({
       if (installed.external) {
         this.error(`${packageName} is installed but resolved as external; it must be bundled.`)
       }
-      if (isInstalledCopy(installed.id)) {
+      // The folder decides, not just the entry: an installed package's legacy
+      // `main` can point outside node_modules.
+      const entry = installed.id.split('?')[0]!
+      const packageDir = await findPackageDir(importer ?? stub, packageName)
+      if (!packageDir || !isLinkedPackageEntry(packageDir, entry)) {
         this.error(
-          `${packageName} resolved to ${installed.id}, an installed copy. Only a workspace link (workspace:*) to its source is used.`,
+          `${packageName} resolved to ${entry} (package folder ${packageDir ?? 'not found'}), an installed copy. Only a workspace link (workspace:*) to its source is used.`,
         )
       }
       if (!announced) {
@@ -68,9 +78,4 @@ export function extensionsPlugin({
       return installed.id
     },
   }
-}
-
-/** A module under any `node_modules` folder: fetched from a registry, not linked from source. */
-export function isInstalledCopy(id: string): boolean {
-  return id.split(/[\\/]/).includes('node_modules')
 }

@@ -1,5 +1,9 @@
+import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 import installed from 'virtual:awaitstep/extensions'
+import { isInstalledCopy } from '@awaitstep/ir'
+import { EXTENSIONS_PACKAGE } from '../vite-plugin'
+import stub from '../stub'
 import {
   checkWebExtensions,
   enabledExtensions,
@@ -11,9 +15,24 @@ import { testExtension } from './fixtures/test-extension'
 
 const other = { id: 'other', pages: [] }
 
+// A workspace that wraps this repo links the package and runs these tests too.
+// Judged the way the plugin judges it: found by resolution, and not a copy
+// under node_modules (the plugin refuses those, so the build would fail).
+function extensionsPackageLinked(): boolean {
+  try {
+    return !isInstalledCopy(createRequire(import.meta.url).resolve(EXTENSIONS_PACKAGE))
+  } catch {
+    return false
+  }
+}
+
 describe('virtual:awaitstep/extensions', () => {
-  it('is the empty stub in this repository', () => {
-    expect(installed).toEqual([])
+  it('is the stub exactly when no extensions package is linked', () => {
+    expect(installed === stub).toBe(!extensionsPackageLinked())
+  })
+
+  it('lists nothing when it is the stub', () => {
+    expect(stub).toEqual([])
   })
 })
 
