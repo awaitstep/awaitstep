@@ -19,7 +19,10 @@ const TERMINATORS = ['%0A', '%0D', '%E2%80%A8', '%E2%80%A9']
 
 // Open to everyone by design.
 const OPEN = (path: string) =>
-  path.startsWith('/api/auth/') || path === '/api/health' || path.startsWith('/api/images/')
+  path.startsWith('/api/auth/') ||
+  path === '/api/health' ||
+  path === '/api/instance' ||
+  path.startsWith('/api/images/')
 
 const OAUTH: CloudflareOAuthRuntime = {
   stub: false,

@@ -3,6 +3,9 @@
   "version": "1.4.14",
   "private": true,
   "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsx watch src/entry/dev.ts",

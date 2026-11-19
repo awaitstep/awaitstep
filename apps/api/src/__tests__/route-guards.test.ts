@@ -1,3 +1,4 @@
+import type { AppExtension } from '../types.js'
 import { describe, it, expect, beforeAll } from 'vitest'
 import {
   createTestApp,
@@ -29,9 +30,23 @@ const READ_SCOPE_BY_DESIGN = new Map([
 ])
 
 // better-auth owns its namespace and its own session rules; the health check
-// answers everyone, and an uploaded image anyone holding its unguessable id.
+// and the instance's feature list answer everyone, and an uploaded image
+// anyone holding its unguessable id.
 const OUT_OF_SCOPE = (path: string) =>
-  path.startsWith('/api/auth/') || path === '/api/health' || path.startsWith('/api/images/')
+  path.startsWith('/api/auth/') ||
+  path === '/api/health' ||
+  path === '/api/instance' ||
+  path.startsWith('/api/images/')
+
+// An extension mounted in every sweep, so its routes are probed like the
+// core's: they must stay behind the same gates if the mount order changes.
+const PROBE_EXTENSION: AppExtension = {
+  id: 'probe',
+  routes(router) {
+    router.get('/item', (c) => c.json({ ok: true }))
+    router.post('/item', (c) => c.json({ ok: true }))
+  },
+}
 
 const READ_KEY = 'ask_route-guards-read'
 const ORG_KEY = 'ask_route-guards-org'
@@ -47,6 +62,8 @@ function sessionOnly(method: string, path: string): boolean {
   if (/^\/api\/(notifications|releases)/.test(path)) return true
   // Your account: the person's own rows (B10).
   if (/^\/api\/account(\/|$)/.test(path)) return true
+  // Extension routes: no key mapping reaches them.
+  if (path.startsWith('/api/ext/')) return true
   if (path === '/api/scope' || path === '/api/failing' || path === '/api/providers') return true
   // The org list, and an org's logo: set from the dashboard only.
   if (/^\/api\/orgs(\/|$)/.test(path)) return true
@@ -195,7 +212,7 @@ async function seedGuarded() {
 beforeAll(async () => {
   for (const key of KEYS) hashes.set(key.secret, await hashApiKey(key.secret))
   await seedGuarded()
-  app = createTestApp({ enableLocalDev: true })
+  app = createTestApp({ enableLocalDev: true, extensions: [PROBE_EXTENSION] })
 
   const seen = new Set<string>()
   routes = []
@@ -273,6 +290,7 @@ describe('mutation route guards', () => {
       !path.startsWith('/api/notifications') &&
       !path.startsWith('/api/releases') &&
       !path.startsWith('/api/account') &&
+      !path.startsWith('/api/ext/') &&
       !path.startsWith('/api/orgs/') &&
       !path.startsWith('/api/projects/:id/move') &&
       !path.startsWith('/api/projects/:id/lock') &&
@@ -286,7 +304,7 @@ describe('mutation route guards', () => {
     // is closed to keys by the catch-all: nothing answers an empty grid.
     // Its own router: the global limiter counts per instance, and the probes
     // above have spent most of this one's minute.
-    const fresh = createTestApp({ enableLocalDev: true })
+    const fresh = createTestApp({ enableLocalDev: true, extensions: [PROBE_EXTENSION] })
     const open: string[] = []
     for (const { method, path } of allRoutes) {
       const res = await fresh.request(concrete(path), {
@@ -322,7 +340,7 @@ describe('mutation route guards', () => {
       // A router per key: the global limiter counts per instance. The
       // per-user write limiter may still answer 429 late in a sweep, which
       // is after the key's gate and so counts as reached.
-      app: createTestApp({ enableLocalDev: true }),
+      app: createTestApp({ enableLocalDev: true, extensions: [PROBE_EXTENSION] }),
     }))
     const bodyOf = (res: Response) =>
       Promise.race([res.text(), new Promise<string>((r) => setTimeout(() => r(''), 2000))])

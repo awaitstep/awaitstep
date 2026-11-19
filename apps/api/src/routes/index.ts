@@ -1,7 +1,8 @@
 import { Hono } from 'hono'
 import type { KeyAction, KeyResource } from '@awaitstep/ir'
 import { createMiddleware } from 'hono/factory'
-import type { AppEnv } from '../types.js'
+import type { AppEnv, AppExtension } from '../types.js'
+import { mountExtensions } from '../lib/extensions.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
@@ -87,6 +88,8 @@ export function createRouter(
     cloudflareOAuth?: CloudflareOAuthRuntime
     /** The web app's origin, for the OAuth callback to send the browser back. */
     webUrl?: string
+    /** Mounted under `/ext/<id>`, behind every middleware above the core routes. */
+    extensions?: readonly AppExtension[]
   },
 ) {
   const router = new Hono<AppEnv>()
@@ -710,6 +713,7 @@ export function createRouter(
   router.route('/releases', releases)
   router.route('/account', account)
   router.route('/orgs', orgLogo)
+  mountExtensions(router, options?.extensions ?? [])
 
   // Global deployments list (across all project's workflows)
   router.get('/deployments', zValidator('query', paginationQuerySchema), async (c) => {

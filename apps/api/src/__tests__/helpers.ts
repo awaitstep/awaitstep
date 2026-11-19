@@ -2605,6 +2605,7 @@ export function createTestApp(options?: {
   logger?: AppDeps['logger']
   cloudflareOAuth?: AppDeps['cloudflareOAuth']
   webUrl?: AppDeps['webUrl']
+  extensions?: AppDeps['extensions']
 }) {
   seedTestProject()
 
@@ -2622,6 +2623,7 @@ export function createTestApp(options?: {
     ...(options?.connectionAddress && { connectionAddress: options.connectionAddress }),
     ...(options?.clientIpPolicy && { clientIpPolicy: options.clientIpPolicy }),
     ...(options?.logger && { logger: options.logger }),
+    ...(options?.extensions && { extensions: options.extensions }),
   })
 }
 

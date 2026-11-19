@@ -1,3 +1,4 @@
+import type { Hono } from 'hono'
 import type {
   DatabaseAdapter,
   Workflow,
@@ -166,4 +167,35 @@ export interface AppEnv {
     /** The caller's invitation-email budget (set on the invitation routes). */
     emailBudget: Budget | undefined
   }
+}
+
+/** What an extension's scheduled hook is handed on each cron tick. */
+export interface ScheduledContext {
+  /** The full adapter, credential decryption included: extensions are trusted code. */
+  db: DatabaseAdapter
+  /** The tick's scheduled time. */
+  now: Date
+  /** The runtime's bindings and secrets as the entry received them (a Worker's `env`); the extension narrows it. */
+  env: unknown
+}
+
+/**
+ * A feature an entry point plugs into the app without the app knowing it.
+ * Its routes mount under `/api/ext/<id>`, behind the same rate limit,
+ * authentication and cross-origin write check as the core routes. They are
+ * session-only: an API key is refused there, as on any route no key
+ * permission maps. No scope middleware runs: a route that needs the caller's
+ * organization, project or workspace adds `requireOrganization` /
+ * `requireProject` / `requireWorkspace` (and the `require*Can` role gates)
+ * itself, all exported by this package. The cross-origin write check, like
+ * the core's, passes GET, HEAD and OPTIONS: a handler that writes must be
+ * POST, PUT, PATCH or DELETE, never GET or `all`.
+ */
+export interface AppExtension {
+  /** Stable id, listed in `GET /api/instance`'s `features`: lowercase letters, digits and dashes. */
+  id: string
+  /** Registers the extension's routes on a router mounted at `/api/ext/<id>`. */
+  routes?: (router: Hono<AppEnv>) => void
+  /** Runs on the Workers entry's cron tick, next to the core's own jobs. The Node entries do not run it yet. */
+  scheduled?: (ctx: ScheduledContext) => Promise<void>
 }

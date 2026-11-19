@@ -60,6 +60,25 @@ before the endpoint's own limits are considered.
 
 ---
 
+## Instance
+
+### `GET /instance`
+
+**Permission:** none — no key or session needed.
+
+What this instance turns on, for clients to show or hide features.
+
+```json
+{ "features": [] }
+```
+
+`features` lists the ids of the extensions the instance was started with; a
+self-hosted instance lists none. An extension's routes live under
+`/ext/<id>` and take a session: an API key there is `403`
+`{ "error": "This endpoint is not available to API keys" }`.
+
+---
+
 ## Pagination
 
 All list endpoints support cursor-based pagination via query parameters:

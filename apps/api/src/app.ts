@@ -5,7 +5,8 @@ import { bodyLimit } from 'hono/body-limit'
 import { secureHeaders } from 'hono/secure-headers'
 import { logger as honoLogger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
-import type { AppEmails, AppEnv } from './types.js'
+import type { AppEmails, AppEnv, AppExtension } from './types.js'
+import { checkExtensions } from './lib/extensions.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
@@ -83,6 +84,11 @@ export interface AppDeps {
   cloudflareOAuth?: CloudflareOAuthRuntime
   /** The web app's origin, where the OAuth callback sends the browser back. */
   webUrl?: string
+  /**
+   * Features the entry point plugs in, each under `/api/ext/<id>` and listed
+   * in `GET /api/instance`. The public entries pass none.
+   */
+  extensions?: readonly AppExtension[]
 }
 
 export function createApp(deps: AppDeps) {
@@ -93,6 +99,9 @@ export function createApp(deps: AppDeps) {
   const imageStore = deps.imageStore ?? databaseImageStore(deps.db)
   const webUrl =
     deps.webUrl ?? (Array.isArray(deps.corsOrigin) ? deps.corsOrigin[0] : deps.corsOrigin) ?? ''
+  const extensions = deps.extensions ?? []
+  checkExtensions(extensions)
+  const instance = { features: extensions.map((extension) => extension.id) }
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
@@ -152,6 +161,10 @@ export function createApp(deps: AppDeps) {
         })
       : corsPolicy(appOrigins),
   )
+
+  // What this instance turns on, for the web app to show or hide features.
+  // No session: it names features, nothing about the people using them.
+  app.get('/api/instance', (c) => c.json(instance))
 
   // Body size limit — 1MB default for all API routes. The refusal is JSON
   // like every other error here: the default is a plain-text body, which a
@@ -221,6 +234,7 @@ export function createApp(deps: AppDeps) {
       ...(deps.enableLocalDev !== undefined && { enableLocalDev: deps.enableLocalDev }),
       ...(deps.cloudflareOAuth && { cloudflareOAuth: deps.cloudflareOAuth }),
       webUrl,
+      extensions,
     }),
   )
 
