@@ -3,6 +3,15 @@
   "version": "1.4.14",
   "private": true,
   "type": "module",
+  "exports": {
+    "./extensions": "./src/extensions/types.ts",
+    "./ui/has-content": "./src/components/ui/has-content.ts",
+    "./ui/linked-row": "./src/components/ui/linked-row.ts",
+    "./ui/use-copy-status": "./src/components/ui/use-copy-status.ts",
+    "./ui/workspace-colour": "./src/components/ui/workspace-colour.ts",
+    "./ui/*": "./src/components/ui/*.tsx",
+    "./shell/page-intro": "./src/components/shell/page-intro.tsx"
+  },
   "scripts": {
     "dev": "vite dev",
     "check:release-notes": "vitest run --project unit src/lib/__tests__/release-note-fragments.test.ts",
