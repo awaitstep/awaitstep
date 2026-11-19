@@ -1,8 +1,7 @@
 import { Hono } from 'hono'
+import { isExtensionId } from '@awaitstep/ir'
 import type { AppEnv, AppExtension, ScheduledContext } from '../types.js'
 import type { Logger } from './logger.js'
-
-const EXTENSION_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
 
 /**
  * Refuses, at startup, a set of extensions the app could not mount
@@ -11,7 +10,7 @@ const EXTENSION_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
 export function checkExtensions(extensions: readonly AppExtension[]): void {
   const seen = new Set<string>()
   for (const { id } of extensions) {
-    if (!EXTENSION_ID.test(id)) {
+    if (!isExtensionId(id)) {
       throw new Error(
         `Extension id "${id}" is not valid: use lowercase letters, digits and dashes (at most 64).`,
       )
