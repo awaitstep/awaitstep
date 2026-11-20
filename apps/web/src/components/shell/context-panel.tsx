@@ -63,7 +63,7 @@ const SCOPE_BUTTON_VARIANT = {
   card: {
     button:
       'mx-2.5 mb-3 mt-3 rounded-lg border border-border bg-card px-2.5 py-2 hover:bg-sidebar-accent',
-    tile: 'size-[22px] text-3xs',
+    tile: 'size-[22px] text-2xs',
     name: 'font-medium',
   },
 } as const

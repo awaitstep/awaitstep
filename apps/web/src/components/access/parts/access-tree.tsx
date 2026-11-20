@@ -141,7 +141,7 @@ export function AccessTree({
       )}
 
       <div className="flex flex-col gap-2 rounded border border-primary/20 bg-primary/5 px-4 py-3.5">
-        <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+        <span className="text-xs font-medium text-muted-foreground">
           {personFirstName} can work in
         </span>
         <ul aria-label={`${personFirstName} can work in`} className="flex flex-wrap gap-1.5">

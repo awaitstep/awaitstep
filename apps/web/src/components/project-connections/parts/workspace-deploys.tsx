@@ -33,7 +33,7 @@ export function WorkspaceDeploys({
             role="row"
             className={cn(
               GRID,
-              'border-b border-border px-5 py-2.5 text-2xs font-medium uppercase tracking-wider text-muted-foreground',
+              'border-b border-border px-5 py-2.5 text-xs font-medium text-muted-foreground',
             )}
           >
             <span role="columnheader">Workspace</span>

@@ -61,10 +61,10 @@ describe('a custom node in Code', () => {
       </SyncHarness>,
     )
     expect(screen.getByRole('treeitem', { name: /Say hello/ })).toHaveTextContent(
-      'Custom node · v1.0.1',
+      'Custom node, v1.0.1',
     )
     expect(screen.getByRole('treeitem', { name: /Mail/ })).toHaveTextContent(
-      'Marketplace node · v2.0.0 · inline',
+      'Marketplace node, v2.0.0, inline',
     )
   })
 
@@ -77,13 +77,13 @@ describe('a custom node in Code', () => {
         </SyncHarness>
       </QueryClientProvider>,
     )
-    expect(screen.getByText('Custom node · v1.0.1')).toBeInTheDocument()
+    expect(screen.getByText('Custom node, v1.0.1')).toBeInTheDocument()
     // Outside a workspace that may edit, the fields are shown, not changed.
     await userEvent.setup().click(screen.getByRole('button', { name: 'Settings' }))
     await screen.findByRole('dialog')
     expect(screen.getByDisplayValue('ops')).toBeDisabled()
     expect(screen.getByDisplayValue('Hi')).toBeDisabled()
-    expect(screen.getByRole('switch', { name: 'Inline — no step' })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Inline, no step' })).toBeDisabled()
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
     await userEvent.setup().click(screen.getByRole('button', { name: 'Close panel' }))
     await userEvent.setup().click(screen.getByRole('button', { name: 'Edit on canvas' }))

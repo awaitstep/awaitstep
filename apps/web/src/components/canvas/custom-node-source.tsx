@@ -9,7 +9,7 @@ export function CustomNodeSourceLine({ source }: { source: CustomNodeSource }) {
   const scope = useEditorScope()
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span className="rounded-full bg-node-custom/15 px-2 py-0.5 text-2xs font-medium uppercase tracking-wide text-node-custom">
+      <span className="rounded-full bg-node-custom/15 px-2 py-0.5 text-xs font-medium text-node-custom">
         Custom node
       </span>
       <span className="tabular-nums">v{source.version}</span>

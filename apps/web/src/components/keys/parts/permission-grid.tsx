@@ -76,7 +76,7 @@ export function PermissionGrid({ level, value, onChange, note }: PermissionGridP
       <div className="overflow-x-auto rounded border border-border">
         <table aria-labelledby={headingId} className="w-full min-w-[480px] border-collapse">
           <thead>
-            <tr className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+            <tr className="text-xs font-medium text-muted-foreground">
               <th scope="col" className="sticky left-0 bg-card px-3.5 py-2.5 text-left font-medium">
                 Resource
               </th>

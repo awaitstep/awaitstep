@@ -25,9 +25,9 @@ describe('TemplateExecution', () => {
         onChange={vi.fn()}
       />,
     )
-    expect(screen.getByRole('switch', { name: 'Inline — no step' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Inline, no step' })).not.toBeChecked()
     expect(
-      screen.getByText('Runs as a step: retries 3 · timeout 30 seconds, from node.json.'),
+      screen.getByText('Runs as a step: retries 3, timeout 30 seconds, from node.json.'),
     ).toBeInTheDocument()
   })
 
@@ -55,13 +55,13 @@ describe('TemplateExecution', () => {
     const { rerender } = render(
       <TemplateExecution node={node()} runtime={undefined} onChange={onChange} />,
     )
-    await userEvent.click(screen.getByRole('switch', { name: 'Inline — no step' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Inline, no step' }))
     expect(onChange).toHaveBeenLastCalledWith('inline', true)
     rerender(
       <TemplateExecution node={node({ inline: true })} runtime={undefined} onChange={onChange} />,
     )
     expect(screen.queryByText(/Runs as a step/)).toBeNull()
-    await userEvent.click(screen.getByRole('switch', { name: 'Inline — no step' }))
+    await userEvent.click(screen.getByRole('switch', { name: 'Inline, no step' }))
     expect(onChange).toHaveBeenLastCalledWith('inline', undefined)
   })
 

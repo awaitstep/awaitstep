@@ -103,7 +103,7 @@ export function PanelSection({ title, children }: PanelSectionProps) {
       {title && (
         <p
           aria-hidden="true"
-          className="px-2.5 pb-1.5 pt-3.5 text-2xs font-medium uppercase tracking-wider text-muted-foreground"
+          className="px-2.5 pb-1.5 pt-3.5 text-xs font-medium text-muted-foreground"
         >
           {title}
         </p>

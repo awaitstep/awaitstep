@@ -142,7 +142,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
       className={cn(
         'group flex w-full cursor-pointer items-center gap-1 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary',
         isSection
-          ? 'h-6 px-2 text-2xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground'
+          ? 'h-6 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground'
           : 'h-6 text-xs',
         !isSection &&
           (selected

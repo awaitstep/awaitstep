@@ -225,7 +225,7 @@ export function ProjectConnectionsPage({
                 href={orgPath(slugs.org, 'connections')}
                 className="font-medium text-status-success "
               >
-                {orgName} connections →
+                {orgName} connections
               </ShellLink>
             </div>
           )}

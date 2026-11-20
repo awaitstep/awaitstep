@@ -22,9 +22,7 @@ export function DetailsSection({
       className="flex flex-col gap-2"
     >
       <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-          {title}
-        </h3>
+        <h3 className="flex-1 text-xs font-medium text-muted-foreground">{title}</h3>
         {action}
       </div>
       {children}

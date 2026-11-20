@@ -23,7 +23,7 @@ interface RecentRunsCardProps {
 export function RecentRunsCard({ runs, neverDeployed, runsHref, runHref }: RecentRunsCardProps) {
   const action = (
     <ShellLink href={runsHref} className="text-xs font-medium text-status-success">
-      All runs →
+      All runs
     </ShellLink>
   )
 

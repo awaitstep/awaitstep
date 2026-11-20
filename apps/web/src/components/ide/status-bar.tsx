@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react'
+import { CircleX, Lock, TriangleAlert } from 'lucide-react'
 import { fileLanguage } from '../../lib/ide/file-tree'
 import { unsavedLabel, type SessionStatus, type StatusTone } from '../../lib/ide/status-bar'
 import { cn } from '../../lib/utils'
@@ -87,9 +87,19 @@ export function StatusBar({
           {session.label}
         </span>
       </Item>
-      <Item onClick={onShowProblems} title="Show problems">
-        <span className={cn(errors > 0 && 'text-status-error')}>⊗ {errors}</span>
-        <span className={cn(warnings > 0 && 'text-status-warning')}>⚠ {warnings}</span>
+      <Item
+        onClick={onShowProblems}
+        title="Show problems"
+        label={`${errors} ${errors === 1 ? 'error' : 'errors'}, ${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`}
+      >
+        <span className={cn('flex items-center gap-1', errors > 0 && 'text-status-error')}>
+          <CircleX aria-hidden="true" className="size-3" />
+          {errors}
+        </span>
+        <span className={cn('flex items-center gap-1', warnings > 0 && 'text-status-warning')}>
+          <TriangleAlert aria-hidden="true" className="size-3" />
+          {warnings}
+        </span>
       </Item>
       <span className="flex-1" />
       {readOnly && (
@@ -133,11 +143,14 @@ export function StatusBar({
 function Item({
   onClick,
   title,
+  label,
   warn,
   children,
 }: {
   onClick: () => void
   title: string
+  /** The accessible name when the visible content is icons and numbers. */
+  label?: string
   warn?: boolean
   children: React.ReactNode
 }) {
@@ -146,8 +159,9 @@ function Item({
       type="button"
       onClick={onClick}
       title={title}
+      aria-label={label}
       className={cn(
-        'inline-flex h-5 items-center gap-1.5 rounded px-2 transition-colors hover:bg-muted/70 hover:text-foreground',
+        'inline-flex h-5 items-center gap-1.5 rounded px-2 transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         warn && 'bg-status-warning/10 text-status-warning',
       )}
     >

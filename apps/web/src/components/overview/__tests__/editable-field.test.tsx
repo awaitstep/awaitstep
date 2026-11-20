@@ -55,15 +55,15 @@ describe('read-only, for a viewer who can’t edit', () => {
     expect(screen.getByRole('heading', { name: 'Lead enrichment' })).toBeVisible()
     expect(screen.getByText('Scores leads')).toBeVisible()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    // No "Add a description..." invitation either.
-    expect(screen.queryByText('Add a description...')).not.toBeInTheDocument()
+    // No "Add a description…" invitation either.
+    expect(screen.queryByText('Add a description…')).not.toBeInTheDocument()
   })
 })
 
 describe('EditableDescription', () => {
   it('offers to add one, and saves what is typed', async () => {
     wrap(<EditableDescription workflowId="wf_1" initialValue="" />)
-    await userEvent.click(screen.getByRole('button', { name: 'Add a description...' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Add a description…' }))
     await userEvent.type(
       screen.getByRole('textbox', { name: 'Description' }),
       'Scores leads{Enter}',

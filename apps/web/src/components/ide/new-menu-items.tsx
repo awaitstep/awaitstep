@@ -39,7 +39,7 @@ export function NewMenuItems({
         <Why reason={disabled ? 'File limit reached' : null} />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-2xs font-semibold text-muted-foreground">
         Bindings
       </DropdownMenuPrimitive.Label>
       <DropdownMenuItem
@@ -57,7 +57,7 @@ export function NewMenuItems({
         />
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <DropdownMenuPrimitive.Label className="px-2.5 py-1 text-2xs font-semibold text-muted-foreground">
         Handlers
       </DropdownMenuPrimitive.Label>
       {handlers.map((item) => (

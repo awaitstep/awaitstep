@@ -134,7 +134,7 @@ describe('Organizations', () => {
     renderProfile()
     const list = within(await screen.findByRole('list', { name: 'Organizations' }))
     const acme = within(list.getByText('Acme Inc').closest('li')!)
-    expect(acme.getByText(/^Owner · \d+ projects · the only owner$/)).toBeVisible()
+    expect(acme.getByText(/^Owner, \d+ projects, the only owner$/)).toBeVisible()
     expect(acme.getByRole('link', { name: 'Members' })).toHaveAttribute(
       'href',
       '/acme/settings/members',

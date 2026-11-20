@@ -22,9 +22,7 @@ export function ExplorerHeader({
 }) {
   return (
     <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-      <span className="flex-1 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-        Files
-      </span>
+      <span className="flex-1 text-xs font-medium text-muted-foreground">Files</span>
       {canCreate && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

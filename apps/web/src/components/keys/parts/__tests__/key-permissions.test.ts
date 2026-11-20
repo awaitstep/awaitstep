@@ -140,7 +140,7 @@ describe('describing grants', () => {
   it('names each granted resource with its actions, in catalog order', () => {
     expect(
       describeGrants('project', { runs: ['read'], workflows: ['run', 'read', 'deploy'] }),
-    ).toEqual(['Workflows & functions: read · deploy · run', 'Runs: read'])
+    ).toEqual(['Workflows & functions: read, deploy, run', 'Runs: read'])
   })
 
   it('says where each level works', () => {

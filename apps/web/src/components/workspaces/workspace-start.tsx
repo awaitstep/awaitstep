@@ -64,7 +64,7 @@ function BlankCard({ slugs }: { slugs: WorkspaceSlugs }) {
           icon={Plus}
           title="Start from blank"
           body="An empty canvas, no template."
-          cta="New workflow →"
+          cta="New workflow"
         />
       </button>
     </>
@@ -157,7 +157,7 @@ export function WorkspaceStart({
               icon={Share2}
               title="Reuse what the project shares"
               body={reuseSentence(sharedIn, projectName)}
-              cta="Open the library →"
+              cta="Open the library"
             />
           </ShellLink>
         </div>

@@ -9,7 +9,7 @@ const CARD_CLASS =
 function cardTone(picked: boolean): string {
   return picked
     ? 'border-primary bg-primary/5'
-    : 'border-input bg-background hover:border-foreground/25'
+    : 'border-input bg-background hover:border-foreground/60'
 }
 
 const CONTROL_CLASS = 'mt-0.5 size-4 shrink-0 cursor-pointer accent-primary'

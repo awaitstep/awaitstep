@@ -43,9 +43,7 @@ export function CodePreview({ onClose }: CodePreviewProps) {
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <Code2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="text-2xs font-medium uppercase tracking-wider text-foreground">
-            Code preview
-          </span>
+          <span className="text-xs font-medium text-foreground">Code preview</span>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           {source !== null && (
@@ -73,9 +71,7 @@ export function CodePreview({ onClose }: CodePreviewProps) {
       {path !== null && (
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-3 py-1 text-2xs text-muted-foreground">
           <span className="truncate font-mono">{path}</span>
-          <span className="shrink-0 uppercase tracking-wider text-muted-foreground/70">
-            Read-only
-          </span>
+          <span className="shrink-0 text-muted-foreground/70">Read-only</span>
         </div>
       )}
       <div className="min-h-0 flex-1">

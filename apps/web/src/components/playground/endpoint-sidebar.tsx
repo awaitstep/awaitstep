@@ -43,7 +43,7 @@ export function EndpointSidebar({
           className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
         />
         <Input
-          placeholder="Search endpoints..."
+          placeholder="Search endpoints…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-8 text-xs"
@@ -54,7 +54,7 @@ export function EndpointSidebar({
           <div key={group}>
             <button
               onClick={() => toggleGroup(group)}
-              className="sticky top-0 z-10 flex w-full items-center gap-1.5 border-b border-border bg-card px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-muted/40"
+              className="sticky top-0 z-10 flex w-full items-center gap-1.5 border-b border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-muted/40"
             >
               {expandedGroups.has(group) ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
               {group}

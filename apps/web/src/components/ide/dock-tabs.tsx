@@ -96,7 +96,7 @@ function DockTabButton({
       tabIndex={active ? 0 : -1}
       onClick={handleClick}
       className={cn(
-        'flex h-7 items-center gap-1.5 rounded px-2 text-2xs font-medium uppercase tracking-wider transition-colors',
+        'flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium transition-colors',
         active ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >

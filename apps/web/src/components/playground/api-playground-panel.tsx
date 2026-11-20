@@ -65,7 +65,7 @@ export function ApiPlaygroundPanel() {
                 <ResponsePanel response={response} />
               ) : (
                 <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground/50">
-                  {loading ? 'Sending request...' : 'Send a request to see the response'}
+                  {loading ? 'Sending request…' : 'Send a request to see the response'}
                 </div>
               )}
             </>

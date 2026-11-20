@@ -82,7 +82,7 @@ function Group({
   if (count === 0) return null
   return (
     <section aria-label={title}>
-      <h3 className="px-3 pb-0.5 pt-1.5 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
+      <h3 className="px-3 pb-0.5 pt-1.5 text-xs font-semibold text-muted-foreground">
         {title} · {count}
       </h3>
       {children}

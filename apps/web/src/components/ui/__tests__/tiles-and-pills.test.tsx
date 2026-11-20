@@ -33,6 +33,11 @@ describe('StatusPill', () => {
     expect(screen.getByText('Failed')).toBeInTheDocument()
   })
 
+  it('carries no decorative dot: the word and the pill colour say it', () => {
+    render(<StatusPill status="deployed" />)
+    expect(screen.getByText('Deployed').querySelector('.bg-current')).toBeNull()
+  })
+
   it('takes a more specific label', () => {
     render(<StatusPill status="deployed">Deployed · v12</StatusPill>)
     expect(screen.getByText('Deployed · v12')).toBeInTheDocument()
@@ -66,5 +71,16 @@ describe('ScopeChip', () => {
   it('reads as the workspace name alone; the colour square is decorative', () => {
     render(<ScopeChip colour="green">Project 101 · Sales</ScopeChip>)
     expect(screen.getByText('Project 101 · Sales')).toHaveTextContent(/^Project 101 · Sales$/)
+  })
+
+  it('truncates a long name to its row and keeps the full text on hover', () => {
+    render(
+      <ScopeChip colour="green" title="Lead enrichment for enterprise accounts · Sales">
+        <b>Lead enrichment for enterprise accounts</b> · Sales
+      </ScopeChip>,
+    )
+    const text = screen.getByTitle('Lead enrichment for enterprise accounts · Sales')
+    expect(text).toHaveClass('min-w-0', 'truncate')
+    expect(text.closest('span.rounded-full')).toHaveClass('max-w-full')
   })
 })

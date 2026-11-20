@@ -55,7 +55,9 @@ export function StatTile({ value, label, tone, href }: StatTileProps) {
   )
   const content = (
     <>
-      <span className={cn('text-lg font-semibold', danger && 'text-status-error')}>{value}</span>
+      <span className={cn('text-lg font-semibold tabular-nums', danger && 'text-status-error')}>
+        {value}
+      </span>
       {/* Keeps "1 Failing now" apart in the accessible name; invisible in a flex column. */}{' '}
       <span className={cn('text-2xs', danger ? 'text-foreground/70' : 'text-muted-foreground')}>
         {label}

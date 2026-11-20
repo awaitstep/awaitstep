@@ -20,12 +20,14 @@ export function placeLabel(place: AccessPlace): string {
     : place.project.name
 }
 
-/** "Member · Project 101 · IT", under a pending invitation. */
+/** "Member, invited to Project 101 · IT", under a pending invitation. */
 export function invitationLabel(invitation: Invitation): string {
   const places = invitation.places.map((place) =>
     place.kind === 'workspace'
       ? `${place.project} · ${place.workspace}`
       : `${place.project} (${PROJECT_ROLE_LABEL[place.role as ProjectRole]})`,
   )
-  return [ORG_ROLE_LABEL[invitation.role], ...places].join(' · ')
+  return places.length > 0
+    ? `${ORG_ROLE_LABEL[invitation.role]}, invited to ${places.join('; ')}`
+    : ORG_ROLE_LABEL[invitation.role]
 }

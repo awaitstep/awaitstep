@@ -25,7 +25,7 @@ function PickChip({ pick, onRemove }: PickChipProps) {
         name={pick.kind === 'person' ? pick.entry.person.name : null}
         email={pick.kind === 'person' ? pick.entry.person.email : pick.email}
         src={pick.kind === 'person' ? pick.entry.person.image : null}
-        className="size-[22px] text-3xs"
+        className="size-[22px] text-2xs"
       />
       <span className="text-xs text-foreground">{label}</span>
       <button
@@ -146,7 +146,7 @@ export function PeoplePicker({
 
   return (
     <>
-      <div className="mx-6 mt-4 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-[9px] border border-border bg-card px-3 py-[3px] focus-within:border-primary/60">
+      <div className="mx-6 mt-4 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-[9px] border border-input bg-card px-3 py-[3px] focus-within:border-primary/60">
         <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         {picks.map((pick) => (
           <PickChip key={pickKey(pick)} pick={pick} onRemove={onRemove} />

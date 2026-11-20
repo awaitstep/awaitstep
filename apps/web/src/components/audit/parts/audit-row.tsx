@@ -43,8 +43,9 @@ export function AuditRow({ event }: AuditRowProps) {
           <strong className="font-semibold">{event.target}</strong>
         </p>
         {/* The name is the person's to choose; the address says who it was. */}
-        <span className="text-2xs text-muted-foreground">
-          {[event.actorEmail, event.detail].filter(Boolean).join(' · ')}
+        <span className="flex flex-wrap gap-x-3 text-2xs text-muted-foreground">
+          {event.actorEmail && <span>{event.actorEmail}</span>}
+          {event.detail && <span>{event.detail}</span>}
         </span>
       </div>
       <AuditScope scope={event.scope} />
@@ -63,7 +64,7 @@ function AuditScope({ scope }: { scope: AuditEvent['scope'] }) {
     return <ScopeChip colour="purple">{scope.name}</ScopeChip>
   }
   return (
-    <Badge variant="neutral" dot className="px-2.5 py-1 font-normal">
+    <Badge variant="neutral" className="px-2.5 py-1 font-normal">
       {scope.name}
     </Badge>
   )

@@ -64,7 +64,7 @@ export function DataTable<Row>({
                   key={column.id}
                   scope="col"
                   className={cn(
-                    'px-5 py-2.5 text-2xs font-medium uppercase tracking-wider text-muted-foreground',
+                    'px-5 py-2.5 text-xs font-medium text-muted-foreground',
                     column.align === 'right' && 'text-right',
                   )}
                 >

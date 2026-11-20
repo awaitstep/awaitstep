@@ -136,7 +136,9 @@ describe('org Members', () => {
     expect(row('Tom Becker')).toHaveTextContent(/Project 101 · all workspaces.*Internal Tools/)
     expect(row('Daniel Kim')).toHaveTextContent('Project 101 · Sales (Editor)')
     const invites = screen.getByRole('list', { name: 'Pending invitations' })
-    expect(invites).toHaveTextContent(/sam@acme\.test.*Member · Project 101 · IT.*Sent 2 days ago/)
+    expect(invites).toHaveTextContent(
+      /sam@acme\.test.*Member, invited to Project 101 · IT.*Sent 2 days ago/,
+    )
   })
 
   it('edits Daniel’s access in the side panel, and the row follows', async () => {

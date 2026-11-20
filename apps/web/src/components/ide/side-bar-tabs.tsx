@@ -93,7 +93,7 @@ function SideBarTabButton({
       data-sidebar-tab={id}
       onClick={handleClick}
       className={cn(
-        'text-2xs font-semibold uppercase tracking-wider transition-colors',
+        'text-xs font-semibold transition-colors',
         selected ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >

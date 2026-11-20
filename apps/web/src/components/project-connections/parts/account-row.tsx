@@ -51,16 +51,12 @@ export function AccountRow({
         <span className="flex min-w-[200px] flex-1 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
             {connection.name}
-            {connection.isDefault && (
-              <Badge variant="success" className="uppercase tracking-wide">
-                Default
-              </Badge>
-            )}
+            {connection.isDefault && <Badge variant="success">Default</Badge>}
             <Badge variant={owned ? 'info' : 'neutral'}>{scopeLabel(connection, orgName)}</Badge>
           </span>
           <span className="text-xs text-muted-foreground">{accountMeta(connection)}</span>
         </span>
-        <Badge variant={health.variant} dot className="font-normal">
+        <Badge variant={health.variant} className="font-normal">
           {health.text}
         </Badge>
         {actions && !connection.isDefault && connection.available && (

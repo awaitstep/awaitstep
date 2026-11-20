@@ -109,8 +109,8 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
           <Terminal className="h-4 w-4 text-muted-foreground" />
           <span className="text-lg font-semibold">Local test</span>
           {state === 'running' && (
-            <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-2xs font-medium text-emerald-400">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+            <span className="flex items-center gap-1.5 rounded-full bg-status-success/10 px-2.5 py-1 text-2xs font-medium text-status-success">
+              <span className="h-1.5 w-1.5 motion-safe:animate-pulse rounded-full bg-status-success" />
               Running
             </span>
           )}
@@ -173,9 +173,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                 </div>
               )}
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/20 px-4 py-3">
-                <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Server
-                </span>
+                <span className="text-xs font-medium text-muted-foreground">Server</span>
                 <div className="flex items-center gap-2">
                   <a
                     href={info.url}
@@ -193,7 +191,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                     title="Copy server URL"
                   >
                     {copied ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-400" />
+                      <Check className="h-3.5 w-3.5 text-status-success" />
                     ) : (
                       <Copy className="h-3.5 w-3.5" />
                     )}
@@ -213,15 +211,13 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Trigger payload
-                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">Trigger payload</span>
                   <div className="flex items-center gap-2">
                     <span
                       className={cn(
                         'flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium',
                         validJson
-                          ? 'bg-emerald-500/10 text-emerald-400'
+                          ? 'bg-status-success/10 text-status-success'
                           : 'bg-status-error/10 text-status-error',
                       )}
                     >
@@ -244,7 +240,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                   onChange={(e) => setTriggerInput(e.target.value)}
                   className={cn(
                     'h-44 w-full resize-none rounded-lg border bg-muted/20 p-3 font-mono text-sm leading-6 text-foreground outline-none',
-                    inputError ? 'border-red-500/50' : 'border-border focus:border-primary/50',
+                    inputError ? 'border-destructive/50' : 'border-border focus:border-primary/50',
                   )}
                   spellCheck={false}
                   placeholder="{}"
@@ -258,11 +254,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
               </div>
 
               <div className="flex gap-2">
-                <Button
-                  className="flex-1 gap-2 bg-emerald-500 text-white hover:bg-emerald-400"
-                  onClick={handleTrigger}
-                  disabled={isTriggering}
-                >
+                <Button className="flex-1 gap-2" onClick={handleTrigger} disabled={isTriggering}>
                   {isTriggering ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -278,9 +270,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
 
               {triggerResult !== null && (
                 <div className="space-y-1.5">
-                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Response
-                  </span>
+                  <span className="text-xs font-medium text-muted-foreground">Response</span>
                   <pre className="max-h-32 overflow-auto rounded-lg border border-border bg-muted/20 p-3 font-mono text-xs leading-5 text-foreground/80">
                     {JSON.stringify(triggerResult, null, 2)}
                   </pre>
@@ -289,7 +279,7 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
 
               {instanceId && (
                 <div className="space-y-1.5">
-                  <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <span className="text-xs font-medium text-muted-foreground">
                     Instance{' '}
                     <span className="font-mono normal-case tracking-normal">
                       {instanceId.slice(0, 12)}…
@@ -350,9 +340,7 @@ function LogViewer({ logs }: { logs: ReturnType<typeof useLocalDev>['logs'] }) {
       <div className="flex items-center justify-between px-5 py-2">
         <div className="flex items-center gap-2">
           <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-            Logs
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Logs</span>
           <span className="text-2xs text-muted-foreground/50">{visible.length} lines</span>
         </div>
         <div className="flex items-center gap-1">
@@ -377,10 +365,10 @@ function LogViewer({ logs }: { logs: ReturnType<typeof useLocalDev>['logs'] }) {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="min-h-0 flex-1 overflow-auto border-t border-border/60 bg-[#09090b] px-4 py-3 font-mono text-xs leading-5"
+        className="min-h-0 flex-1 overflow-auto border-t border-border/60 bg-terminal px-4 py-3 font-mono text-xs leading-5"
       >
         {visible.length === 0 ? (
-          <span className="text-muted-foreground/40">Waiting for output…</span>
+          <span className="text-terminal-muted">Waiting for output…</span>
         ) : (
           visible.map((entry, index) => (
             <LogLine key={`${entry.timestamp}-${index}`} entry={entry} />
@@ -393,10 +381,10 @@ function LogViewer({ logs }: { logs: ReturnType<typeof useLocalDev>['logs'] }) {
 
 function LogLine({ entry }: { entry: ReturnType<typeof useLocalDev>['logs'][number] }) {
   const segments = parseAnsi(entry.text.replace(/\r/g, ''))
-  const fallback = entry.stream === 'stderr' ? 'text-red-300' : 'text-zinc-300'
+  const fallback = entry.stream === 'stderr' ? 'text-terminal-error' : 'text-terminal-foreground'
   return (
     <div className="flex gap-3 whitespace-pre-wrap break-words">
-      <span className="w-[62px] shrink-0 select-none text-zinc-600">
+      <span className="w-[62px] shrink-0 select-none text-terminal-muted">
         {new Date(entry.timestamp).toLocaleTimeString([], { hour12: false })}
       </span>
       <span className={fallback}>

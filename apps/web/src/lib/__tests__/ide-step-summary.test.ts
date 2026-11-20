@@ -250,7 +250,7 @@ describe('stepSettings for a custom or marketplace node', () => {
       retries: '3 retries · exponential from 5s',
       timeout: '30s',
     })
-    expect(stepMeta(custom, { runtime })).toBe('retries 3 · timeout 30s')
+    expect(stepMeta(custom, { runtime })).toBe('retries 3, timeout 30s')
   })
 
   it('is a step in a function too, which retries only with hints', () => {
@@ -278,7 +278,7 @@ describe('stepMeta', () => {
     expect(stepMeta(node())).toBe('retries 2')
     expect(stepMeta(node({ data: { retryLimit: 3 } }))).toBe('retries 3')
     expect(stepMeta(node({ data: { retryLimit: 3, timeout: '30 seconds' } }))).toBe(
-      'retries 3 · timeout 30s',
+      'retries 3, timeout 30s',
     )
     expect(stepMeta(node({ type: 'http_request', data: { retryLimit: 5 } }))).toBeNull()
     expect(stepMeta(node({ type: 'http_request', data: { retryLimit: 5, durable: true } }))).toBe(
@@ -421,13 +421,13 @@ describe('templateNodeMeta', () => {
 
   it('names a Library node with its published version', () => {
     expect(templateNodeMeta(node('custom:a'), { library: { version: '1.0.1' } })).toBe(
-      'Custom node · v1.0.1',
+      'Custom node, v1.0.1',
     )
   })
 
   it('names a marketplace node with its registry version, and says when it runs inline', () => {
     expect(templateNodeMeta(node('resend', { inline: true }), { registryVersion: '2.0.0' })).toBe(
-      'Marketplace node · v2.0.0 · inline',
+      'Marketplace node, v2.0.0, inline',
     )
   })
 
@@ -443,7 +443,7 @@ describe('nodeMeta for a custom or marketplace node', () => {
         { id: 'n', type: 'custom:abc', data: {} },
         { template: { library: { version: '1.0.1' } } },
       ),
-    ).toBe('Custom node · v1.0.1')
+    ).toBe('Custom node, v1.0.1')
     expect(nodeMeta({ id: 'n', type: 'resend', data: {} })).toBe('Marketplace node')
   })
 })

@@ -68,7 +68,7 @@ export function orgChips(org: OrgListing): string[] {
   return [projects, ...grants.slice(0, GRANT_CHIPS), ...(extra > 0 ? [`+${extra} more`] : [])]
 }
 
-/** "Member · Platform workspace · expires 4 Nov" under an invite waiting for you. */
+/** "Member, Platform workspace, expires 4 Nov" under an invite waiting for you. */
 export function inviteMeta(invite: PendingInvite): string {
   const parts = [ORG_ROLE_LABEL[invite.orgRole]]
   if (invite.place) {
@@ -77,5 +77,5 @@ export function inviteMeta(invite: PendingInvite): string {
     )
   }
   parts.push(`expires ${shortDay(invite.expiresAt)}`)
-  return parts.join(' · ')
+  return parts.join(', ')
 }

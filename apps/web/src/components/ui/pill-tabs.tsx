@@ -25,7 +25,7 @@ export function PillTab({ value, count, children }: PillTabProps) {
       {count !== undefined && (
         <>
           {/* Reads as "Members 4", not "Members4". */}{' '}
-          <span className="rounded-full bg-muted px-1.5 text-3xs text-muted-foreground group-data-[state=active]:bg-primary/15 group-data-[state=active]:text-status-success">
+          <span className="rounded-full bg-muted px-1.5 text-2xs text-muted-foreground group-data-[state=active]:bg-primary/15 group-data-[state=active]:text-status-success">
             {count}
           </span>
         </>

@@ -8,7 +8,7 @@ import { ActiveBar } from './panel-item'
 import { ShellLink } from '../ui/shell-link'
 
 const railItemBase =
-  'relative flex w-[60px] flex-col items-center gap-1 rounded-md py-2 text-center text-3xs font-medium transition-colors'
+  'relative flex w-[60px] flex-col items-center gap-1 rounded-md py-2 text-center text-2xs font-medium transition-colors'
 
 function railItemClass(active: boolean): string {
   return cn(
@@ -55,7 +55,7 @@ export function RailBadgeMark({ badge }: { badge: RailBadge }) {
   return (
     <span
       aria-hidden="true"
-      className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-3xs font-semibold text-background ring-2 ring-sidebar"
+      className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-2xs font-semibold text-background ring-2 ring-sidebar"
     >
       {text}
     </span>

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite'
 import { cn } from '../../lib/utils'
 
 const scale = [
-  { token: 'text-3xs', size: '10 / 14', role: 'Uppercase micro tag' },
+  { token: 'text-3xs', size: '10 / 14', role: 'Unused: functional text stays at 11px or more' },
   { token: 'text-2xs', size: '11 / 16', role: 'Meta, badge, timestamp' },
   { token: 'text-xs', size: '12 / 18', role: 'Label, nav, table cell' },
   { token: 'text-sm', size: '14 / 20', role: 'Body, input, button, section/row title' },
@@ -34,7 +34,7 @@ const roles = [
     className: 'text-2xs text-muted-foreground',
     sample: 'Failed 5m ago · 12 steps',
   },
-  { name: 'Micro tag', className: 'text-3xs uppercase tracking-wider', sample: 'Trigger' },
+  { name: 'Micro tag', className: 'text-2xs', sample: 'Trigger' },
 ]
 
 /** The dashboard type scale, one row per size and per role. */
@@ -72,9 +72,7 @@ function Typography() {
         <div className="flex flex-col gap-4 rounded border border-border p-4">
           {roles.map((role) => (
             <div key={role.name} className="flex flex-col gap-1">
-              <span className="text-3xs uppercase tracking-wider text-muted-foreground">
-                {role.name}
-              </span>
+              <span className="text-xs text-muted-foreground">{role.name}</span>
               <span className={role.className}>{role.sample}</span>
             </div>
           ))}
@@ -84,12 +82,10 @@ function Typography() {
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Dense chrome</h2>
         <div className="flex flex-wrap items-center gap-2 rounded border border-border p-4">
-          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-3xs uppercase tracking-wider text-primary">
+          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-2xs text-primary">
             Entry
           </span>
-          <span className="rounded bg-muted px-1 py-px text-3xs uppercase tracking-wider text-muted-foreground">
-            Retry
-          </span>
+          <span className="rounded bg-muted px-1 py-px text-2xs text-muted-foreground">Retry</span>
           <span className="font-mono text-2xs text-muted-foreground">step.fetch-user · 124 ms</span>
           <span className="rounded-full bg-muted px-1.5 text-2xs tabular-nums text-muted-foreground">
             3

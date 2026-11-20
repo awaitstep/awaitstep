@@ -68,9 +68,8 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
   return (
     <div
       className={cn(
-        'group relative w-[120px] rounded border border-border bg-card shadow-md transition-all duration-150',
-        selected &&
-          'border-primary/60 shadow-[0_0_0_1px_oklch(0.696_0.17_162.48/0.3),0_2px_8px_rgba(0,0,0,0.5)]',
+        'group relative w-[120px] rounded border border-border bg-card shadow-md transition-[color,background-color,border-color,box-shadow,opacity] duration-150',
+        selected && 'border-primary/60 shadow-lg ring-1 ring-primary/30',
         overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
         // A run overlay owns the border while it is active; outside a run,
         // validation errors take precedence over the selected ring.
@@ -89,7 +88,7 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         warning &&
         !overlayActive && (
           <div
-            className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-amber-500"
+            className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-status-warning"
             title="Unknown node type"
           />
         )
@@ -114,7 +113,7 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         className={cn(
           '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
           hasIncoming
-            ? '!bg-[oklch(0.5_0_0)]'
+            ? '!bg-muted-foreground'
             : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
         )}
       />
@@ -123,11 +122,11 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         <div className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-sm', accent)}>
           {icon}
         </div>
-        <span className="truncate text-3xs font-medium leading-tight text-foreground">{label}</span>
+        <span className="truncate text-2xs font-medium leading-tight text-foreground">{label}</span>
       </div>
 
       {children && (
-        <div className="border-t border-border px-1.5 py-0.5 text-3xs leading-tight text-muted-foreground/60 truncate">
+        <div className="border-t border-border px-1.5 py-0.5 text-2xs leading-tight text-muted-foreground/60 truncate">
           {children}
         </div>
       )}
@@ -138,7 +137,7 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         className={cn(
           '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
           hasOutgoing
-            ? '!bg-[oklch(0.5_0_0)]'
+            ? '!bg-muted-foreground'
             : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
         )}
       />

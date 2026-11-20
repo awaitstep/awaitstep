@@ -1,6 +1,13 @@
 export default function Logo({ className }: { className?: string }) {
   return (
-    <svg className={className} width="80" height="30" viewBox="0 0 80 35" fill="none">
+    <svg
+      aria-hidden="true"
+      className={className}
+      width="80"
+      height="30"
+      viewBox="0 0 80 35"
+      fill="none"
+    >
       <rect x="0" y="0" width="52" height="10" rx="2" className="fill-primary" />
       <rect
         x="14"

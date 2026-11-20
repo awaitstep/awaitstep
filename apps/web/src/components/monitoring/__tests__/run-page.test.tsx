@@ -165,7 +165,7 @@ describe('the run page (26b)', () => {
   it('shows the payload only when asked', async () => {
     const fetchSpy = serve()
     renderPage()
-    const link = await screen.findByRole('button', { name: 'See the payload →' })
+    const link = await screen.findByRole('button', { name: 'See the payload' })
     expect(fetchSpy.mock.calls.some(([u]) => String(u).includes('/params'))).toBe(false)
     await userEvent.click(link)
     expect(await screen.findByText(/"email": "a@b.c"/)).toBeVisible()

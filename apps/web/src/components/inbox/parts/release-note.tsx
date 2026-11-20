@@ -1,6 +1,5 @@
 import { useId } from 'react'
 import { format } from 'date-fns'
-import { ArrowRight } from 'lucide-react'
 import { Badge, type BadgeProps } from '../../ui/badge'
 import { ShellLink } from '../../ui/shell-link'
 import type { Release, ReleaseTag } from '../../../types/dashboard/inbox'
@@ -40,7 +39,6 @@ export function ReleaseNote({ release }: ReleaseNoteProps) {
           className="flex w-fit items-center gap-1 text-xs font-medium text-status-success "
         >
           {release.link.label}
-          <ArrowRight className="size-3.5" aria-hidden="true" />
         </ShellLink>
       )}
     </article>

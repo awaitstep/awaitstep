@@ -57,15 +57,15 @@ describe('orgChips', () => {
 })
 
 describe('inviteMeta', () => {
-  it('reads role · place · expiry', () => {
-    expect(inviteMeta(GLOBEX_INVITE)).toBe('Member · Platform workspace · expires 4 Nov')
+  it('reads role, place, expiry', () => {
+    expect(inviteMeta(GLOBEX_INVITE)).toBe('Member, Platform workspace, expires 4 Nov')
     expect(
       inviteMeta({
         ...GLOBEX_INVITE,
         orgRole: 'admin',
         place: { kind: 'project', name: 'Core', role: 'admin' },
       }),
-    ).toBe('Admin · Core · expires 4 Nov')
-    expect(inviteMeta({ ...GLOBEX_INVITE, place: null })).toBe('Member · expires 4 Nov')
+    ).toBe('Admin, Core, expires 4 Nov')
+    expect(inviteMeta({ ...GLOBEX_INVITE, place: null })).toBe('Member, expires 4 Nov')
   })
 })

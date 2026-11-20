@@ -69,11 +69,7 @@ export function KeyLevelCards({ current, links }: KeyLevelCardsProps) {
                 {info.glyph}
               </Tile>
               <span className="flex-1 text-sm font-semibold text-foreground">{info.name}</span>
-              {here && (
-                <Badge variant="success" dot>
-                  You’re here
-                </Badge>
-              )}
+              {here && <Badge variant="success">You’re here</Badge>}
             </span>
             <span className="flex flex-col gap-1.5 text-sm text-foreground/90">
               {info.can.map((line) => (
@@ -98,7 +94,7 @@ export function KeyLevelCards({ current, links }: KeyLevelCardsProps) {
                 href={link.href}
                 className="mt-auto text-xs font-medium text-status-success "
               >
-                {link.label} →
+                {link.label}
               </ShellLink>
             )}
           </li>

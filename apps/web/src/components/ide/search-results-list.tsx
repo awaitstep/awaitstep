@@ -147,10 +147,7 @@ function resultGroup(file: FileHits): ResultGroup {
 function SectionHeading({ group, hits }: { group: ResultGroup; hits: number }) {
   // The group carries the name for assistive tech; the heading is for the eye.
   return (
-    <div
-      aria-hidden="true"
-      className="px-3 pb-1 pt-3 text-3xs font-semibold uppercase tracking-wider text-muted-foreground"
-    >
+    <div aria-hidden="true" className="px-3 pb-1 pt-3 text-2xs font-semibold text-muted-foreground">
       {GROUP_HEADING[group]} · {hits}
     </div>
   )

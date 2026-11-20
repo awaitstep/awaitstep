@@ -83,7 +83,7 @@ export function ItemHeader({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 basis-64 flex-col gap-1.5">
           <div className="flex min-w-0 flex-wrap items-center gap-2.5">
             <EditableName
               workflowId={workflow.id}

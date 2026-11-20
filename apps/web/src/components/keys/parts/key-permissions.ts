@@ -111,7 +111,7 @@ export function describeGrants(level: KeyLevel, value: KeyPermissions): string[]
   const normalised = normalisePermissions(level, value)
   return KEY_CATALOG[level].flatMap((resource) => {
     const actions = normalised[resource.id]
-    return actions ? [`${resource.label}: ${actions.join(' · ')}`] : []
+    return actions ? [`${resource.label}: ${actions.join(', ')}`] : []
   })
 }
 

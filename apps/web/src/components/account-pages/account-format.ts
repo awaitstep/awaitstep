@@ -11,11 +11,11 @@ function inSentence(text: string): string {
   return text === 'Yesterday' ? 'yesterday' : text
 }
 
-/** "Owner · 3 projects · the only owner" (`AccountProfile`'s Organizations). */
+/** "Owner, 3 projects, the only owner" (`AccountProfile`'s Organizations). */
 export function orgMeta(org: AccountOrg): string {
   const parts = [ORG_ROLE_LABEL[org.role], plural(org.projectCount, 'project')]
   if (org.onlyOwner) parts.push('the only owner')
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 /** "81.2.69.x · signed in 3 days ago"; "Signed in 3 days ago" when no address was known. */

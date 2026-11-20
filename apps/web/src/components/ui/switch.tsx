@@ -48,7 +48,7 @@ export function Switch({
       aria-describedby={locked ? reasonId : undefined}
       className={cn(
         'relative h-5 w-9 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        checked ? TRACK_ON[tone] : 'bg-input',
+        checked ? TRACK_ON[tone] : 'bg-control-track',
         locked && 'cursor-not-allowed opacity-50',
       )}
     >

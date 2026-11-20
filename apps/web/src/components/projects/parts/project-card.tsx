@@ -59,11 +59,7 @@ export function ProjectCard({ project, href, current }: ProjectCardProps) {
             <span className="truncate text-xs text-muted-foreground">{project.description}</span>
           )}
         </span>
-        {current && (
-          <Badge variant="success" dot>
-            Current
-          </Badge>
-        )}
+        {current && <Badge variant="success">Current</Badge>}
       </span>
       <span id={detailId} className="flex flex-1 flex-col gap-4 px-5 pb-5 pt-4">
         <span className="flex flex-wrap items-center gap-1.5">

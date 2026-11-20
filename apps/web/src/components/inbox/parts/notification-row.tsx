@@ -1,7 +1,6 @@
 import { useRef } from 'react'
 import {
   AlertTriangle,
-  ArrowRight,
   ArrowUpCircle,
   AtSign,
   Clock,
@@ -117,7 +116,6 @@ export function NotificationRow({
             className="flex w-fit items-center gap-1 text-2xs font-medium text-status-success "
           >
             {notification.link.label}
-            <ArrowRight className="size-3" aria-hidden="true" />
           </ShellLink>
         )}
       </div>

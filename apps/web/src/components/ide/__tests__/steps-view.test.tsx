@@ -107,7 +107,7 @@ describe('StepsView', () => {
 
   it('says where each step lives and what it is set to', () => {
     setup()
-    expect(item(/Charge card/)).toHaveTextContent('retries 3 · uses 1 file')
+    expect(item(/Charge card/)).toHaveTextContent('retries 3, uses 1 file')
     expect(item(/Wait 2 days/)).toHaveTextContent('sleep')
     expect(item(/Wait 2 days/)).not.toHaveTextContent('In workflow.ts')
     expect(item(/Paid\?/)).toHaveTextContent('branch · 2 arms')
@@ -541,7 +541,7 @@ describe('StepsView', () => {
     const { onCreateStep } = setup()
     await user.click(screen.getByRole('button', { name: 'Add' }))
     await user.type(screen.getByRole('textbox', { name: 'Step name' }), 'Quick')
-    await user.click(screen.getByRole('switch', { name: 'Inline — no step' }))
+    await user.click(screen.getByRole('switch', { name: 'Inline, no step' }))
     await user.click(screen.getByRole('button', { name: 'Insert' }))
     await waitFor(() =>
       expect(onCreateStep).toHaveBeenCalledWith(expect.anything(), 'Quick', 'quick', {

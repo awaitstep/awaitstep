@@ -131,7 +131,7 @@ describe('OverviewBody (WorkflowDetail)', () => {
     expect(within(band).getByText('Runs from the API once it’s deployed.')).toBeVisible()
     expect(within(band).getByText('No runs yet')).toBeVisible()
     expect(screen.getByText('Deploy it, then trigger a run.')).toBeVisible()
-    expect(screen.queryByRole('link', { name: 'All runs →' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'All runs' })).not.toBeInTheDocument()
   })
 })
 
@@ -170,7 +170,7 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
       />,
       PAGES,
     )
-    expect(screen.getByText('deployed')).toBeVisible()
+    expect(screen.getByText('Deployed')).toBeVisible()
     expect(screen.queryByText('published')).toBeNull()
     expect(screen.getAllByRole('link', { name: 'Deploy' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('link', { name: 'Publish' })).toBeNull()
@@ -210,6 +210,6 @@ describe('OverviewBody for a function (FunctionDetail)', () => {
     expect(within(band).getByText('Runs from the API once it’s deployed.')).toBeVisible()
     expect(within(band).getByText('No runs yet')).toBeVisible()
     expect(screen.getByText('Deploy it, then trigger a run.')).toBeVisible()
-    expect(screen.queryByRole('link', { name: 'All runs →' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'All runs' })).not.toBeInTheDocument()
   })
 })

@@ -4,7 +4,7 @@ export interface FilterOption<Id extends string> {
   id: Id
   label: string
   count?: number
-  /** `danger` tints the count red, e.g. "Failing". */
+  /** `danger` tints the count red when it is above zero, e.g. "Failing 2". */
   tone?: 'danger'
 }
 
@@ -69,7 +69,7 @@ function FilterPill<Id extends string>({ option, pressed, onPick }: FilterPillPr
           <span
             className={cn(
               'rounded-full px-1.5 text-2xs tabular-nums',
-              option.tone === 'danger'
+              option.tone === 'danger' && option.count > 0
                 ? 'bg-tone-fail text-status-error'
                 : 'bg-muted text-muted-foreground',
             )}

@@ -219,7 +219,7 @@ export function AddProjectPeopleDialog({
       ctx={{ kind: 'project', orgName, projectName, roleLabel, where }}
       access={
         <>
-          <p className="mb-2.5 text-2xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
+          <p className="mb-2.5 text-xs font-semibold text-muted-foreground">
             What they get in {projectName}
           </p>
           <ScopeChoice value={scope} projectName={projectName} onChange={handleScope} />

@@ -19,7 +19,7 @@ export function UnsavedSection({ paths, onReview }: UnsavedSectionProps) {
   if (paths.length === 0) return null
   return (
     <section aria-label="Unsaved files" className="shrink-0 border-b border-border py-1">
-      <div className="flex items-center px-3 py-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center px-3 py-1 text-xs font-semibold text-muted-foreground">
         <span>Unsaved · {paths.length}</span>
         <button
           type="button"
