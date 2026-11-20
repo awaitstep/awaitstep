@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
+import { installFetchDispatcher } from './fake-api/fetch-dispatcher'
+
+// Before any app module loads: better-auth's client keeps the `fetch` it finds then.
+installFetchDispatcher()
 
 // Vitest runs without globals, so testing-library cannot register its own cleanup.
 afterEach(cleanup)
