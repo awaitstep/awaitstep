@@ -3,8 +3,6 @@ import { render } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { onTestFinished } from 'vitest'
 import { TopBarSlotProvider, TopBarSlotTarget } from '../../components/navigation/top-bar-slot'
-import { MockScenarioProvider } from '../../data/dashboard/scenario-context'
-import { DataSourceProvider } from '../../data/dashboard/source'
 import { useAuthStore } from '../../stores/auth-store'
 import { authSession } from '../fixtures/api'
 import { installFakeApi, type FakeApi, type FakeApiOptions } from './fake-api'
@@ -17,24 +15,19 @@ export function createTestQueryClient(): QueryClient {
 }
 
 /**
- * The app's providers on the API source, as `DashboardProviders` sets them up
- * for a signed-in person, plus the top bar's slot. A wrapper, so `rerender`
+ * The query client and the top bar's slot a dashboard page renders inside. A wrapper, so `rerender`
  * keeps the providers and the cache.
  */
-export function dashboardApiWrapper(client: QueryClient, viewer: string) {
+export function dashboardApiWrapper(client: QueryClient) {
   return function DashboardApiWrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={client}>
-        <DataSourceProvider source="api">
-          <MockScenarioProvider scenario="empty" userId={viewer} real>
-            <TopBarSlotProvider>
-              <header aria-label="Top bar">
-                <TopBarSlotTarget />
-              </header>
-              {children}
-            </TopBarSlotProvider>
-          </MockScenarioProvider>
-        </DataSourceProvider>
+        <TopBarSlotProvider>
+          <header aria-label="Top bar">
+            <TopBarSlotTarget />
+          </header>
+          {children}
+        </TopBarSlotProvider>
       </QueryClientProvider>
     )
   }
@@ -56,8 +49,8 @@ export interface RenderWithDashboardApiOptions extends FakeApiOptions {
 }
 
 /**
- * Renders a dashboard page against the fake API: the hooks take their API
- * branch, so the page runs its real `dashboardApi` calls and mappers.
+ * Renders a dashboard page against the fake API, so the page runs its real
+ * `dashboardApi` calls and mappers.
  */
 export function renderWithDashboardApi(
   ui: ReactElement,
@@ -72,6 +65,6 @@ export function renderWithDashboardApi(
   const api = installed ?? installFakeApi(fakeOptions)
   signInAs(api)
   const client = createTestQueryClient()
-  const result = render(ui, { wrapper: dashboardApiWrapper(client, api.viewer) })
+  const result = render(ui, { wrapper: dashboardApiWrapper(client) })
   return { ...result, client, api }
 }

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useDataSource } from '../../data/dashboard/source'
 import { ApiError, type WorkflowSummary } from '../../lib/api-client'
 import type { RunHour } from '../../types/dashboard/workspaces'
 import type { WorkspaceSlugs } from '../../lib/dashboard-paths'
@@ -58,8 +57,7 @@ interface ItemPageProps {
  * project; sample data has no real item to show.
  */
 export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
-  const source = useDataSource()
-  const ready = useItemScopeReady() && source === 'api'
+  const ready = useItemScopeReady()
   // Deploy and a run head themselves (25a, 26a): none of the summary (runs, counts) is asked for.
   const ownHead = page === 'deploy' || page === 'run'
   const overview = useWorkflowOverview(workflowId, ready, !ownHead)
@@ -68,14 +66,6 @@ export function ItemPage({ slugs, workflowId, page, children }: ItemPageProps) {
   const accounts = useDeploymentAccounts(workflowId, ready)
   // Edit in place only where the API would take it (a Viewer would get a 403).
   const canEdit = useWorkspaceScope(slugs)?.workspace.viewerCan.edit.allowed ?? false
-
-  if (source !== 'api') {
-    return (
-      <PageBody>
-        <ItemNotFound slugs={slugs} workflowId={workflowId} />
-      </PageBody>
-    )
-  }
 
   let body: ReactNode
   // A cached read naming another workspace may be from before a move: wait for the fresh one.

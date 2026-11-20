@@ -1,23 +1,33 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
-  dashboardDb,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  apiError,
+  asProjectRole,
+  asWorkspaceRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { CreateKeyDialog } from '../create-key-dialog'
 
 const ORG = { slug: 'acme', name: 'Acme Inc' }
 const P101 = { slug: 'project-101', name: 'Project 101' }
-beforeEach(() => resetDashboardData(new Date()))
+/** Daniel: a member of Project 101, not one of its admins. */
+function asMember(): FakeApi {
+  const api = installFakeApi({ viewer: DANIEL })
+  asProjectRole(api, 'acme/project-101', 'member')
+  asWorkspaceRole(api, 'acme/project-101/sales', 'editor')
+  return api
+}
 
 function renderDialog(
-  options: { start?: 'organization' | 'project' | 'workspace'; userId?: string } = {},
+  options: { start?: 'organization' | 'project' | 'workspace'; api?: FakeApi } = {},
 ) {
   const onClose = vi.fn()
-  renderWithDashboardData(
+  const api = options.api ?? installFakeApi()
+  renderWithDashboardApi(
     <CreateKeyDialog
       org={ORG}
       start={options.start ?? 'project'}
@@ -25,16 +35,16 @@ function renderDialog(
       workspace="sales"
       onClose={onClose}
     />,
-    { userId: options.userId },
+    { api },
   )
-  return { onClose, dialog: screen.getByRole('dialog', { name: 'Create an API key' }) }
+  return { api, onClose, dialog: screen.getByRole('dialog', { name: 'Create an API key' }) }
 }
 
 describe('Create an API key', () => {
   it('starts at the project with Deploy & run, creates the key and reveals it once', async () => {
     const user = userEvent.setup()
     vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
-    const { dialog, onClose } = renderDialog()
+    const { api, dialog, onClose } = renderDialog()
     expect(within(dialog).getByRole('radio', { name: /Project 101/ })).toBeChecked()
     expect(within(dialog).getByRole('button', { name: 'Deploy & run' })).toHaveAttribute(
       'aria-pressed',
@@ -49,8 +59,9 @@ describe('Create an API key', () => {
     expect(await within(dialog).findByText('Key copied. You can close this.')).toBeVisible()
     await user.click(within(dialog).getByRole('button', { name: 'Done' }))
     expect(onClose).toHaveBeenCalled()
-    expect(dashboardDb().keys[0]).toMatchObject({ name: 'Release bot', level: 'project' })
-    expect(dashboardDb().keys[0]!.projectScopes).toEqual([{ id: 'prj_101', revokedAt: null }])
+    const sent = api.lastRequest('POST /api-keys')
+    expect(sent.query).toMatchObject({ org: 'acme', project: 'project-101' })
+    expect(sent.body).toMatchObject({ name: 'Release bot', level: 'project' })
   })
 
   it('asks before closing when the key wasn’t copied', async () => {
@@ -76,18 +87,19 @@ describe('Create an API key', () => {
   })
 
   it('makes a workspace key for the workspace it opened from', async () => {
-    const { dialog } = renderDialog({ start: 'workspace' })
+    const { api, dialog } = renderDialog({ start: 'workspace' })
     // A workspace key reaches just that workspace, so there is no "where" choice.
     expect(within(dialog).queryByRole('radio')).not.toBeInTheDocument()
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Sales hook')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create key' }))
     await within(dialog).findByRole('textbox', { name: 'Your API key' })
-    expect(dashboardDb().keys[0]).toMatchObject({ name: 'Sales hook', level: 'workspace' })
-    expect(dashboardDb().keys[0]!.workspaceScopes).toEqual([{ id: 'ws_sales', revokedAt: null }])
+    const sent = api.lastRequest('POST /api-keys')
+    expect(sent.query).toMatchObject({ org: 'acme', project: 'project-101', workspace: 'sales' })
+    expect(sent.body).toMatchObject({ name: 'Sales hook', level: 'workspace' })
   })
 
   it('disables the project choices the viewer can’t create keys at, saying why', async () => {
-    const { dialog } = renderDialog({ start: 'project', userId: DANIEL })
+    const { dialog } = renderDialog({ start: 'project', api: asMember() })
     // The reason arrives once the viewer's project scope loads; both choices carry it.
     expect(
       (await within(dialog).findAllByText('Only project admins and org owners can do this')).length,
@@ -97,11 +109,10 @@ describe('Create an API key', () => {
   })
 
   it('lets a workspace admin create a key for their workspace', async () => {
-    dashboardDb().workspaceMembers.find(
-      (m) => m.workspaceId === 'ws_sales' && m.userId === DANIEL,
-    )!.role = 'admin'
+    const api = asMember()
+    asWorkspaceRole(api, 'acme/project-101/sales', 'admin')
     const onClose = vi.fn()
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <CreateKeyDialog
         org={ORG}
         start="workspace"
@@ -109,7 +120,7 @@ describe('Create an API key', () => {
         workspace="sales"
         onClose={onClose}
       />,
-      { userId: DANIEL },
+      { api },
     )
     const dialog = screen.getByRole('dialog', { name: 'Create an API key' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Sales hook')
@@ -118,12 +129,14 @@ describe('Create an API key', () => {
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create key' }))
     await within(dialog).findByRole('textbox', { name: 'Your API key' })
-    expect(dashboardDb().keys[0]).toMatchObject({ level: 'workspace' })
-    expect(dashboardDb().keys[0]!.workspaceScopes).toEqual([{ id: 'ws_sales', revokedAt: null }])
+    expect(api.lastRequest('POST /api-keys').body).toMatchObject({ level: 'workspace' })
+    expect(api.lastRequest('POST /api-keys').query).toMatchObject({ workspace: 'sales' })
   })
 
   it('puts a missing name’s error on the name field', async () => {
-    const { dialog } = renderDialog()
+    const api = installFakeApi()
+    api.on('POST /api-keys', apiError(400, 'Give the key a name', { field: 'name' }))
+    const { dialog } = renderDialog({ api })
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create key' }))
     expect(await within(dialog).findByText('Give the key a name')).toBeVisible()
   })

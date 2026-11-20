@@ -5,12 +5,7 @@ import { RailAccountButton } from '../../shell/rail-item'
 import { useInstanceStore } from '../../../stores/instance-store'
 import { DashboardAccountMenu } from '../account-menu-container'
 
-const reset = vi.hoisted(() => vi.fn(() => Promise.resolve()))
 const signOut = vi.hoisted(() => vi.fn())
-
-vi.mock('../../../data/dashboard/reset', () => ({
-  useResetMockData: () => reset,
-}))
 
 vi.mock('../../../lib/auth-client', () => ({
   handleSignOut: signOut,
@@ -26,10 +21,7 @@ beforeEach(() => useInstanceStore.setState({ features: [], disabled: [] }))
 
 const AMA = { name: 'Ama Mensah', email: 'ama@acme.test', image: null }
 
-function renderMenu(
-  placement: 'rail' | 'phone',
-  options: { showReset?: boolean; onToggleTheme?: () => void } = {},
-) {
+function renderMenu(placement: 'rail' | 'phone', options: { onToggleTheme?: () => void } = {}) {
   render(
     <DashboardAccountMenu
       placement={placement}
@@ -39,7 +31,6 @@ function renderMenu(
       org="acme"
       theme="dark"
       onToggleTheme={options.onToggleTheme ?? vi.fn()}
-      showReset={options.showReset ?? false}
     />,
   )
 }
@@ -50,7 +41,6 @@ async function openMenu() {
 }
 
 afterEach(() => {
-  reset.mockClear()
   signOut.mockClear()
 })
 
@@ -66,7 +56,6 @@ describe('DashboardAccountMenu', () => {
         org="acme"
         theme="dark"
         onToggleTheme={vi.fn()}
-        showReset={false}
       />,
     )
     expect(
@@ -121,17 +110,8 @@ describe('DashboardAccountMenu', () => {
     expect(signOut).toHaveBeenCalled()
   })
 
-  it('resets the dummy data only after confirming, and only where it’s offered', async () => {
-    renderMenu('rail', { showReset: true })
-    await openMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Reset dummy data' }))
-    expect(reset).not.toHaveBeenCalled()
-    await userEvent.click(screen.getByRole('button', { name: 'Reset' }))
-    expect(reset).toHaveBeenCalled()
-  })
-
-  it('has no reset item when it isn’t offered', async () => {
-    renderMenu('rail', { showReset: false })
+  it('has no Reset dummy data item: the app has no dummy data', async () => {
+    renderMenu('rail')
     await openMenu()
     expect(screen.queryByRole('menuitem', { name: 'Reset dummy data' })).not.toBeInTheDocument()
   })

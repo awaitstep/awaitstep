@@ -13,6 +13,9 @@ import { amaOrgListings, amaOrgs } from './orgs'
 import type { PersonId } from './people'
 import { amaProjects, amaWorkspaces } from './places'
 import { PROJECT_SETUP } from './setup'
+import { seedDb } from '../seed'
+import { workspaceCounts } from './workflows'
+import type { SeedDb } from '../seed/rows'
 
 export * from './clock'
 export * from './people'
@@ -47,13 +50,26 @@ export interface FakeApiData {
   myInvites: Partial<Record<PersonId, ApiPendingInvite[]>>
   /** `GET /projects/:id/setup`, by project id. */
   projectSetup: Record<string, ProjectSetup>
+  /**
+   * The sample tables the other domains' answers are projected from (workflows,
+   * runs, members, keys…): edit a row to change what those routes answer.
+   */
+  seed: SeedDb
 }
 
 export function createApiFixtures(now: Date): FakeApiData {
+  const seed = seedDb(now)
+  const workspaces = amaWorkspaces(now)
+  // The scope's counts agree with the lists the seed answers.
+  for (const workspace of Object.values(workspaces)) {
+    if (seed.workspaces.some((w) => w.id === workspace.id)) {
+      workspace.counts = workspaceCounts(seed, workspace.id, now)
+    }
+  }
   return structuredClone({
     orgs: amaOrgs(now),
     projects: amaProjects(now),
-    workspaces: amaWorkspaces(now),
+    workspaces,
     orgListings: { usr_ama: amaOrgListings(now) },
     accounts: accounts(now),
     sessions: sessions(now),
@@ -61,5 +77,6 @@ export function createApiFixtures(now: Date): FakeApiData {
     acceptedInvites: ACCEPTED,
     myInvites: myInvites(now),
     projectSetup: PROJECT_SETUP,
+    seed,
   })
 }

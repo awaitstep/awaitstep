@@ -1,0 +1,238 @@
+import type { AuditRow } from './rows'
+import { daysAgo, minutesAgo } from './clock'
+import { ACME } from './orgs'
+import { INTERNAL, P101 } from './projects'
+import { IT, SALES, SUPPORT } from './workspaces'
+
+// `AuditLog`: the board's seven events in the last week, then older ones so
+// the longer periods have pages to step through. Fixed samples: nothing the
+// session does on the dummy data is recorded (D-P7-6).
+
+type Event = Omit<
+  AuditRow,
+  'id' | 'orgId' | 'at' | 'event' | 'actorType' | 'actorId' | 'actorEmail' | 'ip'
+>
+
+// The API's code for each sample, by its action. "failed to sign in as" has
+// no API counterpart: there are no passwords to fail (D-B7-5).
+const EVENT_OF: Record<string, string> = {
+  'tried to delete the workspace': 'workspace.delete.blocked',
+  deployed: 'workflow.deploy',
+  'created the API key': 'api_key.create',
+  'revoked the API key': 'api_key.revoke',
+  'added Daniel Kim to': 'workspace_member.add',
+  invited: 'invitation.create',
+  'failed to sign in as': 'signin.failed',
+  'turned on the deletion lock for': 'project.lock',
+  'signed in to': 'signin',
+  'changed Priya Shah’s role in': 'workspace_member.role',
+  'made Tom Becker a project admin of': 'member.access',
+  'deleted the workflow': 'workflow.delete',
+}
+
+const KEY_ACTORS = new Set(['CI deploys'])
+
+/** The sample's code, whether a key did it, and the masked address its detail names. */
+function filled(event: Event): Omit<AuditRow, 'id' | 'orgId' | 'at'> {
+  const isKey = KEY_ACTORS.has(event.actor)
+  const handle = event.actor.split(' ')[0]!.toLowerCase()
+  return {
+    ...event,
+    event: EVENT_OF[event.action] ?? 'unknown',
+    actorType: isKey ? 'key' : 'user',
+    actorId: isKey ? 'key_ci_deploys' : `usr_${handle}`,
+    actorEmail: isKey || event.actor === 'Unknown' ? null : `${handle}@acme.test`,
+    ip: /\b\d+\.\d+\.\d+\.x\b/.exec(event.detail)?.[0] ?? null,
+  }
+}
+
+const at = {
+  org: { level: 'organization', projectId: null, workspaceId: null },
+  p101: { level: 'project', projectId: P101, workspaceId: null },
+  internal: { level: 'project', projectId: INTERNAL, workspaceId: null },
+  sales: { level: 'workspace', projectId: P101, workspaceId: SALES },
+  it: { level: 'workspace', projectId: P101, workspaceId: IT },
+  support: { level: 'workspace', projectId: P101, workspaceId: SUPPORT },
+} as const
+
+const BOARD: { minutes: number; event: Event }[] = [
+  {
+    minutes: 4,
+    event: {
+      kind: 'danger',
+      actor: 'Tom Becker',
+      action: 'tried to delete the workspace',
+      target: 'IT',
+      detail: 'Blocked by the deletion lock · 81.2.69.x',
+      ...at.p101,
+    },
+  },
+  {
+    minutes: 22,
+    event: {
+      kind: 'deploy',
+      actor: 'CI deploys',
+      action: 'deployed',
+      target: 'Lead enrichment v12',
+      detail: 'Project API key ask_Kq3VtR8m…a71d',
+      ...at.sales,
+    },
+  },
+  {
+    minutes: 60,
+    event: {
+      kind: 'key',
+      actor: 'Ama Mensah',
+      action: 'created the API key',
+      target: 'CRM webhook',
+      detail: 'Dashboard · read, write on Workflows',
+      ...at.sales,
+    },
+  },
+  {
+    minutes: 120,
+    event: {
+      kind: 'access',
+      actor: 'Ama Mensah',
+      action: 'added Daniel Kim to',
+      target: 'Sales',
+      detail: 'Role: Editor',
+      ...at.sales,
+    },
+  },
+  {
+    minutes: 2 * 24 * 60,
+    event: {
+      kind: 'access',
+      actor: 'Ama Mensah',
+      action: 'invited',
+      target: 'sam@acme.test',
+      detail: 'Org role: Member',
+      ...at.org,
+    },
+  },
+  {
+    minutes: 3 * 24 * 60,
+    event: {
+      kind: 'auth',
+      actor: 'Unknown',
+      action: 'failed to sign in as',
+      target: 'tom@acme.test',
+      detail: '5 attempts · 203.0.113.x · locked for 15 min',
+      ...at.org,
+    },
+  },
+  {
+    minutes: 6 * 24 * 60,
+    event: {
+      kind: 'lock',
+      actor: 'Ama Mensah',
+      action: 'turned on the deletion lock for',
+      target: 'Project 101',
+      detail: 'Dashboard',
+      ...at.p101,
+    },
+  },
+]
+
+const OLDER: Event[] = [
+  {
+    kind: 'deploy',
+    actor: 'CI deploys',
+    action: 'deployed',
+    target: 'Lead enrichment v11',
+    detail: 'Project API key ask_Kq3VtR8m…a71d',
+    ...at.sales,
+  },
+  {
+    kind: 'auth',
+    actor: 'Lena Ortiz',
+    action: 'signed in to',
+    target: 'Acme Inc',
+    detail: 'Password · 198.51.100.x',
+    ...at.org,
+  },
+  {
+    kind: 'access',
+    actor: 'Ama Mensah',
+    action: 'changed Priya Shah’s role in',
+    target: 'Sales',
+    detail: 'Viewer → Editor',
+    ...at.sales,
+  },
+  {
+    kind: 'deploy',
+    actor: 'Tom Becker',
+    action: 'deployed',
+    target: 'Provision account v4',
+    detail: 'Dashboard',
+    ...at.it,
+  },
+  {
+    kind: 'key',
+    actor: 'Tom Becker',
+    action: 'revoked the API key',
+    target: 'Old CI token',
+    detail: 'Dashboard',
+    ...at.p101,
+  },
+  {
+    kind: 'access',
+    actor: 'Ama Mensah',
+    action: 'made Tom Becker a project admin of',
+    target: 'Project 101',
+    detail: 'Was: Project member',
+    ...at.p101,
+  },
+  {
+    kind: 'deploy',
+    actor: 'Daniel Kim',
+    action: 'deployed',
+    target: 'Ticket triage v3',
+    detail: 'Dashboard',
+    ...at.support,
+  },
+  {
+    kind: 'key',
+    actor: 'Ama Mensah',
+    action: 'created the API key',
+    target: 'Terraform',
+    detail: 'Dashboard · read on every resource',
+    ...at.org,
+  },
+  {
+    kind: 'danger',
+    actor: 'Lena Ortiz',
+    action: 'deleted the workflow',
+    target: 'Old onboarding',
+    detail: 'Dashboard',
+    ...at.internal,
+  },
+  {
+    kind: 'auth',
+    actor: 'Daniel Kim',
+    action: 'signed in to',
+    target: 'Acme Inc',
+    detail: 'Google · 192.0.2.x',
+    ...at.org,
+  },
+]
+
+const OLDER_COUNT = 40
+
+/** Board events first, then older ones spread from 8 to about 85 days back. */
+export function seedAudit(now: Date): AuditRow[] {
+  const board = BOARD.map(({ minutes, event }, i) => ({
+    id: `aud_board_${i + 1}`,
+    orgId: ACME,
+    at: minutesAgo(now, minutes),
+    ...filled(event),
+  }))
+  const older = Array.from({ length: OLDER_COUNT }, (_, i) => ({
+    id: `aud_older_${i + 1}`,
+    orgId: ACME,
+    at: daysAgo(now, 8 + i * 1.9),
+    ...filled(OLDER[i % OLDER.length]!),
+  }))
+  return [...board, ...older]
+}

@@ -30,7 +30,7 @@ describe('openEditorScope', () => {
     useOrgStore.setState({ appReady: true })
     const client = seededClient()
     const ensure = vi.spyOn(client, 'ensureQueryData')
-    const context = await openEditorScope({ params, search: {} }, client, true)
+    const context = await openEditorScope({ params }, client)
     expect(ensure.mock.calls[0]![0].queryKey).toEqual(apiScopeQuery(slugs).queryKey)
     expect(context.itemScope).toEqual({
       organizationId: 'org_1',
@@ -45,21 +45,15 @@ describe('openEditorScope', () => {
       activeOrganizationId: 'org_9',
       activeProjectId: 'prj_9',
     })
-    await openEditorScope({ params, search: {} }, seededClient(), true)
+    await openEditorScope({ params }, seededClient())
     expect(useOrgStore.getState().activeOrganizationId).toBe('org_9')
     expect(useOrgStore.getState().activeProjectId).toBe('prj_9')
   })
 
-  it('has no project to call on sample data', async () => {
-    const context = await openEditorScope({ params, search: { as: 'ama' } }, seededClient(), true)
-    expect(context.itemScope).toBeNull()
-  })
-
   it('has no new-workflow page yet', async () => {
     const thrown = await openEditorScope(
-      { params: { ...params, id: 'new' }, search: {} },
+      { params: { ...params, id: 'new' } },
       seededClient(),
-      true,
     ).catch((error: unknown) => error)
     expect(isNotFound(thrown)).toBe(true)
   })
@@ -67,6 +61,6 @@ describe('openEditorScope', () => {
   it('fails the route when the lookup fails, so it can offer a retry', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     vi.spyOn(client, 'ensureQueryData').mockRejectedValue(new Error('offline'))
-    await expect(openEditorScope({ params, search: {} }, client, true)).rejects.toThrow('offline')
+    await expect(openEditorScope({ params }, client)).rejects.toThrow('offline')
   })
 })

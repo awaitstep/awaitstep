@@ -2,10 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { useUpdateOrg } from '../org-settings'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider, type DataSource } from '../source'
 import { useScope } from '../workspaces'
 
 // Org Settings → General on the API: the logo is uploaded to its own route
@@ -39,7 +36,6 @@ const SCOPE = {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
   auth.organization.update.mockReset()
 })
@@ -49,16 +45,10 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-function wrapperFor(source: DataSource) {
+function wrapperFor() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source={source}>
-          <MockScenarioProvider>{children}</MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 }
 
@@ -68,7 +58,7 @@ async function renderUpdate() {
   const { result } = renderHook(
     () => ({ scope: useScope({ org: 'acme' }), update: useUpdateOrg('acme') }),
     {
-      wrapper: wrapperFor('api'),
+      wrapper: wrapperFor(),
     },
   )
   await waitFor(() => expect(result.current.scope.data?.found).toBe(true))

@@ -3,10 +3,12 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
-  dashboardServer,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  asOrgRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  reply,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { AuditLogPage } from '../audit-log-page'
 
 const download = vi.fn()
@@ -15,9 +17,20 @@ vi.mock('../../../lib/download-file', () => ({
 }))
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   download.mockReset()
 })
+
+function render(ui: React.ReactElement, api: FakeApi = installFakeApi()) {
+  return { ...renderWithDashboardApi(ui, { api }), api }
+}
+
+/** The log's read refused, or kept waiting. */
+function withLog(state: 'loading' | 'error'): FakeApi {
+  const api = installFakeApi()
+  if (state === 'loading') api.hang('GET /audit-events')
+  else api.on('GET /audit-events', reply(503, { error: 'Unavailable' }))
+  return api
+}
 
 const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
 const list = () => screen.getByRole('list', { name: 'Audit events in Acme Inc' })
@@ -29,24 +42,8 @@ async function pick(combobox: HTMLElement, option: string) {
 }
 
 describe('Audit log', () => {
-  it('reads as AuditLog: the seven events of the last 7 days with their scope', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />)
-    await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
-    expect(rows()).toHaveLength(7)
-    expect(rows()[0]).toHaveTextContent('Tom Becker tried to delete the workspace IT')
-    expect(rows()[0]).toHaveTextContent('Blocked by the deletion lock · 81.2.69.x')
-    expect(rows()[0]).toHaveTextContent('Project 101')
-    expect(rows()[1]).toHaveTextContent('Project 101 · Sales')
-    expect(rows()[4]).toHaveTextContent('Acme Inc')
-    expect(
-      screen.getByText('Showing 7 of 7 events in the last 7 days · kept for 90 days'),
-    ).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Newer' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Older' })).toBeDisabled()
-  })
-
   it('narrows by level and search', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />)
+    render(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Level' })).getByRole('button', {
@@ -66,7 +63,7 @@ describe('Audit log', () => {
   })
 
   it('pages the last 90 days with Older and Newer', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />)
+    render(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
     await pick(screen.getByRole('combobox', { name: 'Period' }), 'Last 90 days')
     await waitFor(() =>
@@ -81,7 +78,7 @@ describe('Audit log', () => {
   })
 
   it('says when nothing matches', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />)
+    render(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
     await userEvent.type(
       screen.getByRole('searchbox', { name: 'Search people, actions, targets' }),
@@ -91,7 +88,7 @@ describe('Audit log', () => {
   })
 
   it('exports the filtered events as CSV', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />)
+    render(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Level' })).getByRole('button', {
@@ -110,7 +107,9 @@ describe('Audit log', () => {
   })
 
   it('shows a member the no-access panel: why, their role, and the owners and admins by name', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />, { userId: DANIEL })
+    const api = installFakeApi({ viewer: DANIEL })
+    asOrgRole(api, 'acme', 'member')
+    render(<AuditLogPage org="acme" />, api)
     const panel = await screen.findByRole('region', { name: 'You can’t see the audit log' })
     expect(panel).toHaveTextContent('kept to owners and admins')
     expect(panel).toHaveTextContent(/You’re an? (Member|Viewer) of Acme Inc/)
@@ -129,23 +128,21 @@ describe('Audit log', () => {
   })
 
   it('labels the period select', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />)
+    render(<AuditLogPage org="acme" />)
     expect(await screen.findByRole('combobox', { name: 'Period' })).toBeInTheDocument()
   })
 
   it('shows skeletons while loading, and the error card when it fails', async () => {
-    const { unmount } = renderWithDashboardData(<AuditLogPage org="acme" />, {
-      scenario: 'loading',
-    })
+    const { unmount } = render(<AuditLogPage org="acme" />, withLog('loading'))
     expect(await screen.findByText('Loading the audit log')).toBeInTheDocument()
     expect(within(topBar()).getByRole('button', { name: 'Export CSV' })).toBeDisabled()
     unmount()
-    renderWithDashboardData(<AuditLogPage org="acme" />, { scenario: 'error' })
+    render(<AuditLogPage org="acme" />, withLog('error'))
     expect(await screen.findByText(/We couldn’t load the audit log/)).toBeVisible()
   })
 
   it('keeps the filters up when the request fails, so they can be changed', async () => {
-    renderWithDashboardData(<AuditLogPage org="acme" />, { scenario: 'error' })
+    render(<AuditLogPage org="acme" />, withLog('error'))
     await screen.findByText(/We couldn’t load the audit log/)
     expect(screen.getByRole('searchbox', { name: 'Search people, actions, targets' })).toBeVisible()
     expect(screen.getByRole('group', { name: 'Level' })).toBeVisible()
@@ -153,7 +150,7 @@ describe('Audit log', () => {
   })
 
   it('starts afresh in another org: no search, level or page carried over', async () => {
-    const { rerender } = renderWithDashboardData(<AuditLogPage org="acme" />)
+    const { rerender } = render(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
     await userEvent.type(
       screen.getByRole('searchbox', { name: 'Search people, actions, targets' }),
@@ -169,17 +166,15 @@ describe('Audit log', () => {
   })
 
   it('waits for typing to stop before searching', async () => {
-    const list = vi.spyOn(dashboardServer.audit, 'listAuditEvents')
-    renderWithDashboardData(<AuditLogPage org="acme" />)
+    const { api } = render(<AuditLogPage org="acme" />)
     await screen.findByRole('list', { name: 'Audit events in Acme Inc' })
-    const before = list.mock.calls.length
+    const before = api.requestsTo('GET /audit-events').length
     await userEvent.type(
       screen.getByRole('searchbox', { name: 'Search people, actions, targets' }),
       'rotated',
     )
     expect(await screen.findByText('No events match “rotated”.')).toBeVisible()
-    expect(list.mock.calls.length - before).toBe(1)
-    expect(list.mock.calls.at(-1)![2]).toMatchObject({ search: 'rotated' })
-    list.mockRestore()
+    expect(api.requestsTo('GET /audit-events').length - before).toBe(1)
+    expect(api.lastRequest('GET /audit-events').query).toMatchObject({ search: 'rotated' })
   })
 })

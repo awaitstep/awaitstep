@@ -3,10 +3,12 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
-  dashboardDb,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  apiError,
+  asProjectRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import type * as LockHooks from '../../../data/dashboard/locks'
 import { GeneralPage } from '../general-page'
 
@@ -31,17 +33,46 @@ vi.mock('../../../data/dashboard/locks', async (importOriginal) => {
 const p101 = { org: 'acme', project: 'project-101' }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   goTo.mockReset()
   lockCall.send = null
 })
 
+const P101_KEY = 'acme/project-101'
+
+/** Ama, Acme's owner, with the capabilities the API's rules give her on Project 101. */
+function asOwner(options: { locked?: boolean } = {}): FakeApi {
+  const api = installFakeApi()
+  if (options.locked === false) api.data.projects[P101_KEY]!.lock = null
+  asProjectRole(api, P101_KEY, 'admin', 'owner')
+  return api
+}
+
+/** The API's PATCH answer: the row as saved (a reserved or taken URL refused on its field). */
+function scriptSave(api: FakeApi) {
+  api.on('PATCH /projects/:id', (req) => {
+    const body = req.body as { name?: string; slug?: string }
+    if (body.slug === 'settings') {
+      return apiError(400, 'That URL is used by a dashboard page', { field: 'slug' })
+    }
+    if (body.slug === 'marketing-site') {
+      return apiError(409, 'Another project already uses that URL', { field: 'slug' })
+    }
+    if (body.name !== undefined && !body.name.trim()) {
+      return apiError(400, 'A project needs a name', { field: 'name' })
+    }
+    const project = api.data.projects[P101_KEY]!
+    return { ...project, ...body }
+  })
+}
+
 const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
 const field = (name: RegExp) => screen.getByRole('textbox', { name })
 
-async function renderPage(userId?: string) {
-  renderWithDashboardData(<GeneralPage slugs={p101} />, { userId })
+async function renderPage(api: FakeApi = asOwner()) {
+  scriptSave(api)
+  renderWithDashboardApi(<GeneralPage slugs={p101} />, { api })
   await screen.findByRole('heading', { name: 'General' })
+  return api
 }
 
 describe('project General', () => {
@@ -52,7 +83,7 @@ describe('project General', () => {
   })
 
   it('saves a renamed project once something changed', async () => {
-    await renderPage()
+    const api = await renderPage()
     const save = within(topBar()).getByRole('button', { name: 'Save changes' })
     expect(save).toBeDisabled()
     await userEvent.clear(field(/Project name/))
@@ -60,7 +91,7 @@ describe('project General', () => {
     expect(save).toBeEnabled()
     await userEvent.click(save)
     await waitFor(() =>
-      expect(dashboardDb().projects.find((p) => p.id === 'prj_101')!.name).toBe('Project 102'),
+      expect(api.lastRequest('PATCH /projects/:id').body).toMatchObject({ name: 'Project 102' }),
     )
     expect(goTo).not.toHaveBeenCalled()
   })
@@ -79,7 +110,15 @@ describe('project General', () => {
   })
 
   it('blocks Delete while the lock is on, and deletes after typing the name once it’s off', async () => {
-    await renderPage()
+    const api = asOwner()
+    // Turning the lock off: the scope's next read has no lock, and Delete opens up.
+    api.on('PUT /projects/:id/lock', () => {
+      api.data.projects[P101_KEY]!.lock = null
+      asProjectRole(api, P101_KEY, 'admin', 'owner')
+      return { lock: null }
+    })
+    api.on('DELETE /projects/:id', { ok: true })
+    await renderPage(api)
     expect(screen.getByText(/Set by Ama Mensah/)).toBeVisible()
     const remove = screen.getByRole('button', { name: 'Delete project' })
     expect(remove).toHaveAttribute('aria-disabled', 'true')
@@ -93,18 +132,19 @@ describe('project General', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: 'Delete project' }))
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Project 101?' })
-    expect(dialog).toHaveTextContent('This removes Sales, IT and Support, 8 workflows')
+    expect(dialog).toHaveTextContent('This removes Sales, IT and Support')
     const confirm = within(dialog).getByRole('button', { name: 'Delete project' })
     expect(confirm).toBeDisabled()
     await userEvent.type(within(dialog).getByRole('textbox'), 'Project 101')
     await userEvent.click(confirm)
     await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/projects'))
-    expect(dashboardDb().projects.some((p) => p.id === 'prj_101')).toBe(false)
+    expect(api.requestsTo('DELETE /projects/:id')).toHaveLength(1)
   })
 
   it('moves the project to an org the viewer administers', async () => {
-    dashboardDb().projects.find((p) => p.id === 'prj_101')!.lock = null
-    await renderPage()
+    const api = asOwner({ locked: false })
+    api.on('POST /projects/:id/move', { ok: true })
+    await renderPage(api)
     await userEvent.click(screen.getByRole('button', { name: 'Move project' }))
     const dialog = screen.getByRole('dialog', { name: 'Move Project 101' })
     await within(dialog).findByText('Bolt Labs')
@@ -113,21 +153,19 @@ describe('project General', () => {
   })
 
   it('clears a refused move when another org is picked', async () => {
-    const db = dashboardDb()
-    db.projects.find((p) => p.id === 'prj_101')!.lock = null
-    db.orgMembers.push({
-      orgId: 'org_globex',
-      userId: 'usr_ama',
-      role: 'admin',
-      joinedAt: new Date().toISOString(),
-      lastOpenedAt: null,
-    })
-    await renderPage()
+    const api = asOwner({ locked: false })
+    const listing = api.data.orgListings.usr_ama!
+    listing.push({ ...listing[1]!, id: 'org_globex', slug: 'globex', name: 'Globex' })
+    // Ama loses admin of Bolt Labs after the dialog listed it.
+    api.on('POST /projects/:id/move', (req) =>
+      (req.body as { organizationId: string }).organizationId === 'org_bolt'
+        ? apiError(403, 'Only owners and admins of Bolt Labs can move a project into it')
+        : { ok: true },
+    )
+    await renderPage(api)
     await userEvent.click(screen.getByRole('button', { name: 'Move project' }))
     const dialog = screen.getByRole('dialog', { name: 'Move Project 101' })
     const select = await within(dialog).findByRole('combobox')
-    // Ama loses admin of Bolt Labs after the dialog listed it.
-    db.orgMembers.find((m) => m.orgId === 'org_bolt' && m.userId === 'usr_ama')!.role = 'member'
     await userEvent.click(within(dialog).getByRole('button', { name: 'Move project' }))
     expect(await within(dialog).findByText(/Only owners and admins of Bolt Labs/)).toBeVisible()
 
@@ -139,10 +177,9 @@ describe('project General', () => {
   })
 
   it('offers New organization when there is nowhere to move to', async () => {
-    dashboardDb().orgMembers.find((m) => m.orgId === 'org_bolt' && m.userId === 'usr_ama')!.role =
-      'member'
-    dashboardDb().projects.find((p) => p.id === 'prj_101')!.lock = null
-    await renderPage()
+    const api = asOwner({ locked: false })
+    api.data.orgListings.usr_ama![1]!.role = 'member'
+    await renderPage(api)
     await userEvent.click(screen.getByRole('button', { name: 'Move project' }))
     const dialog = screen.getByRole('dialog', { name: 'Move Project 101' })
     expect(await within(dialog).findByRole('link', { name: 'New organization' })).toHaveAttribute(
@@ -200,7 +237,9 @@ describe('project General', () => {
   })
 
   it('is read-only for a project member, with the reasons', async () => {
-    await renderPage(DANIEL)
+    const api = installFakeApi({ viewer: DANIEL })
+    asProjectRole(api, P101_KEY, 'member')
+    await renderPage(api)
     expect(within(topBar()).queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
     expect(field(/Project name/)).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Move project' })).toHaveAttribute(

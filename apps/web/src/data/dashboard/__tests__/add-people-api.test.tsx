@@ -2,10 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { useAddProjectPeople } from '../add-people'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider } from '../source'
 import type * as ProjectHooks from '../projects'
 
 // Add people from a project (21a) on the API: what it sends, what it reads
@@ -26,7 +23,6 @@ function json(body: unknown, status = 200) {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
 })
 
@@ -38,15 +34,7 @@ afterEach(() => {
 function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source="api">
-          <MockScenarioProvider scenario="none" userId="usr_ama">
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
   return {
     client,
@@ -85,7 +73,7 @@ describe('useAddProjectPeople on the API', () => {
   it('refreshes org Members, whose rows list each person’s places', async () => {
     fetchMock.mockResolvedValue(json({ userId: 'usr_eve', scope: 'project', role: 'member' }, 201))
     const { result, client } = setup()
-    client.setQueryData(['dash', 'orgMembers', 'acme', 'api'], [])
+    client.setQueryData(['dash', 'orgMembers', 'acme'], [])
     await act(() =>
       result.current.mutateAsync({
         access: { scope: 'project', role: 'member' },
@@ -93,6 +81,6 @@ describe('useAddProjectPeople on the API', () => {
         emails: [],
       }),
     )
-    expect(client.getQueryState(['dash', 'orgMembers', 'acme', 'api'])?.isInvalidated).toBe(true)
+    expect(client.getQueryState(['dash', 'orgMembers', 'acme'])?.isInvalidated).toBe(true)
   })
 })

@@ -28,9 +28,7 @@ function OrgMembersRoute() {
   function handleOverlayChange(overlay: MembersOverlay) {
     const access = overlay?.kind === 'access' ? overlay : null
     void navigate({
-      search: (prev) => ({
-        mock: prev.mock,
-        as: prev.as,
+      search: () => ({
         access: access ? (access.userId ?? 'add') : undefined,
         project: access?.project,
         new: overlay?.kind === 'invite' ? 'invite' : undefined,

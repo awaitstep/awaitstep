@@ -32,10 +32,8 @@ describe('routerTarget', () => {
 })
 
 describe('validateDashboardSearch', () => {
-  it('keeps string mock and as params', () => {
+  it('drops the old dummy-session params, mock and as', () => {
     expect(validateDashboardSearch({ mock: 'viewer', as: 'daniel' })).toEqual({
-      mock: 'viewer',
-      as: 'daniel',
       new: undefined,
       then: undefined,
       access: undefined,
@@ -54,9 +52,7 @@ describe('validateDashboardSearch', () => {
   })
 
   it('drops other params and anything that isn’t text, a number or a boolean', () => {
-    expect(validateDashboardSearch({ mock: { a: 1 }, as: ['x'], new: null, page: '2' })).toEqual({
-      mock: undefined,
-      as: undefined,
+    expect(validateDashboardSearch({ tab: { a: 1 }, then: ['x'], new: null, page: '2' })).toEqual({
       new: undefined,
       then: undefined,
       access: undefined,

@@ -4,7 +4,6 @@ import type * as ReactQuery from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import { EditorScopeProvider } from '../../../contexts/editor-scope-context'
-import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import { ApiError } from '../../../lib/api-client'
 import { ApiClientProvider } from '../../../contexts/api-client-context'
 import type { ItemApiScope } from '../../../lib/workflows/route-scope'
@@ -107,18 +106,16 @@ function enterScope() {
   urlScope = { organizationId: 'org_1', projectId: 'prj_2', workspaceId: 'ws_sales' }
 }
 
-function renderPage(page: ItemDetailPage = 'overview', source: DataSource = 'api') {
+function renderPage(page: ItemDetailPage = 'overview') {
   return render(
     <QueryClientProvider client={new QueryClient()}>
-      <DataSourceProvider source={source}>
-        <ApiClientProvider scope={urlScope}>
-          <EditorScopeProvider value={SLUGS}>
-            <ItemPage slugs={SLUGS} workflowId="wf_1" page={page}>
-              {({ workflow }) => <p>body of {workflow.name}</p>}
-            </ItemPage>
-          </EditorScopeProvider>
-        </ApiClientProvider>
-      </DataSourceProvider>
+      <ApiClientProvider scope={urlScope}>
+        <EditorScopeProvider value={SLUGS}>
+          <ItemPage slugs={SLUGS} workflowId="wf_1" page={page}>
+            {({ workflow }) => <p>body of {workflow.name}</p>}
+          </ItemPage>
+        </EditorScopeProvider>
+      </ApiClientProvider>
     </QueryClientProvider>,
   )
 }
@@ -297,11 +294,5 @@ describe('ItemPage', () => {
     settled({ error: new ApiError('Internal error', 500, { hasReason: false }) })
     renderPage()
     expect(screen.getByRole('button', { name: /Try again/ })).toBeVisible()
-  })
-
-  it('shows sample items as not found: they have no backend to open', () => {
-    settled({})
-    renderPage('overview', 'mock')
-    expect(screen.getByRole('heading', { name: 'We can’t find that page' })).toBeVisible()
   })
 })

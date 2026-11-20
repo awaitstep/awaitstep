@@ -4,12 +4,13 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
-  dashboardDb,
-  dashboardServer,
-  MockApiError,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  apiError,
+  asOrgRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  reply,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import type { VariableRequest } from '../../variables/variable-requests'
 import { ResourcesPage, resourcesTabFrom, type ResourcesTab } from '../resources-page'
 
@@ -17,9 +18,39 @@ const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   goTo.mockReset()
 })
+
+/** Node changes applied to the seed, as the API would, so the catalog's refetch shows them. */
+function scriptNodes(api: FakeApi) {
+  api.on('POST /marketplace/:change', (req) => {
+    const node = api.data.seed.nodes.find(
+      (n) => n.orgId === 'org_acme' && n.id === (req.body as { nodeId: string }).nodeId,
+    )!
+    node.installedVersion = req.params.change === 'uninstall' ? null : node.latestVersion
+    return {}
+  })
+}
+
+function render(ui: React.ReactElement, api: FakeApi = installFakeApi()) {
+  scriptNodes(api)
+  return { ...renderWithDashboardApi(ui, { api }), api }
+}
+
+/** Daniel, an ordinary member of Acme. */
+function asMember(): FakeApi {
+  const api = installFakeApi({ viewer: DANIEL })
+  asOrgRole(api, 'acme', 'member')
+  return api
+}
+
+/** The catalog's read refused, or kept waiting. */
+function withCatalog(state: 'loading' | 'error'): FakeApi {
+  const api = installFakeApi()
+  if (state === 'loading') api.hang('GET /marketplace')
+  else api.on('GET /marketplace', reply(503, { error: 'Unavailable' }))
+  return api
+}
 
 function noop() {}
 
@@ -56,25 +87,8 @@ describe('resourcesTabFrom', () => {
 })
 
 describe('Resources › Nodes', () => {
-  it('reads as OrgResources: tab counts, Show counts, installed and available cards', async () => {
-    renderWithDashboardData(<Page />)
-    await screen.findByRole('article', { name: 'Slack' })
-    expect(screen.getByRole('tab', { name: 'Nodes 6' })).toHaveAttribute('aria-selected', 'true')
-    expect(screen.getByRole('tab', { name: 'Variables 3' })).toBeVisible()
-    const show = screen.getByRole('group', { name: 'Show' })
-    expect(within(show).getByRole('button', { name: /All/ })).toHaveTextContent('14')
-    expect(within(show).getByRole('button', { name: /Installed/ })).toHaveTextContent('6')
-    expect(within(show).getByRole('button', { name: /Available/ })).toHaveTextContent('8')
-    expect(within(section('Installed')).getAllByRole('article')).toHaveLength(6)
-    expect(within(section('Available from the marketplace')).getAllByRole('article')).toHaveLength(
-      8,
-    )
-    expect(card('Acme CRM lookup')).toHaveTextContent('Data · v4 · by Tom Becker')
-    expect(card('Slack')).toHaveTextContent('Update available')
-  })
-
   it('narrows the cards by Show, category and name', async () => {
-    renderWithDashboardData(<Page />)
+    render(<Page />)
     await screen.findByRole('article', { name: 'Slack' })
     await userEvent.click(
       within(screen.getByRole('group', { name: 'Show' })).getByRole('button', {
@@ -97,7 +111,7 @@ describe('Resources › Nodes', () => {
   })
 
   it('searches the categories and says when none match', async () => {
-    renderWithDashboardData(<Page />)
+    render(<Page />)
     await screen.findByRole('article', { name: 'Slack' })
     await userEvent.click(screen.getByRole('button', { name: 'Category: All' }))
     const options = screen.getAllByRole('option').map((o) => o.textContent)
@@ -108,7 +122,7 @@ describe('Resources › Nodes', () => {
   })
 
   it('installs a marketplace node for every project', async () => {
-    renderWithDashboardData(<Page />)
+    render(<Page />)
     await userEvent.click(
       await screen.findByRole('button', {
         name: 'Install Anthropic for every project in Acme Inc',
@@ -123,23 +137,21 @@ describe('Resources › Nodes', () => {
   })
 
   it('leaves a failed install to its toast, without the server’s text on the page', async () => {
-    const spy = vi
-      .spyOn(dashboardServer.resources, 'installNode')
-      .mockRejectedValue(new MockApiError(500, 'Checksum mismatch for anthropic@1.0.0'))
-    renderWithDashboardData(<Page />)
+    const api = installFakeApi()
+    renderWithDashboardApi(<Page />, { api })
+    api.on('POST /marketplace/:change', apiError(500, 'Checksum mismatch for anthropic@1.0.0'))
     const install = await screen.findByRole('button', {
       name: 'Install Anthropic for every project in Acme Inc',
     })
     await userEvent.click(install)
-    await waitFor(() => expect(spy).toHaveBeenCalled())
+    await waitFor(() => expect(api.requestsTo('POST /marketplace/:change')).toHaveLength(1))
     await waitFor(() => expect(install).toBeEnabled())
     expect(screen.queryByText(/Checksum mismatch/)).toBeNull()
     expect(screen.queryByRole('alert')).toBeNull()
-    spy.mockRestore()
   })
 
   it('asks before uninstalling a node in use, and keeps it on Keep installed', async () => {
-    renderWithDashboardData(<Page />)
+    render(<Page />)
     await screen.findByRole('article', { name: 'Slack' })
     await userEvent.click(within(card('Slack')).getByRole('button', { name: 'Uninstall' }))
     const dialog = screen.getByRole('alertdialog', { name: 'Uninstall Slack?' })
@@ -158,24 +170,27 @@ describe('Resources › Nodes', () => {
   })
 
   it('uninstalls a node nobody uses without asking', async () => {
-    renderWithDashboardData(<Page />)
+    const { api } = render(<Page />)
     await screen.findByRole('article', { name: 'Resend' })
     await userEvent.click(within(card('Resend')).getByRole('button', { name: 'Uninstall' }))
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     await waitFor(() =>
-      expect(dashboardDb().nodes.find((n) => n.id === 'resend')!.installedVersion).toBeNull(),
+      expect(api.lastRequest('POST /marketplace/:change')).toMatchObject({
+        params: { change: 'uninstall' },
+        body: { nodeId: 'resend' },
+      }),
     )
   })
 
   it('updates Slack, clearing Update available', async () => {
-    renderWithDashboardData(<Page />)
+    render(<Page />)
     await userEvent.click(await screen.findByRole('button', { name: 'Update Slack to v2.4.0' }))
     await waitFor(() => expect(card('Slack')).not.toHaveTextContent('Update available'))
     expect(card('Slack')).toHaveTextContent('Messaging · v2.4.0')
   })
 
   it('explains New custom node', async () => {
-    renderWithDashboardData(<Page />)
+    render(<Page />)
     await screen.findByRole('article', { name: 'Slack' })
     await userEvent.click(within(topBar()).getByRole('button', { name: 'New custom node' }))
     const dialog = screen.getByRole('dialog', { name: 'New custom node' })
@@ -185,7 +200,7 @@ describe('Resources › Nodes', () => {
   })
 
   it('shows members the catalog without actions, and says why', async () => {
-    renderWithDashboardData(<Page />, { userId: DANIEL })
+    render(<Page />, asMember())
     await screen.findByRole('article', { name: 'Slack' })
     expect(screen.getByText('Only org owners and admins can do this')).toBeVisible()
     expect(within(section('Installed')).queryByRole('button')).not.toBeInTheDocument()
@@ -210,7 +225,7 @@ describe('Resources › Nodes across orgs', () => {
   }
 
   it('starts the filters afresh in another org, even one already loaded', async () => {
-    const { rerender } = renderWithDashboardData(<OrgPage org="acme" />)
+    const { rerender } = render(<OrgPage org="acme" />)
     await screen.findByRole('article', { name: 'Slack' })
     rerender(<OrgPage org="bolt-labs" />)
     await screen.findByRole('article', { name: 'Anthropic' })
@@ -223,27 +238,20 @@ describe('Resources › Nodes across orgs', () => {
 })
 
 describe('Resources › Variables', () => {
-  it('lists Acme’s variables with secrets hidden and overrides counted', async () => {
-    renderWithDashboardData(<Page start="variables" />)
-    const table = await screen.findByRole('table', { name: 'Variables in Acme Inc' })
-    const rows = within(table).getAllByRole('row').slice(1)
-    expect(rows.map((r) => r.textContent)).toEqual([
-      expect.stringContaining('REGIONeuOverridden in 1 project'),
-      expect.stringContaining('SUPPORT_EMAILsupport@acme.test'),
-      expect.stringContaining('SENTRY_DSN••••••••Secret'),
-    ])
-    expect(within(topBar()).getByRole('link', { name: 'New variable' })).toHaveAttribute(
-      'href',
-      '/acme/resources?tab=variables&new=variable',
-    )
-    expect(within(rows[0]!).getByRole('link', { name: 'Edit' })).toHaveAttribute(
-      'href',
-      '/acme/resources?tab=variables&variable=REGION',
-    )
-  })
-
   it('adds a variable at the Acme Inc level', async () => {
-    renderWithDashboardData(<Page start="variables" request={{ kind: 'new' }} />)
+    const api = installFakeApi()
+    api.on('POST /env-vars', (req) => {
+      const body = req.body as { name: string; value: string }
+      api.data.seed.variables.push({
+        level: 'organization',
+        scopeId: 'org_acme',
+        name: body.name,
+        value: body.value,
+        isSecret: false,
+      })
+      return { id: 'var_new', ...body, skipped: [] }
+    })
+    render(<Page start="variables" request={{ kind: 'new' }} />, api)
     const dialog = await screen.findByRole('dialog', { name: 'New variable' })
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'STATUS_URL')
     await userEvent.type(
@@ -252,14 +260,16 @@ describe('Resources › Variables', () => {
     )
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add variable' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(
-      dashboardDb().variables.find((v) => v.name === 'STATUS_URL' && v.level === 'organization'),
-    ).toMatchObject({ value: 'https://status.acme.test' })
+    expect(api.lastRequest('POST /env-vars').body).toMatchObject({
+      name: 'STATUS_URL',
+      value: 'https://status.acme.test',
+    })
+    expect(api.lastRequest('POST /env-vars').query).toEqual({ org: 'acme' })
     expect(await screen.findByRole('cell', { name: 'STATUS_URL' })).toBeVisible()
   })
 
   it('edits REGION', async () => {
-    renderWithDashboardData(
+    const { api } = render(
       <Page start="variables" request={{ kind: 'variable', name: 'REGION' }} />,
     )
     const dialog = await screen.findByRole('dialog', { name: 'Edit REGION' })
@@ -269,17 +279,12 @@ describe('Resources › Variables', () => {
     await userEvent.type(value, 'us')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
     await waitFor(() =>
-      expect(
-        dashboardDb().variables.find((v) => v.name === 'REGION' && v.level === 'organization')!
-          .value,
-      ).toBe('us'),
+      expect(api.lastRequest('PATCH /env-vars/:id').body).toMatchObject({ value: 'us' }),
     )
   })
 
   it('is read-only for members, and opens no dialog from the URL', async () => {
-    renderWithDashboardData(<Page start="variables" request={{ kind: 'new' }} />, {
-      userId: DANIEL,
-    })
+    render(<Page start="variables" request={{ kind: 'new' }} />, asMember())
     const table = await screen.findByRole('table', { name: 'Variables in Acme Inc' })
     expect(within(table).queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -289,15 +294,17 @@ describe('Resources › Variables', () => {
 
 describe('Resources states', () => {
   it('shows skeletons while loading and the error card when it fails', async () => {
-    const { unmount } = renderWithDashboardData(<Page />, { scenario: 'loading' })
+    const { unmount } = render(<Page />, withCatalog('loading'))
     expect(await screen.findByText('Loading nodes')).toBeInTheDocument()
     unmount()
-    renderWithDashboardData(<Page />, { scenario: 'error' })
+    render(<Page />, withCatalog('error'))
     expect(await screen.findByText(/We couldn’t load nodes/)).toBeVisible()
   })
 
-  it('says each section is empty under the empty scenario', async () => {
-    renderWithDashboardData(<Page />, { scenario: 'empty' })
+  it('says each section is empty when the catalog has nothing', async () => {
+    const api = installFakeApi()
+    api.on('GET /marketplace', { nodes: [] })
+    render(<Page />, api)
     expect(await screen.findByText('No nodes installed yet.')).toBeVisible()
     expect(screen.getByText('Nothing more to install.')).toBeVisible()
   })

@@ -9,10 +9,7 @@ import {
   type LibraryKind,
   type LibraryPlace,
 } from '../../lib/library-api'
-import { mockServer } from '../../mocks/dashboard/server'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
-import { notYet, useDashKey, useDataSource } from './source'
 
 // Each Library write runs from a dialog that shows the API's reason itself,
 // so a failure says nothing more as a toast.
@@ -45,22 +42,16 @@ export function invalidateLibrary(
 
 /** The Library page (28a/28b) in one request: rows, counts and the right to add. */
 export function useLibrarySummary(place: LibraryPlace) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.library(place)),
-    queryFn: (): Promise<ApiLibrarySummary> =>
-      source === 'api'
-        ? libraryApi.getSummary(place)
-        : mockServer.library.getLibrarySummary(ctx, place),
+    queryKey: dashKeys.library(place),
+    queryFn: (): Promise<ApiLibrarySummary> => libraryApi.getSummary(place),
   })
 }
 
 /** The Library IDE's explorer: every item the place owns with its files. The IDE reads the API. */
 export function useLibraryTree(place: LibraryPlace) {
   return useQuery({
-    queryKey: [...dashKeys.libraryTree(place), 'api'],
+    queryKey: dashKeys.libraryTree(place),
     queryFn: (): Promise<ApiLibraryTree> => libraryApi.getTree(place),
   })
 }
@@ -108,7 +99,6 @@ export interface NewLibraryItem {
 }
 
 export function useCreateLibraryItem(place: LibraryPlace) {
-  const source = useDataSource()
   const client = useQueryClient()
   return useMutation({
     meta: {
@@ -118,7 +108,7 @@ export function useCreateLibraryItem(place: LibraryPlace) {
       }),
     },
     mutationFn: (input: NewLibraryItem): Promise<ApiLibraryItem> =>
-      source === 'api' ? libraryApi.createItem(place, input) : notYet(),
+      libraryApi.createItem(place, input),
     onSuccess: () => invalidateLibrary(client, place),
   })
 }

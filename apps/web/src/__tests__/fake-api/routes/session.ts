@@ -1,4 +1,5 @@
 import type { ApiScope } from '../../../lib/dashboard-api'
+import { workspaceCounts } from '../../fixtures/api/workflows'
 import { apiError } from '../responses'
 import type { FakeApiContext, FakeRequest, RouteTable } from '../types'
 import { viewerFixture } from './fixture-lookup'
@@ -30,7 +31,11 @@ function scopeOf(api: FakeApiContext, req: FakeRequest): ApiScope {
       },
     }
   }
-  return { found: true, org, project, workspace }
+  // Counted at read time, so a page's own writes (a created workflow) show in its scope.
+  const counted = api.data.seed.workspaces.some((w) => w.id === workspace.id)
+    ? { ...workspace, counts: workspaceCounts(api.data.seed, workspace.id, api.now) }
+    : workspace
+  return { found: true, org, project, workspace: counted }
 }
 
 /** The session's own reads: where a URL points, the org list, a project's setup counts. */

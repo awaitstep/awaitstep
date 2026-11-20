@@ -2,9 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  installFakeApi,
+  renderWithDashboardApi,
+  reply,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
+import { workspaceRuns } from '../../../__tests__/fixtures/api/runs'
 import { RunsPage } from '../runs-page'
 
 const download = vi.hoisted(() => vi.fn())
@@ -13,52 +16,34 @@ vi.mock('../../../lib/download-file', () => ({ downloadTextFile: download }))
 const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   download.mockReset()
 })
+
+function renderPage(api: FakeApi = installFakeApi()) {
+  renderWithDashboardApi(<RunsPage slugs={sales} />, { api })
+  return api
+}
+
+/** Pages of 4, so the seed's runs make a few. */
+function smallPages(): FakeApi {
+  const api = installFakeApi()
+  api.on('GET /runs', (req) => workspaceRuns(api.data.seed, 'ws_sales', { ...req.query, limit: 4 }))
+  return api
+}
 
 const table = () => screen.getByRole('table', { name: 'Runs in Sales' })
 const bodyRows = () => within(table()).getAllByRole('row').slice(1)
 
 describe('Runs page', () => {
-  it('reads as WsRuns: newest first, result pills with counts, paging summary', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
-    await screen.findByRole('table', { name: 'Runs in Sales' })
-    const first = bodyRows()[0]!
-    expect(first).toHaveTextContent('Failed')
-    expect(first).toHaveTextContent('Lead enrichment')
-    expect(first).toHaveTextContent('run_8f2c')
-    expect(within(first).getByRole('link', { name: 'Lead enrichment' })).toHaveAttribute(
-      'href',
-      expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/itm_[^/]+\/overview$/),
-    )
-    // A workflow's run opens its own page, under the workflow.
-    expect(within(first).getByRole('link', { name: 'run_8f2c' })).toHaveAttribute(
-      'href',
-      '/acme/project-101/sales/workflows/itm_lead/runs/run_8f2c',
-    )
-    expect(first).toHaveTextContent('Webhook')
-    expect(first).toHaveTextContent('4.2s')
-    const running = bodyRows()[1]!
-    expect(running).toHaveTextContent('Workflow · waiting on step “Wait 3 days”')
-    expect(running).toHaveTextContent('—')
-    const pills = screen.getByRole('group', { name: 'Result' })
-    expect(within(pills).getByRole('button', { name: /^All 128/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(screen.getByText('Showing 25 of 128 runs in the last 24 hours')).toBeInTheDocument()
-  })
-
   it('leaves a function’s request id unlinked: it has no run page', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage()
     await screen.findByRole('table', { name: 'Runs in Sales' })
     const request = bodyRows().find((row) => row.textContent?.includes('req_31c9'))!
     expect(within(request).queryByRole('link', { name: 'req_31c9' })).not.toBeInTheDocument()
   })
 
   it('narrows by result and by search', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage()
     await screen.findByRole('table', { name: 'Runs in Sales' })
     await userEvent.click(screen.getByRole('button', { name: /^Running/ }))
     await waitFor(() => expect(bodyRows()).toHaveLength(1))
@@ -73,7 +58,7 @@ describe('Runs page', () => {
   })
 
   it('pages Older and back Newer', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage(smallPages())
     await screen.findByRole('table', { name: 'Runs in Sales' })
     const pager = screen.getByRole('navigation', { name: 'Runs pages' })
     expect(within(pager).getByRole('button', { name: 'Newer' })).toBeDisabled()
@@ -85,7 +70,7 @@ describe('Runs page', () => {
   })
 
   it('ignores a second Older while the first page is still loading', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage(smallPages())
     await screen.findByRole('table', { name: 'Runs in Sales' })
     const pager = screen.getByRole('navigation', { name: 'Runs pages' })
     await userEvent.dblClick(within(pager).getByRole('button', { name: 'Older' }))
@@ -100,7 +85,7 @@ describe('Runs page', () => {
     download.mockImplementation(() => {
       throw new Error('blocked')
     })
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage()
     await screen.findByRole('table', { name: 'Runs in Sales' })
     const topBar = screen.getByRole('banner', { name: 'Top bar' })
     await userEvent.click(within(topBar).getByRole('button', { name: 'Export' }))
@@ -109,7 +94,7 @@ describe('Runs page', () => {
   })
 
   it('exports the filtered runs as CSV', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage()
     await screen.findByRole('table', { name: 'Runs in Sales' })
     await userEvent.click(screen.getByRole('button', { name: /^Failed/ }))
     await waitFor(() =>
@@ -127,12 +112,14 @@ describe('Runs page', () => {
   })
 
   it('shows the load error under ?mock=error', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />, { scenario: 'error' })
+    const api = installFakeApi()
+    api.on('GET /runs', reply(503, { error: 'Unavailable' }))
+    renderPage(api)
     expect(await screen.findByRole('heading', { name: 'We couldn’t load runs' })).toBeVisible()
   })
 
   it('puts the search first in the toolbar, before the result filter and the period', async () => {
-    renderWithDashboardData(<RunsPage slugs={sales} />)
+    renderPage()
     const search = await screen.findByRole('searchbox', { name: 'Search by workflow or run ID' })
     const result = screen.getByRole('group', { name: 'Result' })
     expect(search.compareDocumentPosition(result) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()

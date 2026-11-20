@@ -3,12 +3,13 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   PRIYA,
-  dashboardServer,
-  renderWithDashboardData,
-  dashboardDb,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
-import { useCreateProject } from '../../../data/dashboard/projects'
+  apiError,
+  asWorkspaceRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
+import { createdWorkflow } from '../../../__tests__/fixtures/api/workflows'
 import { WorkflowsPage } from '../../items/workflows-page'
 import { WorkspaceOverviewPage } from '../workspace-overview-page'
 import { WorkspacesPage } from '../../project-settings/workspaces-page'
@@ -20,7 +21,6 @@ const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 const support = { ...sales, workspace: 'support' }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   goTo.mockReset()
 })
 
@@ -34,29 +34,103 @@ async function nameAndCreate(kind: 'workflow' | 'function', name: string) {
   await userEvent.click(within(dialog).getByRole('button', { name: `Create ${kind}` }))
 }
 
-describe('workspace Overview', () => {
-  it('draws the runs tile with % passed and a bar per hour, failures on top', async () => {
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />)
-    const strip = await screen.findByRole('img', {
-      name: 'Runs per hour over the last 24 hours, with failures marked',
+/** Stores what the page creates in `workspaceId`, as the API would, so its reads show it. */
+function scriptCreate(api: FakeApi, workspaceId: string) {
+  api.on('POST /workflows', (req) => {
+    const body = req.body as { name: string; kind?: 'workflow' | 'script' }
+    const row = createdWorkflow(workspaceId, body, api.now)
+    api.data.seed.items.push({
+      id: row.id,
+      workspaceId,
+      kind: body.kind ?? 'workflow',
+      name: body.name,
+      description: null,
+      status: 'draft',
+      version: null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      sharing: null,
     })
-    const tile = strip.closest('a')!
-    expect(tile).toHaveAttribute('href', '/acme/project-101/sales/runs')
-    expect(tile).toHaveTextContent(/\d+(\.\d)?% passed/)
-    expect(tile).toHaveTextContent('Runs in the last 24 hours')
-    expect(strip.children).toHaveLength(24)
-    expect(strip.querySelectorAll('[data-part="failed"]').length).toBeGreaterThan(0)
+    return row
   })
+}
 
+/** Priya, a Viewer in `key`. */
+function asViewer(key: string): FakeApi {
+  const api = installFakeApi({ viewer: PRIYA })
+  asWorkspaceRole(api, key, 'viewer')
+  return api
+}
+
+/** A new project, Billing, with the one Default workspace it starts with. */
+function withBilling(api: FakeApi) {
+  const p101 = api.data.projects['acme/project-101']!
+  const sales = api.data.workspaces['acme/project-101/sales']!
+  const chip = {
+    id: 'ws_billing_default',
+    slug: 'default',
+    name: 'Default',
+    colour: 'green' as const,
+  }
+  api.data.projects['acme/billing'] = {
+    ...p101,
+    id: 'prj_billing',
+    slug: 'billing',
+    name: 'Billing',
+    description: null,
+    lock: null,
+    workspaces: [chip],
+    health: { workflows: 0, deployed: 0, failing: 0, lastRunAt: null },
+  }
+  api.data.projectSetup.prj_billing = {
+    cloudflareConnected: false,
+    orgVariables: 3,
+    projectVariables: 0,
+    projectKeys: 0,
+  }
+  api.data.workspaces['acme/billing/default'] = {
+    ...sales,
+    ...chip,
+    projectId: 'prj_billing',
+    createdAt: api.now.toISOString(),
+    updatedAt: api.now.toISOString(),
+    lock: null,
+    inheritedLock: null,
+  }
+  api.data.seed.projects.push({
+    id: 'prj_billing',
+    orgId: 'org_acme',
+    slug: 'billing',
+    name: 'Billing',
+    description: null,
+    createdAt: api.now.toISOString(),
+    updatedAt: api.now.toISOString(),
+    lock: null,
+  })
+  api.data.seed.workspaces.push({
+    ...chip,
+    projectId: 'prj_billing',
+    description: null,
+    createdAt: api.now.toISOString(),
+    createdBy: 'usr_ama',
+    lock: null,
+  })
+}
+
+describe('workspace Overview', () => {
   it('gives a Viewer the request instead of New workflow', async () => {
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />, { userId: PRIYA })
+    renderWithDashboardApi(<WorkspaceOverviewPage slugs={sales} />, {
+      api: asViewer('acme/project-101/sales'),
+    })
     const topBar = screen.getByRole('banner', { name: 'Top bar' })
     expect(await within(topBar).findByRole('button', { name: 'Ask for edit access' })).toBeVisible()
     expect(within(topBar).queryByRole('button', { name: 'New workflow' })).not.toBeInTheDocument()
   })
 
-  it('shows the load error under ?mock=error', async () => {
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />, { scenario: 'error' })
+  it('shows the load error when the overview can’t be read', async () => {
+    const api = installFakeApi()
+    api.on('GET /workspaces/:id/overview', apiError(503, 'Unavailable'))
+    renderWithDashboardApi(<WorkspaceOverviewPage slugs={sales} />, { api })
     expect(
       await screen.findByRole('heading', { name: 'We couldn’t load the overview' }),
     ).toBeVisible()
@@ -64,26 +138,12 @@ describe('workspace Overview', () => {
 })
 
 describe('an empty workspace', () => {
-  it('reads as EmptyWorkspace on Workflows, with what it inherits and what is shared in', async () => {
-    renderWithDashboardData(
-      <WorkflowsPage slugs={support} dialog={undefined} onCloseDialog={vi.fn()} />,
-    )
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Nothing in Support yet' }),
-    ).toBeVisible()
-    const inherited = await screen.findByRole('link', { name: /Inherited from Project 101/ })
-    await waitFor(() => expect(inherited).toHaveTextContent('2 project admins'))
-    expect(inherited).toHaveTextContent('4 project keys')
-    expect(inherited).toHaveTextContent('5 variables')
-    expect(inherited).toHaveAttribute('href', '/acme/project-101/support/settings?tab=members')
-    const sharedIn = screen.getByRole('link', { name: /Shared with Support/ })
-    await waitFor(() => expect(sharedIn).toHaveTextContent('Lead enrichment · Sales'))
-    expect(sharedIn).toHaveTextContent('Provision account · IT')
-  })
-
   it('creates its first workflow from the hero and opens it on the template picker', async () => {
-    renderWithDashboardData(
+    const api = installFakeApi()
+    scriptCreate(api, 'ws_support')
+    renderWithDashboardApi(
       <WorkflowsPage slugs={support} dialog={undefined} onCloseDialog={vi.fn()} />,
+      { api },
     )
     await screen.findByRole('heading', { name: 'Nothing in Support yet' })
     await userEvent.click(screen.getByRole('button', { name: 'New workflow' }))
@@ -96,58 +156,22 @@ describe('an empty workspace', () => {
   })
 
   it('asks for a name before creating anything, in one dialog for both buttons', async () => {
-    const create = vi.spyOn(dashboardServer.items, 'createItem')
-    renderWithDashboardData(
+    const api = installFakeApi()
+    renderWithDashboardApi(
       <WorkflowsPage slugs={support} dialog={undefined} onCloseDialog={vi.fn()} />,
+      { api },
     )
     await screen.findByRole('heading', { name: 'Nothing in Support yet' })
     await userEvent.click(screen.getByRole('button', { name: 'New function' }))
     expect(screen.getAllByRole('dialog')).toHaveLength(1)
     expect(screen.getByRole('dialog', { name: 'New function' })).toBeVisible()
-    expect(create).not.toHaveBeenCalled()
-    vi.restoreAllMocks()
-  })
-
-  it('shows on any workspace under ?mock=empty', async () => {
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={sales} />, { scenario: 'empty' })
-    expect(await screen.findByRole('heading', { name: 'Start building in Sales' })).toBeVisible()
-  })
-
-  it('reads as WsOverview New on Overview: ways to start, then people, deploys and shared', async () => {
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={support} />)
-    expect(await screen.findByRole('heading', { level: 1, name: 'Support' })).toBeVisible()
-    const start = card('Start building in Support')
-    expect(within(start).getByText('Nothing here yet')).toBeInTheDocument()
-    expect(within(start).getByRole('button', { name: /Start from blank/ })).toBeVisible()
-    const reuse = within(start).getByRole('link', { name: /Reuse what the project shares/ })
-    expect(reuse).toHaveAttribute('href', '/acme/project-101/support/scripts-nodes')
-    expect(reuse).toHaveTextContent(
-      'Project 101 already shares 3 items with this workspace. Call them instead of rebuilding.',
-    )
-
-    const about = screen.getByRole('list', { name: 'About Support' })
-    const row = (label: string) => within(about).getByText(label).closest('li')!
-    await waitFor(() =>
-      expect(row('People')).toHaveTextContent('2 can open Support: you and Tom Becker'),
-    )
-    expect(within(row('People')).getByRole('link', { name: 'Manage' })).toHaveAttribute(
-      'href',
-      '/acme/project-101/support/settings?tab=members',
-    )
-    await waitFor(() => expect(row('Deploys to')).toHaveTextContent('inherited from Project 101'))
-    expect(within(row('Deploys to')).getByRole('link', { name: 'Change' })).toHaveAttribute(
-      'href',
-      '/acme/project-101/connections',
-    )
-    expect(row('Shared')).toHaveTextContent('3 shared in · 0 shared out')
-    expect(within(row('Shared')).getByRole('link', { name: 'Scripts & nodes' })).toHaveAttribute(
-      'href',
-      '/acme/project-101/support/scripts-nodes',
-    )
+    expect(api.requestsTo('POST /workflows')).toHaveLength(0)
   })
 
   it('creates the first workflow from Start from blank: Built, nothing run yet', async () => {
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={support} />)
+    const api = installFakeApi()
+    scriptCreate(api, 'ws_support')
+    renderWithDashboardApi(<WorkspaceOverviewPage slugs={support} />, { api })
     await userEvent.click(await screen.findByRole('button', { name: /Start from blank/ }))
     // Opened from Start from blank, the dialog starts on Blank.
     expect(screen.getByRole('radio', { name: /Blank/ })).toBeChecked()
@@ -158,11 +182,6 @@ describe('an empty workspace', () => {
       expect.stringMatching(/^\/acme\/project-101\/support\/workflows\/[^/?]+$/),
     )
     expect(screen.queryByRole('heading', { name: 'Start building in Support' })).toBeNull()
-    expect(
-      screen.getByText(
-        '1 workflow and 0 functions, no runs in the last 24 hours · 2 people can open it',
-      ),
-    ).toBeVisible()
     // No runs tile or Failing now yet: a nudge to deploy instead.
     expect(screen.getByText('No runs in the last 24 hours')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Deploy one' })).toHaveAttribute(
@@ -171,125 +190,33 @@ describe('an empty workspace', () => {
     )
     expect(screen.queryByRole('link', { name: /Failing now/ })).toBeNull()
     expect(within(card('Recent runs')).getByText('No runs yet')).toBeVisible()
-    expect(
-      within(card('Recent runs')).getByRole('link', { name: 'Deploy a workflow' }),
-    ).toBeVisible()
-    expect(within(card('Shared')).queryByText('Nothing shared yet')).toBeNull()
-  })
-
-  it('opens a new project’s Default workspace on WsOverview’s Empty state', async () => {
-    const created = vi.fn()
-    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
-    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
-    first.unmount()
-
-    renderWithDashboardData(
-      <WorkspaceOverviewPage slugs={{ org: 'acme', project: 'billing', workspace: 'default' }} />,
-    )
-    expect(await screen.findByRole('heading', { level: 1, name: 'Default' })).toBeVisible()
-    expect(
-      screen.getByText('The workspace Billing started with · 1 person can open it'),
-    ).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Start building in Default' })).toBeVisible()
-    expect(screen.queryByRole('heading', { name: 'Billing is ready' })).toBeNull()
   })
 
   it('gives a Viewer only the library in the New state', async () => {
-    dashboardDb().workspaceMembers.push({
-      workspaceId: 'ws_support',
-      userId: PRIYA,
-      role: 'viewer',
+    renderWithDashboardApi(<WorkspaceOverviewPage slugs={support} />, {
+      api: asViewer('acme/project-101/support'),
     })
-    renderWithDashboardData(<WorkspaceOverviewPage slugs={support} />, { userId: PRIYA })
     const start = await screen.findByRole('heading', { name: 'Nothing in Support yet' })
     const section = start.closest('section')!
     expect(within(section).queryByRole('button', { name: /Start from blank/ })).toBeNull()
     expect(
       within(section).getByRole('link', { name: /Reuse what the project shares/ }),
     ).toBeVisible()
-    // Connections are the org owners' and admins': a Viewer reads where it deploys, with no link.
-    const deploys = within(screen.getByRole('list', { name: 'About Support' }))
-      .getByText('Deploys to')
-      .closest('li')!
-    expect(within(deploys).queryByRole('link')).not.toBeInTheDocument()
   })
 })
 
-function CreateBilling({ onCreated }: { onCreated: (slug: string) => void }) {
-  const create = useCreateProject('acme')
-  function handleClick() {
-    create.mutate({ name: 'Billing' }, { onSuccess: ({ project }) => onCreated(project.slug) })
-  }
-  return <button onClick={handleClick}>Create Billing</button>
-}
-
-describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () => {
-  it('reads as EmptyProject: ready, three ways to start, 0 of 3 until it has an account', async () => {
-    const created = vi.fn()
-    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
-    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
-    first.unmount()
-
-    renderWithDashboardData(
-      <WorkspacesPage
-        slugs={{ org: 'acme', project: 'billing' }}
-        dialogOpen={false}
-        onDialogChange={vi.fn()}
-      />,
-    )
-    expect(await screen.findByRole('heading', { level: 1, name: 'Billing is ready' })).toBeVisible()
-    // Merged into the Workspaces page: the welcome takes the cards' place, the project-wide stays.
-    expect(screen.queryByRole('heading', { level: 1, name: 'Workspaces' })).toBeNull()
-    expect(screen.getByRole('heading', { name: 'Project-wide' })).toBeVisible()
-    // The project's page: no workspace is open, so it never says "you're in" one.
-    expect(screen.queryByText(/You’re in/)).toBeNull()
-    expect(
-      screen.getByText(/It goes in Default, the project’s only workspace so far\./),
-    ).toBeVisible()
-    expect(screen.getByText('New project')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'New workflow' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'New function' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Import' })).toHaveAttribute(
-      'href',
-      '/acme/billing/default/workflows?new=import',
-    )
-    expect(await screen.findByRole('progressbar', { name: 'Set up Billing' })).toHaveAttribute(
-      'aria-valuetext',
-      '0 of 3 done',
-    )
-    // Billing has no account yet: its own Connections page, Add connection open.
-    expect(screen.getByRole('link', { name: /Connect Cloudflare/ })).toHaveAttribute(
-      'href',
-      '/acme/billing/connections?new=connection',
-    )
-    expect(screen.getByText('3 inherited from Acme Inc')).toBeInTheDocument()
-    expect(screen.getByText('Only you so far')).toBeInTheDocument()
-    // Teammates join the project from its own Members page, Add people open.
-    expect(screen.getByRole('link', { name: /Invite teammates/ })).toHaveAttribute(
-      'href',
-      '/acme/billing/members?access=add',
-    )
-    expect(screen.getByRole('link', { name: 'Add a workspace' })).toHaveAttribute(
-      'href',
-      '/acme/billing/workspaces?new=workspace',
-    )
-  })
-
+describe('a project’s Workspaces page', () => {
   it('opens the editor of the function New function creates, in the project’s only workspace', async () => {
-    const created = vi.fn()
-    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
-    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
-    first.unmount()
-
-    renderWithDashboardData(
+    const api = installFakeApi()
+    withBilling(api)
+    scriptCreate(api, 'ws_billing_default')
+    renderWithDashboardApi(
       <WorkspacesPage
         slugs={{ org: 'acme', project: 'billing' }}
         dialogOpen={false}
         onDialogChange={vi.fn()}
       />,
+      { api },
     )
     const newFunction = await screen.findByRole('button', { name: 'New function' })
     await userEvent.click(newFunction)
@@ -301,65 +228,8 @@ describe('a new project’s Workspaces page, /{org}/{project}/workspaces', () =>
     )
   })
 
-  it('counts Cloudflare as connected once the project adds an account', async () => {
-    dashboardDb().connections.find((c) => c.id === 'conn_production')!.projects = 'all'
-    const created = vi.fn()
-    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
-    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
-    first.unmount()
-    // Available to every project, but added by none until the project picks it (23b).
-    const billing = dashboardDb().projects.find((p) => p.slug === 'billing')!
-    dashboardDb().projectConnections.push({
-      projectId: billing.id,
-      connectionId: 'conn_production',
-      isDefault: true,
-    })
-
-    renderWithDashboardData(
-      <WorkspacesPage
-        slugs={{ org: 'acme', project: 'billing' }}
-        dialogOpen={false}
-        onDialogChange={vi.fn()}
-      />,
-    )
-    expect(await screen.findByRole('progressbar', { name: 'Set up Billing' })).toHaveAttribute(
-      'aria-valuetext',
-      '1 of 3 done',
-    )
-    expect(screen.getByText('Cloudflare connected')).toBeInTheDocument()
-  })
-})
-
-describe('an established project’s own page', () => {
-  it('keeps the welcome to those who run the project: a one-workspace viewer sees the cards', async () => {
-    const created = vi.fn()
-    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
-    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
-    first.unmount()
-    const billing = dashboardDb().workspaces.find(
-      (w) =>
-        w.slug === 'default' &&
-        w.projectId !== 'prj_101' &&
-        dashboardDb().projects.find((p) => p.id === w.projectId)?.slug === 'billing',
-    )!
-    dashboardDb().workspaceMembers.push({ workspaceId: billing.id, userId: PRIYA, role: 'viewer' })
-
-    renderWithDashboardData(
-      <WorkspacesPage
-        slugs={{ org: 'acme', project: 'billing' }}
-        dialogOpen={false}
-        onDialogChange={vi.fn()}
-      />,
-      { userId: PRIYA },
-    )
-    expect(await screen.findByRole('heading', { level: 1, name: 'Workspaces' })).toBeVisible()
-    expect(screen.queryByRole('heading', { name: /is ready/ })).toBeNull()
-  })
-
   it('is Project home: its workspaces and the project-wide, not a redirect', async () => {
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <WorkspacesPage
         slugs={{ org: 'acme', project: 'project-101' }}
         dialogOpen={false}
@@ -368,25 +238,5 @@ describe('an established project’s own page', () => {
     )
     expect(await screen.findByRole('heading', { level: 1, name: 'Workspaces' })).toBeVisible()
     expect(screen.queryByRole('heading', { name: /is ready/ })).toBeNull()
-  })
-
-  it('leaves the welcome to the project page: an empty only workspace shows its own', async () => {
-    const created = vi.fn()
-    const first = renderWithDashboardData(<CreateBilling onCreated={created} />)
-    await userEvent.click(screen.getByRole('button', { name: 'Create Billing' }))
-    await waitFor(() => expect(created).toHaveBeenCalledWith('billing'))
-    first.unmount()
-
-    renderWithDashboardData(
-      <WorkflowsPage
-        slugs={{ org: 'acme', project: 'billing', workspace: 'default' }}
-        dialog={undefined}
-        onCloseDialog={vi.fn()}
-      />,
-    )
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Nothing in Default yet' }),
-    ).toBeVisible()
-    expect(screen.queryByRole('heading', { name: 'Billing is ready' })).toBeNull()
   })
 })

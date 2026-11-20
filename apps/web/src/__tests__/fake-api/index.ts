@@ -64,5 +64,6 @@ export {
   type RenderWithDashboardApiOptions,
 } from './render-with-dashboard-api'
 export { apiError, authError, pending, reply, type FakeReply } from './responses'
+export { asOrgRole, asProjectRole, asWorkspaceRole } from './roles'
 export type { FakeRequest, RouteAnswer, RouteHandler, RouteTable } from './types'
 export * from '../fixtures/api'

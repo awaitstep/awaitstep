@@ -24,6 +24,9 @@ export function authRoutes(api: FakeApiContext): RouteTable {
     },
     'POST /auth/unlink-account': { status: true },
     'POST /auth/delete-user': { success: true, message: 'User deleted' },
+    'POST /auth/organization/update': (req: FakeRequest) => ({
+      ...((req.body as { data?: object }).data ?? {}),
+    }),
     'POST /auth/organization/create': (req: FakeRequest) => {
       const body = req.body as CreateOrgBody
       return {

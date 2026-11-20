@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../../lib/api-client'
 import { dashboardApi } from '../../lib/dashboard-api'
-import { mockServer } from '../../mocks/dashboard/server'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type {
   OrgVariable,
@@ -21,39 +20,27 @@ import {
   variableSlugs,
 } from './api/variables'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 
 /** Resources → Variables: what the org sets for every project. */
 export function useOrgVariables(org: string, { enabled = true }: { enabled?: boolean } = {}) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.orgVariables(org)),
+    queryKey: dashKeys.orgVariables(org),
     queryFn: (): Promise<OrgVariable[]> =>
-      source === 'api'
-        ? allPages((cursor) => dashboardApi.listOrgVariables(org, cursor)).then((res) =>
-            res.data.map(toOrgVariable),
-          )
-        : mockServer.variables.listOrgVariables(ctx, org),
+      allPages((cursor) => dashboardApi.listOrgVariables(org, cursor)).then((res) =>
+        res.data.map(toOrgVariable),
+      ),
     enabled,
   })
 }
 
 /** Project settings → Variables: each name once, as the project resolves it. */
 export function useProjectVariables(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.projectVariables(org, project)),
+    queryKey: dashKeys.projectVariables(org, project),
     queryFn: (): Promise<ResolvedVariable[]> =>
-      source === 'api'
-        ? dashboardApi
-            .listResolvedProjectVariables({ org, project })
-            .then((res) => res.data.map(toResolvedVariable))
-        : mockServer.variables.listProjectVariables(ctx, org, project),
+      dashboardApi
+        .listResolvedProjectVariables({ org, project })
+        .then((res) => res.data.map(toResolvedVariable)),
   })
 }
 
@@ -62,17 +49,12 @@ export function useWorkspaceVariables(
   slugs: Required<ScopeSlugs>,
   { enabled = true }: { enabled?: boolean } = {},
 ) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.workspaceVariables(slugs)),
+    queryKey: dashKeys.workspaceVariables(slugs),
     queryFn: (): Promise<WorkspaceVariable[]> =>
-      source === 'api'
-        ? dashboardApi
-            .listResolvedWorkspaceVariables(slugs)
-            .then((res) => res.data.map(toWorkspaceVariable))
-        : mockServer.variables.listWorkspaceVariables(ctx, slugs),
+      dashboardApi
+        .listResolvedWorkspaceVariables(slugs)
+        .then((res) => res.data.map(toWorkspaceVariable)),
     enabled,
   })
 }
@@ -93,8 +75,6 @@ function variableKeys(org: string) {
  * answers 409, which the dialog puts on the name field.
  */
 export function useSetVariable(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: {
@@ -106,10 +86,6 @@ export function useSetVariable(org: string) {
       },
     },
     mutationFn: async (input: VariableInput): Promise<SavedVariable> => {
-      if (source !== 'api') {
-        await mockServer.variables.setVariable(ctx, org, input)
-        return { skipped: [] }
-      }
       const slugs = variableSlugs(org, input.scope)
       const blank = blankValueError(input)
       if (blank) throw new ApiError(blank, 422, { field: 'value' })
@@ -136,21 +112,17 @@ interface SavedVariable {
 }
 
 export function useDeleteVariable(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Variable deleted', error: 'Couldn’t delete the variable' } },
     mutationFn: async ({
       scope,
-      name,
       id,
     }: {
       scope: VariableScope
       name: string
       id?: string
     }): Promise<void> => {
-      if (source !== 'api') return mockServer.variables.deleteVariable(ctx, org, scope, name)
       if (!id) throw new ApiError('This variable is not listed here any more', 404)
       await dashboardApi.deleteVariable(variableSlugs(org, scope), id)
     },

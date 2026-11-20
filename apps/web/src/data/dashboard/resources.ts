@@ -1,12 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ActionToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
-import { mockServer } from '../../mocks/dashboard/server'
 import type { OrgNode } from '../../types/dashboard/resources'
 import { toOrgNode } from './api/nodes'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 
 /**
  * Resources → Nodes: what the org built, then the marketplace, installed or
@@ -14,36 +11,20 @@ import { useDashKey, useDataSource } from './source'
  * can't reach is a `503` the tab shows as an error.
  */
 export function useOrgNodes(org: string, { enabled = true }: { enabled?: boolean } = {}) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.orgNodes(org)),
+    queryKey: dashKeys.orgNodes(org),
     queryFn: (): Promise<OrgNode[]> =>
-      source === 'api'
-        ? dashboardApi.listMarketplace(org).then((res) => res.nodes.map(toOrgNode))
-        : mockServer.resources.listOrgNodes(ctx, org),
+      dashboardApi.listMarketplace(org).then((res) => res.nodes.map(toOrgNode)),
     enabled,
   })
 }
 
 /** Resources' two tab pills, without opening either tab. */
 export function useResourceCounts(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.resourceCounts(org)),
+    queryKey: dashKeys.resourceCounts(org),
     queryFn: async (): Promise<{ installedNodes: number; variables: number }> => {
-      if (source === 'api') return dashboardApi.getResourceCounts(org)
-      const [nodes, variables] = await Promise.all([
-        mockServer.resources.listOrgNodes(ctx, org),
-        mockServer.variables.listOrgVariables(ctx, org),
-      ])
-      return {
-        installedNodes: nodes.filter((node) => node.installed).length,
-        variables: variables.length,
-      }
+      return dashboardApi.getResourceCounts(org)
     },
   })
 }
@@ -85,13 +66,10 @@ const NODE_TOAST: Record<NodeChange, ActionToast> = {
 }
 
 function useNodeChange(org: string, change: NodeChange) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: NODE_TOAST[change] },
     mutationFn: async (nodeId: string) => {
-      if (source !== 'api') return mockServer.resources[change](ctx, org, nodeId)
       await dashboardApi.changeNode(org, API_CHANGE[change], nodeId)
     },
     // The canvas palette reads its definitions each time the editor opens: nothing to refresh here.

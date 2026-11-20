@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { renderWithDashboardData } from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+import { renderWithDashboardApi } from '../../../__tests__/fake-api'
 import { VersionHistoryDialog } from '../version-history-dialog'
 
 const api = vi.hoisted(() => ({
@@ -51,7 +51,7 @@ afterEach(() => vi.clearAllMocks())
 describe('VersionHistoryDialog', () => {
   it('compares the previous version with the current, per file, and says who still runs it', async () => {
     versions()
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <VersionHistoryDialog place={place} item={item} onClose={vi.fn()} canEdit />,
     )
     const list = await screen.findByRole('list', { name: 'Versions' })
@@ -71,7 +71,7 @@ describe('VersionHistoryDialog', () => {
 
   it('lays out as 28i: name and count in the header, focus on the selected version, a compare bar and the selection in the footer', async () => {
     versions()
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <VersionHistoryDialog place={place} item={item} onClose={vi.fn()} canEdit />,
     )
     const dialog = await screen.findByRole('dialog', { name: 'Lead scoring · version history' })
@@ -88,7 +88,7 @@ describe('VersionHistoryDialog', () => {
     versions()
     api.restore.mockResolvedValue({ restoredFrom: '1.3.0', version: '1.4.3' })
     const onRestored = vi.fn()
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <VersionHistoryDialog
         place={place}
         item={item}
@@ -108,7 +108,7 @@ describe('VersionHistoryDialog', () => {
 
   it('offers no Restore to someone who can’t edit', async () => {
     versions()
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <VersionHistoryDialog place={place} item={item} onClose={vi.fn()} canEdit={false} />,
     )
     await screen.findByRole('list', { name: 'Versions' })
@@ -120,7 +120,7 @@ describe('VersionHistoryDialog', () => {
     api.getUsages.mockResolvedValue({ uses: [], usedBy: { visible: [], hiddenCount: 0 } })
     const onClose = vi.fn()
     const onPublish = vi.fn()
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <VersionHistoryDialog
         place={place}
         item={item}
@@ -143,7 +143,7 @@ describe('VersionHistoryDialog', () => {
   it('offers only Close for a never-published item on the Library page', async () => {
     api.listVersions.mockResolvedValue({ versions: [] })
     api.getUsages.mockResolvedValue({ uses: [], usedBy: { visible: [], hiddenCount: 0 } })
-    renderWithDashboardData(
+    renderWithDashboardApi(
       <VersionHistoryDialog place={place} item={item} onClose={vi.fn()} canEdit />,
     )
     expect(await screen.findByText('Nothing published yet')).toBeVisible()

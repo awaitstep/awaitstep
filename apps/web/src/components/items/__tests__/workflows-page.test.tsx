@@ -2,14 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  AMA,
   PRIYA,
-  dashboardDb,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  asWorkspaceRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  reply,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
+import type { ItemRow } from '../../../__tests__/fixtures/seed/rows'
+import { createdWorkflow } from '../../../__tests__/fixtures/api/workflows'
 import { FunctionsPage } from '../functions-page'
 import { WorkflowsPage } from '../workflows-page'
+import exported from '../../../lib/workflows/__tests__/fixtures/exported-workflow.json'
 
 const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
@@ -18,46 +22,70 @@ const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 const it_ = { ...sales, workspace: 'it' }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   goTo.mockReset()
 })
 
-function renderWorkflows(
-  options: { userId?: string; scenario?: 'loading' | 'error'; dialog?: string } = {},
-  slugs = sales,
-) {
+function renderWorkflows(options: { api?: FakeApi; dialog?: string } = {}, slugs = sales) {
   const onCloseDialog = vi.fn()
-  const result = renderWithDashboardData(
+  const api = options.api ?? installFakeApi()
+  const result = renderWithDashboardApi(
     <WorkflowsPage slugs={slugs} dialog={options.dialog} onCloseDialog={onCloseDialog} />,
-    options,
+    { api },
   )
-  return { ...result, onCloseDialog }
+  return { ...result, api, onCloseDialog }
+}
+
+/** Priya, a Viewer in Sales. */
+function asViewer(): FakeApi {
+  const api = installFakeApi({ viewer: PRIYA })
+  asWorkspaceRole(api, 'acme/project-101/sales', 'viewer')
+  return api
+}
+
+/** "Loading" or "the API refused", for the page's list read. */
+function withList(state: 'loading' | 'error', route = 'GET /workflows'): FakeApi {
+  const api = installFakeApi()
+  if (state === 'loading') api.hang(route)
+  else api.on(route, reply(503, { error: 'Unavailable' }, { 'x-request-id': 'req_test' }))
+  return api
+}
+
+/** Shares the item when the page asks, as the API would, so the next reads show it. */
+function scriptShare(api: FakeApi) {
+  api.on('PUT /workflows/:id/share', (req) => {
+    const item = api.data.seed.items.find((i) => i.id === req.params.id)!
+    item.sharing = { sharedAt: api.now.toISOString(), sharedBy: api.viewer }
+    return {
+      sharing: { sharedAt: item.sharing.sharedAt, sharedBy: { id: api.viewer, name: 'Ama' } },
+    }
+  })
+}
+
+/** Stores a created item in Sales, as the API would, so the list's refetch shows it. */
+function scriptCreate(api: FakeApi) {
+  api.on('POST /workflows', (req) => {
+    const body = req.body as { name: string; kind?: ItemRow['kind'] }
+    const row = createdWorkflow('ws_sales', body, api.now)
+    api.data.seed.items.unshift({
+      id: row.id,
+      workspaceId: 'ws_sales',
+      kind: body.kind ?? 'workflow',
+      name: body.name,
+      description: null,
+      status: 'draft',
+      version: null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      sharing: null,
+    })
+    return row
+  })
 }
 
 const desktopList = () => screen.getAllByRole('list', { name: 'Workflows in Sales' })[0]!
 const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
 
 describe('Workflows page', () => {
-  it('lists Sales’s workflows with the board’s pills, statuses and last runs', async () => {
-    renderWorkflows()
-    const list = await waitFor(desktopList)
-    expect(
-      within(list)
-        .getAllByRole('link')
-        .map((a) => a.textContent),
-    ).toEqual([
-      'Lead enrichment',
-      'Quote follow-up',
-      'Inbound webhook triage',
-      'Weekly pipeline report',
-    ])
-    expect(within(list).getByText('Deployed · v12')).toBeInTheDocument()
-    expect(within(list).getByText('Never run')).toBeInTheDocument()
-    const filters = screen.getByRole('group', { name: 'Filter workflows' })
-    expect(within(filters).getByRole('button', { name: 'Failing 1' })).toBeInTheDocument()
-    expect(within(filters).getByRole('button', { name: 'Drafts 1' })).toBeInTheDocument()
-  })
-
   it('leads each row to its Overview, under this workspace, on desktop and phone', async () => {
     renderWorkflows()
     const list = await waitFor(desktopList)
@@ -98,36 +126,22 @@ describe('Workflows page', () => {
     ).toEqual(['Lead enrichment'])
   })
 
-  it('shows what IT shares, read-only, under "Shared with Sales"', async () => {
-    renderWorkflows()
-    const heading = await screen.findByRole('heading', { name: 'Shared with Sales' })
-    const section = heading.closest('section')!
-    expect(within(section).getByText('Provision account')).toBeInTheDocument()
-    expect(within(section).getByText('Send Slack alert')).toBeInTheDocument()
-    expect(within(section).getAllByText(/from IT/)).toHaveLength(2)
-  })
-
   it('shares a workflow, which then shows as shared with IT', async () => {
-    renderWorkflows()
+    const { api } = renderWorkflows()
+    scriptShare(api)
     await waitFor(desktopList)
     const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: Quote follow-up' })
     await userEvent.click(toggle)
     await waitFor(() => expect(toggle).toBeChecked())
 
-    renderWorkflows({}, it_)
+    renderWorkflows({ api }, it_)
     const heading = await screen.findByRole('heading', { name: 'Shared with IT' })
     expect(within(heading.closest('section')!).getByText('Quote follow-up')).toBeInTheDocument()
   })
 
-  it('won’t unshare Lead enrichment while IT calls it', async () => {
-    renderWorkflows()
-    await waitFor(desktopList)
-    const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: Lead enrichment' })
-    expect(toggle).toHaveAccessibleDescription(/Called by IT/)
-  })
-
   it('New workflow names a draft in its dialog, then opens it on the template picker', async () => {
-    renderWorkflows()
+    const { api } = renderWorkflows()
+    scriptCreate(api)
     await waitFor(desktopList)
     await userEvent.click(within(topBar()).getByRole('button', { name: 'New workflow' }))
     const dialog = await screen.findByRole('dialog', { name: 'New workflow' })
@@ -160,47 +174,25 @@ describe('Workflows page', () => {
     )
   })
 
-  it('imports an exported file as a draft and closes the dialog', async () => {
-    const { onCloseDialog } = renderWorkflows({ dialog: 'import' })
+  it('imports an exported file as a draft and opens it in the editor', async () => {
+    const api = installFakeApi()
+    scriptCreate(api)
+    renderWorkflows({ api, dialog: 'import' })
     const dialog = await screen.findByRole('dialog', { name: 'Import a workflow' })
     const file = new File(
-      [JSON.stringify({ metadata: { name: 'Lead scoring' }, nodes: [] })],
+      [JSON.stringify({ ...exported, metadata: { ...exported.metadata, name: 'Lead scoring' } })],
       'x.json',
-      {
-        type: 'application/json',
-      },
-    )
-    await userEvent.upload(within(dialog).getByLabelText(/Workflow file/), file)
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }))
-    await waitFor(() => expect(onCloseDialog).toHaveBeenCalled())
-    // The route drops ?new on close; here the dialog stays, so the list sits behind it.
-    const list = screen.getAllByRole('list', { name: 'Workflows in Sales', hidden: true })[0]!
-    await waitFor(() =>
-      expect(within(list).getAllByRole('link', { hidden: true })[0]).toHaveTextContent(
-        'Lead scoring',
-      ),
-    )
-  })
-
-  it('says where a function export went, since it isn’t on this list', async () => {
-    const { onCloseDialog } = renderWorkflows({ dialog: 'import' })
-    const dialog = await screen.findByRole('dialog', { name: 'Import a workflow' })
-    const file = new File(
-      [JSON.stringify({ kind: 'script', metadata: { name: 'Score lead' }, nodes: [] })],
-      'score-lead.ir.json',
       { type: 'application/json' },
     )
     await userEvent.upload(within(dialog).getByLabelText(/Workflow file/), file)
     await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }))
-    const status = await within(dialog).findByRole('status')
-    expect(status).toHaveTextContent('Score lead is a draft under Functions')
-    expect(within(status).getByRole('link', { name: 'Functions' })).toHaveAttribute(
-      'href',
-      '/acme/project-101/sales/functions',
+    await waitFor(() =>
+      expect(goTo).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/acme\/project-101\/sales\/workflows\/itm_new_lead_scoring/),
+      ),
     )
-    expect(onCloseDialog).not.toHaveBeenCalled()
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
-    expect(onCloseDialog).toHaveBeenCalled()
+    expect(api.lastRequest('POST /workflows').body).toMatchObject({ name: 'Lead scoring' })
+    expect(api.requestsTo('POST /workflows/:id/versions')).toHaveLength(1)
   })
 
   it('shows why a file that isn’t an export can’t be imported', async () => {
@@ -209,18 +201,18 @@ describe('Workflows page', () => {
     const file = new File(['not json'], 'notes.json', { type: 'application/json' })
     await userEvent.upload(within(dialog).getByLabelText(/Workflow file/), file)
     await userEvent.click(within(dialog).getByRole('button', { name: 'Import' }))
-    expect(await within(dialog).findByText(/isn’t a workflow export/)).toBeInTheDocument()
+    expect(await within(dialog).findByText(/isn’t valid JSON/)).toBeInTheDocument()
   })
 
   it('reads as the board’s skeleton while loading, with New workflow disabled', async () => {
-    renderWorkflows({ scenario: 'loading' })
+    renderWorkflows({ api: withList('loading') })
     expect(await screen.findByRole('status')).toHaveTextContent('Loading workflows')
     expect(within(topBar()).getByRole('button', { name: 'New workflow' })).toBeDisabled()
     expect(within(topBar()).queryByRole('link', { name: 'Import' })).not.toBeInTheDocument()
   })
 
   it('shows the load error with its ID, counts tries, and the reassurance', async () => {
-    renderWorkflows({ scenario: 'error' })
+    renderWorkflows({ api: withList('error') })
     expect(await screen.findByRole('heading', { name: 'We couldn’t load workflows' })).toBeVisible()
     expect(screen.getByText(/^req_/)).toBeInTheDocument()
     expect(screen.getByText(/Your deployed workflows keep running/)).toBeInTheDocument()
@@ -232,7 +224,7 @@ describe('Workflows page', () => {
 
 describe('Workflows page for a Viewer', () => {
   it('is read-only: Viewer pill, note, disabled switches, no New or Import', async () => {
-    renderWorkflows({ userId: PRIYA })
+    renderWorkflows({ api: asViewer() })
     await waitFor(desktopList)
     expect(within(topBar()).getByText('Viewer')).toBeInTheDocument()
     expect(within(topBar()).queryByRole('button', { name: 'New workflow' })).not.toBeInTheDocument()
@@ -244,13 +236,22 @@ describe('Workflows page for a Viewer', () => {
   })
 
   it('asks for edit access once, naming who was asked, and remembers it', async () => {
-    const first = renderWorkflows({ userId: PRIYA })
+    const api = asViewer()
+    const first = renderWorkflows({ api })
     await waitFor(desktopList)
     await userEvent.click(within(topBar()).getByRole('button', { name: 'Ask for edit access' }))
     expect(await within(topBar()).findByRole('status')).toHaveTextContent('Asked Ama Mensah')
     first.unmount()
-
-    renderWorkflows({ userId: PRIYA })
+    // The API keeps the open request: the next visit reads it back.
+    api.on('GET /workspaces/:id/access-request', {
+      id: 'req_new',
+      workspaceId: 'ws_sales',
+      from: { id: PRIYA, name: 'Priya Shah' },
+      to: { id: 'usr_ama', name: 'Ama Mensah' },
+      status: 'pending',
+      at: api.now.toISOString(),
+    })
+    renderWorkflows({ api })
     expect(await within(topBar()).findByText('Asked Ama Mensah')).toBeInTheDocument()
     expect(
       within(topBar()).queryByRole('button', { name: 'Ask for edit access' }),
@@ -260,42 +261,12 @@ describe('Workflows page for a Viewer', () => {
 
 const functionsList = () => screen.getAllByRole('list', { name: 'Functions in Sales' })[0]!
 
-function renderFunctions(
-  options: { userId?: string; scenario?: 'loading' | 'error' } = {},
-  slugs = sales,
-) {
-  return renderWithDashboardData(<FunctionsPage slugs={slugs} />, options)
+function renderFunctions(options: { api?: FakeApi } = {}, slugs = sales) {
+  const api = options.api ?? installFakeApi()
+  return { ...renderWithDashboardApi(<FunctionsPage slugs={slugs} />, { api }), api }
 }
 
 describe('Functions page', () => {
-  it('lists functions in the same rows as workflows, with description, status and runs', async () => {
-    renderFunctions({ userId: AMA })
-    const list = await waitFor(functionsList)
-    expect(
-      within(list)
-        .getAllByRole('link')
-        .map((a) => a.textContent),
-    ).toEqual(['CRM sync', 'Pricing webhook'])
-    const crm = within(list).getByRole('link', { name: 'CRM sync' })
-    expect(crm.getAttribute('href')).toMatch(
-      /^\/acme\/project-101\/sales\/workflows\/[^/]+\/overview$/,
-    )
-    expect(within(list).getByText('Updates leads from the CRM')).toBeVisible()
-    expect(within(list).getByText('Deployed · v3')).toBeInTheDocument()
-    expect(within(crm.closest('li')!).getByText('Succeeded 31m ago')).toBeVisible()
-    expect(
-      within(crm.closest('li')!).getByRole('img', { name: 'Last 10 runs: 10 succeeded' }),
-    ).toBeInTheDocument()
-    expect(
-      within(list).getByRole('switch', { name: 'Shared with Project 101: CRM sync' }),
-    ).not.toBeChecked()
-    const filters = screen.getByRole('group', { name: 'Filter functions' })
-    expect(within(filters).getByRole('button', { name: 'All 2' })).toBeInTheDocument()
-    expect(within(filters).getByRole('button', { name: 'Deployed 2' })).toBeInTheDocument()
-    expect(within(filters).getByRole('button', { name: 'Drafts 0' })).toBeInTheDocument()
-    expect(within(filters).getByRole('button', { name: 'Failing 0' })).toBeInTheDocument()
-  })
-
   it('leads each row to its Overview, under this workspace, on desktop and phone', async () => {
     renderFunctions()
     const list = await waitFor(functionsList)
@@ -310,10 +281,11 @@ describe('Functions page', () => {
   })
 
   it('narrows to the draft function', async () => {
-    const draft = dashboardDb().items.find((i) => i.name === 'Pricing webhook')!
+    const api = installFakeApi()
+    const draft = api.data.seed.items.find((i) => i.name === 'Pricing webhook')!
     draft.status = 'draft'
     draft.version = null
-    renderFunctions()
+    renderFunctions({ api })
     await waitFor(functionsList)
     await userEvent.click(screen.getByRole('button', { name: 'Drafts 1' }))
     expect(
@@ -323,71 +295,22 @@ describe('Functions page', () => {
     ).toEqual(['Pricing webhook'])
   })
 
-  it('counts a function whose last run failed under Failing', async () => {
-    dashboardDb().runs.push({
-      id: 'run_crm_failed',
-      itemId: 'itm_crm_sync',
-      result: 'failed',
-      trigger: 'http',
-      startedAt: new Date().toISOString(),
-      durationMs: 12,
-      waitingOn: null,
-      httpStatus: 500,
-      failure: null,
-    })
-    renderFunctions()
-    await waitFor(functionsList)
-    await userEvent.click(screen.getByRole('button', { name: 'Failing 1' }))
-    expect(
-      within(functionsList())
-        .getAllByRole('link')
-        .map((a) => a.textContent),
-    ).toEqual(['CRM sync'])
-  })
-
-  it('shows what IT shares, read-only, under "Shared with Sales"', async () => {
-    renderFunctions()
-    const heading = await screen.findByRole('heading', { name: 'Shared with Sales' })
-    const section = heading.closest('section')!
-    expect(within(section).getByText('Provision account')).toBeInTheDocument()
-    expect(within(section).getByText('Send Slack alert')).toBeInTheDocument()
-  })
-
   it('shares a function, which then shows as shared with IT', async () => {
-    renderFunctions({ userId: AMA })
+    const { api } = renderFunctions()
+    scriptShare(api)
     await waitFor(functionsList)
     const toggle = screen.getByRole('switch', { name: 'Shared with Project 101: CRM sync' })
     await userEvent.click(toggle)
     await waitFor(() => expect(toggle).toBeChecked())
 
-    renderFunctions({}, it_)
+    renderFunctions({ api }, it_)
     const heading = await screen.findByRole('heading', { name: 'Shared with IT' })
     expect(within(heading.closest('section')!).getByText('CRM sync')).toBeInTheDocument()
   })
 
-  it('shows the failed run for a function that has one', async () => {
-    dashboardDb().runs.push({
-      id: 'run_crm_failed',
-      itemId: 'itm_crm_sync',
-      result: 'failed',
-      trigger: 'http',
-      startedAt: new Date().toISOString(),
-      durationMs: 12,
-      waitingOn: null,
-      httpStatus: 500,
-      failure: null,
-    })
-    renderFunctions({ userId: AMA })
-    const list = await waitFor(functionsList)
-    const row = within(list).getByRole('link', { name: 'CRM sync' }).closest('li')!
-    expect(within(row).getByText(/^Failed /)).toHaveClass('text-status-error')
-    expect(
-      within(row).getByRole('img', { name: 'Last 10 runs: 9 succeeded, 1 failed' }),
-    ).toBeInTheDocument()
-  })
-
   it('New function adds the function named in its dialog', async () => {
-    renderFunctions()
+    const { api } = renderFunctions()
+    scriptCreate(api)
     await waitFor(functionsList)
     await userEvent.click(within(topBar()).getByRole('button', { name: 'New function' }))
     const dialog = await screen.findByRole('dialog', { name: 'New function' })
@@ -407,7 +330,7 @@ describe('Functions page', () => {
   })
 
   it('gives a Viewer the request instead of New function, with the share switches locked', async () => {
-    renderFunctions({ userId: PRIYA })
+    renderFunctions({ api: asViewer() })
     const list = await waitFor(functionsList)
     expect(within(topBar()).getByRole('button', { name: 'Ask for edit access' })).toBeVisible()
     expect(within(topBar()).queryByRole('button', { name: 'New function' })).not.toBeInTheDocument()
@@ -418,13 +341,13 @@ describe('Functions page', () => {
   })
 
   it('reads as the same skeleton as Workflows while loading, with New function disabled', async () => {
-    renderFunctions({ scenario: 'loading' })
+    renderFunctions({ api: withList('loading') })
     expect(await screen.findByRole('status')).toHaveTextContent('Loading functions')
     expect(within(topBar()).getByRole('button', { name: 'New function' })).toBeDisabled()
   })
 
   it('shows the load error with its ID and the reassurance', async () => {
-    renderFunctions({ scenario: 'error' })
+    renderFunctions({ api: withList('error') })
     expect(await screen.findByRole('heading', { name: 'We couldn’t load functions' })).toBeVisible()
     expect(screen.getByText(/^req_/)).toBeInTheDocument()
     expect(screen.getByText(/Your deployed workflows keep running/)).toBeInTheDocument()

@@ -6,7 +6,6 @@ import { useIdeStore } from '../../../stores/ide-store'
 import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { isMacPlatform } from '../../../lib/platform'
 import { LibraryWorkspaceView } from '../library-workspace'
-import { DataSourceProvider } from '../../../data/dashboard/source'
 import { ProjectFileConflictError } from '../../../lib/api-client'
 import { SOURCES, salesTree, withFile } from './fixtures/library-tree'
 
@@ -73,16 +72,14 @@ function renderIde(
 ) {
   return render(
     <QueryClientProvider client={client}>
-      <DataSourceProvider source="api">
-        <LibraryWorkspaceView
-          place={place}
-          placeName="Sales"
-          initialItem={open.item}
-          initialFile={open.file}
-          initialNew={open.new}
-          onNewConsumed={onNewConsumed}
-        />
-      </DataSourceProvider>
+      <LibraryWorkspaceView
+        place={place}
+        placeName="Sales"
+        initialItem={open.item}
+        initialFile={open.file}
+        initialNew={open.new}
+        onNewConsumed={onNewConsumed}
+      />
     </QueryClientProvider>,
   )
 }

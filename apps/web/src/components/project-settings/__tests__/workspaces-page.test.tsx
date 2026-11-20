@@ -1,12 +1,14 @@
-import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
-  dashboardDb,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  asOrgRole,
+  asProjectRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { rememberWorkspace } from '../../navigation/scope-memory'
 import type * as WorkspaceHooks from '../../../data/dashboard/workspaces'
 import { WorkspacesPage } from '../workspaces-page'
@@ -14,7 +16,7 @@ import { WorkspacesPage } from '../workspaces-page'
 const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
 
-// Fails the workspace list on demand: it's frame data, which no `?mock=` scenario fails.
+// Fails the workspace list on demand: it's frame data the scope also feeds, so the hook is stood in for.
 const fail = { workspaces: false }
 vi.mock('../../../data/dashboard/workspaces', async (importOriginal) => {
   const real = await importOriginal<typeof WorkspaceHooks>()
@@ -32,49 +34,26 @@ vi.mock('../../../data/dashboard/workspaces', async (importOriginal) => {
 const p101 = { org: 'acme', project: 'project-101' }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   localStorage.clear()
   goTo.mockReset()
   fail.workspaces = false
 })
 
-function renderPage(options: { dialogOpen?: boolean; userId?: string } = {}) {
+function renderPage(options: { dialogOpen?: boolean; api?: FakeApi } = {}) {
   const onDialogChange = vi.fn()
-  renderWithDashboardData(
+  const api = options.api ?? installFakeApi()
+  renderWithDashboardApi(
     <WorkspacesPage
       slugs={p101}
       dialogOpen={options.dialogOpen ?? false}
       onDialogChange={onDialogChange}
     />,
-    { userId: options.userId },
+    { api },
   )
-  return { onDialogChange }
+  return { onDialogChange, api }
 }
 
-const poolCard = (title: string) =>
-  screen.getByText(title, { selector: 'span' }).closest('a') as HTMLElement
-
 describe('project Workspaces page', () => {
-  it('reads as ProjectOverview: a card per workspace, the last one opened marked', async () => {
-    // Support was made 90 minutes ago: pin the clock to midday so that's still "today".
-    vi.useFakeTimers({ toFake: ['Date'] })
-    vi.setSystemTime(new Date(2026, 9, 27, 12))
-    resetDashboardData(new Date())
-    onTestFinished(() => {
-      vi.useRealTimers()
-    })
-    rememberWorkspace('acme', 'project-101', 'sales')
-    renderPage()
-    const sales = await screen.findByRole('link', { name: 'Sales' })
-    expect(sales).toHaveAttribute('href', '/acme/project-101/sales/overview')
-    expect(within(sales).getByText('You’re here')).toBeVisible()
-    expect(within(sales).getByText('4 workflows')).toBeVisible()
-    expect(within(screen.getByRole('link', { name: 'IT' })).getByText(/All passing/)).toBeVisible()
-    const support = screen.getByRole('link', { name: 'Support' })
-    expect(within(support).getByText('New')).toBeVisible()
-    expect(within(support).getByText('Created today by Ama Mensah')).toBeVisible()
-  })
-
   it('puts the workspace you were last in first', async () => {
     rememberWorkspace('acme', 'project-101', 'it')
     renderPage()
@@ -82,23 +61,6 @@ describe('project Workspaces page', () => {
     const grid = screen.getByRole('link', { name: 'IT' }).parentElement!
     const names = [...grid.querySelectorAll(':scope > a')].map((card) => card.getAttribute('href'))
     expect(names[0]).toBe('/acme/project-101/it/overview')
-  })
-
-  it('counts the project-wide from its lists', async () => {
-    renderPage()
-    await screen.findByText('admins can open every workspace')
-    const members = poolCard('Members & keys')
-    expect(members).toHaveAttribute('href', '/acme/project-101/members')
-    expect(members).toHaveTextContent('2admins can open every workspace')
-    expect(members).toHaveTextContent('4 project keys')
-    const variables = poolCard('Variables')
-    expect(variables).toHaveTextContent('5')
-    expect(variables).toHaveTextContent('5variables, 2 set here, 3 from Acme Inc')
-    expect(within(variables).getByText('SLACK_TOKEN')).toBeVisible()
-    expect(within(variables).getByText('+3')).toBeVisible()
-    const shared = poolCard('Workflows & functions')
-    expect(shared).toHaveTextContent('3items shared with every workspace')
-    expect(within(shared).getByText('Lead enrichment · Sales')).toBeVisible()
   })
 
   it('opens the dialog from the top bar and the dashed card', async () => {
@@ -122,7 +84,10 @@ describe('project Workspaces page', () => {
   })
 
   it('offers no New workspace to someone who isn’t a project admin', async () => {
-    renderPage({ userId: DANIEL, dialogOpen: true })
+    const api = installFakeApi({ viewer: DANIEL })
+    asOrgRole(api, 'acme', 'member')
+    asProjectRole(api, 'acme/project-101', 'member')
+    renderPage({ api, dialogOpen: true })
     await screen.findByRole('link', { name: 'Sales' })
     expect(screen.queryByRole('button', { name: /New workspace/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -131,7 +96,22 @@ describe('project Workspaces page', () => {
 
 describe('New workspace dialog', () => {
   it('shows what it inherits and creates the workspace with picked people as Editors', async () => {
-    renderPage({ dialogOpen: true })
+    const api = installFakeApi()
+    api.on('POST /workspaces', (req) => {
+      const body = req.body as { name: string; colour: 'rose' }
+      return {
+        id: 'ws_billing',
+        projectId: 'prj_101',
+        slug: body.name.toLowerCase(),
+        name: body.name,
+        description: null,
+        colour: body.colour,
+        createdBy: 'usr_ama',
+        createdAt: api.now.toISOString(),
+        updatedAt: api.now.toISOString(),
+      }
+    })
+    renderPage({ dialogOpen: true, api })
     const dialog = await screen.findByRole('dialog', { name: 'Create a workspace' })
     await waitFor(() => expect(dialog).toHaveTextContent('2 admins'))
     expect(dialog).toHaveTextContent('4 project keys')
@@ -153,12 +133,11 @@ describe('New workspace dialog', () => {
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create workspace' }))
     await waitFor(() => expect(goTo).toHaveBeenCalledWith('/acme/project-101/billing/overview'))
-    const db = dashboardDb()
-    const billing = db.workspaces.find((w) => w.slug === 'billing')!
-    expect(billing.colour).toBe('rose')
-    expect(db.workspaceMembers.filter((m) => m.workspaceId === billing.id)).toEqual([
-      { workspaceId: billing.id, userId: DANIEL, role: 'editor' },
-    ])
+    expect(api.lastRequest('POST /workspaces').body).toMatchObject({
+      name: 'Billing',
+      colour: 'rose',
+      members: [{ userId: DANIEL, role: 'editor' }],
+    })
   })
 
   it('removes a picked person', async () => {

@@ -1,12 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '../../lib/dashboard-api'
-import { mockServer } from '../../mocks/dashboard/server'
 import type { ActivityItem } from '../../types/dashboard/activity'
 import { toFailingItem } from './api/runs'
 import { dashKeys } from './keys'
 import type { FailingNowSummary } from './runs'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 
 /** The org home's own data: the Failing now tile and Recent activity, in one request. */
 interface OrgHomeData {
@@ -15,27 +12,17 @@ interface OrgHomeData {
 }
 
 function useOrgHome<T>(org: string, select: (data: OrgHomeData) => T) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.homeSummary(org)),
+    queryKey: dashKeys.homeSummary(org),
     queryFn: async (): Promise<OrgHomeData> => {
-      if (source === 'api') {
-        const summary = await dashboardApi.getOrgHomeSummary(org)
-        return {
-          failing: {
-            count: summary.failing.count,
-            first: summary.failing.first ? toFailingItem(summary.failing.first) : null,
-          },
-          activity: summary.activity,
-        }
+      const summary = await dashboardApi.getOrgHomeSummary(org)
+      return {
+        failing: {
+          count: summary.failing.count,
+          first: summary.failing.first ? toFailingItem(summary.failing.first) : null,
+        },
+        activity: summary.activity,
       }
-      const [failing, activity] = await Promise.all([
-        mockServer.runs.listFailingNow(ctx, org),
-        mockServer.activity.listActivity(ctx, org),
-      ])
-      return { failing: { count: failing.length, first: failing[0] ?? null }, activity }
     },
     select,
   })

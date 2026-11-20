@@ -18,7 +18,7 @@ function OrgResourcesPage() {
   const navigate = Route.useNavigate()
 
   function handleTabChange(tab: string) {
-    void navigate({ search: (prev) => searchForTab(prev, tab, 'nodes'), replace: true })
+    void navigate({ search: searchForTab(tab, 'nodes'), replace: true })
   }
 
   function handleCloseDialog() {

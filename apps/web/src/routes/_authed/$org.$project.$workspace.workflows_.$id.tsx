@@ -7,7 +7,7 @@ import { ItemScopeLayout } from '../../components/workflow-detail/item-scope-lay
 // pages (Overview, Runs, Deployments, Deploy). The ids its URL names reach
 // every call under it as route context, never through the org store.
 export const Route = createFileRoute('/_authed/$org/$project/$workspace/workflows_/$id')({
-  beforeLoad: ({ params, search }) => openEditorScope({ params, search }),
+  beforeLoad: ({ params }) => openEditorScope({ params }),
   component: ItemScopeRoute,
   errorComponent: EditorScopeError,
 })

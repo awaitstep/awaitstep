@@ -186,34 +186,34 @@ describe('dashboard search params', () => {
     return createRouter({ routeTree, history: createMemoryHistory({ initialEntries: [path] }) })
   }
 
-  it('keeps ?mock and ?as when /dashboard sends you into an org', () => {
+  it('carries no ?mock or ?as from /dashboard into an org: the app has no dummy session', () => {
     const location = routerAt('/dashboard?as=priya&mock=viewer').buildLocation({
       to: '/$org/projects',
       params: { org: 'acme' },
     })
-    expect(location.search).toEqual({ as: 'priya', mock: 'viewer' })
+    expect(location.search).toEqual({})
   })
 
   it('lets a switcher’s ?new reach the page, without carrying it to the next one', () => {
-    const router = routerAt('/acme/project-101/sales/runs?as=daniel')
+    const router = routerAt('/acme/project-101/sales/runs')
     const toDialog = router.buildLocation({
       to: '/$org/projects',
       params: { org: 'acme' },
       search: { new: 'project' },
     })
-    expect(toDialog.search).toEqual({ as: 'daniel', new: 'project' })
-    const onward = routerAt('/acme/projects?new=project&as=daniel').buildLocation({
+    expect(toDialog.search).toEqual({ new: 'project' })
+    const onward = routerAt('/acme/projects?new=project').buildLocation({
       to: '/$org/audit',
       params: { org: 'acme' },
     })
-    expect(onward.search).toEqual({ as: 'daniel' })
+    expect(onward.search).toEqual({})
   })
 
-  it('keeps them across a page change inside the dashboard, and drops anything else', () => {
+  it('carries nothing across a page change inside the dashboard', () => {
     const location = routerAt('/acme/audit?as=daniel&page=2').buildLocation({
       to: '/$org/$project/$workspace/runs',
       params: { org: 'acme', project: 'project-101', workspace: 'sales' },
     })
-    expect(location.search).toEqual({ as: 'daniel' })
+    expect(location.search).toEqual({})
   })
 })
