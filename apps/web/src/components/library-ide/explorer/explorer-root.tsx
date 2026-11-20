@@ -9,7 +9,7 @@ import { itemMenu } from './explorer-menus'
 import { CreateRowIn, ExplorerNode, type TreeContext } from './explorer-node'
 import { NewItemRow } from './new-item-row'
 
-export const ROOT_LABEL: Record<LibraryKind, string> = { module: '/modules', node: '/nodes' }
+export const ROOT_LABEL: Record<LibraryKind, string> = { module: 'modules', node: 'nodes' }
 const NEW_LABEL: Record<LibraryKind, string> = { module: 'New module', node: 'New node' }
 
 interface ExplorerRootProps {
