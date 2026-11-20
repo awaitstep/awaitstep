@@ -3271,7 +3271,10 @@ rather than pretending the route does not exist.
 
 Starts a session, or returns the one this user already has for the workflow
 (`reused: true`, status `200`) — a second click asks for the session you have,
-not an error about it.
+not an error about it. A live session is returned only while it runs what
+would be built now (the same version, project files, Library versions,
+variables and dependencies); otherwise it is stopped and a new one starts
+(`reused: false`, status `201`).
 
 **Permission:** `workflows:write`
 

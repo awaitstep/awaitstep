@@ -3,6 +3,7 @@ import { presetPermissions } from '@awaitstep/ir'
 import {
   createTestApp,
   resetStore,
+  patchTestSession,
   mockDb,
   FakeTestSessionRunner,
   TEST_USER_ID,
@@ -261,6 +262,90 @@ describe('test session routes', () => {
 
       release()
       await first
+    })
+
+    it('starts again after a save onto the same, undeployed version', async () => {
+      const first = (await (await start(app)).json()) as {
+        session: { id: string; versionId: string }
+      }
+
+      // An undeployed version is overwritten in place: same id, new code.
+      const changed = structuredClone(validIR)
+      changed.nodes[0]!.data = { code: 'return 2;' }
+      const save = await app.request(url('/api/workflows/wf-1/versions'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ir: changed }),
+      })
+      expect(save.status).toBe(200)
+
+      const res = await start(app)
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as {
+        session: { id: string; versionId: string }
+        reused: boolean
+      }
+      expect(body.reused).toBe(false)
+      expect(body.session.versionId).toBe(first.session.versionId)
+      expect(body.session.id).not.toBe(first.session.id)
+      expect(runner.stopped).toContain(first.session.id)
+    })
+
+    it('starts again after a project file changes', async () => {
+      const first = (await (await start(app)).json()) as { session: { id: string } }
+
+      const write = await app.request(url('/api/workflows/wf-1/files/lib/format.ts'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'If-None-Match': '*' },
+        body: JSON.stringify({ source: 'export const format = (n: number) => `${n}`\n' }),
+      })
+      expect(write.status).toBe(201)
+
+      const res = await start(app)
+      const body = (await res.json()) as { session: { id: string }; reused: boolean }
+      expect(body.reused).toBe(false)
+      expect(body.session.id).not.toBe(first.session.id)
+      expect(runner.stopped).toContain(first.session.id)
+    })
+
+    it('starts again after a workflow variable changes', async () => {
+      const first = (await (await start(app)).json()) as { session: { id: string } }
+
+      const patch = await app.request(url('/api/workflows/wf-1'), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ envVars: [{ name: 'REGION', value: 'eu-west-1' }] }),
+      })
+      expect(patch.status).toBe(200)
+
+      const body = (await (await start(app)).json()) as {
+        session: { id: string }
+        reused: boolean
+      }
+      expect(body.reused).toBe(false)
+      expect(body.session.id).not.toBe(first.session.id)
+    })
+
+    it('neither stops nor hands back a different session another start created meanwhile', async () => {
+      // Two starts interleave with a save: which one read the newer code is
+      // not known, so this one stops nothing and passes nothing off as current.
+      const first = (await (await start(app)).json()) as { session: { id: string } }
+      patchTestSession(first.session.id, {
+        sourceHash: 'built-from-a-later-read',
+        createdAt: new Date(Date.now() + 60_000).toISOString(),
+      })
+
+      const res = await start(app)
+      expect(res.status).toBe(409)
+      expect(((await res.json()) as { error: string }).error).toMatch(/Start it again/)
+      expect(runner.stopped).not.toContain(first.session.id)
+      expect(runner.started).toHaveLength(1)
+    })
+
+    it('keeps what the session was built from to itself', async () => {
+      const body = (await (await start(app)).json()) as { session: Record<string, unknown> }
+      // A hash of the code, variables (secret values too) and dependencies.
+      expect(body.session).not.toHaveProperty('sourceHash')
     })
 
     it('replaces a session running an older version', async () => {

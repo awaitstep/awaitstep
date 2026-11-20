@@ -1,0 +1,1 @@
+ALTER TABLE `test_sessions` ADD `source_hash` text;

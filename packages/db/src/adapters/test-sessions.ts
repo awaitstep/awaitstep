@@ -129,7 +129,8 @@ export class TestSessionsAdapter {
                      null, null,
                      coalesce((select max(${this.table.slot}) ${heldByUser}), -1) + 1,
                      'starting', null, ${now}, ${now}, null,
-                     ${data.files ? JSON.stringify(data.files) : null}
+                     ${data.files ? JSON.stringify(data.files) : null},
+                     ${data.sourceHash ?? null}
               where (select count(*) ${heldByUser}) < ${limits.maxConcurrentPerUser}
                 and (select count(*) ${heldByAnyone}) < ${limits.maxConcurrentTotal}
                 and (select count(*) from ${this.table}

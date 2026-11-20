@@ -59,6 +59,8 @@ export interface ReserveTestSessionData {
   containerId: string
   /** Manifest of the project files the session is built from: `{ path: hash }`, at most 100. */
   files?: Record<string, string> | null
+  /** The keyed fingerprint of what the session runs; a start reuses it only on a match. */
+  sourceHash?: string | null
 }
 
 /**

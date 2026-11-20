@@ -1528,6 +1528,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   }
 
   // Test sessions
+  async fingerprint(input: string): Promise<string> {
+    if (this._crypto) return this._crypto.digest(input)
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  }
   reserveTestSession(
     data: ReserveTestSessionData,
     limits: ReserveTestSessionLimits,

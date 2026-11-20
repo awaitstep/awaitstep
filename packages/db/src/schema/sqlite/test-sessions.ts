@@ -46,6 +46,11 @@ export const testSessions = sqliteTable(
     // JSON `{ [path]: hash }` of the project files the session was built
     // from (at most 100); null for sessions that predate the manifest.
     files: text('files'),
+    // The keyed fingerprint (HMAC-SHA256) of what the session runs: the built
+    // files, the prepared document, the variables and the dependencies. A
+    // start reuses a live session only when what it would build now matches.
+    // Never sent to a client.
+    sourceHash: text('source_hash'),
   },
   (table) => [
     index('idx_test_sessions_workflow_id').on(table.workflowId),

@@ -112,6 +112,13 @@ const toKeyListItem = (k: ApiKey): ApiKeyListItem => ({
     }),
 })
 
+/** Changes a stored test session row in place, for a test that needs a state no route produces. */
+export function patchTestSession(id: string, patch: Partial<TestSession>): void {
+  const session = store.testSessions.get(id)
+  if (!session) throw new Error(`no test session ${id}`)
+  store.testSessions.set(id, { ...session, ...patch })
+}
+
 export function resetStore() {
   store.workflows.clear()
   store.versions.clear()
@@ -1523,6 +1530,10 @@ const mockDb: DatabaseAdapter = {
 
   // Test sessions — the caps the real adapter enforces inside its INSERT are
   // applied here in the same order, so route tests see the same refusals.
+  async fingerprint(input) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  },
   async reserveTestSession(data, limits) {
     const unfinished = [...store.testSessions.values()].filter(isUnfinishedSession)
     const held = unfinished.filter((s) => s.userId === data.userId)
@@ -1554,6 +1565,7 @@ const mockDb: DatabaseAdapter = {
       lastUsedAt: now(),
       stoppedAt: null,
       files: data.files ? JSON.stringify(data.files) : null,
+      sourceHash: data.sourceHash ?? null,
     }
     store.testSessions.set(session.id, session)
     return session
@@ -2230,10 +2242,20 @@ const mockDb: DatabaseAdapter = {
     const workflow = store.workflows.get(workflowId)
     return workflow ? mockDb.decodeWorkflowEnvVars(workflow) : []
   },
-  async decodeWorkflowEnvVars() {
-    return []
+  async decodeWorkflowEnvVars(workflow) {
+    // Stored as the real adapter stores them (without encryption here).
+    if (!workflow.envVars) return []
+    try {
+      const parsed = JSON.parse(workflow.envVars) as unknown
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
   },
-  async setWorkflowEnvVars() {},
+  async setWorkflowEnvVars(workflowId, vars) {
+    const workflow = store.workflows.get(workflowId)
+    if (workflow) store.workflows.set(workflowId, { ...workflow, envVars: JSON.stringify(vars) })
+  },
   async isSecretVariableAt(id, place) {
     const v = store.envVars.get(id)
     return !!v && envVarAtPlace(v, place) && v.isSecret

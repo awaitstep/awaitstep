@@ -44,4 +44,19 @@ describe('createTokenCrypto', () => {
     const token = 'tökën-with-émojis-🔑'
     expect(await tc.decrypt(await tc.encrypt(token))).toBe(token)
   })
+
+  it('digests with a key: the same input matches only under the same key', async () => {
+    const key = randomKeyHex()
+    const a = await createTokenCrypto(key)
+    const b = await createTokenCrypto(key)
+    const other = await createTokenCrypto(randomKeyHex())
+    const input = 'TOKEN=secret-value'
+    expect(await a.digest(input)).toMatch(/^[0-9a-f]{64}$/)
+    expect(await a.digest(input)).toBe(await b.digest(input))
+    expect(await other.digest(input)).not.toBe(await a.digest(input))
+    // Not a plain hash: a guess cannot be checked without the key.
+    const plain = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+    const plainHex = [...new Uint8Array(plain)].map((x) => x.toString(16).padStart(2, '0')).join('')
+    expect(await a.digest(input)).not.toBe(plainHex)
+  })
 })

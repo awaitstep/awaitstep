@@ -10,6 +10,7 @@ import { buildFileManifest } from '@awaitstep/ir'
 import { splitEnvVars } from '@awaitstep/codegen'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
+import { testSessionSourceHash } from './test-session-source.js'
 import {
   expiryMessage,
   quotaWindowStart,
@@ -34,8 +35,11 @@ export interface StartTestSessionInput extends TestSessionDeps {
 }
 
 export type StartTestSessionResult =
-  | { ok: true; session: TestSession }
+  | { ok: true; session: TestSession; reused: boolean }
   | { ok: false; status: number; error: string; details?: unknown }
+
+const OVERLAPPING_START =
+  'Another test session started while this one was being built. Start it again.'
 
 const REAP_BATCH = 20
 
@@ -135,6 +139,9 @@ export async function startTestSession(
   input: StartTestSessionInput,
 ): Promise<StartTestSessionResult> {
   const { db, runner, limits, workflow, projectId, userId } = input
+  // A session reserved after this moment came from a start that overlapped
+  // this one; which of the two read the newer code is not known.
+  const requestedAt = new Date().toISOString()
 
   if (!workflow.currentVersionId) {
     return {
@@ -166,6 +173,49 @@ export async function startTestSession(
     }
   }
 
+  // A live session is handed back only when it runs what would be built now:
+  // the same version (the session reports which it runs) and the same code.
+  // The version id alone is not enough: a save onto an undeployed version
+  // keeps the id, and project files, modules and variables change without one.
+  const kind = prepared.ir.kind === 'script' ? 'script' : 'workflow'
+  const sourceHash = await testSessionSourceHash(
+    {
+      bundle: prepared.bundle,
+      ir: prepared.ir,
+      kind,
+      workflowName: workflow.name,
+      ...(prepared.envVars && { envVars: prepared.envVars }),
+      ...(prepared.dependencies && { dependencies: prepared.dependencies }),
+    },
+    (input) => db.fingerprint(input),
+  )
+  const existing = await db.getLiveTestSessionForWorkflow(
+    workflow.id,
+    userId,
+    testSessionCutoffs(limits),
+  )
+  if (existing) {
+    const current = existing.versionId === prepared.versionId && existing.sourceHash === sourceHash
+    if (!current && existing.createdAt > requestedAt) {
+      // Another start reserved it while this one prepared, from code that
+      // differs. Stopping it could put older code back, and handing it back
+      // could pass older code off as current: neither, ask for a fresh start,
+      // which compares against what is stored then.
+      return { ok: false, status: 409, error: OVERLAPPING_START }
+    }
+    if (current) {
+      // Reuse is use: without this the session handed back can expire a
+      // moment later.
+      const usedAt = new Date().toISOString()
+      await db.touchTestSession(existing.id, userId, testSessionCutoffs(limits))
+      return { ok: true, session: { ...existing, lastUsedAt: usedAt }, reused: true }
+    }
+    await stopTestSession({ db, runner, limits }, existing, 'stopped', {
+      error: 'Replaced by newer code',
+      userId,
+    })
+  }
+
   const id = nanoid()
   const reserved = await db.reserveTestSession(
     {
@@ -176,6 +226,7 @@ export async function startTestSession(
       runtime: runner.runtime,
       containerId: runner.containerId(id),
       files: buildFileManifest(prepared.projectFileRows),
+      sourceHash,
     },
     {
       cutoffs: testSessionCutoffs(limits),
@@ -205,7 +256,7 @@ export async function startTestSession(
       sessionId: id,
       workflowId: workflow.id,
       workflowName: workflow.name,
-      kind: prepared.ir.kind === 'script' ? 'script' : 'workflow',
+      kind,
       ir: prepared.ir,
       ...(prepared.dependencies && { dependencies: prepared.dependencies }),
       ...(Object.keys(vars).length > 0 && { vars }),
@@ -242,7 +293,7 @@ export async function startTestSession(
     return { ok: false, status: stoppedMeanwhile ? 409 : 504, error: reason }
   }
 
-  return { ok: true, session }
+  return { ok: true, session, reused: false }
 }
 
 /**
