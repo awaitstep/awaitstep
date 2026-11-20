@@ -9,7 +9,8 @@ create live in the project table; generated modules and Library code do not.
 write:
 
 - **Safe segments** — letters, digits, `_`, `.`, `-`; no dotfiles, no `..`, no
-  absolute paths, no traversal.
+  absolute paths, no traversal. Send the plain path: curl and most HTTP
+  clients resolve `lib/../x.ts` to `x.ts` before sending, so it writes `x.ts`.
 - **Extensions** — the list in `extensions` (`.ts`, `.mts`, `.cts`, `.js`,
   `.mjs`, `.cjs`, `.json`, `.md`, and the rest).
 - **Root config files only at the root** — `package.json`, `tsconfig.json`,
@@ -51,8 +52,10 @@ import { scoreLead } from '#modules/lead-scoring'
 - `#app/` is rooted at the project and works from a handler, a step module or
   another project file.
 - Extensionless resolves `.ts`/`.js`; JSON needs its extension.
-- Relative imports work but must stay inside the project. `../../config.json`
-  from a top-level file, or an absolute path, is refused with `422`.
+- Relative imports work but must stay inside the project. A file importing
+  `../../config.json` from a top-level file, or an absolute path, still saves;
+  `source/check` reports it (`source: "import"`), and a test session or deploy
+  is refused with `422` until it is fixed.
 - The import scan is textual: the same specifier inside a comment or string is
   reported too. Keep it clean.
 - Library modules are read-only and always the latest published version. Do not

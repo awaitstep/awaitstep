@@ -71,22 +71,54 @@ curl -sS -X DELETE "$AWAITSTEP_API_URL/test-sessions/$SESSION$SCOPE" -H "$AUTH"
   run.
 - The stream is Server-Sent Events and stays open; give curl `--max-time`.
   - `logs`: `{ entries, cursor }`, the runtime's console output, so a
-    `console.log` in a step shows here.
+    `console.log` in a step shows here. The runtime also logs a `GET / 200`
+    line about every second; skip those. A run's last logs can arrive a few
+    seconds after its `complete` event, so read to the end of `--max-time`.
   - `instance`: the status of the instance named by `?instanceId=`, sent each
     time it changes. When it ends it reads
-    `{ "status": "complete", "output": …, "__LOCAL_DEV_STEP_OUTPUTS": [ … ] }`:
-    the workflow's return value and each step's return value in the order
-    they ran (or the error, when it failed). A step's value is kept only when
-    a later node reads it; one nothing reads is not stored and shows as
-    `null`. To see such a value in a test, `console.log` it (a `logs` event)
-    or read it from a later step. This is the only record of a test
-    run: it never appears under `GET /workflows/$WF/runs`.
+    `{ "status": "complete", "output": …, "__LOCAL_DEV_STEP_OUTPUTS": [ … ] }`,
+    or the error when it failed.
+    - `output` is the workflow's return value. A graph workflow returns
+      nothing, so it is `null`.
+    - `__LOCAL_DEV_STEP_OUTPUTS` has one entry per durable step that ran, in
+      order, not one per node. A run of plain steps in a straight line (no
+      retry or timeout settings) is grouped into one durable step. A
+      durable HTTP Request is one too; sleep, branch and a non-durable HTTP
+      Request have no entry.
+    - An entry keeps only what later nodes read: a group's entry holds those
+      values by node name (`{ "validate_order": { … } }`), a single step's
+      its value. Anything nothing reads is `null`, so a chain of steps that
+      only feed each other shows `[null]`. A loop records each body run, then
+      its own entry (the last body value): two items give three entries.
+    - The `flow.step("<name> (<id>)", …)` calls in `awaitstep/workflow.ts`
+      (`GET /workflows/$WF/source`) show the grouping. To check one node's
+      value, `console.log` it and read the `logs` event.
+    - This is the only record of a test run: it never appears under
+      `GET /workflows/$WF/runs`.
   - `closed` with `final: true`: the session ended.
+  - curl exits `28` when `--max-time` ends the stream. That is the normal end,
+    not a failure; read the events you got.
 - The session has no saved version? `400`. Save first.
 - Start the session again after a save or a file write. A start hands back the
   live session (`reused: true`) only when it runs the code that would be built
-  now: same version, files, modules, variables and dependencies. Otherwise the
-  old session is stopped and a new one starts (`reused: false`).
+  now: same version, files, modules, variables, dependencies and workflow
+  name. Otherwise the old session is stopped and a new one starts
+  (`reused: false`, `201`).
+- A key acts as the person who made it, and each person may have one live
+  session (the instance default), across every workflow, dashboard included.
+  Starting another answers `409 "You already have a test session running —
+stop it before starting another"`. That session may be the user's own
+  dashboard session, or one you started earlier: ask before stopping one
+  you did not start. `GET /workflows/:id/test-sessions`
+  (`{ "session": { "id", … } | null }`) shows only that workflow's session;
+  `DELETE /test-sessions/:id` stops one. If you cannot find it, ask the user to
+  stop it in the dashboard. An idle session is also stopped after about ten
+  minutes.
+- Other start refusals: `409 "…Start it again."` or `409 "Could not start a
+test session — try again"` mean another start overlapped; start once more.
+  `409 "Test session was stopped while starting"` means someone stopped it.
+  `429` means the instance or project cap is full and frees up with time;
+  `503` means test sessions are switched off.
 - The other `/test-sessions/:id/…` reads are the dashboard's: a key gets `403
 "This endpoint is not available to API keys"`. That is not a missing cell.
 - Delete the session when done; sessions are also reaped.

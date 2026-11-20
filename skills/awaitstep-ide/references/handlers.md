@@ -83,6 +83,22 @@ export default async function ({ batch, env }: QueueContext<Env>): Promise<void>
 }
 ```
 
+To start the workflow from either one, import it like the fetch handler does.
+Share code through `#app/handlers/shared` (or `#app/lib/…`):
+
+```ts
+import { startWorkflow } from '#awaitstep/workflow'
+import type { QueueContext } from '#awaitstep/runtime'
+import { toParams } from '#app/handlers/shared'
+
+export default async function ({ batch, env }: QueueContext<Env>): Promise<void> {
+  for (const message of batch.messages) await startWorkflow(env, toParams(message.body))
+}
+```
+
+A Function's cron or queue handler calls `runGraph(env, { payload })` from
+`#awaitstep/function` the same way.
+
 ## Contexts
 
 Handlers use AwaitStep's own contexts, not Cloudflare's, so the same file
@@ -101,8 +117,9 @@ portable and is not exposed.
 ## Rules
 
 - **One file per entry.** A second `handlers/fetch.mjs` beside `handlers/fetch.ts`
-  is refused: nothing would say which runs. The same goes for case variants that
-  look like an entry (`handlers/Fetch.ts`): refused as "would never run".
+  is refused: nothing would say which runs. A case variant of an existing file
+  (`handlers/Fetch.ts` beside `handlers/fetch.ts`) is refused as "would
+  overwrite … after compile".
 - **Queue names** are lowercase letters, digits and inner hyphens, 1–63
   characters.
 - **The handler imports the graph module**, not `#app/worker`:

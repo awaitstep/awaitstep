@@ -159,6 +159,8 @@ curl -sS -X PATCH "$AWAITSTEP_API_URL/workflows/$WF$SCOPE" -H "$AUTH" \
   Workflow after the new name**, and a Call Workflow node in another workflow
   keeps calling the old one. Before renaming a deployed workflow, tell the user
   this and find the callers (their `sub_workflow` nodes' `workflowName`).
+- A rename needs no new save; the next test-session start builds with the new
+  name and replaces a live session (`reused: false`).
 - Node names are separate and live in the IR.
 - The same `PATCH` carries the workflow's variables; see the entry skill's
   [variables reference](https://docs.awaitstep.dev/skills/awaitstep/references/variables.md).
@@ -172,6 +174,7 @@ curl -sS -X PATCH "$AWAITSTEP_API_URL/workflows/$WF$SCOPE" -H "$AUTH" \
 
 ```bash
 curl -sS -X DELETE "$AWAITSTEP_API_URL/workflows/$WF$SCOPE" -H "$AUTH"
+# 200 { "ok": true }; 404 when it is already gone
 ```
 
 - Needs `workflows:delete`. It stops every test session of the workflow.

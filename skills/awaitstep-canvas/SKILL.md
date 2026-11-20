@@ -47,17 +47,34 @@ diff is one version, not a rewrites-everything version.
 ### Layout
 
 The canvas draws top-to-bottom: source handles at the bottom, target handles at
-the top.
+the top. Every node is a box 120 wide and under 70 tall, drawn flat (a
+container does not enclose its children). `position` is the box's top-left;
+all boxes are the same width, so give every node in a column the same `x`.
 
-- entry at `{ "x": 0, "y": 0 }`; each step down by 180;
-- a branch's arms at `x: -320`, `x: 0`, `x: 320` for up to three, wider for
-  more; their steps below the branch by 180 each;
-- the join back at the branch's `x` (usually 0), below the deepest arm;
-- a loop's body at `x: 0`, then the `then` continuation below;
-- do not overlap boxes or leave orphan nodes at `(0, 0)`.
-
-Positions are cosmetic for execution, but they are what the user sees. Reuse the
-positions of nodes you did not touch.
+- **Rows:** the entry at `{ "x": 0, "y": 0 }`; each next node 180 lower.
+- **Columns:** a lone node takes a column 200 wide. A node with arms (`branch`,
+  `parallel`, `race`, `try_catch`) is as wide as its arms side by side, and
+  an arm is as wide as its widest node. So an arm that holds a parallel of two
+  needs 400, not 200.
+- **Arms** sit left to right in edge order, centred under their parent, one
+  row below it: lay their widths side by side from `parent.x - total/2`, and
+  put each arm's column at the middle of its own width. Three single-step
+  arms: `x: -200, 0, 200`; arms of 400 and 200: `x: -100, 200`. The examples'
+  320 spacing is fine too; 200 is the least.
+- **A loop's** body goes below the loop in the same column; its `then`
+  continues below the deepest body node.
+- **A join** goes at its parent's `x`, one row below the deepest arm. An arm
+  that ends in a `parallel`, `try_catch` or `loop` reaches the join through
+  that node's `then` edge.
+- **Inserting** a node into a chain: give it the old node's spot and move
+  everything below it, in that column and after the join, down 180.
+- **Adding an arm:** put it in its place in `data.branches` (before the
+  `else`, which stays last), then lay that node's arms out again with the rule
+  above, so they stay centred. Only that node's arms and what sits below them
+  move; nodes above it and outside it keep their ids and positions
+  byte-identical.
+- **Check before saving:** no two nodes closer than 140 across and 90 down,
+  every node on an edge, and every edge pointing down.
 
 ### Edges that mean something
 
@@ -88,8 +105,11 @@ curl -sS -X POST "$AWAITSTEP_API_URL/workflows/$WF/versions$SCOPE" -H "$AUTH" \
   -d "$(jq -c --arg base "$GRAPH_HASH" '{ir: ., baseGraphHash: $base}' ir.json)"
 ```
 
+- A read-back IR may carry `runtime.files` (the seeded `handlers/fetch.ts`).
+  Sending it back is harmless; the save drops it.
 - `200` saved in place (the latest version never deployed) or unchanged, `201`
-  a new version. The response carries the new `graphHash`.
+  a new version. The response carries the new `graphHash`. An IR identical to
+  the latest one answers `200` and changes nothing, even with an old base.
 - `409` means the canvas (or someone) saved first. The body has
   `currentVersionId` and `currentGraphHash`. **Stop.** Re-read, compare; if the
   user's save changed the nodes you touched, ask which version wins. Do not

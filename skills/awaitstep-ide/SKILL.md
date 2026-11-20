@@ -51,7 +51,8 @@ curl -sS "$AWAITSTEP_API_URL/workflows/$WF/project$SCOPE" -H "$AUTH"
 ```
 
 Read those values; they are what the server enforces. `version` is null until
-the workflow has a saved IR.
+the workflow has a saved IR. Save the graph first: the first save seeds
+`handlers/fetch.ts`, so replace it with `If-Match`, not `If-None-Match: *`.
 
 Who owns what:
 
@@ -91,9 +92,11 @@ import countries from '#app/data/countries.json'
 ```
 
 `#app/` is rooted at the project and resolves the same from a handler, a step
-module and another project file. Extensionless finds `.ts`/`.js`; JSON needs its
-extension. Relative imports work, but must stay inside the project: `../` above
-the root and absolute paths are refused (`422`).
+module and another project file (`#app/handlers/shared` for the handlers'
+shared code). Extensionless finds `.ts`/`.js`; JSON needs its extension.
+Relative imports work, but must stay inside the project: `../` above the root
+and absolute paths save, but `source/check` reports them and a test session or
+deploy is refused (`422`).
 
 Library code is `#modules/<slug>`; it is read-only here. See
 `awaitstep-modules`.

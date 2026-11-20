@@ -94,7 +94,9 @@ Function.
 
 - Arms are edges whose `label` equals a branch label, in order. The first edge
   under a label is the arm; any other edge under it runs nowhere.
-- An empty `condition` is the `else`. Include one.
+- An empty `condition` is the `else`. Include exactly one, and make it the last
+  entry: one anywhere else does not compile, and `source/check` only reports a
+  `compile` syntax error. Its label can be anything (`else`, `other`).
 - Conditions are JavaScript; upstream step variables are in scope (the same
   names step code uses). `{{…}}` in a condition is resolved too, but write what
   the canvas writes — a plain condition.

@@ -75,8 +75,9 @@ curl -sS -X PATCH "$AWAITSTEP_API_URL/workflows/$WF$SCOPE" -H "$AUTH" \
 - `envVars` **replaces the whole list**. Send every variable you read back,
   including each masked secret exactly as it came: the mask keeps the stored
   value.
-- `envVarsBase` is the `envVars` string exactly as you read it. `409` means
-  someone changed the variables meanwhile: re-read and ask.
+- `envVarsBase` is the `envVars` string exactly as you read it, or `""` when
+  it read `null` (no variables yet). `409` means someone changed the variables
+  meanwhile: re-read and ask.
 - Names start with an uppercase letter, then uppercase letters, digits and
   underscores. A name starting with `SECRET_` must have `"isSecret": true`; an
   old variable stored with that prefix but no flag needs `"isSecret": true`

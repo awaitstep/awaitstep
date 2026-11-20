@@ -225,6 +225,8 @@ Then add an IR node:
   anyway.
 - `data` uses the fields `configSchema` declares. Fields of type `expression`
   accept `{{…}}` and are resolved before the template.
+- Leave `secret` fields out of `data`, even required ones. The value comes
+  from the variable named by `envVarName` (`ctx.env.<NAME>`), never the node.
 - `export: true` / `exportAs` on the IR node put its value in a Function's
   response. They are not passed to the template.
 - In a Function, the custom node is exportable by default only if it is

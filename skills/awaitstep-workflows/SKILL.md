@@ -204,9 +204,11 @@ curl -sS -N --max-time 30 \
 curl -sS -X DELETE "$AWAITSTEP_API_URL/test-sessions/$SESSION$SCOPE" -H "$AUTH"
 ```
 
-- Start a session again after a save or a file write. The live one is handed
-  back (`reused: true`) only while it runs the current code; otherwise it is
-  replaced (`reused: false`).
+- Start a session again after a save, a file write or a rename. The live one
+  is handed back (`reused: true`) only while it runs the current code;
+  otherwise it is replaced (`reused: false`).
+- One live session per person: a `409` "…stop it…" means another runs, maybe
+  the user's. Ask first (`references/verify.md`).
 - A test run is not a run: it never appears under `/runs`. Read its result from
   the stream's `instance` events. See `references/verify.md`.
 

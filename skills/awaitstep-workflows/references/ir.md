@@ -64,6 +64,9 @@ interface WorkflowNode {
 - `position` is cosmetic for execution but the canvas draws it. Put the entry at
   `{ "x": 0, "y": 0 }` and move down by 180 per step; branch arms at
   `x: -320` / `x: 320`; return to `x: 0` at a join. Do not overlap nodes.
+  Arms that hold parallels or other arms need more width; the
+  `awaitstep-canvas` skill's Layout section has the rule, and wins where the
+  two differ.
 - `data` holds the node's own fields. The built-in shapes are in
   `node-data.md`; a registry or custom node's fields come from its
   `configSchema` (`GET /nodes`, `GET /workflows/:id/custom-nodes`).
