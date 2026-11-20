@@ -1203,6 +1203,20 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
+  async listConnectionAccounts(organizationId) {
+    return {
+      data: [...store.connections.values()]
+        .filter((c) => c.organizationId === organizationId && !c.projectId)
+        .map((c) => ({
+          id: c.id,
+          name: c.name,
+          credentials: c.credentials,
+          tokenStatus: c.tokenStatus,
+          createdAt: c.createdAt,
+        })),
+      nextCursor: null,
+    }
+  },
   async updateConnection(id, data) {
     const c = store.connections.get(id)
     if (!c || c.organizationId !== data.organizationId) return null
@@ -1248,6 +1262,9 @@ const mockDb: DatabaseAdapter = {
   },
   async listProjectConnections() {
     return notMocked('listProjectConnections')
+  },
+  async getProjectConnectionSummary() {
+    return notMocked('getProjectConnectionSummary')
   },
   async listAvailableProjectConnections() {
     return notMocked('listAvailableProjectConnections')
@@ -2607,6 +2624,7 @@ export function createTestApp(options?: {
   webUrl?: AppDeps['webUrl']
   extensions?: AppDeps['extensions']
   disabledFeatures?: AppDeps['disabledFeatures']
+  oauthReturnPath?: AppDeps['oauthReturnPath']
 }) {
   seedTestProject()
 
@@ -2626,6 +2644,7 @@ export function createTestApp(options?: {
     ...(options?.logger && { logger: options.logger }),
     ...(options?.extensions && { extensions: options.extensions }),
     ...(options?.disabledFeatures && { disabledFeatures: options.disabledFeatures }),
+    ...(options?.oauthReturnPath !== undefined && { oauthReturnPath: options.oauthReturnPath }),
   })
 }
 

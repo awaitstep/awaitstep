@@ -88,6 +88,8 @@ export function createRouter(
     cloudflareOAuth?: CloudflareOAuthRuntime
     /** The web app's origin, for the OAuth callback to send the browser back. */
     webUrl?: string
+    /** The page below `webUrl` the OAuth callback lands on; Connections by default. */
+    oauthReturnPath?: string
     /** Mounted under `/ext/<id>`, behind every middleware above the core routes. */
     extensions?: readonly AppExtension[]
   },
@@ -341,7 +343,9 @@ export function createRouter(
 
   // Ownership — connection routes (skip non-ID sub-routes)
   router.use('/connections/:id', async (c, next) => {
-    if (c.req.param('id') === 'verify-token') return next()
+    const id = c.req.param('id')
+    // `GET /connections/accounts` is the org's list; a write there still names no connection.
+    if (id === 'verify-token' || (id === 'accounts' && c.req.method === 'GET')) return next()
     return requireConnectionAccess(c, next)
   })
 
@@ -384,6 +388,7 @@ export function createRouter(
   // A project's accounts: an organization key with the connections cells.
   router.get('/projects/:id/connections', key('connections', 'read'))
   router.get('/projects/:id/connections/available', key('connections', 'read'))
+  router.get('/projects/:id/connections/summary', key('connections', 'read'))
   router.post('/projects/:id/connections', key('connections', 'write'))
   router.post('/projects/:id/connections/new', key('connections', 'write'))
   router.patch('/projects/:id/connections/:connectionId', key('connections', 'write'))
@@ -391,6 +396,8 @@ export function createRouter(
   router.put('/projects/:id/default-connection', key('connections', 'write'))
   router.put('/projects/:id/workspaces/:workspaceId/connection', key('connections', 'write'))
   router.get('/connections', key('connections', 'read', belowReads))
+  // The organization's own accounts, read as the list is.
+  router.get('/connections/accounts', key('connections', 'read', belowReads))
   // Asks Cloudflare whether a token is valid; writes nothing.
   router.post('/connections/verify-token', key('connections', 'read', belowReads))
   router.post('/connections', key('connections', 'write'))
@@ -672,6 +679,7 @@ export function createRouter(
       createCloudflareOAuthRoutes({
         config: options.cloudflareOAuth,
         webUrl: options.webUrl ?? '',
+        ...(options.oauthReturnPath && { returnPath: options.oauthReturnPath }),
       }),
     )
   }

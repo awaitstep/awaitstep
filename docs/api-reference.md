@@ -76,8 +76,9 @@ What this instance turns on and off, for clients to show or hide features.
 self-hosted instance lists none. `disabled` lists the open-source features the
 instance switches off, from a fixed set: `playground` (the API Playground),
 `connections.ui` (the dashboard's Connections pages; the connections and the
-endpoints below stay) and `connections.apiTokens` (connecting with a pasted
-token, see [Connections](#connections)). A self-hosted instance switches none
+endpoints below stay), `connections.apiTokens` (connecting with a pasted
+token, see [Connections](#connections)) and `docs` (the dashboard's Docs
+link). A self-hosted instance switches none
 off. An extension's routes live under
 `/ext/<id>` and take a session: an API key there is `403`
 `{ "error": "This endpoint is not available to API keys" }`.
@@ -790,6 +791,9 @@ shared: { out, in } }` for a workspace's Overview. People come from
   `/scope`; an empty workspace asks for nothing else.
 - `GET /workspaces/:id/settings-counts` — `{ members, keys, variables }` for
   Workspace Settings' tab pills; a tab's list loads when it opens.
+- `GET /projects/:id/connections/summary` — `{ default }` for Project Settings'
+  Cloudflare account; with `?workspaceId=`, `{ workspace }` for Workspace
+  Settings' Deploys to. The account lists load when the picker opens.
 - `GET /workflows/:id/summary` — `{ currentVersion, versionCount,
 lastSuccessfulDeploy, latestDeploy, deployCount, runs: { counts, total,
 byHour }, libraryUpdates }` for a workflow page's band, header and tabs. The full versions,
@@ -800,6 +804,9 @@ byHour }, libraryUpdates }` for a workflow page's band, header and tabs. The ful
   deploy to that account bundles `latest`.
 - `GET /resources/counts?org=` — `{ installedNodes, variables }` for
   Resources' two tab pills.
+- `GET /connections/accounts?org=` — `{ data: [{ id, name, accountSuffix,
+authKind, canDeploy, tokenStatus }], nextCursor }` for an accounts page that
+  shows the organization's own accounts and nothing else of them.
 
 `GET /scope` no longer carries `org.members`: the roster is `/members?org=`'s
 answer, and only an org owner or admin sees other people's addresses.
@@ -2748,6 +2755,41 @@ credentials, the creator's id and the organization id never leave the API.
   without expiry, or one not checked yet.
 - `deployments` counts successful deployments made with it.
 
+### `GET /connections/accounts`
+
+The organization's own accounts with only what an accounts page shows, newest
+first as `GET /connections` orders them. A project's own account is never
+listed. Readable by whoever reads `GET /connections`; another organization's
+member and a stranger both get `404`.
+
+**Permission:** `connections:read` (project and workspace keys: `workflows:read`)
+
+| Param    | In    | Required | Description                        |
+| -------- | ----- | -------- | ---------------------------------- |
+| `cursor` | query | no       | Pagination cursor                  |
+| `limit`  | query | no       | Items per page (1–100, default 50) |
+
+```json
+{
+  "data": [
+    {
+      "id": "conn_1",
+      "name": "Acme production",
+      "accountSuffix": "7f2a",
+      "authKind": "oauth",
+      "canDeploy": true,
+      "tokenStatus": "active"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+- `authKind`: `api-token` or `oauth`. `canDeploy` is `false` only for an OAuth
+  grant that holds none of the Workers deploy scopes.
+- `tokenStatus` reads as in `GET /connections`. No credentials, token, creator,
+  projects or deployments are sent.
+
 ### `POST /connections`
 
 Check the token with Cloudflare, then create the connection. Answers `201` with
@@ -2928,6 +2970,25 @@ The organization's accounts as _Add connection_ lists them: `state` is
 see.
 
 **Permission:** `connections:read`
+
+### `GET /projects/:id/connections/summary`
+
+What the project and workspace Settings pages show. Without a query, the
+project's default account: `null` while the project has no default it can
+deploy with. Credentials are never sent: only the account id's last four
+characters. With `?workspaceId=`, only where that workspace deploys (`source`
+as in the list above), and no `default`. `404` for a workspace of another
+project or one the reader can't open.
+
+**Permission:** `connections:read`
+
+```json
+{ "default": { "id": "con_1", "name": "Acme production", "accountSuffix": "7f2a" } }
+```
+
+```json
+{ "workspace": { "connectionId": "con_2", "connectionName": "Checkout", "source": "override" } }
+```
 
 ### `POST /projects/:id/connections`
 
@@ -3587,7 +3648,11 @@ Answers:
 #### `GET /oauth/cloudflare/callback`
 
 Where Cloudflare sends the browser back. It saves the account, then redirects to the
-Connections page. An expired or unknown `state` gets a short HTML page.
+Connections page the flow started from (the organization's, or the project's), with the
+result as the query (`oauth=ok|denied|error`, `account`, `connected`, `reason`). An
+instance that hides the Connections pages names another page instead (the extensions
+package's `oauthReturnPath`, such as `/{org}/ext/cloud/integrations`). An expired or
+unknown `state` gets a short HTML page.
 
 ### Your account
 

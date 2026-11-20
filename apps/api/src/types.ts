@@ -194,10 +194,13 @@ export interface AppExtension {
 
 /**
  * What a wrapping workspace's extensions package exports from its `./api`
- * entry as its default: the features it plugs in, and the open-source ones it
- * switches off.
+ * entry as its default: the features it plugs in, the open-source ones it
+ * switches off, and where Cloudflare OAuth returns to when it hides the
+ * Connections pages.
  */
 export interface ExtensionsPackage {
   extensions: readonly AppExtension[]
   disabled?: readonly OssFeature[]
+  /** A web path template with `{org}` (and `{project}`): `/{org}/ext/cloud/integrations`. */
+  oauthReturnPath?: string
 }

@@ -130,9 +130,25 @@ describe('loadExtensionsPackage', () => {
   it('refuses a default export without an extensions list, the old bare list included', async () => {
     for (const exported of [[], { id: 'one' }, null, { extensions: {} }]) {
       await expect(loadExtensionsPackage(PACKAGE, loaderAt(LINKED, exported))).rejects.toThrow(
-        /must export \{ extensions: \[\.\.\.\], disabled\?: \[\.\.\.\] \}/,
+        /must export \{ extensions: \[\.\.\.\], disabled\?: \[\.\.\.\], oauthReturnPath\?: '\/…' \}/,
       )
     }
+  })
+
+  it('returns the OAuth return path, and refuses one that is not a web app path', async () => {
+    const named = loaderAt(LINKED, {
+      extensions: [],
+      oauthReturnPath: '/{org}/ext/cloud/integrations',
+    })
+    await expect(loadExtensionsPackage(PACKAGE, named)).resolves.toEqual({
+      extensions: [],
+      disabled: [],
+      oauthReturnPath: '/{org}/ext/cloud/integrations',
+    })
+    const offsite = loaderAt(LINKED, { extensions: [], oauthReturnPath: '//evil.test/{org}' })
+    await expect(loadExtensionsPackage(PACKAGE, offsite)).rejects.toThrow(/is not valid/)
+    const notText = loaderAt(LINKED, { extensions: [], oauthReturnPath: 42 })
+    await expect(loadExtensionsPackage(PACKAGE, notText)).rejects.toThrow(/must export/)
   })
 
   it('refuses a disabled entry that is not a list', async () => {

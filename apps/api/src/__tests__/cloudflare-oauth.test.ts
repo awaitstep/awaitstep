@@ -714,3 +714,95 @@ describe('Cloudflare OAuth routes', () => {
     expect(new URLSearchParams(String(init?.body)).get('token')).toBe('rt')
   })
 })
+
+describe('Cloudflare OAuth return path', () => {
+  beforeEach(() => resetStore())
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
+  async function callbackFrom(app: ReturnType<typeof createTestApp>, query: string) {
+    const started = await postStart(app, query)
+    expect(started.status).toBe(200)
+    const state = new URL(((await started.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
+    const res = await app.request(
+      `/api/oauth/cloudflare/callback?code=code-1&state=${encodeURIComponent(state)}`,
+    )
+    expect(res.status).toBe(302)
+    return new URL(res.headers.get('location')!)
+  }
+
+  it('lands on the page the instance names, with the result as its query', async () => {
+    stubCloudflare()
+    const app = createTestApp({
+      cloudflareOAuth: CONFIG,
+      webUrl: 'http://web.test/',
+      oauthReturnPath: '/{org}/ext/cloud/integrations',
+    })
+    const back = await callbackFrom(app, `org=${TEST_ORG_SLUG}`)
+    expect(back.origin).toBe('http://web.test')
+    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/ext/cloud/integrations`)
+    expect(back.searchParams.get('oauth')).toBe('ok')
+    expect(back.searchParams.get('connected')).toBe('1')
+  })
+
+  it('lands there for a project’s flow too, when the path names no {project}', async () => {
+    stubCloudflare()
+    vi.spyOn(mockDb, 'createProjectConnection').mockResolvedValue({
+      id: 'pc-1',
+      name: 'Acme',
+      isDefault: true,
+    } as never)
+    const app = createTestApp({
+      cloudflareOAuth: CONFIG,
+      webUrl: 'http://web.test',
+      oauthReturnPath: '/{org}/ext/cloud/integrations',
+    })
+    const back = await callbackFrom(app, `org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}`)
+    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/ext/cloud/integrations`)
+  })
+
+  it('reports a refusal on the named page as well', async () => {
+    const fetchMock = stubCloudflare()
+    const app = createTestApp({
+      cloudflareOAuth: CONFIG,
+      webUrl: 'http://web.test',
+      oauthReturnPath: '/{org}/ext/cloud/integrations',
+    })
+    const started = await postStart(app, `org=${TEST_ORG_SLUG}`)
+    const state = new URL(((await started.json()) as { url: string }).url).searchParams.get(
+      'state',
+    )!
+    const res = await app.request(
+      `/api/oauth/cloudflare/callback?error=access_denied&state=${encodeURIComponent(state)}`,
+    )
+    const back = new URL(res.headers.get('location')!)
+    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/ext/cloud/integrations`)
+    expect(back.searchParams.get('oauth')).toBe('denied')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('names no page an instance may hide when a link is stale', async () => {
+    // Cloud hides Connections: the expired-link page must not send people there.
+    const app = createTestApp({
+      cloudflareOAuth: CONFIG,
+      webUrl: 'http://web.test',
+      oauthReturnPath: '/{org}/ext/cloud/integrations',
+    })
+    const res = await app.request('/api/oauth/cloudflare/callback?code=c&state=nope')
+    const html = await res.text()
+    expect(html).toContain('where you connected the account')
+    expect(html).not.toContain('Connections page')
+  })
+
+  it('refuses at startup a return path that could leave the web app', () => {
+    for (const bad of ['//evil.test/{org}', 'https://evil.test/{org}', '/\\evil/{org}']) {
+      expect(() =>
+        createTestApp({ cloudflareOAuth: CONFIG, webUrl: 'http://web.test', oauthReturnPath: bad }),
+      ).toThrow(/OAuth return path .* is not valid/)
+    }
+  })
+})

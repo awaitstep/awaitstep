@@ -8,6 +8,7 @@ import {
   type OssFeature,
 } from '@awaitstep/ir'
 import type { AppExtension, ExtensionsPackage } from '../types.js'
+import { checkOAuthReturnPath } from './oauth-return-path.js'
 
 /**
  * The package that plugs extensions in: its `./api` entry lists the API's
@@ -57,6 +58,8 @@ const nodeLoader: ExtensionsPackageLoader = {
 export interface LoadedExtensions {
   extensions: AppExtension[]
   disabled: readonly OssFeature[]
+  /** Checked by `checkOAuthReturnPath`; absent keeps the Connections page. */
+  oauthReturnPath?: string
 }
 
 const NONE: LoadedExtensions = { extensions: [], disabled: [] }
@@ -64,7 +67,8 @@ const NONE: LoadedExtensions = { extensions: [], disabled: [] }
 /**
  * The API extensions and switched-off features the wrapping workspace's
  * package exports (its `./api` entry's default, an `ExtensionsPackage`), or
- * none when it is not installed. An unknown switch name throws. Presence of the package decides; there is
+ * none when it is not installed. An unknown switch name, or an OAuth return
+ * path that could leave the web app, throws. Presence of the package decides; there is
  * no flag to set. A package that is there but cannot be loaded throws: the
  * server must not quietly start without it.
  *
@@ -95,15 +99,19 @@ function packageExports(packageName: string, exported: unknown): LoadedExtension
     typeof shape !== 'object' ||
     shape === null ||
     !Array.isArray(shape.extensions) ||
-    (shape.disabled !== undefined && !Array.isArray(shape.disabled))
+    (shape.disabled !== undefined && !Array.isArray(shape.disabled)) ||
+    (shape.oauthReturnPath !== undefined && typeof shape.oauthReturnPath !== 'string')
   ) {
     throw new Error(
-      `${packageName}/api must export { extensions: [...], disabled?: [...] } as its default.`,
+      `${packageName}/api must export { extensions: [...], disabled?: [...], oauthReturnPath?: '/…' } as its default.`,
     )
   }
   return {
     extensions: shape.extensions as AppExtension[],
     disabled: checkDisabledFeatures(shape.disabled ?? []),
+    ...(shape.oauthReturnPath !== undefined && {
+      oauthReturnPath: checkOAuthReturnPath(shape.oauthReturnPath),
+    }),
   }
 }
 
