@@ -6,6 +6,7 @@
   "exports": {
     "./extensions": "./src/extensions/types.ts",
     "./extensions/data": "./src/extensions/data.ts",
+    "./brand/cloudflare-logo": "./src/components/connections/new-account/cloudflare-logo.tsx",
     "./ui/has-content": "./src/components/ui/has-content.ts",
     "./ui/linked-row": "./src/components/ui/linked-row.ts",
     "./ui/use-copy-status": "./src/components/ui/use-copy-status.ts",
