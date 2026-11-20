@@ -34,13 +34,15 @@ export function ReleaseNote({ release }: ReleaseNoteProps) {
         {release.title}
       </h3>
       <p className="text-sm leading-relaxed text-muted-foreground">{release.body}</p>
-      <ShellLink
-        href={release.link.href}
-        className="flex w-fit items-center gap-1 text-xs font-medium text-status-success "
-      >
-        {release.link.label}
-        <ArrowRight className="size-3.5" aria-hidden="true" />
-      </ShellLink>
+      {release.link && (
+        <ShellLink
+          href={release.link.href}
+          className="flex w-fit items-center gap-1 text-xs font-medium text-status-success "
+        >
+          {release.link.label}
+          <ArrowRight className="size-3.5" aria-hidden="true" />
+        </ShellLink>
+      )}
     </article>
   )
 }

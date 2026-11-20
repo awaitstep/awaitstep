@@ -19,7 +19,24 @@ describe('releaseFeed', () => {
       [NOTE, { ...NOTE, id: 'm', link: { label: 'Audit', page: 'audit' } }],
       { lastVisit: null, seen: [] },
     )
-    expect(feed.releases.map((r) => r.link.href)).toEqual(['/acme/settings/members', '/acme/audit'])
+    expect(feed.releases.map((r) => r.link?.href)).toEqual([
+      '/acme/settings/members',
+      '/acme/audit',
+    ])
+  })
+
+  it('drops a link to Connections on an instance that switches those pages off', () => {
+    const notes: ReleaseNote[] = [
+      { ...NOTE, id: 'c', link: { label: 'Open Connections', page: 'connections' } },
+      { ...NOTE, id: 'a', link: { label: 'Audit', page: 'audit' } },
+    ]
+    const visit = { lastVisit: null, seen: [] }
+    const off = releaseFeed('acme', notes, visit, ['connections.ui'])
+    expect(off.releases.map((r) => r.link?.href)).toEqual([undefined, '/acme/audit'])
+    // The note itself stays: only its way to a missing page goes.
+    expect(off.releases[0]!.title).toBe('T')
+    const on = releaseFeed('acme', notes, visit, ['playground', 'connections.apiTokens'])
+    expect(on.releases.map((r) => r.link?.href)).toEqual(['/acme/connections', '/acme/audit'])
   })
 
   it('marks everything new for someone who never looked', () => {

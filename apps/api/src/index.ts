@@ -6,7 +6,7 @@ export { createLogger } from './lib/logger.js'
 export type { Logger } from './lib/logger.js'
 export { buildNodeRegistry, createMergedNodeRegistry } from './lib/node-registry.js'
 export type { AppNodeRegistry, RegistryFile } from './lib/node-registry.js'
-export type { AppEnv, AppExtension } from './types.js'
+export type { AppEnv, AppExtension, ExtensionsPackage } from './types.js'
 // The core's scope and role gates, for an extension's routes to compose:
 // extension routes get authentication only, and name their own scope.
 export { requireSessionAuth } from './middleware/auth.js'

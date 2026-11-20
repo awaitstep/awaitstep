@@ -20,6 +20,7 @@ import {
 } from '../lib/connection-fields.js'
 import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 import { revokeConnectionGrant } from '../lib/connection-oauth.js'
+import { featureOff, requireFeature, switchedOff } from '../lib/feature-switches.js'
 import type { AppEnv } from '../types.js'
 
 // A project's Cloudflare accounts (23a–23c), under `/projects/:id` (the
@@ -161,51 +162,56 @@ projectConnectionRoutes.post('/connections', zValidator('json', addSchema), asyn
 })
 
 /** Connects a new Cloudflare account from the project, its token checked first. */
-projectConnectionRoutes.post('/connections/new', zValidator('json', createSchema), async (c) => {
-  const { projectId, organizationId } = projectOf(c)
-  const body = c.req.valid('json')
-  const credentials = { accountId: body.accountId, apiToken: body.token }
-  const invalid = credentialError('cloudflare', credentials)
-  if (invalid) return c.json(invalid, 400)
-  const provider = providerNamed('cloudflare')
-  if (!provider) return c.json({ error: 'Unsupported provider: cloudflare' }, 400)
+projectConnectionRoutes.post(
+  '/connections/new',
+  requireFeature('connections.apiTokens'),
+  zValidator('json', createSchema),
+  async (c) => {
+    const { projectId, organizationId } = projectOf(c)
+    const body = c.req.valid('json')
+    const credentials = { accountId: body.accountId, apiToken: body.token }
+    const invalid = credentialError('cloudflare', credentials)
+    if (invalid) return c.json(invalid, 400)
+    const provider = providerNamed('cloudflare')
+    if (!provider) return c.json({ error: 'Unsupported provider: cloudflare' }, 400)
 
-  // "Check token and connect": nothing is stored for a token Cloudflare refuses.
-  const check = await checkCredentialsGated(c, provider, credentials)
-  if (!check.ok) return check.response
+    // "Check token and connect": nothing is stored for a token Cloudflare refuses.
+    const check = await checkCredentialsGated(c, provider, credentials)
+    if (!check.ok) return check.response
 
-  const write = await unlessDefaultRace(
-    c,
-    c.get('db').createProjectConnection({
-      id: nanoid(),
+    const write = await unlessDefaultRace(
+      c,
+      c.get('db').createProjectConnection({
+        id: nanoid(),
+        projectId,
+        organizationId,
+        createdBy: c.get('userId'),
+        provider: 'cloudflare',
+        name: body.name,
+        credentials: JSON.stringify(credentials),
+        token: check.token,
+        makeDefault: body.makeDefault,
+      }),
+    )
+    if (!write.ok) return write.response
+    const created = write.value
+    if (!created) return c.json(NOT_FOUND, 404)
+    await recordAudit(c, {
+      event: 'project_connection.create',
+      facts: { name: body.name, summary: 'This project only' },
       projectId,
-      organizationId,
-      createdBy: c.get('userId'),
-      provider: 'cloudflare',
-      name: body.name,
-      credentials: JSON.stringify(credentials),
-      token: check.token,
-      makeDefault: body.makeDefault,
-    }),
-  )
-  if (!write.ok) return write.response
-  const created = write.value
-  if (!created) return c.json(NOT_FOUND, 404)
-  await recordAudit(c, {
-    event: 'project_connection.create',
-    facts: { name: body.name, summary: 'This project only' },
-    projectId,
-  })
-  return c.json(
-    {
-      id: created.id,
-      name: created.name,
-      scope: 'project',
-      isDefault: created.isDefault,
-    },
-    201,
-  )
-})
+    })
+    return c.json(
+      {
+        id: created.id,
+        name: created.name,
+        scope: 'project',
+        isDefault: created.isDefault,
+      },
+      201,
+    )
+  },
+)
 
 /**
  * Renames an account the project owns, or replaces its token (and optionally
@@ -219,6 +225,10 @@ projectConnectionRoutes.patch(
     const connectionId = c.req.param('connectionId')
     const body = c.req.valid('json')
     const db = c.get('db')
+    // A rename alone needs no token, so it stays open on an OAuth-only instance.
+    if (body.token !== undefined && featureOff(c, 'connections.apiTokens')) {
+      return switchedOff(c, 'connections.apiTokens')
+    }
     if (body.token === undefined) {
       const renamed = await db.updateConnection(connectionId, {
         organizationId,

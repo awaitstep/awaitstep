@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import type { OssFeature } from '@awaitstep/ir'
 import type {
   DatabaseAdapter,
   Workflow,
@@ -138,6 +139,8 @@ export interface AppEnv {
     workflow: Workflow | undefined
     /** Set by requireLibraryItemAccess: the item, its owner and the caller's rows there. */
     libraryItem: LibraryItemAccess | undefined
+    /** The open-source features this instance switches off (`AppDeps.disabledFeatures`). */
+    disabledFeatures: ReadonlySet<OssFeature>
     /** The caller's role where the library item lives; null for a project item when they hold no project role. */
     libraryRole: WorkspaceRole | null
     connection: Connection | undefined
@@ -187,4 +190,14 @@ export interface AppExtension {
   id: string
   /** Registers the extension's routes on a router mounted at `/api/ext/<id>`. */
   routes?: (router: Hono<AppEnv>) => void
+}
+
+/**
+ * What a wrapping workspace's extensions package exports from its `./api`
+ * entry as its default: the features it plugs in, and the open-source ones it
+ * switches off.
+ */
+export interface ExtensionsPackage {
+  extensions: readonly AppExtension[]
+  disabled?: readonly OssFeature[]
 }

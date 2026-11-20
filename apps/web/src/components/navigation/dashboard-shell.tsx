@@ -14,7 +14,8 @@ import { Bone, LoadingRegion } from '../ui/skeletons'
 import { PageBody } from '../shell/page-intro'
 import { DashboardOverlays } from '../inbox/dashboard-overlays'
 import { useFramedPage } from '../workflow-detail/use-framed-page'
-import type { DashboardPage } from './dashboard-page'
+import { useDisabledFeatures } from '../../lib/feature-switches'
+import { pageSwitchedOff, type DashboardPage } from './dashboard-page'
 import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
 import type { RailOverlays } from './nav-model'
@@ -74,6 +75,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const notifications = useNotificationCount(slugs.org)
   const releases = useReleases(slugs.org)
   const source = useDataSource()
+  const disabled = useDisabledFeatures()
 
   // A new history entry, as opening one is: Back reopens it rather than standing still.
   function handleCloseOverlay() {
@@ -95,6 +97,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
   const found = scope.data?.found === true
   const notFound = scope.data && !scope.data.found ? scope.data.notFound : null
+  // A page the instance switches off is not there: it never mounts, so it fetches nothing.
+  const switchedOff = declaredPage !== null && pageSwitchedOff(declaredPage, disabled)
 
   // The editor fills the screen itself once its scope is found; sample items
   // get the framed placeholder instead.
@@ -114,12 +118,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </PageBody>
     )
   else if (notFound) content = <ScopeNotFound notFound={notFound} slugs={slugs} path={pathname} />
+  else if (switchedOff) content = <PageNotFound />
   else content = children
 
   return (
     <DashboardFrame
       scope={frameScope(slugs, scope.data)}
-      page={found ? page : null}
+      page={found && !switchedOff ? page : null}
       viewer={viewer.data ?? null}
       overlays={overlays}
       theme={theme}
@@ -180,7 +185,11 @@ export function ScopeNotFound({ notFound, slugs, path }: ScopeNotFoundProps) {
 
 /** A dashboard URL that names no page, e.g. `/acme/project-101/sales/nope`. */
 export function PageNotFound() {
-  const slugs = useScopeSlugs()
+  return <PageNotFoundIn org={useScopeSlugs().org} />
+}
+
+/** Page-not-found with its way back to `org`'s projects: for a page whose URL names no org. */
+export function PageNotFoundIn({ org }: { org: string }) {
   const { pathname } = useLocation()
   const name = pathname.split('/').filter(Boolean).pop() ?? ''
   return (
@@ -189,7 +198,7 @@ export function PageNotFound() {
         kind="page"
         name={name}
         path={pathname}
-        primary={{ label: 'Back to projects', href: orgPath(slugs.org) }}
+        primary={{ label: 'Back to projects', href: orgPath(org) }}
       />
     </PageBody>
   )

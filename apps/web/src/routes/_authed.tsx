@@ -50,7 +50,7 @@ function AuthedLayout() {
   const addedOrgs = useOrgStore((s) => s.organizations.length)
 
   useAuthStore.getState().setSession(loaderData.sessionData)
-  useInstanceStore.getState().setFeatures(loaderData.features)
+  useInstanceStore.getState().setInstance(loaderData)
 
   // The old pages need an organization: with none, /dashboard offers to make one (D-DB-7).
   if (sendsToDashboard(loaderData.organizations.length, addedOrgs, matches)) {

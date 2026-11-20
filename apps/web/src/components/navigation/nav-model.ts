@@ -35,9 +35,10 @@ import {
   type WorkspacePage,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
+import type { OssFeature } from '@awaitstep/ir'
 import { plural } from '../../lib/plural'
 import { extensionPageKey } from '../../extensions/registry'
-import type { WebExtension } from '../../extensions/types'
+import type { ExtensionRailLink, WebExtension } from '../../extensions/types'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { RailEntry } from '../shell/org-rail'
 import type { Crumb } from '../shell/top-bar'
@@ -97,7 +98,19 @@ export interface RailOverlays {
   freshReleases: number
 }
 
-export function railModel(org: string, page: DashboardPage, overlays: RailOverlays): RailModel {
+/** What the instance changes in the rail: the features it switches off, and the enabled extensions. */
+export interface RailOptions {
+  disabled?: readonly OssFeature[]
+  extensions?: readonly WebExtension[]
+}
+
+export function railModel(
+  org: string,
+  page: DashboardPage,
+  overlays: RailOverlays,
+  { disabled = [], extensions = [] }: RailOptions = {},
+): RailModel {
+  const on = (feature: OssFeature) => !disabled.includes(feature)
   const whatsNew: RailEntry = {
     key: 'whats-new',
     href: withOverlay(overlays.here, 'whats-new'),
@@ -119,27 +132,63 @@ export function railModel(org: string, page: DashboardPage, overlays: RailOverla
       description: plural(overlays.unread, 'unread notification'),
     },
   }
+  const primary: RailEntry[] = [
+    { key: 'projects', href: orgPath(org, 'projects'), icon: House, label: 'Projects' },
+    { key: 'resources', href: orgPath(org, 'resources'), icon: Box, label: 'Resources' },
+    { key: 'audit', href: orgPath(org, 'audit'), icon: Activity, label: 'Audit log' },
+    { key: 'connections', href: orgPath(org, 'connections'), icon: Plug, label: 'Connections' },
+    { key: 'api-keys', href: orgPath(org, 'api-keys'), icon: KeyRound, label: 'API' },
+    { key: 'settings', href: orgSettingsPath(org), icon: Settings, label: 'Settings' },
+  ]
+  const playground: RailEntry = {
+    key: 'playground',
+    href: '/api-playground',
+    icon: SquareTerminal,
+    label: 'Playground',
+  }
   return {
-    primary: [
-      { key: 'projects', href: orgPath(org, 'projects'), icon: House, label: 'Projects' },
-      { key: 'resources', href: orgPath(org, 'resources'), icon: Box, label: 'Resources' },
-      { key: 'audit', href: orgPath(org, 'audit'), icon: Activity, label: 'Audit log' },
-      { key: 'connections', href: orgPath(org, 'connections'), icon: Plug, label: 'Connections' },
-      { key: 'api-keys', href: orgPath(org, 'api-keys'), icon: KeyRound, label: 'API' },
-      { key: 'settings', href: orgSettingsPath(org), icon: Settings, label: 'Settings' },
-    ],
+    primary: on('connections.ui') ? primary : primary.filter((e) => e.key !== 'connections'),
     secondary: [
       whatsNew,
       inbox,
-      {
-        key: 'playground',
-        href: '/api-playground',
-        icon: SquareTerminal,
-        label: 'Playground',
-      },
+      ...(on('playground') ? [playground] : []),
+      // Where an extension adds its own (Help, say): beside the Playground, before Docs.
+      ...railExtensionEntries(extensions),
       { key: 'docs', href: DOCS_URL, icon: BookOpen, label: 'Docs', external: true },
     ],
     activeKey: railActiveKey(page),
+  }
+}
+
+/**
+ * Whether a rail link may be drawn: an `https:` URL when external, else an app
+ * path (`/…`, not `//host`). Anything else — `javascript:` included — is dropped.
+ */
+export function isRailHref(href: string, external: boolean | undefined): boolean {
+  if (!external) return href.startsWith('/') && !href.startsWith('//') && !href.startsWith('/\\')
+  try {
+    return new URL(href).protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** The `rail.secondary` links of the enabled extensions, in installation order. */
+export function railExtensionEntries(extensions: readonly WebExtension[]): RailEntry[] {
+  return extensions.flatMap((extension) =>
+    (extension.slots?.['rail.secondary'] ?? []).flatMap((link, i) =>
+      isRailHref(link.href, link.external) ? [railExtensionEntry(extension.id, link, i)] : [],
+    ),
+  )
+}
+
+function railExtensionEntry(id: string, link: ExtensionRailLink, i: number): RailEntry {
+  return {
+    key: `ext:${id}#${i}`,
+    href: link.href,
+    icon: link.icon,
+    label: link.label,
+    external: link.external,
   }
 }
 
@@ -206,7 +255,10 @@ function workspaceExtensionItems(
   )
 }
 
-function projectItems(slugs: { org: string; project: string }): NavItem[] {
+function projectItems(
+  slugs: { org: string; project: string },
+  disabled: readonly OssFeature[],
+): NavItem[] {
   const item = (page: ProjectPage, icon: LucideIcon): NavItem => ({
     key: page,
     href: projectPagePath(slugs, page),
@@ -218,7 +270,7 @@ function projectItems(slugs: { org: string; project: string }): NavItem[] {
     item('scripts-nodes', Library),
     item('shared', Share2),
     item('members', Users),
-    item('connections', Plug),
+    ...(disabled.includes('connections.ui') ? [] : [item('connections', Plug)]),
     item('api-keys', KeyRound),
     item('variables', Braces),
     item('settings', Settings),
@@ -227,12 +279,13 @@ function projectItems(slugs: { org: string; project: string }): NavItem[] {
 
 /**
  * The panel beside a page. `extensions` are the enabled ones (`useEnabledExtensions`):
- * their links join the workspace panel.
+ * their links join the workspace panel. `disabled` is what the instance switches off.
  */
 export function panelModel(
   page: DashboardPage,
   slugs: ScopeSlugs,
   extensions: readonly WebExtension[] = [],
+  disabled: readonly OssFeature[] = [],
 ): PanelModel {
   switch (page.kind) {
     case 'org':
@@ -246,7 +299,7 @@ export function panelModel(
     case 'project':
       return {
         mode: 'project',
-        items: projectItems({ org: slugs.org, project: slugs.project! }),
+        items: projectItems({ org: slugs.org, project: slugs.project! }, disabled),
         activeKey: page.page,
       }
     case 'workspace':

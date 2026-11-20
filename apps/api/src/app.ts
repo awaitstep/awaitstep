@@ -13,7 +13,7 @@ import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
-import type { AccountProviders } from '@awaitstep/ir'
+import { checkDisabledFeatures, type AccountProviders, type OssFeature } from '@awaitstep/ir'
 import type { ImageStore } from '@awaitstep/storage'
 import type { CloudflareOAuthRuntime } from './lib/cloudflare-oauth-config.js'
 import { createCloudflareOAuthStub } from './dev/cloudflare-oauth-stub.js'
@@ -89,6 +89,11 @@ export interface AppDeps {
    * in `GET /api/instance`. The public entries pass none.
    */
   extensions?: readonly AppExtension[]
+  /**
+   * Open-source features this instance switches off, listed in
+   * `GET /api/instance` → `disabled`. An unknown name is refused at startup.
+   */
+  disabledFeatures?: readonly OssFeature[]
 }
 
 export function createApp(deps: AppDeps) {
@@ -101,7 +106,9 @@ export function createApp(deps: AppDeps) {
     deps.webUrl ?? (Array.isArray(deps.corsOrigin) ? deps.corsOrigin[0] : deps.corsOrigin) ?? ''
   const extensions = deps.extensions ?? []
   checkExtensions(extensions)
-  const instance = { features: extensions.map((extension) => extension.id) }
+  const disabled = checkDisabledFeatures(deps.disabledFeatures ?? [])
+  const disabledFeatures: ReadonlySet<OssFeature> = new Set(disabled)
+  const instance = { features: extensions.map((extension) => extension.id), disabled }
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
@@ -162,7 +169,7 @@ export function createApp(deps: AppDeps) {
       : corsPolicy(appOrigins),
   )
 
-  // What this instance turns on, for the web app to show or hide features.
+  // What this instance turns on and off, for the web app to show or hide features.
   // No session: it names features, nothing about the people using them.
   app.get('/api/instance', (c) => c.json(instance))
 
@@ -198,6 +205,7 @@ export function createApp(deps: AppDeps) {
   // DB + node registry + app config context
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
+    c.set('disabledFeatures', disabledFeatures)
     if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
     if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)

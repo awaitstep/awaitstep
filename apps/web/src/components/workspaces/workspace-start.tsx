@@ -9,6 +9,7 @@ import {
   workspaceSettingsPath,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
+import { useFeatureOn } from '../../lib/feature-switches'
 import type { SharedItem } from '../../types/dashboard/items'
 import type { Workspace } from '../../types/dashboard/workspaces'
 import { NewItemDialog } from '../items/new-item-dialog'
@@ -118,6 +119,8 @@ export function WorkspaceStart({
 }: WorkspaceStartProps) {
   const viewer = useViewer()
   const connections = useProjectConnections(slugs.org, slugs.project)
+  // The row still says where the workspace deploys; only its link needs the Connections pages.
+  const connectionsPages = useFeatureOn('connections.ui')
   const libraryHref = workspacePath(slugs, 'scripts-nodes')
   const deploys = connections.data
     ? deploysSentence(
@@ -175,7 +178,7 @@ export function WorkspaceStart({
         <SummaryRow
           icon={Cloud}
           label="Deploys to"
-          href={canManageConnections ? connectionsHref : undefined}
+          href={canManageConnections && connectionsPages ? connectionsHref : undefined}
           action={deploysAction}
         >
           {deploysLine}

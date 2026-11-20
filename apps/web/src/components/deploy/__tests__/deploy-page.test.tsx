@@ -8,6 +8,7 @@ import {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigUiSchema,
 } from '@awaitstep/provider-cloudflare'
+import { useInstanceStore } from '../../../stores/instance-store'
 import type * as ApiClient from '../../../lib/api-client'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
@@ -159,6 +160,7 @@ beforeEach(() => {
   stream.startDeploy.mockReset()
   stream.retry.mockReset()
   stream.cancelDeploy.mockReset()
+  useInstanceStore.setState({ features: [], disabled: [] })
   useOrgStore.setState({
     appReady: true,
     organizations: [{ id: 'org-1', name: 'Acme', slug: 'acme', createdAt: '' }],
@@ -215,6 +217,23 @@ describe('DeployPage account', () => {
       'href',
       '/acme/project-101/connections',
     )
+  })
+
+  it('keeps the account card but links nowhere when the instance switches Connections off', async () => {
+    useInstanceStore.setState({ disabled: ['connections.ui'] })
+    getDeployConnections.mockResolvedValue(TWO)
+    const { unmount } = renderPage()
+    const card = await screen.findByRole('region', { name: 'Account' })
+    await userEvent.click(within(card).getByRole('button', { name: 'Change' }))
+    expect(await screen.findByRole('menuitem', { name: /Acme production/ })).toBeVisible()
+    expect(screen.queryByText('Manage project connections →')).not.toBeInTheDocument()
+    unmount()
+
+    getDeployConnections.mockResolvedValue({ connections: [], defaultId: null, deployedWith: [] })
+    renderPage()
+    expect(await screen.findByText('No account connected yet')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open Connections' })).not.toBeInTheDocument()
+    expect(screen.queryByText(/Connections page/)).not.toBeInTheDocument()
   })
 })
 

@@ -2606,6 +2606,7 @@ export function createTestApp(options?: {
   cloudflareOAuth?: AppDeps['cloudflareOAuth']
   webUrl?: AppDeps['webUrl']
   extensions?: AppDeps['extensions']
+  disabledFeatures?: AppDeps['disabledFeatures']
 }) {
   seedTestProject()
 
@@ -2624,6 +2625,7 @@ export function createTestApp(options?: {
     ...(options?.clientIpPolicy && { clientIpPolicy: options.clientIpPolicy }),
     ...(options?.logger && { logger: options.logger }),
     ...(options?.extensions && { extensions: options.extensions }),
+    ...(options?.disabledFeatures && { disabledFeatures: options.disabledFeatures }),
   })
 }
 

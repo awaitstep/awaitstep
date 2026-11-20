@@ -1,4 +1,8 @@
-import type { InboxNotification as ApiInboxNotification, NotificationTarget } from '@awaitstep/ir'
+import type {
+  InboxNotification as ApiInboxNotification,
+  NotificationTarget,
+  OssFeature,
+} from '@awaitstep/ir'
 import {
   orgDestinationPath,
   projectPagePath,
@@ -24,10 +28,24 @@ export function notificationHref(org: string, to: NotificationTarget): string {
   }
 }
 
-/** The API's notification as the dashboard draws it: its link a path. */
-export function inboxNotification(org: string, n: ApiInboxNotification): InboxNotification {
+/** Whether the target is a Connections page. */
+function isConnectionsTarget(to: NotificationTarget): boolean {
+  return (
+    to.kind === 'project-connections' || (to.kind === 'org-settings' && to.page === 'connections')
+  )
+}
+
+/**
+ * The API's notification as the dashboard draws it: its link a path, or none
+ * when it points at a page the instance switches off (`disabled`).
+ */
+export function inboxNotification(
+  org: string,
+  n: ApiInboxNotification,
+  disabled: readonly OssFeature[] = [],
+): InboxNotification {
   const { link, ...rest } = n
-  return link
-    ? { ...rest, link: { label: link.label, href: notificationHref(org, link.to) } }
-    : rest
+  if (!link) return rest
+  if (isConnectionsTarget(link.to) && disabled.includes('connections.ui')) return rest
+  return { ...rest, link: { label: link.label, href: notificationHref(org, link.to) } }
 }

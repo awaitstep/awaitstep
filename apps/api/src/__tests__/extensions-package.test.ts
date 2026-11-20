@@ -9,6 +9,7 @@ const PACKAGE = '@awaitstep/test-extensions'
 const LINKED_DIR = '/work/cloud/packages/extensions'
 const LINKED = `${LINKED_DIR}/src/api.ts`
 const INSTALLED_DIR = '/home/me/node_modules/@awaitstep/test-extensions'
+const NONE = { extensions: [] }
 
 /**
  * A loader whose package folder is `packageDir` (real path), resolving to the
@@ -31,7 +32,7 @@ function loaderAt(
 
 describe('loadExtensionsPackage', () => {
   it('plugs in nothing when the package is not installed anywhere up the tree', async () => {
-    await expect(loadExtensionsPackage(PACKAGE)).resolves.toEqual([])
+    await expect(loadExtensionsPackage(PACKAGE)).resolves.toEqual({ extensions: [], disabled: [] })
   })
 
   it('finds a package installed up the tree, and refuses it when it is a registry copy', async () => {
@@ -41,56 +42,65 @@ describe('loadExtensionsPackage', () => {
 
   it('does not resolve or load anything when the package is absent', async () => {
     const resolve = vi.fn()
-    const loader = loaderAt(LINKED, [], { findPackage: async () => null, resolve })
-    await expect(loadExtensionsPackage(PACKAGE, loader)).resolves.toEqual([])
+    const loader = loaderAt(LINKED, NONE, { findPackage: async () => null, resolve })
+    await expect(loadExtensionsPackage(PACKAGE, loader)).resolves.toEqual({
+      extensions: [],
+      disabled: [],
+    })
     expect(resolve).not.toHaveBeenCalled()
     expect(loader.load).not.toHaveBeenCalled()
   })
 
   it('resolves the package’s ./api entry, not its root', async () => {
     const resolve = vi.fn(() => `file://${LINKED}`)
-    await loadExtensionsPackage(PACKAGE, loaderAt(LINKED, [], { resolve }))
+    await loadExtensionsPackage(PACKAGE, loaderAt(LINKED, NONE, { resolve }))
     expect(resolve).toHaveBeenCalledWith(`${PACKAGE}/api`)
   })
 
   it('loads the default export of a package linked from source', async () => {
     const extensions: AppExtension[] = [{ id: 'one' }, { id: 'two' }]
-    const loader = loaderAt(LINKED, extensions)
-    await expect(loadExtensionsPackage(PACKAGE, loader)).resolves.toBe(extensions)
+    const loader = loaderAt(LINKED, { extensions })
+    await expect(loadExtensionsPackage(PACKAGE, loader)).resolves.toEqual({
+      extensions,
+      disabled: [],
+    })
     expect(loader.load).toHaveBeenCalledWith(`file://${LINKED}`)
   })
 
   it('refuses a copy installed under node_modules without resolving or running it', async () => {
     const resolve = vi.fn(() => `file://${INSTALLED_DIR}/index.js`)
-    const loader = loaderAt(`${INSTALLED_DIR}/index.js`, [], { packageDir: INSTALLED_DIR, resolve })
+    const loader = loaderAt(`${INSTALLED_DIR}/index.js`, NONE, {
+      packageDir: INSTALLED_DIR,
+      resolve,
+    })
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
     expect(resolve).not.toHaveBeenCalled()
     expect(loader.load).not.toHaveBeenCalled()
   })
 
   it('judges the real path, so a symlink into node_modules is refused too', async () => {
-    const loader = loaderAt(LINKED, [], { packageDir: '/elsewhere/node_modules/pkg' })
+    const loader = loaderAt(LINKED, NONE, { packageDir: '/elsewhere/node_modules/pkg' })
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
     expect(loader.load).not.toHaveBeenCalled()
   })
 
   it('refuses an installed package whose entry lands outside its folder', async () => {
     // An export target or a symlink that escapes node_modules: the folder still decides.
-    const loader = loaderAt('/home/me/x.js', [], { packageDir: INSTALLED_DIR })
+    const loader = loaderAt('/home/me/x.js', NONE, { packageDir: INSTALLED_DIR })
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
     expect(loader.load).not.toHaveBeenCalled()
   })
 
   it('refuses a linked package whose entry is outside its folder or in its own node_modules', async () => {
     for (const entry of ['/work/other/index.ts', `${LINKED_DIR}/node_modules/evil/index.js`]) {
-      const loader = loaderAt(entry, [])
+      const loader = loaderAt(entry, NONE)
       await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
       expect(loader.load).not.toHaveBeenCalled()
     }
   })
 
   it('refuses a folder under Node_Modules in another case', async () => {
-    const loader = loaderAt('/home/me/Node_Modules/pkg/index.js', [], {
+    const loader = loaderAt('/home/me/Node_Modules/pkg/index.js', NONE, {
       packageDir: '/home/me/Node_Modules/pkg',
     })
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/not linked from source/)
@@ -100,7 +110,7 @@ describe('loadExtensionsPackage', () => {
     const broken = Object.assign(new Error(`Cannot find module '/work/cloud/src/index.ts'`), {
       code: 'ERR_MODULE_NOT_FOUND',
     })
-    const loader = loaderAt(LINKED, [], {
+    const loader = loaderAt(LINKED, NONE, {
       resolve: () => {
         throw broken
       },
@@ -109,7 +119,7 @@ describe('loadExtensionsPackage', () => {
   })
 
   it('throws when an installed package fails to load', async () => {
-    const loader = loaderAt(LINKED, [], {
+    const loader = loaderAt(LINKED, NONE, {
       load: async () => {
         throw new Error('SyntaxError in extension')
       },
@@ -117,9 +127,34 @@ describe('loadExtensionsPackage', () => {
     await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/SyntaxError/)
   })
 
-  it('refuses a default export that is not a list', async () => {
-    await expect(loadExtensionsPackage(PACKAGE, loaderAt(LINKED, { id: 'one' }))).rejects.toThrow(
-      /must export an array/,
+  it('refuses a default export without an extensions list, the old bare list included', async () => {
+    for (const exported of [[], { id: 'one' }, null, { extensions: {} }]) {
+      await expect(loadExtensionsPackage(PACKAGE, loaderAt(LINKED, exported))).rejects.toThrow(
+        /must export \{ extensions: \[\.\.\.\], disabled\?: \[\.\.\.\] \}/,
+      )
+    }
+  })
+
+  it('refuses a disabled entry that is not a list', async () => {
+    const loader = loaderAt(LINKED, { extensions: [], disabled: 'playground' })
+    await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(/must export/)
+  })
+
+  it('returns the switched-off features, each once, in list order', async () => {
+    const loader = loaderAt(LINKED, {
+      extensions: [],
+      disabled: ['connections.apiTokens', 'playground', 'connections.ui'],
+    })
+    await expect(loadExtensionsPackage(PACKAGE, loader)).resolves.toEqual({
+      extensions: [],
+      disabled: ['playground', 'connections.ui', 'connections.apiTokens'],
+    })
+  })
+
+  it('refuses an unknown switch name rather than starting with the feature on', async () => {
+    const loader = loaderAt(LINKED, { extensions: [], disabled: ['playgrond'] })
+    await expect(loadExtensionsPackage(PACKAGE, loader)).rejects.toThrow(
+      /Unknown feature switch "playgrond"/,
     )
   })
 })

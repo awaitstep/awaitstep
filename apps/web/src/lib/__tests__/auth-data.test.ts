@@ -12,16 +12,17 @@ function api(routes: Record<string, () => Promise<Response>>) {
 }
 
 describe('loadAuthData', () => {
-  it('returns the session, organizations and the instance’s features', async () => {
+  it('returns the session, organizations and what the instance turns on and off', async () => {
     const fetch = api({
       '/api/auth/get-session': async () => json(SESSION),
-      '/api/instance': async () => json({ features: ['test-ext'] }),
+      '/api/instance': async () => json({ features: ['test-ext'], disabled: ['playground'] }),
       '/api/auth/organization/list': async () => json([{ id: 'o1' }]),
     })
     expect(await loadAuthData(fetch, 'c=1')).toEqual({
       sessionData: SESSION,
       organizations: [{ id: 'o1' }],
       features: ['test-ext'],
+      disabled: ['playground'],
     })
     expect(fetch).toHaveBeenCalledWith('/api/auth/get-session', { headers: { cookie: 'c=1' } })
   })
@@ -42,13 +43,15 @@ describe('loadAuthData', () => {
     await loading
   })
 
-  it('loads with no features when the instance answer fails', async () => {
+  it('loads with no features and nothing switched off when the instance answer fails', async () => {
     const fetch = api({
       '/api/auth/get-session': async () => json(SESSION),
       '/api/instance': async () => json({ error: 'boom' }, 500),
       '/api/auth/organization/list': async () => json([]),
     })
-    expect((await loadAuthData(fetch, 'c=1'))?.features).toEqual([])
+    const data = await loadAuthData(fetch, 'c=1')
+    expect(data?.features).toEqual([])
+    expect(data?.disabled).toEqual([])
   })
 
   it('is null without a session', async () => {

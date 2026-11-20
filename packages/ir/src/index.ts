@@ -256,6 +256,12 @@ export {
   isLinkedPackageEntry,
 } from './extension-id.js'
 export {
+  OSS_FEATURES,
+  checkDisabledFeatures,
+  isOssFeature,
+  type OssFeature,
+} from './oss-features.js'
+export {
   WORKSPACE_COLOURS,
   isWorkspaceColour,
   type RunHour,

@@ -134,11 +134,14 @@ async function start() {
 
   // A workspace that wraps this repo plugs its features in by linking the
   // extensions package; a plain clone has none.
-  const extensions = await loadExtensionsPackage()
+  const { extensions, disabled } = await loadExtensionsPackage()
   if (extensions.length > 0) {
     logger.info(
       `Extensions from ${EXTENSIONS_PACKAGE}/api: ${extensions.map((e) => e.id).join(', ')}`,
     )
+  }
+  if (disabled.length > 0) {
+    logger.info(`Switched off by ${EXTENSIONS_PACKAGE}/api: ${disabled.join(', ')}`)
   }
 
   // Load node registry (built by `pnpm nodes:build`)
@@ -186,6 +189,7 @@ async function start() {
     emails,
     imageStore,
     extensions,
+    disabledFeatures: disabled,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     // The Vite dev server is not a trusted hop: in dev, SSR calls are keyed

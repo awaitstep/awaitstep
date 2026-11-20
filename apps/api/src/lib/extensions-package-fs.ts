@@ -1,12 +1,18 @@
 import { access, realpath } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { isInstalledCopy, isLinkedPackageEntry } from '@awaitstep/ir'
-import type { AppExtension } from '../types.js'
+import {
+  checkDisabledFeatures,
+  isInstalledCopy,
+  isLinkedPackageEntry,
+  type OssFeature,
+} from '@awaitstep/ir'
+import type { AppExtension, ExtensionsPackage } from '../types.js'
 
 /**
- * The package that plugs extensions in: its `./api` entry lists the API's,
- * its `./web` entry the dashboard's. It is not part of this repository: a
+ * The package that plugs extensions in: its `./api` entry lists the API's
+ * (and the open-source features it switches off), its `./web` entry the
+ * dashboard's. It is not part of this repository: a
  * workspace that wraps this one links it, and plain module resolution from
  * the API finds it there.
  */
@@ -47,10 +53,18 @@ const nodeLoader: ExtensionsPackageLoader = {
   load: (url) => import(url),
 }
 
+/** What the API takes from the package: nothing when it is not installed. */
+export interface LoadedExtensions {
+  extensions: AppExtension[]
+  disabled: readonly OssFeature[]
+}
+
+const NONE: LoadedExtensions = { extensions: [], disabled: [] }
+
 /**
- * The API extensions the wrapping workspace's package exports (its `./api`
- * entry's default), or
- * none when it is not installed. Presence of the package decides; there is
+ * The API extensions and switched-off features the wrapping workspace's
+ * package exports (its `./api` entry's default, an `ExtensionsPackage`), or
+ * none when it is not installed. An unknown switch name throws. Presence of the package decides; there is
  * no flag to set. A package that is there but cannot be loaded throws: the
  * server must not quietly start without it.
  *
@@ -64,19 +78,33 @@ const nodeLoader: ExtensionsPackageLoader = {
 export async function loadExtensionsPackage(
   packageName = EXTENSIONS_PACKAGE,
   loader: ExtensionsPackageLoader = nodeLoader,
-): Promise<AppExtension[]> {
+): Promise<LoadedExtensions> {
   const found = await loader.findPackage(packageName)
-  if (!found) return []
+  if (!found) return NONE
   const packageDir = await loader.realpath(found)
   // Judged before anything is resolved: an installed copy is never looked into.
   if (isInstalledCopy(packageDir)) throw notLinked(packageName, packageDir)
   const path = await loader.realpath(fileURLToPath(loader.resolve(`${packageName}/api`)))
   if (!isLinkedPackageEntry(packageDir, path)) throw notLinked(packageName, packageDir, path)
-  const extensions = (await loader.load(pathToFileURL(path).href)).default
-  if (!Array.isArray(extensions)) {
-    throw new Error(`${packageName}/api must export an array of extensions as its default.`)
+  return packageExports(packageName, (await loader.load(pathToFileURL(path).href)).default)
+}
+
+function packageExports(packageName: string, exported: unknown): LoadedExtensions {
+  const shape = exported as Partial<Record<keyof ExtensionsPackage, unknown>> | null
+  if (
+    typeof shape !== 'object' ||
+    shape === null ||
+    !Array.isArray(shape.extensions) ||
+    (shape.disabled !== undefined && !Array.isArray(shape.disabled))
+  ) {
+    throw new Error(
+      `${packageName}/api must export { extensions: [...], disabled?: [...] } as its default.`,
+    )
   }
-  return extensions as AppExtension[]
+  return {
+    extensions: shape.extensions as AppExtension[],
+    disabled: checkDisabledFeatures(shape.disabled ?? []),
+  }
 }
 
 function notLinked(packageName: string, packageDir: string, entry?: string): Error {
