@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import type { GeneratedBundle, LocalDevOptions } from '@awaitstep/codegen'
 import type { WorkflowIR } from '@awaitstep/ir'
 import { buildDevWorkspaceFiles, formatDevVars, writeDevWorkspace } from '../dev-workspace.js'
+import { generateWorkflowBundle } from '../codegen/generate.js'
 
 const entrySource = `
 import { WorkflowEntrypoint } from 'cloudflare:workers'
@@ -15,6 +16,7 @@ export class GeneratedFlow extends WorkflowEntrypoint<Env, Params> {
 
 const bundle: GeneratedBundle = {
   entry: 'worker.ts',
+  entryClass: 'GeneratedFlow',
   files: [
     { path: 'worker.ts', source: entrySource, role: 'entry' },
     { path: 'nodes/step.ts', source: 'export const x: number = 1', role: 'module' },
@@ -72,11 +74,29 @@ describe('buildDevWorkspaceFiles', () => {
   })
 
   it('names the class the generated code exports, not the workflow', async () => {
-    // Deploy reads the class out of the entry; guessing it from the workflow
-    // name gives a different class and the binding fails to resolve.
+    // Guessing it from the workflow name gives a different class and the
+    // binding fails to resolve.
     const files = await buildDevWorkspaceFiles(bundle, options())
     const config = JSON.parse(await fileNamed(files, 'wrangler.json'))
     expect(config.workflows[0].class_name).toBe('GeneratedFlow')
+  })
+
+  it('binds the generated class after the workflow was renamed', async () => {
+    // The generated entry (`awaitstep/entry.ts`) holds the class; the bundle
+    // entry only re-exports it. Renamed, the workflow's name no longer gives it.
+    const ir = {
+      ...irWith([node('a', 'step', { code: 'export default async function a() {}\n' })]),
+    }
+    const generated = generateWorkflowBundle({
+      ...ir,
+      metadata: { ...ir.metadata, name: 'Order follow-up' },
+    })
+    const files = await buildDevWorkspaceFiles(
+      generated,
+      options({ ir, workflowName: 'Order follow-up v2' }),
+    )
+    const config = JSON.parse(await fileNamed(files, 'wrangler.json'))
+    expect(config.workflows[0].class_name).toBe('OrderFollowUp')
   })
 
   it('includes the bindings a deploy would include', async () => {

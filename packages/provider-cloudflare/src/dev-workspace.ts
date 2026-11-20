@@ -4,7 +4,6 @@ import {
   assertSafeBundlePath,
   bundleCodeFiles,
   bundleDeployFiles,
-  bundleEntry,
   bundlePackageManifest,
 } from '@awaitstep/codegen'
 import type { GeneratedBundle, LocalDevOptions } from '@awaitstep/codegen'
@@ -24,7 +23,6 @@ import { runToEnd } from './deploy/run-to-end.js'
 const INSTALL_TIMEOUT_MS = 60_000
 const SECRET_FILE_MODE = 0o600
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/
-const WORKFLOW_CLASS = /export\s+class\s+(\w+)\s+extends\s+WorkflowEntrypoint/
 
 export interface DevWorkspaceFile {
   path: string
@@ -45,8 +43,8 @@ export interface DevWorkspaceFile {
  * those steps threw in a test session while working when deployed.
  *
  * The config is derived the same way the deploy derives it, including the
- * class name read out of the generated entry rather than guessed from the
- * workflow's name.
+ * class name the bundle states it exported (`entryClass`) rather than one
+ * guessed from the workflow's name.
  */
 export async function buildDevWorkspaceFiles(
   bundle: GeneratedBundle,
@@ -83,7 +81,7 @@ export async function buildDevWorkspaceFiles(
       ...(isScript
         ? {}
         : {
-            className: generatedClassName(compiled) ?? workflowClassName(options.workflowName),
+            className: compiled.entryClass ?? workflowClassName(options.workflowName),
             workflowName: sanitizedWorkflowName(options.workflowName),
           }),
       main: `./${compiled.entry}`,
@@ -132,16 +130,6 @@ function escapeDevVarValue(value: string): string {
     .replace(/"/g, '\\"')
     .replace(/\r/g, '\\r')
     .replace(/\n/g, '\\n')
-}
-
-/** The class the generated entry actually exports, as the deploy reads it. */
-function generatedClassName(bundle: GeneratedBundle): string | undefined {
-  try {
-    return bundleEntry(bundle).source.match(WORKFLOW_CLASS)?.[1]
-  } catch {
-    // A bundle without its entry is a generator bug; fall back to the name.
-    return undefined
-  }
 }
 
 function workspaceName(workflowId: string): string {

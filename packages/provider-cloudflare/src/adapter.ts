@@ -27,7 +27,6 @@ import { callFunction, isCallableUrl } from './call-function.js'
 import { compileBundle } from './compile-bundle.js'
 import { generateScriptBundle, generateWorkflowBundle } from './codegen/generate.js'
 import {
-  bundleEntry,
   describeProvider,
   importSpecifiers,
   providerFromSpecifier,
@@ -569,24 +568,11 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       }
     }
 
-    // Extract the actual class name from the generated source so the wrangler
-    // config matches exactly, even if ir.metadata.name differs from workflow.name.
-    // Scripts have no `WorkflowEntrypoint` class — generatedClassName stays
-    // undefined and the wrangler-config code path skips the primary workflow
-    // entry when kind === 'script'.
-    let generatedClassName: string | undefined
-    try {
-      const classNameMatch = bundleEntry(bundle).source.match(
-        /export\s+class\s+(\w+)\s+extends\s+WorkflowEntrypoint/,
-      )
-      generatedClassName = classNameMatch?.[1]
-    } catch (err) {
-      // A bundle without its entry is a generator bug — honor the
-      // deploy()-returns-DeployResult contract instead of throwing.
-      const message = err instanceof Error ? err.message : String(err)
-      report('FAILED', message, 0)
-      return { success: false, deploymentId: '', error: message }
-    }
+    // The class the generated entry exports, as the bundle states it: the
+    // wrangler config binds exactly that, whatever the workflow is called now.
+    // Scripts have no `WorkflowEntrypoint` class, so it stays undefined and the
+    // wrangler-config code path skips the primary workflow entry.
+    const generatedClassName = bundle.entryClass
 
     report('CODE_READY', 'Code compiled successfully', 25)
 

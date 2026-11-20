@@ -19,7 +19,6 @@ import {
   importSpecifiers,
   indent,
   projectBundleFiles,
-  sanitizeIdentifier,
   validateBundle,
   withoutComments,
 } from '@awaitstep/codegen'
@@ -27,6 +26,7 @@ import { builtinGenerators } from './generator-registry.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
 import { getSubScriptBindings } from './generators/sub-script.js'
 import { detectBindings } from './bindings.js'
+import { workflowClassName } from '../naming.js'
 import { CF_ENV_TYPE } from './env-types.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
 import { parseAnnotations } from './parse-annotations.js'
@@ -120,7 +120,10 @@ export function generateWorkflowBundle(
   ir: WorkflowIR,
   templateResolverOrOptions?: TemplateResolver | GenerateOptions,
 ): GeneratedBundle {
-  const { worker, files, manifest } = generateWorkflowInternal(ir, templateResolverOrOptions)
+  const { worker, files, manifest, className } = generateWorkflowInternal(
+    ir,
+    templateResolverOrOptions,
+  )
   return {
     ...validateBundle({
       entry: 'worker.ts',
@@ -132,13 +135,20 @@ export function generateWorkflowBundle(
       ],
     }),
     manifest,
+    entryClass: className,
   }
 }
 
 function generateWorkflowInternal(
   ir: WorkflowIR,
   templateResolverOrOptions: TemplateResolver | GenerateOptions | undefined,
-): { source: string; worker: string; files: GeneratedFile[]; manifest: StepManifest } {
+): {
+  source: string
+  worker: string
+  files: GeneratedFile[]
+  manifest: StepManifest
+  className: string
+} {
   const opts: GenerateOptions = templateResolverOrOptions
     ? 'getTemplate' in templateResolverOrOptions
       ? { templateResolver: templateResolverOrOptions }
@@ -146,10 +156,12 @@ function generateWorkflowInternal(
     : {}
   const { templateResolver, envVarNames, triggerCode, retention } = opts
   const generators = opts.generators ?? builtinGenerators
-  const className = sanitizeIdentifier(ir.metadata.name)
-    .split('_')
-    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-    .join('')
+  // The one naming rule for the entrypoint class: the bundle reports it as
+  // `entryClass`, and every wrangler config binds that, so the two can't
+  // drift (a rename, a name starting with a digit).
+  const className = /[A-Za-z0-9]/.test(ir.metadata.name)
+    ? workflowClassName(ir.metadata.name)
+    : 'Workflow'
 
   // The provider-neutral half: the workflow module, one module per step and
   // the manifest. Cloudflare-only nodes (sub-workflow, call-script) are
@@ -439,5 +451,11 @@ ${envFields.join('\n')}
     runtimeModuleFile(),
   ]
 
-  return { source: entrySource, worker: workerSource, files, manifest: portable.manifest }
+  return {
+    source: entrySource,
+    worker: workerSource,
+    files,
+    manifest: portable.manifest,
+    className,
+  }
 }

@@ -439,3 +439,24 @@ describe('generateWorkflowBundle: what a step after a container can read', () =>
     expect(bundle.files.find((f) => f.path === 'steps/after.ts')!.source).not.toContain('inputs;')
   })
 })
+
+describe('the entrypoint class', () => {
+  function named(name: string): WorkflowIR {
+    return { ...ir, metadata: { ...ir.metadata, name } }
+  }
+
+  it('is reported by the bundle as the class the entry exports', () => {
+    for (const name of ['Order follow-up', '2024 orders', 'a__b c', '日本語']) {
+      const bundle = generateWorkflowBundle(named(name))
+      const entry = bundle.files.find((file) => file.path === 'awaitstep/entry.ts')!
+      const exported = /export class (\w+) extends WorkflowEntrypoint/.exec(entry.source)?.[1]
+      expect(exported).toBe(bundle.entryClass)
+      // A class name is an identifier: it never starts with a digit.
+      expect(exported).toMatch(/^[A-Za-z_$][\w$]*$/)
+    }
+  })
+
+  it('gives a name that starts with a digit a valid class', () => {
+    expect(generateWorkflowBundle(named('2024 orders')).entryClass).toBe('Workflow2024Orders')
+  })
+})
