@@ -1,0 +1,20 @@
+{
+  "name": "awaitstep",
+  "version": "1.0.0",
+  "description": "Agent skills for building and changing AwaitStep artifacts through the REST API.",
+  "docs": "https://docs.awaitstep.dev/agents/",
+  "api": {
+    "baseUrl": "https://app.awaitstep.dev/api",
+    "irVersion": 3
+  },
+  "entry": "awaitstep/SKILL.md",
+  "skills": [
+    "awaitstep",
+    "awaitstep-workflows",
+    "awaitstep-functions",
+    "awaitstep-modules",
+    "awaitstep-custom-nodes",
+    "awaitstep-canvas",
+    "awaitstep-ide"
+  ]
+}

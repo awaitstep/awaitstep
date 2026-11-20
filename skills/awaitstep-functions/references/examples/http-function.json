@@ -1,0 +1,52 @@
+{
+  "kind": "script",
+  "irVersion": 3,
+  "metadata": {
+    "name": "lookup-order",
+    "description": "Look up an order over HTTP and return it",
+    "version": 1,
+    "createdAt": "2026-11-20T00:00:00.000Z",
+    "updatedAt": "2026-11-20T00:00:00.000Z"
+  },
+  "entryNodeId": "parse",
+  "nodes": [
+    {
+      "id": "parse",
+      "type": "step",
+      "name": "parse",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "export default async function parse({ event }: { event: { payload?: { orderId?: string } } }) {\n  const orderId = event.payload?.orderId\n  if (!orderId) throw new Error('orderId is required')\n  return { orderId }\n}\n"
+      }
+    },
+    {
+      "id": "lookup",
+      "type": "http_request",
+      "name": "lookup",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "method": "GET",
+        "url": "https://api.example.com/orders/{{parse.orderId}}",
+        "export": true,
+        "exportAs": "order"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "parse",
+      "target": "lookup"
+    }
+  ]
+}

@@ -3,6 +3,8 @@ name: version-node
 description: Add a new version of an existing AwaitStep registry node using the overrides method (no file duplication)
 disable-model-invocation: true
 argument-hint: '[node_id] [new_version]'
+metadata:
+  internal: true
 ---
 
 You are bumping an existing registry node to a new version. Use the **overrides method** — the node config lives in `base.json` at the node root, and each version contributes a small `overrides.json` with only what changes. **Do not duplicate the full schema.**

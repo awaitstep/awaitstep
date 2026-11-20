@@ -1,0 +1,7 @@
+{
+  "name": "lead-scoring",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Score an inbound lead",
+  "dependencies": {}
+}

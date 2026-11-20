@@ -1,0 +1,163 @@
+{
+  "irVersion": 3,
+  "metadata": {
+    "name": "Order review loop",
+    "description": "Loop over orders, flag large ones, then continue after the loop.",
+    "version": 1,
+    "createdAt": "2026-11-20T00:00:00.000Z",
+    "updatedAt": "2026-11-20T00:00:00.000Z"
+  },
+  "entryNodeId": "load_orders",
+  "nodes": [
+    {
+      "id": "load_orders",
+      "type": "step",
+      "name": "load_orders",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "export default async function load_orders() {\n  return {\n    items: [\n      { id: 'ord_1', total: 240 },\n      { id: 'ord_2', total: 40 },\n    ],\n  }\n}\n"
+      }
+    },
+    {
+      "id": "each_order",
+      "type": "loop",
+      "name": "each_order",
+      "position": {
+        "x": 0,
+        "y": 180
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "loopType": "forEach",
+        "collection": "{{load_orders.items}}",
+        "itemVar": "order"
+      }
+    },
+    {
+      "id": "check_order",
+      "type": "branch",
+      "name": "check_order",
+      "position": {
+        "x": 0,
+        "y": 360
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "branches": [
+          {
+            "label": "large",
+            "condition": "order.total > 100"
+          },
+          {
+            "label": "small",
+            "condition": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "flag_large",
+      "type": "step",
+      "name": "flag_large",
+      "position": {
+        "x": -320,
+        "y": 540
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "export default async function flag_large({ inputs }: { inputs: Record<string, unknown> }) {\n  const order = inputs.order as { id: string; total: number }\n  return { id: order.id, flagged: true, total: order.total }\n}\n"
+      }
+    },
+    {
+      "id": "note_small",
+      "type": "step",
+      "name": "note_small",
+      "position": {
+        "x": 320,
+        "y": 540
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "export default async function note_small({ inputs }: { inputs: Record<string, unknown> }) {\n  const order = inputs.order as { id: string; total: number }\n  return { id: order.id, flagged: false, total: order.total }\n}\n"
+      }
+    },
+    {
+      "id": "collect",
+      "type": "step",
+      "name": "collect",
+      "position": {
+        "x": 0,
+        "y": 720
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "export default async function collect({ inputs }: { inputs: Record<string, unknown> }) {\n  const order = inputs.order as { id: string }\n  return { id: order.id, done: true }\n}\n"
+      }
+    },
+    {
+      "id": "after",
+      "type": "step",
+      "name": "after",
+      "position": {
+        "x": 0,
+        "y": 900
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "export default async function after() {\n  return { done: true }\n}\n"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "load_orders",
+      "target": "each_order"
+    },
+    {
+      "id": "e2",
+      "source": "each_order",
+      "target": "check_order",
+      "label": "body"
+    },
+    {
+      "id": "e3",
+      "source": "check_order",
+      "target": "flag_large",
+      "label": "large"
+    },
+    {
+      "id": "e4",
+      "source": "check_order",
+      "target": "note_small",
+      "label": "small"
+    },
+    {
+      "id": "e5",
+      "source": "flag_large",
+      "target": "collect"
+    },
+    {
+      "id": "e6",
+      "source": "note_small",
+      "target": "collect"
+    },
+    {
+      "id": "e7",
+      "source": "each_order",
+      "target": "after",
+      "label": "then"
+    }
+  ]
+}

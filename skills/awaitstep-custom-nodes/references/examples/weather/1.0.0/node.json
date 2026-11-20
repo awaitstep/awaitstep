@@ -1,0 +1,48 @@
+{
+  "id": "weather",
+  "name": "Weather",
+  "version": "1.0.0",
+  "description": "Read current weather for a city",
+  "category": "Data",
+  "author": "awaitstep",
+  "license": "Apache-2.0",
+  "configSchema": {
+    "action": {
+      "type": "select",
+      "label": "Action",
+      "required": true,
+      "options": ["Current weather", "Forecast"],
+      "default": "Current weather"
+    },
+    "city": {
+      "type": "string",
+      "label": "City",
+      "required": true,
+      "description": "City name",
+      "placeholder": "Amsterdam"
+    },
+    "apiKey": {
+      "type": "secret",
+      "label": "API key",
+      "required": true,
+      "envVarName": "WEATHER_API_KEY",
+      "description": "Weather API key"
+    }
+  },
+  "outputSchema": {
+    "temperature": {
+      "type": "number",
+      "description": "Degrees Celsius",
+      "nullable": true
+    },
+    "data": {
+      "type": "object",
+      "description": "Full provider response"
+    }
+  },
+  "providers": ["cloudflare"],
+  "runtime": {
+    "defaultRetries": 2,
+    "defaultTimeout": "30 seconds"
+  }
+}
