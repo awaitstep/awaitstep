@@ -45,13 +45,13 @@ describe('app extensions', () => {
     vi.spyOn(mockAuth.api, 'getSession').mockResolvedValue(null as never)
     const res = await createTestApp().request('/api/instance')
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ features: [] })
+    expect(await res.json()).toEqual({ features: [], disabled: [] })
   })
 
   it('lists each plugged-in extension’s id as a feature', async () => {
     const app = createTestApp({ extensions: [echoExtension('one'), { id: 'two' }] })
     const res = await app.request('/api/instance')
-    expect(await res.json()).toEqual({ features: ['one', 'two'] })
+    expect(await res.json()).toEqual({ features: ['one', 'two'], disabled: [] })
   })
 
   it('mounts an extension’s routes under /api/ext/<id>, after the core auth', async () => {

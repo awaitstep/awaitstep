@@ -498,6 +498,8 @@ Check the token with Cloudflare, then create the connection.
 
 A token Cloudflare refuses is `400` with `"field": "token"`; one that can't reach the account is `400` with `"field": "accountId"`; a project that isn't the organization's is `400` with `"field": "projects"`; Cloudflare unreachable is `502`. Nothing is stored on any of them. Account-owned tokens are verified at their account. `credentials.accountId` must be 32 hex digits.
 
+An instance that connects accounts through OAuth only (`GET /instance` lists `connections.apiTokens` in `disabled`) answers this route, `verify-token`, `POST /projects/:id/connections/new` and a token replacement with `403` and the reason, and asks Cloudflare nothing.
+
 ---
 
 ### <span class="api-method post">POST</span> <span class="api-endpoint">/connections/verify-token</span> <span class="api-scope">connections:read</span> <span class="api-scope">workflows:read</span>

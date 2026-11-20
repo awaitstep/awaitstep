@@ -3,7 +3,7 @@ import { runMaintenance } from '../lib/maintenance.js'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@awaitstep/db/d1'
 import { createApp, createAuth, type AppDeps } from '../index.js'
-import type { AppExtension } from '../types.js'
+import type { AppExtension, ExtensionsPackage } from '../types.js'
 import { checkExtensions } from '../lib/extensions.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
@@ -13,7 +13,12 @@ import { imageStoreFromEnv } from '../lib/image-store-env.js'
 import { discardOwnerImages } from '../lib/images.js'
 import { buildNodeRegistry, type RegistryFile } from '../lib/node-registry.js'
 import { createRemoteNodeRegistry } from '../lib/remote-node-registry.js'
-import { ACCESS_REASONS, deleteBlockedReason } from '@awaitstep/ir'
+import {
+  ACCESS_REASONS,
+  checkDisabledFeatures,
+  deleteBlockedReason,
+  type OssFeature,
+} from '@awaitstep/ir'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
@@ -227,21 +232,31 @@ function testSessionRunnerFor(env: Env, sleepAfter: string): SandboxTestSessionR
   )
 }
 
-export interface WorkerOptions {
-  /** Features plugged into the app (their routes); the public Worker passes none. */
-  extensions?: readonly AppExtension[]
+/**
+ * What a Worker entry plugs in: the extensions package's own export, so the
+ * Worker and the dev server read one shape. The public Worker passes nothing.
+ */
+export type WorkerOptions = Partial<ExtensionsPackage>
+
+/** The options as `createApp` takes them, checked: a malformed set throws. */
+export function workerAppOptions(options: WorkerOptions): {
+  extensions: readonly AppExtension[]
+  disabledFeatures: readonly OssFeature[]
+} {
+  const extensions = options.extensions ?? []
+  checkExtensions(extensions)
+  return { extensions, disabledFeatures: checkDisabledFeatures(options.disabled ?? []) }
 }
 
 /**
  * The Worker's handlers. The public Worker is `createWorker()`; an entry that
- * plugs features in exports `createWorker({ extensions })` as its default
+ * plugs features in exports `createWorker(extensionsPackage)` as its default
  * instead, and must also `export { Sandbox } from '@cloudflare/sandbox'`, as
  * `worker.ts` does — wrangler refuses the containers config without it.
- * A malformed set of extensions throws here, at module load.
+ * A malformed set of extensions or an unknown switch throws here, at module load.
  */
 export function createWorker(options: WorkerOptions = {}) {
-  const extensions = options.extensions ?? []
-  checkExtensions(extensions)
+  const { extensions, disabledFeatures } = workerAppOptions(options)
   let cached: { env: Env; baseURL: string; app: ReturnType<typeof createApp> } | null = null
 
   return {
@@ -249,7 +264,7 @@ export function createWorker(options: WorkerOptions = {}) {
       const baseURL = env.BETTER_AUTH_URL ?? new URL(request.url).origin
       if (!cached || cached.env !== env || cached.baseURL !== baseURL) {
         const deps = await buildWorkerDeps(env, baseURL)
-        cached = { env, baseURL, app: createApp({ ...deps, extensions }) }
+        cached = { env, baseURL, app: createApp({ ...deps, extensions, disabledFeatures }) }
       }
       return cached.app.fetch(request, env, ctx)
     },

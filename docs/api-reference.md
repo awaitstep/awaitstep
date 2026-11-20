@@ -66,14 +66,19 @@ before the endpoint's own limits are considered.
 
 **Permission:** none — no key or session needed.
 
-What this instance turns on, for clients to show or hide features.
+What this instance turns on and off, for clients to show or hide features.
 
 ```json
-{ "features": [] }
+{ "features": [], "disabled": [] }
 ```
 
 `features` lists the ids of the extensions the instance was started with; a
-self-hosted instance lists none. An extension's routes live under
+self-hosted instance lists none. `disabled` lists the open-source features the
+instance switches off, from a fixed set: `playground` (the API Playground),
+`connections.ui` (the dashboard's Connections pages; the connections and the
+endpoints below stay) and `connections.apiTokens` (connecting with a pasted
+token, see [Connections](#connections)). A self-hosted instance switches none
+off. An extension's routes live under
 `/ext/<id>` and take a session: an API key there is `403`
 `{ "error": "This endpoint is not available to API keys" }`.
 
@@ -2676,6 +2681,15 @@ deploy with it**, and its **token's health** as Cloudflare last reported it.
   organizations taking turns):
   a token revoked or rolled in Cloudflare reads `invalid`; an outage changes
   nothing.
+- **OAuth-only instances.** An instance that lists `connections.apiTokens` in
+  `GET /instance` → `disabled` takes no pasted tokens. `POST /connections`,
+  `POST /connections/verify-token` and `POST /projects/:id/connections/new`
+  answer `403`
+  `{ "error": "This instance connects Cloudflare accounts through OAuth only. Pasted API tokens aren’t accepted." }`
+  before their body is checked; `PATCH /connections/:id` with `credentials` and
+  `PATCH /projects/:id/connections/:connectionId` with `token` answer the same
+  once their body is valid and the connection found. Cloudflare is never asked.
+  Renames, deletes, reads and the OAuth routes are unchanged.
 - **Inbox.** Whoever can replace a token — the connection's creator and the
   organization's owners and admins — get `connection.token_expiring` a week and
   a day before it expires, and `connection.token_invalid` when a check finds it

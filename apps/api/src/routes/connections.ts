@@ -17,6 +17,7 @@ import {
   scopesOf,
 } from '../lib/connection-fields.js'
 import { revokeConnectionGrant } from '../lib/connection-oauth.js'
+import { featureOff, requireFeature, switchedOff } from '../lib/feature-switches.js'
 import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 
 const projectsFields = {
@@ -87,40 +88,47 @@ export function createConnectionRoutes() {
     return c.json({ data: result.data.map(connectionSummary), nextCursor: result.nextCursor })
   })
 
-  connections.post('/', zValidator('json', createConnectionSchema), async (c) => {
-    const db = c.get('db')
-    const organizationId = c.get('organizationId')
-    const body = c.req.valid('json')
-    const provider = providerNamed(body.provider)
-    if (!provider) return c.json({ error: `Unsupported provider: ${body.provider}` }, 400)
-    const invalid = credentialError(body.provider, body.credentials)
-    if (invalid) return c.json(invalid, 400)
+  // Every account connected here comes with a pasted token; OAuth connects through its own routes.
+  connections.post(
+    '/',
+    requireFeature('connections.apiTokens'),
+    zValidator('json', createConnectionSchema),
+    async (c) => {
+      const db = c.get('db')
+      const organizationId = c.get('organizationId')
+      const body = c.req.valid('json')
+      const provider = providerNamed(body.provider)
+      if (!provider) return c.json({ error: `Unsupported provider: ${body.provider}` }, 400)
+      const invalid = credentialError(body.provider, body.credentials)
+      if (invalid) return c.json(invalid, 400)
 
-    // "Check token and connect": nothing is stored for a token the provider refuses.
-    const check = await checkCredentialsGated(c, provider, body.credentials)
-    if (!check.ok) return check.response
+      // "Check token and connect": nothing is stored for a token the provider refuses.
+      const check = await checkCredentialsGated(c, provider, body.credentials)
+      if (!check.ok) return check.response
 
-    const conn = await db.createConnection({
-      id: nanoid(),
-      organizationId,
-      createdBy: c.get('userId'),
-      provider: body.provider,
-      credentials: JSON.stringify(body.credentials),
-      name: body.name,
-      ...coverageOf(body),
-      token: check.token,
-      visibleTo: listReader(c),
-    })
-    if (!conn) return c.json(INVALID_PROJECTS, 400)
-    await recordAudit(c, {
-      event: 'connection.create',
-      facts: { name: body.name, provider: body.provider },
-    })
-    return c.json(connectionSummary(conn), 201)
-  })
+      const conn = await db.createConnection({
+        id: nanoid(),
+        organizationId,
+        createdBy: c.get('userId'),
+        provider: body.provider,
+        credentials: JSON.stringify(body.credentials),
+        name: body.name,
+        ...coverageOf(body),
+        token: check.token,
+        visibleTo: listReader(c),
+      })
+      if (!conn) return c.json(INVALID_PROJECTS, 400)
+      await recordAudit(c, {
+        event: 'connection.create',
+        facts: { name: body.name, provider: body.provider },
+      })
+      return c.json(connectionSummary(conn), 201)
+    },
+  )
 
   connections.post(
     '/verify-token',
+    requireFeature('connections.apiTokens'),
     zValidator(
       'json',
       z.object({
@@ -165,6 +173,9 @@ export function createConnectionRoutes() {
 
     let credentials: string | undefined
     let token: ConnectionTokenCheck | undefined
+    if (body.credentials && featureOff(c, 'connections.apiTokens')) {
+      return switchedOff(c, 'connections.apiTokens')
+    }
     if (body.credentials && authKindOf(before.credentials) === 'oauth') {
       return c.json(
         { error: 'This connection uses OAuth. Reconnect it instead of replacing a token.' },
