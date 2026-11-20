@@ -251,6 +251,63 @@ describe.each([
     })
   })
 
+  describe('the Settings summary', () => {
+    const summary = (workspaceId: string | null, viewer?: string, projectId = 'p-101') =>
+      h.adapter.getProjectConnectionSummary(projectId, 'org-acme', workspaceId, viewer)
+
+    it('gives the default account and a workspace’s own, the default, or none', async () => {
+      expect(await summary('ws-sales')).toEqual({
+        default: null,
+        workspace: { connectionId: null, connectionName: null, source: 'none' },
+      })
+      // A workspace's answer reads no account credentials: its row doesn't show the default.
+      await add(['c-prod'])
+      expect((await summary('ws-sales'))?.default).toBeNull()
+      expect((await summary(null))?.default?.credentials).toBe(CREDS('a'))
+      await h.adapter.createProjectConnection(owned())
+      await h.adapter.setWorkspaceConnection({
+        projectId: 'p-101',
+        workspaceId: 'ws-ops',
+        connectionId: 'c-own',
+        setBy: 'u-ama',
+      })
+      expect(await summary(null)).toEqual({
+        default: { id: 'c-prod', name: 'Acme production', credentials: CREDS('a') },
+        workspace: null,
+      })
+      expect((await summary('ws-ops'))?.workspace).toEqual({
+        connectionId: 'c-own',
+        connectionName: 'Checkout staging',
+        source: 'override',
+      })
+      expect((await summary('ws-sales'))?.workspace).toEqual({
+        connectionId: 'c-prod',
+        connectionName: 'Acme production',
+        source: 'default',
+      })
+    })
+
+    it('has no default the project can no longer use', async () => {
+      await add(['c-sandbox'])
+      await h.adapter.updateConnection('c-sandbox', {
+        organizationId: 'org-acme',
+        projectIds: ['p-202'],
+      })
+      expect((await summary(null))?.default).toBeNull()
+    })
+
+    it('answers no workspace from another project, or one the reader can’t open', async () => {
+      expect((await summary('ws-202'))?.workspace).toBeNull()
+      // Dan admins Sales only.
+      expect((await summary('ws-ops', 'u-dan'))?.workspace).toBeNull()
+      expect((await summary('ws-sales', 'u-dan'))?.workspace).toMatchObject({ source: 'none' })
+    })
+
+    it('answers nothing for another organization’s project', async () => {
+      expect(await summary(null, undefined, 'p-g')).toBeNull()
+    })
+  })
+
   describe('what Add connection lists', () => {
     it('marks each organization account added, available or restricted, naming only visible projects', async () => {
       await add(['c-prod'])

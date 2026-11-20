@@ -344,6 +344,16 @@ export interface ConnectionListOptions {
   visibleTo?: 'all' | { userId: string } | { projectId: string } | { projectIds: string[] }
 }
 
+/** One of the organization's own accounts, credentials decrypted (the route derives from them, never sends them). */
+export interface ConnectionAccountRow {
+  id: string
+  name: string
+  credentials: string
+  tokenStatus: string
+  /** The cursor's timestamp. */
+  createdAt: string
+}
+
 /** A connection as the dashboard lists it (credentials decrypted; the route redacts them). */
 export interface ConnectionListRow extends Connection {
   createdByName: string | null
@@ -397,6 +407,17 @@ export interface ProjectWorkspaceConnectionRow {
 export interface ProjectConnectionsRows {
   connections: ProjectConnectionRow[]
   workspaces: ProjectWorkspaceConnectionRow[]
+}
+
+/** A project's default and one workspace's account, for Settings; credentials decrypted. */
+export interface ProjectConnectionSummaryRow {
+  /** Null with none, and when a workspace was asked for (its row doesn't show the default). */
+  default: { id: string; name: string; credentials: string } | null
+  /** Null when no workspace was asked for, or the reader can't open the one asked for. */
+  workspace: Pick<
+    ProjectWorkspaceConnectionRow,
+    'connectionId' | 'connectionName' | 'source'
+  > | null
 }
 
 /** An organization account as a project's Add connection lists it; credentials decrypted. */

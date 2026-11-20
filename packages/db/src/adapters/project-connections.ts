@@ -7,6 +7,7 @@ import type {
   ProjectConnectionRemoval,
   ProjectConnectionRow,
   ProjectConnectionsRows,
+  ProjectConnectionSummaryRow,
   WorkspaceConnectionChange,
 } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
@@ -20,8 +21,10 @@ import {
   jsonArrayOf,
   jsonArrayOfValues,
   jsonBool,
+  jsonObjectOf,
   nestedJson,
   readJsonArray,
+  readJsonObject,
   type Dialect,
 } from './json-array.js'
 import { liveOnItsAccount } from './live-deployment.js'
@@ -229,6 +232,64 @@ export class ProjectConnectionsAdapter {
       })
     }
     return { connections, workspaces: readJsonArray(row.workspaces) }
+  }
+
+  /**
+   * What a Settings page shows: the project's default account and, with
+   * `workspaceId`, where that workspace deploys. One statement with the JSON
+   * built in SQL; the project's organization, the workspace's project and
+   * whether `viewer` may open it are in its `WHERE`s. Null when the project
+   * isn't the organization's.
+   */
+  async summary(
+    projectId: string,
+    organizationId: string,
+    workspaceId: string | null,
+    viewer?: string,
+  ): Promise<ProjectConnectionSummaryRow | null> {
+    const p = aliasedTable(this.t.projects, 'psp')
+    const dc = aliasedTable(this.t.connections, 'psdc')
+    const w = aliasedTable(this.t.workspaces, 'psw')
+    const wc = aliasedTable(this.t.connections, 'pswc')
+    const fallback = this.defaultOf(p)
+    // A workspace's row shows only where it deploys: its credentials aren't read.
+    const defaultAccount =
+      workspaceId === null
+        ? sql`(select ${jsonObjectOf(this.dialect, {
+            id: dc.id,
+            name: dc.name,
+            credentials: dc.credentials,
+          })} from ${aliasedFrom(dc)} where ${dc.id} = ${fallback})`
+        : sql`null`
+    const override = this.overrideOf(w.id, p)
+    const chosen = sql`coalesce(${override}, ${fallback})`
+    const workspace =
+      workspaceId === null
+        ? sql`null`
+        : sql`(select ${jsonObjectOf(this.dialect, {
+            connectionId: chosen,
+            connectionName: sql`(select ${wc.name} from ${aliasedFrom(wc)} where ${wc.id} = ${chosen})`,
+            source: sql`(case when ${override} is not null then 'override' when ${fallback} is not null then 'default' else 'none' end)`,
+          })} from ${aliasedFrom(w)} where ${w.id} = ${workspaceId} and ${w.projectId} = ${p.id} and ${this.workspaceVisible(viewer, w, p)})`
+    const rows = (await this.db
+      .select({
+        account: fieldOf(defaultAccount),
+        workspace: fieldOf(workspace),
+      })
+      .from(p)
+      .where(and(eq(p.id, projectId), eq(p.organizationId, organizationId)))
+      .limit(1)) as { account: unknown; workspace: unknown }[]
+    const row = rows[0]
+    if (!row) return null
+    const account = readJsonObject<{ id: string; name: string; credentials: string }>(row.account)
+    return {
+      default: account
+        ? { ...account, credentials: await this.tryDecrypt(account.credentials) }
+        : null,
+      workspace: readJsonObject<NonNullable<ProjectConnectionSummaryRow['workspace']>>(
+        row.workspace,
+      ),
+    }
   }
 
   /**

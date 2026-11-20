@@ -727,6 +727,70 @@ describe.each([
     })
   })
 
+  describe('the organization’s accounts', () => {
+    it('lists only the organization’s own accounts with just what the page derives from', async () => {
+      await h.adapter.createConnection(write({ id: 'c-1', name: 'Acme production' }))
+      await h.adapter.createConnection(
+        write({ id: 'c-g', organizationId: 'org-globex', createdBy: 'u-cleo' }),
+      )
+      await h.adapter.createProjectConnection({
+        id: 'c-own',
+        projectId: 'p-101',
+        organizationId: 'org-acme',
+        createdBy: 'u-ben',
+        provider: 'cloudflare',
+        name: 'Checkout staging',
+        credentials: CREDS,
+        token: { status: 'active', expiresAt: null, checkedAt: NOW },
+        makeDefault: true,
+      })
+      const { data, nextCursor } = await h.adapter.listConnectionAccounts('org-acme')
+      expect(nextCursor).toBeNull()
+      expect(data).toHaveLength(1)
+      expect(Object.keys(data[0]!).sort()).toEqual([
+        'createdAt',
+        'credentials',
+        'id',
+        'name',
+        'tokenStatus',
+      ])
+      expect(data[0]).toMatchObject({
+        id: 'c-1',
+        name: 'Acme production',
+        credentials: CREDS,
+        tokenStatus: 'unchecked',
+      })
+      expect((await h.adapter.listConnectionAccounts('org-globex')).data.map((r) => r.id)).toEqual([
+        'c-g',
+      ])
+    })
+
+    it('pages newest first, as the list orders them', async () => {
+      for (const [id, at] of [
+        ['c-a', '2026-10-01T00:00:00.000Z'],
+        ['c-b', '2026-10-02T00:00:00.000Z'],
+        ['c-c', '2026-10-02T00:00:00.000Z'],
+      ] as const) {
+        await h.adapter.createConnection(write({ id }))
+        await h.db
+          .update(h.schema.connections)
+          .set({ createdAt: at })
+          .where(eq(h.schema.connections.id, id))
+      }
+      const first = await h.adapter.listConnectionAccounts('org-acme', { limit: 2 })
+      expect(first.data.map((r) => r.id)).toEqual(['c-c', 'c-b'])
+      expect(first.nextCursor).not.toBeNull()
+      const second = await h.adapter.listConnectionAccounts('org-acme', {
+        limit: 2,
+        cursor: first.nextCursor,
+      })
+      expect(second.data.map((r) => r.id)).toEqual(['c-a'])
+      expect(second.nextCursor).toBeNull()
+      const listed = (await h.adapter.listConnections('org-acme', { visibleTo: 'all' })).data
+      expect(listed.map((r) => r.id)).toEqual(['c-c', 'c-b', 'c-a'])
+    })
+  })
+
   describe('token checks', () => {
     it('stores the check given on create', async () => {
       const created = await h.adapter.createConnection(

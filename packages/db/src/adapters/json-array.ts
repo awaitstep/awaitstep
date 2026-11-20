@@ -16,16 +16,21 @@ export function jsonArrayOf(
   fields: Record<string, SQL | unknown>,
   orderBy?: SQL,
 ): SQL {
+  return jsonArrayOfValues(dialect, jsonObjectOf(dialect, fields), orderBy)
+}
+
+/**
+ * One JSON object built in SQL, `fields` mapping each key to its column or
+ * expression. Inside a subquery that finds no row it is NULL, which
+ * `readJsonObject` reads as null.
+ */
+export function jsonObjectOf(dialect: Dialect, fields: Record<string, SQL | unknown>): SQL {
   const pairs = Object.entries(fields).flatMap(([key, value]) => [
     sql.raw(`'${key}'`),
     value as SQL,
   ])
   const object = sql.join(pairs, sql`, `)
-  return jsonArrayOfValues(
-    dialect,
-    dialect === 'pg' ? sql`json_build_object(${object})` : sql`json_object(${object})`,
-    orderBy,
-  )
+  return dialect === 'pg' ? sql`json_build_object(${object})` : sql`json_object(${object})`
 }
 
 /**
@@ -66,6 +71,13 @@ export function nestedJson(dialect: Dialect, value: SQL): SQL {
  */
 export function fieldOf<T>(expr: SQL<T>): SQL<T> {
   return sql`${expr}` as SQL<T>
+}
+
+/** A `jsonObjectOf` subquery as the driver returns it: text on sqlite, parsed JSON on pg. */
+export function readJsonObject<T>(value: unknown): T | null {
+  if (value == null) return null
+  if (typeof value === 'string') return JSON.parse(value) as T
+  return value as T
 }
 
 /** The aggregate as the driver returns it: text on sqlite, parsed JSON on pg. */

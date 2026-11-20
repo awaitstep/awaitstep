@@ -58,6 +58,7 @@ import type {
   LatestVersionForSave,
   ConnectionCoverage,
   ConnectionListOptions,
+  ConnectionAccountRow,
   ConnectionListRow,
   ConnectionTokenCheck,
   ConnectionUpdate,
@@ -69,6 +70,7 @@ import type {
   ProjectConnectionCreate,
   ProjectConnectionRemoval,
   ProjectConnectionsRows,
+  ProjectConnectionSummaryRow,
   WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
@@ -722,6 +724,14 @@ export interface DatabaseAdapter {
     options?: ConnectionListOptions,
   ): Promise<PaginatedResult<ConnectionListRow>>
   /**
+   * The organization's own accounts (no project's), as the list orders them:
+   * id, name, decrypted credentials and token status — one statement.
+   */
+  listConnectionAccounts(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ConnectionAccountRow>>
+  /**
    * Answers the row as the list shows it; null when nothing was written —
    * the row isn't the organization's, or a project id isn't.
    */
@@ -758,6 +768,16 @@ export interface DatabaseAdapter {
     organizationId: string,
     viewer?: string,
   ): Promise<ProjectConnectionsRows | null>
+  /**
+   * The project's default and, with `workspaceId`, where that workspace deploys
+   * (null when `viewer` can't open it). Null: not the org's project.
+   */
+  getProjectConnectionSummary(
+    projectId: string,
+    organizationId: string,
+    workspaceId: string | null,
+    viewer?: string,
+  ): Promise<ProjectConnectionSummaryRow | null>
   /** The organization's accounts as the project's Add connection lists them. */
   listAvailableProjectConnections(
     projectId: string,
