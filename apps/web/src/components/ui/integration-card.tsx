@@ -24,17 +24,20 @@ export function IntegrationCard({
   return (
     <section
       aria-labelledby={titleId}
-      className="flex min-h-[200px] flex-col gap-3 rounded border border-border bg-card p-5"
+      className="flex flex-col shadow-xs rounded border border-border bg-card p-5"
     >
-      <div className="flex size-10 items-center justify-center [&_svg]:size-10">{logo}</div>
-      <div className="flex flex-1 flex-col gap-1">
-        <h2 id={titleId} className="text-base font-semibold">
+      <span className="w-fit [&_svg]:size-8">{logo}</span>
+
+      <div className="flex flex-1 flex-col">
+        <h2 id={titleId} className="text-sm font-semibold mb-0">
           {title}
         </h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
+        <p className="text-xs text-muted-foreground">{description}</p>
         {hasContent(status) && <p className="text-xs text-muted-foreground">{status}</p>}
       </div>
-      {hasContent(actions) && <div className="flex flex-wrap items-center gap-1">{actions}</div>}
+      {hasContent(actions) && (
+        <div className="flex flex-wrap items-center gap-1 mt-5">{actions}</div>
+      )}
     </section>
   )
 }

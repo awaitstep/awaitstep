@@ -20,7 +20,7 @@ export const Cloudflare: Story = {
         description="Where your workflows deploy."
         actions={
           <>
-            <Button size="sm">Connect account</Button>
+            <Button size="sm">Add account</Button>
             <Button size="sm" variant="outline">
               Manage
             </Button>
