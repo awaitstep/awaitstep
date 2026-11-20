@@ -5,9 +5,10 @@ import type { WorkspaceRole } from '../types/dashboard/workspaces'
 
 /**
  * Where an extension's page is framed: in a workspace, with the workspace
- * panel beside it, or in Org Settings, as one of its tabs.
+ * panel beside it; in Org Settings, as one of its tabs; or at org level,
+ * as a rail destination of its own (`rail.primary`).
  */
-export type ExtensionPageScope = 'workspace' | 'org-settings'
+export type ExtensionPageScope = 'workspace' | 'org-settings' | 'org'
 
 /** The ids the API scopes requests by (`organizationId`, `projectId`, `workspaceId` params). */
 export interface ExtensionScopeIds {
@@ -25,8 +26,8 @@ export interface ExtensionPageProps {
   workspace?: string
   ids: ExtensionScopeIds
   /**
-   * The viewer's effective role where the page is: the org's on a settings
-   * tab, the workspace's on a workspace page. For showing or hiding controls;
+   * The viewer's effective role where the page is: the org's on an org page
+   * or a settings tab, the workspace's on a workspace page. For showing or hiding controls;
    * the extension's API routes still check access themselves.
    */
   viewerRole: OrgRole | WorkspaceRole
@@ -38,7 +39,8 @@ export interface ExtensionPageProps {
 }
 
 /**
- * A page of the extension's own, at `/<org>/settings/ext/<id>/<path>` or
+ * A page of the extension's own, at `/<org>/ext/<id>/<path>`,
+ * `/<org>/settings/ext/<id>/<path>` or
  * `/<org>/<project>/<workspace>/ext/<id>/<path>`. It renders inside the
  * dashboard frame, behind its scope check.
  */
@@ -68,9 +70,9 @@ export interface ExtensionNavLink extends ExtensionLink {
 }
 
 /**
- * An entry in the rail's lower group. Extensions have no org-level pages, so
- * it is an outside URL (`external`) or a path to a page the dashboard already
- * has; the rail never marks it as the current page.
+ * A link in the rail's lower group: an outside URL (`external`) or an app
+ * path. The rail never marks it as the current page; a link to an
+ * extension's own org page belongs in `rail.primary`.
  */
 export interface ExtensionRailLink {
   /** An `https:` URL with `external`, else an app path (`/…`). Any other href is not drawn. */
@@ -79,6 +81,30 @@ export interface ExtensionRailLink {
   icon: LucideIcon
   /** Opens in a new tab, as Docs does. */
   external?: boolean
+}
+
+/** What a rail panel's component is handed. */
+export interface ExtensionPanelProps {
+  org: string
+  /** Closes the panel: back to the page under it. */
+  onClose: () => void
+}
+
+/**
+ * An entry in the rail's lower group that opens a panel over the current page,
+ * as Inbox does: `?open=<id>`. The dashboard draws the panel's frame (title,
+ * close button); `component` is its body.
+ */
+export interface ExtensionPanel {
+  /**
+   * The `?open=` value: lowercase letters, digits and inner dashes. Unique
+   * across the installed extensions and never a built-in overlay's
+   * (`inbox`, `whats-new`, `marketplace`).
+   */
+  id: string
+  label: string
+  icon: LucideIcon
+  component: ComponentType<ExtensionPanelProps>
 }
 
 /** What an editor's top bar hands its extension controls. */
@@ -96,10 +122,20 @@ export interface EditorSlotProps {
 export interface WebExtensionSlots {
   /** Workspace side panel, after the built-in pages: links to `workspace` pages. */
   'workspace.nav'?: ExtensionNavLink[]
+  /** The rail's main group, before Settings: links to `org` pages. */
+  'rail.primary'?: ExtensionNavLink[]
   /** The rail's lower group, after Inbox (where the Playground is) and before Docs. */
   'rail.secondary'?: ExtensionRailLink[]
+  /** The rail's lower group, after the `rail.secondary` links: entries that open a panel. */
+  'rail.panels'?: ExtensionPanel[]
   /** Org Settings tabs, after the built-in ones: links to `org-settings` pages. */
   'org.settings.tabs'?: ExtensionLink[]
+  /**
+   * The `org` page where Cloudflare accounts are connected (Cloud's
+   * Integrations). The Settings account pickers link to it in place of the
+   * org's Connections page; the first enabled extension's wins.
+   */
+  'accounts.connect'?: ExtensionLink
   /** The canvas editor's top bar, left of Save. It owns whatever it opens. */
   'canvas.toolbar'?: ComponentType<EditorSlotProps>
   /** The Code editor's top bar, left of Save. It owns whatever it opens. */

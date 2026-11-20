@@ -3,7 +3,7 @@ import { Layers } from 'lucide-react'
 import type { Theme } from '../../lib/theme'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { WorkspaceColour } from '../ui/workspace-colour'
-import { orgPath, withOverlay } from '../../lib/dashboard-paths'
+import { orgPath } from '../../lib/dashboard-paths'
 import { AppShell } from '../shell/app-shell'
 import { ContextPanel, PanelScopeButton } from '../shell/context-panel'
 import { MobileHeader, MobileOrgButton, MobileTabBar } from '../shell/mobile-nav'
@@ -76,7 +76,6 @@ export function DashboardFrame({
     disabled,
     extensions,
   })
-  const whatsNewHref = withOverlay(overlays.here, 'whats-new')
   const panel = page
     ? panelModel(page, scope.slugs, extensions, disabled)
     : { mode: 'none' as const }
@@ -113,7 +112,8 @@ export function DashboardFrame({
             viewer ? (
               <DashboardAccountMenu
                 placement="rail"
-                whatsNewHref={whatsNewHref}
+                here={overlays.here}
+                org={scope.slugs.org}
                 trigger={<RailAccountButton user={viewer} />}
                 user={viewer}
                 theme={theme}
@@ -129,7 +129,7 @@ export function DashboardFrame({
           panel={panel}
           scope={scope}
           viewer={viewer}
-          whatsNewHref={whatsNewHref}
+          here={overlays.here}
           theme={theme}
           onToggleTheme={onToggleTheme}
         />
@@ -226,7 +226,8 @@ interface FrameMobileHeaderProps {
   panel: PanelModel
   scope: FrameScope
   viewer: FrameViewer | null
-  whatsNewHref: string
+  /** The page you're on: the account menu's overlays open over it. */
+  here: string
   theme: Theme
   onToggleTheme: () => void
 }
@@ -236,14 +237,15 @@ function FrameMobileHeader({
   panel,
   scope,
   viewer,
-  whatsNewHref,
+  here,
   theme,
   onToggleTheme,
 }: FrameMobileHeaderProps) {
   const account = viewer ? (
     <DashboardAccountMenu
       placement="phone"
-      whatsNewHref={whatsNewHref}
+      here={here}
+      org={scope.slugs.org}
       trigger={<RailAccountButton user={viewer} className="mt-0" />}
       user={viewer}
       theme={theme}

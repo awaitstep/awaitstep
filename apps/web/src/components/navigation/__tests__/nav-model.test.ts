@@ -422,6 +422,76 @@ describe('switched-off features', () => {
   })
 })
 
+describe('docs switched off', () => {
+  it('drops Docs from the rail, keeping the extension’s entries in their place', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      disabled: ['playground', 'docs'],
+      extensions: [testExtension],
+    })
+    expect(rail.secondary.map((entry) => entry.key)).toEqual([
+      'whats-new',
+      'inbox',
+      'ext:test-ext#0',
+      'panel:support',
+    ])
+  })
+})
+
+describe('rail.panels slot', () => {
+  it('opens an extension’s panel over the current page, by its id', () => {
+    const rail = railModel(
+      'acme',
+      { kind: 'org', page: 'audit' },
+      { ...QUIET, here: '/acme/audit?tab=all' },
+      { extensions: [testExtension] },
+    )
+    const support = rail.secondary.find((entry) => entry.key === 'panel:support')!
+    expect(support).toMatchObject({ href: '/acme/audit?tab=all&open=support', label: 'Support' })
+    expect(support.external).toBeUndefined()
+  })
+})
+
+describe('rail.primary slot', () => {
+  const framed = {
+    kind: 'extension' as const,
+    scope: 'org' as const,
+    page: { key: 'ext:test-ext/integrations' as const, title: 'Integrations' },
+  }
+
+  it('adds an enabled extension’s org pages before Settings', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      extensions: [testExtension],
+    })
+    expect(rail.primary.map((entry) => entry.key)).toEqual([
+      'projects',
+      'resources',
+      'audit',
+      'connections',
+      'api-keys',
+      'ext:test-ext/integrations',
+      'settings',
+    ])
+    expect(rail.primary.find((e) => e.label === 'Integrations')?.href).toBe(
+      '/acme/ext/test-ext/integrations',
+    )
+  })
+
+  it('marks the org page’s own rail entry, with no panel and a crumb after the org', () => {
+    const rail = railModel('acme', framed, QUIET, { extensions: [testExtension] })
+    expect(rail.activeKey).toBe('ext:test-ext/integrations')
+    expect(panelModel(framed, ORG, [testExtension])).toEqual({ mode: 'none' })
+    expect(breadcrumbs(framed, ORG, NAMES)).toEqual([
+      { label: 'Acme Inc', href: '/acme/projects' },
+      { label: 'Integrations' },
+    ])
+  })
+
+  it('marks nothing while the URL names no org page', () => {
+    const rail = railModel('acme', { kind: 'extension', scope: 'org' }, QUIET)
+    expect(rail.activeKey).toBe('')
+  })
+})
+
 describe('rail.secondary slot', () => {
   it('adds an enabled extension’s links after Inbox and Playground, before Docs', () => {
     const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
@@ -432,6 +502,7 @@ describe('rail.secondary slot', () => {
       'inbox',
       'playground',
       'ext:test-ext#0',
+      'panel:support',
       'docs',
     ])
     const help = rail.secondary.find((entry) => entry.key === 'ext:test-ext#0')!
@@ -451,6 +522,7 @@ describe('rail.secondary slot', () => {
       'What’s new',
       'Inbox',
       'Help',
+      'Support',
       'Docs',
     ])
   })

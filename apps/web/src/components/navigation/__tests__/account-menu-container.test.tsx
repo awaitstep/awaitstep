@@ -35,7 +35,8 @@ function renderMenu(
       placement={placement}
       trigger={<RailAccountButton user={AMA} />}
       user={AMA}
-      whatsNewHref="/acme/project-101/sales/runs?open=whats-new"
+      here="/acme/project-101/sales/runs"
+      org="acme"
       theme="dark"
       onToggleTheme={options.onToggleTheme ?? vi.fn()}
       showReset={options.showReset ?? false}
@@ -61,7 +62,8 @@ describe('DashboardAccountMenu', () => {
         placement="rail"
         trigger={<RailAccountButton user={withPhoto} />}
         user={withPhoto}
-        whatsNewHref="/acme/projects?open=whats-new"
+        here="/acme/projects"
+        org="acme"
         theme="dark"
         onToggleTheme={vi.fn()}
         showReset={false}
@@ -149,6 +151,37 @@ describe('DashboardAccountMenu', () => {
     expect(screen.getByRole('menuitem', { name: 'Help' })).toHaveAttribute(
       'href',
       'https://help.example.test',
+    )
+  })
+
+  it('opens an extension’s panel over the page from the phone menu', async () => {
+    useInstanceStore.setState({ features: ['test-ext'] })
+    renderMenu('phone')
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Support' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/runs?open=support',
+    )
+  })
+
+  it('links an extension’s org pages from the phone menu: the tab bar has no room', async () => {
+    useInstanceStore.setState({ features: ['test-ext'] })
+    renderMenu('phone')
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Integrations' })).toHaveAttribute(
+      'href',
+      '/acme/ext/test-ext/integrations',
+    )
+  })
+
+  it('drops Docs from the phone menu with docs switched off', async () => {
+    useInstanceStore.setState({ disabled: ['docs'] })
+    renderMenu('phone')
+    await openMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Docs' })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'What’s new' })).toHaveAttribute(
+      'href',
+      '/acme/project-101/sales/runs?open=whats-new',
     )
   })
 

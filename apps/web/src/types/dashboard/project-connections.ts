@@ -5,6 +5,7 @@ export type {
   DeployConnections,
   ProjectConnection,
   ProjectConnections,
+  ProjectConnectionSummary,
   ProjectConnectionScope,
   ProjectWorkspaceConnection,
 } from '@awaitstep/ir'

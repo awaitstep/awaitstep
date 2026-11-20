@@ -3,6 +3,7 @@ import type {
   NewProjectConnectionInput,
   ProjectConnection,
   ProjectConnections,
+  ProjectConnectionSummary,
 } from '../../../types/dashboard/project-connections'
 import { getDb, type ConnectionRow, type MockDb, type ProjectRow } from '../db'
 import {
@@ -96,6 +97,33 @@ export const listProjectConnections = endpoint(
         }
       })
     return { connections: rows(ctx, connections), workspaces }
+  },
+)
+
+export const getProjectConnectionSummary = endpoint(
+  (ctx, orgSlug: string, projectSlug: string, workspaceId?: string): ProjectConnectionSummary => {
+    const { db, project } = inProject(ctx, orgSlug, projectSlug)
+    const fallback = defaultOf(db, project)
+    if (workspaceId === undefined) {
+      return {
+        default: fallback
+          ? { id: fallback.id, name: fallback.name, accountSuffix: fallback.accountId.slice(-4) }
+          : null,
+      }
+    }
+    if (!db.workspaces.some((w) => w.id === workspaceId && w.projectId === project.id)) {
+      throw notFoundError()
+    }
+    const own = db.workspaceConnections.find((wc) => wc.workspaceId === workspaceId)
+    const override = own && db.connections.find((c) => c.id === own.connectionId)
+    const chosen = override ?? fallback
+    return {
+      workspace: {
+        connectionId: chosen?.id ?? null,
+        connectionName: chosen?.name ?? null,
+        source: override ? 'override' : chosen ? 'default' : 'none',
+      },
+    }
   },
 )
 

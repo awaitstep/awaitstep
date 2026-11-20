@@ -3,7 +3,14 @@ import installed from 'virtual:awaitstep/extensions'
 import { isExtensionId } from '@awaitstep/ir'
 import { useInstanceStore } from '../stores/instance-store'
 import type { FramedExtensionPage } from '../components/navigation/dashboard-page'
-import type { ExtensionPage, ExtensionPageKey, ExtensionPageScope, WebExtension } from './types'
+import { DASHBOARD_OVERLAYS } from '../lib/dashboard-paths'
+import type {
+  ExtensionPage,
+  ExtensionPageKey,
+  ExtensionPageScope,
+  ExtensionPanel,
+  WebExtension,
+} from './types'
 
 /**
  * Refuses a set of extensions the dashboard could not show unambiguously: an
@@ -21,6 +28,30 @@ export function checkWebExtensions(extensions: readonly WebExtension[]): void {
     if (seen.has(id)) throw new Error(`Web extension id "${id}" is installed twice.`)
     seen.add(id)
   }
+  checkPanelIds(extensions)
+}
+
+/**
+ * A panel's id is its `?open=` value: one that a built-in overlay or another
+ * panel already answers would open the wrong thing.
+ */
+function checkPanelIds(extensions: readonly WebExtension[]): void {
+  const taken = new Set<string>(DASHBOARD_OVERLAYS)
+  for (const extension of extensions) {
+    for (const { id } of extension.slots?.['rail.panels'] ?? []) {
+      if (!isExtensionId(id)) {
+        throw new Error(
+          `Panel id "${id}" of web extension "${extension.id}" is not valid: use lowercase letters, digits and dashes (at most 64).`,
+        )
+      }
+      if (taken.has(id)) {
+        throw new Error(
+          `Panel id "${id}" of web extension "${extension.id}" is already taken by another overlay.`,
+        )
+      }
+      taken.add(id)
+    }
+  }
 }
 
 checkWebExtensions(installed)
@@ -37,6 +68,37 @@ export function enabledExtensions(
 export function useEnabledExtensions(): readonly WebExtension[] {
   const features = useInstanceStore((s) => s.features)
   return useMemo(() => enabledExtensions(installed, features), [features])
+}
+
+/** The rail panel `?open=` names, among the enabled extensions'; none for anything else. */
+export function findExtensionPanel(
+  enabled: readonly WebExtension[],
+  open: string | undefined,
+): ExtensionPanel | null {
+  if (!open) return null
+  for (const extension of enabled) {
+    const panel = extension.slots?.['rail.panels']?.find((candidate) => candidate.id === open)
+    if (panel) return panel
+  }
+  return null
+}
+
+/**
+ * Whether an org page's URL (`<id>/<path>` below `ext/`) is the page an
+ * enabled extension connects accounts on (`accounts.connect`): the only
+ * extension page the Cloudflare OAuth callback is meant to land on.
+ */
+export function isAccountsConnectPage(
+  enabled: readonly WebExtension[],
+  splat: string | undefined,
+): boolean {
+  const resolved = resolveExtensionPage(enabled, 'org', splat)
+  const connect = resolved?.extension.slots?.['accounts.connect']
+  return (
+    connect !== undefined &&
+    resolved!.subpath === '' &&
+    normalizeExtensionPath(connect.path) === normalizeExtensionPath(resolved!.page.path)
+  )
 }
 
 /** An extension page's path without empty segments: `/history/` and `history` are one page. */

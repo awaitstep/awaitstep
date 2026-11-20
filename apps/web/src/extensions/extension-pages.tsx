@@ -63,6 +63,28 @@ export function ExtensionWorkspacePage({ slugs, splat }: ExtensionWorkspacePageP
   )
 }
 
+interface ExtensionOrgPageProps {
+  org: string
+  splat: string | undefined
+}
+
+/** `/{org}/ext/{id}/{path}`: an org-level page, a rail destination; it draws its own body. */
+export function ExtensionOrgPage({ org, splat }: ExtensionOrgPageProps) {
+  const resolved = resolveExtensionPage(useEnabledExtensions(), 'org', splat)
+  const scope = useOrgScope(org)
+  if (!resolved) return <PageNotFound />
+  if (!scope) return null
+  const Page = resolved.page.component
+  return (
+    <Page
+      org={org}
+      ids={{ organizationId: scope.org.id }}
+      viewerRole={scope.viewerRole}
+      subpath={resolved.subpath}
+    />
+  )
+}
+
 interface ExtensionSettingsPageProps {
   org: string
   splat: string | undefined

@@ -8,6 +8,7 @@ import { useInstanceStore } from '../../stores/instance-store'
 import { EditorExtensions } from '../editor-extensions'
 import {
   extensionPageHead,
+  ExtensionOrgPage,
   ExtensionSettingsPage,
   ExtensionWorkspacePage,
 } from '../extension-pages'
@@ -141,6 +142,25 @@ describe('extension pages', () => {
     expect(screen.getByText('Usage of acme (org_1) as member')).toBeInTheDocument()
   })
 
+  it('render the org page on its own, without Org Settings’ tabs', () => {
+    enable('test-ext')
+    render(<ExtensionOrgPage org="acme" splat="test-ext/integrations" />)
+    expect(screen.getByText('Integrations of acme (org_1) as member')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Settings' })).toBeNull()
+  })
+
+  it('find no org page in the settings scope, nor a settings page at org level', () => {
+    enable('test-ext')
+    render(
+      <>
+        <ExtensionSettingsPage org="acme" splat="test-ext/integrations" />
+        <ExtensionOrgPage org="acme" splat="test-ext/usage" />
+        <ExtensionOrgPage org="acme" splat="other/integrations" />
+      </>,
+    )
+    expect(screen.getAllByText('Page not found')).toHaveLength(3)
+  })
+
   it('are not found while the extension is not listed, whatever the path', () => {
     render(<ExtensionWorkspacePage slugs={SALES} splat="test-ext/history" />)
     expect(screen.getByText('Page not found')).toBeInTheDocument()
@@ -180,6 +200,12 @@ describe('extension page head', () => {
     })
     expect(extensionPageHead('org-settings', 'test-ext/usage', [])).toEqual({
       meta: [{ title: 'Page not found · AwaitStep' }],
+    })
+  })
+
+  it('titles an org page by its own title', () => {
+    expect(extensionPageHead('org', 'test-ext/integrations', matches(['test-ext']))).toEqual({
+      meta: [{ title: 'Integrations · AwaitStep' }],
     })
   })
 })

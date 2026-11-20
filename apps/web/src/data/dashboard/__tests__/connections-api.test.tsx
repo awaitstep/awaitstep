@@ -10,6 +10,7 @@ import { errorFieldOf } from '../errors'
 import {
   useConnect,
   useConnections,
+  useOrgAccounts,
   useRemoveConnection,
   useReplaceToken,
   useUpdateConnection,
@@ -158,6 +159,73 @@ describe('useConnections', () => {
   })
 })
 
+describe('useOrgAccounts', () => {
+  const ACCOUNT = {
+    id: 'conn_1',
+    name: 'Acme production',
+    accountSuffix: '7f2a',
+    authKind: 'oauth',
+    canDeploy: false,
+    tokenStatus: 'active',
+  } as const
+
+  it('reads every page of GET /connections/accounts, as the API shaped it', async () => {
+    fetchMock
+      .mockResolvedValueOnce(json({ data: [ACCOUNT], nextCursor: 'c2' }))
+      .mockResolvedValueOnce(json({ data: [{ ...ACCOUNT, id: 'conn_2' }], nextCursor: null }))
+    const { result } = renderHook(() => useOrgAccounts('acme'), { wrapper: wrapperFor('api') })
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(calls().map(([method, url]) => [method, url])).toEqual([
+      ['GET', '/api/connections/accounts?org=acme'],
+      ['GET', '/api/connections/accounts?org=acme&cursor=c2'],
+    ])
+    expect(result.current.data).toEqual([ACCOUNT, { ...ACCOUNT, id: 'conn_2' }])
+  })
+
+  it('reads the dummy server off the API, cut to the accounts row', async () => {
+    const { result } = renderHook(() => useOrgAccounts('acme'), { wrapper: wrapperFor('mock') })
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(result.current.data?.map((c) => c.name)).toEqual([
+      'Acme production',
+      'Marketing sandbox',
+    ])
+    expect(Object.keys(result.current.data![0]!).sort()).toEqual([
+      'accountSuffix',
+      'authKind',
+      'canDeploy',
+      'id',
+      'name',
+      'tokenStatus',
+    ])
+  })
+
+  it('refreshes after a rename and after a remove', async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith('/api/connections/accounts')
+        ? json({ data: [ACCOUNT], nextCursor: null })
+        : json(ROW),
+    )
+    const wrapper = wrapperFor('api')
+    const accounts = renderHook(() => useOrgAccounts('acme'), { wrapper }).result
+    await waitFor(() => expect(accounts.current.data).toBeDefined())
+    const update = renderHook(() => useUpdateConnection('acme'), { wrapper }).result
+    const remove = renderHook(() => useRemoveConnection('acme'), { wrapper }).result
+    const reads = () =>
+      calls().filter(
+        ([method, url]) => method === 'GET' && url === '/api/connections/accounts?org=acme',
+      ).length
+
+    expect(reads()).toBe(1)
+    await act(() =>
+      update.current.mutateAsync({ connectionId: 'conn_1', update: { name: 'Prod' } }),
+    )
+    await waitFor(() => expect(reads()).toBe(2))
+    await act(() => remove.current.mutateAsync('conn_1'))
+    await waitFor(() => expect(reads()).toBe(3))
+  })
+})
+
 describe('connection changes on the API', () => {
   it('connects with the token, the account and the projects', async () => {
     fetchMock.mockResolvedValue(json(ROW, 201))
@@ -214,7 +282,8 @@ describe('connection changes on the API', () => {
         .mutateAsync({ name: 'A', accountId: 'a'.repeat(32), token: 't', projects: 'all' })
         .catch(() => undefined)
     })
-    expect(result.current.error).toBeInstanceOf(ApiError)
+    // The mutation's error lands on the next render, not inside `act`'s promise.
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(ApiError))
     expect(errorFieldOf(result.current.error)).toBe('token')
   })
 
