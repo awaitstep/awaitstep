@@ -303,7 +303,7 @@ export function CreateKeyDialog({
           <div className="flex flex-col gap-4">
             <p className="text-sm text-foreground/90">
               <strong className="font-semibold">{created.key.name}</strong> is ready. Copy the key
-              below — it won’t be shown again.
+              below. It won’t be shown again.
             </p>
             <SecretReveal
               label="Your API key"

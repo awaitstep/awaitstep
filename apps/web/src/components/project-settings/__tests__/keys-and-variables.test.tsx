@@ -29,12 +29,12 @@ describe('project API keys', () => {
       .getAllByRole('listitem')
       .find((li) => li.getAttribute('aria-current'))
     expect(here).toHaveTextContent('Project keys')
-    expect(within(levels).getByRole('link', { name: 'Org keys →' })).toHaveAttribute(
+    expect(within(levels).getByRole('link', { name: 'Org keys' })).toHaveAttribute(
       'href',
       '/acme/api-keys',
     )
     expect(rowWith('CI deploys')).toHaveTextContent('ask_Kq3VtR8m…a71d')
-    expect(rowWith('CI deploys')).toHaveTextContent('Workflows & functions: read · deploy')
+    expect(rowWith('CI deploys')).toHaveTextContent('Workflows & functions: read, deploy')
     expect(rowWith('CI deploys')).toHaveTextContent('Never')
     expect(within(rowWith('Read-only dashboard')).getByText('In 3 days')).toHaveClass(
       'text-status-warning',

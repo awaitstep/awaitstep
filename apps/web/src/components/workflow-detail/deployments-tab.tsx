@@ -333,14 +333,14 @@ function VersionCell({
       >
         {version}
       </Button>
-      {live && <Badge variant="success">live</Badge>}
-      {d.status === 'taken_down' && <Badge variant="neutral">taken down</Badge>}
-      {d.status === 'failed' && <Badge variant="error">failed</Badge>}
+      {live && <Badge variant="success">Live</Badge>}
+      {d.status === 'taken_down' && <Badge variant="neutral">Taken down</Badge>}
+      {d.status === 'failed' && <Badge variant="error">Failed</Badge>}
       {(d.status === 'deploying' || d.status === 'uploading') && (
-        <Badge variant="warning">deploying</Badge>
+        <Badge variant="warning">Deploying</Badge>
       )}
-      {d.status === 'cancelling' && <Badge variant="warning">cancelling</Badge>}
-      {d.status === 'cancelled' && <Badge variant="neutral">cancelled</Badge>}
+      {d.status === 'cancelling' && <Badge variant="warning">Cancelling</Badge>}
+      {d.status === 'cancelled' && <Badge variant="neutral">Cancelled</Badge>}
     </span>
   )
 }

@@ -73,7 +73,7 @@ export function RunCanvasPreview({ workflowId, ir, nodeStatuses }: RunCanvasPrev
         panOnDrag
         zoomOnScroll
         proOptions={{ hideAttribution: true }}
-        className="!bg-[oklch(0.11_0_0)]"
+        className="!bg-editor"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="oklch(0.25 0 0)" />
       </ReactFlow>

@@ -112,7 +112,7 @@ describe('GrantSummary', () => {
     render(<GrantSummary level="project" value={presetPermissions('project', 'deploy-run')} />)
     const items = within(screen.getByRole('list', { name: 'Permissions' })).getAllByRole('listitem')
     expect(items.map((item) => item.textContent)).toContain(
-      'Workflows & functions: read · deploy · run',
+      'Workflows & functions: read, deploy, run',
     )
     expect(items).toHaveLength(6)
   })

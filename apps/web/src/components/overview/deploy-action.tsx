@@ -9,6 +9,11 @@ import { useGoTo } from '../navigation/router-shell-link'
 import { useApi } from '../../contexts/api-client-context'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
 
+/** Validator messages side by side in one toast: each one a sentence, so their own commas never blur. */
+export function issuesLine(messages: string[]): string {
+  return messages.map((text) => (/[.!?]$/.test(text) ? text : `${text}.`)).join(' ')
+}
+
 const MAX_LISTED = 3
 
 interface DeployButtonProps {
@@ -82,7 +87,7 @@ export function DeployButton({
           errors.length === 1
             ? 'Fix 1 issue before deploying'
             : `Fix ${errors.length} issues before deploying`,
-          { description: shown.join(' · ') },
+          { description: issuesLine(shown) },
         )
         return
       }

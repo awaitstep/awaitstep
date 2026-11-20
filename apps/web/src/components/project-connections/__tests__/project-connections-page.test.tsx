@@ -61,7 +61,7 @@ describe('the project’s accounts', () => {
     expect(itRow).toHaveTextContent('Acme production')
     expect(itRow).toHaveTextContent('Project default')
     expect(within(topBar()).getByRole('button', { name: 'Add connection' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Acme Inc connections →' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Acme Inc connections' })).toHaveAttribute(
       'href',
       '/acme/connections',
     )

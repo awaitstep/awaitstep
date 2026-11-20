@@ -34,7 +34,7 @@ function ScopeSketch({ org }: EmptyOrgProps) {
       </span>
       <span className="ml-11 flex gap-2">
         <span className="flex flex-1 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-xs">
-          <span className="flex size-4.5 items-center justify-center rounded bg-workspace-green text-3xs font-semibold text-workspace-green-foreground">
+          <span className="flex size-4.5 items-center justify-center rounded bg-workspace-green text-2xs font-semibold text-workspace-green-foreground">
             D
           </span>
           Default

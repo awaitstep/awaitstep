@@ -33,8 +33,7 @@ describe('StatusBar', () => {
     renderBar()
     expect(screen.getByText('v12')).toBeInTheDocument()
     expect(screen.getByText('Test session · running')).toBeInTheDocument()
-    expect(screen.getByText('⊗ 1')).toBeInTheDocument()
-    expect(screen.getByText('⚠ 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '1 error, 2 warnings' })).toBeInTheDocument()
     expect(screen.getByText('Ln 8, Col 14')).toBeInTheDocument()
     expect(screen.getByText('Spaces: 2')).toBeInTheDocument()
   })
@@ -42,7 +41,7 @@ describe('StatusBar', () => {
   it('opens the session and problems tabs from their items', async () => {
     const props = renderBar()
     await userEvent.click(screen.getByRole('button', { name: /Test session/ }))
-    await userEvent.click(screen.getByRole('button', { name: /⊗ 1/ }))
+    await userEvent.click(screen.getByRole('button', { name: '1 error, 2 warnings' }))
     expect(props.onShowSession).toHaveBeenCalled()
     expect(props.onShowProblems).toHaveBeenCalled()
   })

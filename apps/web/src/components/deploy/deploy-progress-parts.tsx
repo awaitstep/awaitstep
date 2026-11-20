@@ -51,9 +51,7 @@ interface FailureDetailsProps {
 export function FailureDetails({ error, heading, untouchedVersion }: FailureDetailsProps) {
   return (
     <div className="flex flex-col gap-2 border-t border-border px-5 py-3.5">
-      <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {heading}
-      </span>
+      <span className="text-xs font-medium text-muted-foreground">{heading}</span>
       <pre className="m-0 whitespace-pre-wrap break-words rounded-lg border border-status-error/30 bg-background px-3 py-2.5 font-mono text-sm leading-relaxed text-status-error">
         {error ?? 'The deploy failed without a reason.'}
       </pre>

@@ -132,7 +132,7 @@ describe('DashboardPage', () => {
     renderPage()
     const section = screen.getByRole('region', { name: 'Waiting for you' })
     expect(within(section).getByText('Lena Ortiz invited you to Globex')).toBeVisible()
-    expect(within(section).getByText('Member · Platform workspace · expires 4 Nov')).toBeVisible()
+    expect(within(section).getByText('Member, Platform workspace, expires 4 Nov')).toBeVisible()
     expect(within(section).getByRole('link', { name: 'Review and join' })).toHaveAttribute(
       'href',
       '/invite/inv-globex',

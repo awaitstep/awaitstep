@@ -94,7 +94,7 @@ export function DeployAccountCard({
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <a href={connectionsHref} className="text-status-success">
-                  Manage project connections →
+                  Manage project connections
                 </a>
               </DropdownMenuItem>
             </>

@@ -94,7 +94,7 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
           <button
             type="button"
             onClick={handleClose}
-            className="group flex w-full items-center gap-3 rounded-md border border-dashed border-border bg-transparent p-4 text-left transition-all hover:border-border hover:bg-muted/30"
+            className="group flex w-full items-center gap-3 rounded-md border border-dashed border-border bg-transparent p-4 text-left transition-colors hover:border-border hover:bg-muted/30"
           >
             <Tile size="sm">
               <Plus />

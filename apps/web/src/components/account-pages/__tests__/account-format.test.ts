@@ -36,9 +36,9 @@ const session = (patch: Partial<AccountSession>): AccountSession => ({
 
 describe('orgMeta', () => {
   it('reads as the board: role, projects, and “the only owner”', () => {
-    expect(orgMeta(org({}))).toBe('Owner · 3 projects · the only owner')
+    expect(orgMeta(org({}))).toBe('Owner, 3 projects, the only owner')
     expect(orgMeta(org({ role: 'member', projectCount: 1, onlyOwner: false }))).toBe(
-      'Member · 1 project',
+      'Member, 1 project',
     )
   })
 })

@@ -48,7 +48,7 @@ export function InboxEmpty({ kind, total, settingsHref, onShowAll }: InboxEmptyP
       <p className="max-w-[290px] text-sm leading-relaxed text-muted-foreground">{body}</p>
       {first ? (
         <ShellLink href={settingsHref} className="text-xs font-medium text-status-success">
-          Choose what you’re notified about →
+          Choose what you’re notified about
         </ShellLink>
       ) : (
         <Button type="button" variant="outline" size="sm" onClick={onShowAll}>

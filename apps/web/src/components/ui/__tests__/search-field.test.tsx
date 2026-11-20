@@ -28,7 +28,7 @@ describe('SearchField', () => {
   it('carries the one size every page uses: 36 px, full width until wide screens, then 320 px', () => {
     render(<Field />)
     const box = screen.getByRole('searchbox').parentElement!
-    expect(box).toHaveClass('h-9', 'w-full', 'min-w-[min(200px,100%)]', 'lg:max-w-[320px]')
+    expect(box).toHaveClass('h-10', 'w-full', 'min-w-[min(200px,100%)]', 'lg:max-w-[320px]')
   })
 
   it('empties on Escape', async () => {

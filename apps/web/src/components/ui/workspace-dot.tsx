@@ -28,14 +28,21 @@ interface ScopeChipProps {
   colour: WorkspaceColour
   /** "Sales", "Project 101 · Sales", "from IT · v7". */
   children: ReactNode
+  /** The full text, shown on hover when a long name is cut short. Defaults to `children` when it is a string. */
+  title?: string
 }
 
-/** A pill naming a workspace, led by its colour square. */
-export function ScopeChip({ colour, children }: ScopeChipProps) {
+/** A pill naming a workspace, led by its colour square. Long names truncate to the row. */
+export function ScopeChip({ colour, children, title }: ScopeChipProps) {
   return (
-    <Badge variant="default" className="gap-1.5 px-2.5 py-1 font-normal">
+    <Badge variant="default" className="max-w-full gap-1.5 px-2.5 py-1 font-normal">
       <WorkspaceDot colour={colour} />
-      {children}
+      <span
+        className="min-w-0 truncate"
+        title={title ?? (typeof children === 'string' ? children : undefined)}
+      >
+        {children}
+      </span>
     </Badge>
   )
 }

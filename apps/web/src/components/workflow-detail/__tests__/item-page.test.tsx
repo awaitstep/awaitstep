@@ -156,7 +156,7 @@ describe('ItemPage', () => {
     expect(
       within(screen.getByRole('heading', { name: 'Lead enrichment' })).queryByRole('button'),
     ).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Add a description...' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Add a description…' })).not.toBeInTheDocument()
   })
 
   it('isn’t a draft once it has run, though take down removed its deployments', () => {

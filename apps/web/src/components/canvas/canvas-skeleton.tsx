@@ -43,7 +43,11 @@ export function CanvasSkeleton() {
       {/* Canvas area with dot grid and ghost nodes */}
       <div className="relative flex-1 overflow-hidden">
         {/* Dot grid background */}
-        <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <defs>
             <pattern
               id="skeleton-dots"
@@ -65,7 +69,11 @@ export function CanvasSkeleton() {
         <GhostNode className="left-[38%] top-[50%] w-44" />
 
         {/* Ghost edges (simple lines between nodes) */}
-        <svg className="absolute inset-0 h-full w-full" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <line
             x1="29%"
             y1="32%"

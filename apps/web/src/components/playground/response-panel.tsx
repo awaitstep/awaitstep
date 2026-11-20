@@ -50,9 +50,7 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
           Response Headers ({response.headers.length})
         </button>
         {headersExpanded && (
-          <Suspense
-            fallback={<div className="p-3 text-xs text-muted-foreground/60">Loading...</div>}
-          >
+          <Suspense fallback={<div className="p-3 text-xs text-muted-foreground/60">Loading…</div>}>
             <MonacoEditor
               height={`${Math.min(response.headers.length * 18 + 16, 150)}px`}
               language="plaintext"
@@ -73,7 +71,7 @@ export function ResponsePanel({ response }: { response: ResponseData }) {
           <Suspense
             fallback={
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground/60">
-                Loading editor...
+                Loading editor…
               </div>
             }
           >

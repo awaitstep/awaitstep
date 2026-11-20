@@ -34,7 +34,7 @@ interface StatusBandProps {
   redeployHref?: (accountId: string) => string | undefined
 }
 
-const LABEL = 'text-2xs font-medium uppercase tracking-wider text-muted-foreground'
+const LABEL = 'text-xs font-medium text-muted-foreground'
 const COLUMN = 'flex min-w-0 flex-col gap-2 px-5 py-4'
 
 /**

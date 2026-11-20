@@ -27,17 +27,17 @@ function workspace(
 describe('switcher details', () => {
   it('describes an org by your role and its size', () => {
     const org = { role: 'owner', projectCount: 3, memberCount: 6 } as OrgSummary
-    expect(orgDetail(org)).toBe('Owner · 3 projects · 6 members')
+    expect(orgDetail(org)).toBe('Owner, 3 projects, 6 members')
     expect(orgDetail({ ...org, role: 'member', projectCount: 1, memberCount: 1 })).toBe(
-      'Member · 1 project · 1 member',
+      'Member, 1 project, 1 member',
     )
   })
 
   it('names a project’s workspaces and where it opens, when there’s a choice', () => {
     const p101 = project([chip('sales', 'Sales'), chip('it', 'IT'), chip('support', 'Support')])
-    expect(projectDetail(p101, [])).toBe('3 workspaces · Sales, IT, Support · opens in Sales')
+    expect(projectDetail(p101, [])).toBe('3 workspaces (Sales, IT, Support), opens in Sales')
     expect(projectDetail(p101, ['gone', 'it'])).toBe(
-      '3 workspaces · Sales, IT, Support · opens in IT',
+      '3 workspaces (Sales, IT, Support), opens in IT',
     )
     expect(projectDetail(project([chip('default', 'Default')]), [])).toBe('1 workspace')
   })

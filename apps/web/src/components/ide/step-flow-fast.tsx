@@ -98,11 +98,7 @@ export function StepFlowFast({
       {nodeForm === undefined && stepOptions}
 
       <FieldGroup
-        legend={
-          <span className="text-3xs font-medium uppercase tracking-wider text-muted-foreground">
-            Place it
-          </span>
-        }
+        legend={<span className="text-2xs font-medium text-muted-foreground">Place it</span>}
       >
         <div className="space-y-2">
           <Tabs

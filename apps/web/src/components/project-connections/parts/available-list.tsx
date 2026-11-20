@@ -38,7 +38,7 @@ export function AvailableList({
                 'flex items-center gap-3 rounded border px-3.5 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
                 open && on ? 'border-primary bg-primary/5' : 'border-input bg-background',
                 open
-                  ? 'cursor-pointer hover:border-foreground/25'
+                  ? 'cursor-pointer hover:border-foreground/60'
                   : 'cursor-not-allowed opacity-70',
               )}
             >
@@ -60,11 +60,7 @@ export function AvailableList({
                   )}
                 >
                   <span className="truncate">{account.name}</span>
-                  {account.state === 'added' && (
-                    <Badge variant="neutral" className="uppercase tracking-wide">
-                      Added
-                    </Badge>
-                  )}
+                  {account.state === 'added' && <Badge variant="neutral">Added</Badge>}
                 </span>
                 <span className="text-xs text-muted-foreground">{metaOf(account, now)}</span>
               </span>

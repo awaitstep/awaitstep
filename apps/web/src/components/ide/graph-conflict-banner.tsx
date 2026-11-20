@@ -30,7 +30,7 @@ export function GraphConflictBanner({ bindings }: { bindings: GraphConflictBindi
   const dropped = conflict.dropped ?? []
   const droppedLine =
     dropped.length > 0
-      ? ` No longer applies, discarded: ${dropped.map((d) => d.label).join(' · ')}.`
+      ? ` No longer applies, discarded: ${dropped.map((d) => d.label).join(', ')}.`
       : ''
   // Only graph edits were refused: the ones that still apply wait for Save again.
   if (conflict.paths.length === 0) {

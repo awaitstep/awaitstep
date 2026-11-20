@@ -106,8 +106,8 @@ export function QuickTestPanel({ workflowId, activeFile }: QuickTestPanelProps) 
           Reset inputs
         </Button>
         <span className="min-w-0 truncate text-2xs text-muted-foreground">
-          Runs this step in your browser · imports not resolved · {QUICK_TEST_TIMEOUT_MS / 1000} s
-          limit
+          Runs in your browser without resolving imports. Stops after {QUICK_TEST_TIMEOUT_MS / 1000}{' '}
+          s.
         </span>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-3 md:grid-cols-2">

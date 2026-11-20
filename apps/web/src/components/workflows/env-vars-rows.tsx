@@ -23,7 +23,7 @@ export function EnvGroupHeading({ group, count }: { group: EnvGroup; count: numb
   return (
     <div
       className={cn(
-        'mb-2 mt-4 flex items-center gap-2 text-3xs font-semibold uppercase tracking-wider first:mt-1',
+        'mb-2 mt-4 flex items-center gap-2 text-2xs font-semibold first:mt-1',
         alert ? 'text-status-warning' : 'text-muted-foreground',
       )}
     >

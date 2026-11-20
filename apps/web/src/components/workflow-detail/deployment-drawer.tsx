@@ -149,9 +149,7 @@ function Detail({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <dt className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </dt>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="m-0 flex min-w-0 items-center gap-2">
         <span
           className={

@@ -84,7 +84,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
               onClick={handleToggle}
               aria-label="Add node"
               className={cn(
-                'flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 shadow-lg transition-all hover:bg-muted hover:border-border',
+                'flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 shadow-lg transition-colors hover:bg-muted hover:border-border',
                 open && 'bg-primary border-primary/60 hover:bg-primary/90',
               )}
             >
@@ -118,7 +118,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
               <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search nodes..."
+                placeholder="Search nodes…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
@@ -131,9 +131,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
             {filteredGrouped.map((group) => (
               <div key={group.key}>
                 <div className="sticky -top-px z-10 flex items-center justify-between bg-card px-2 pb-1 pt-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    {group.label}
-                  </span>
+                  <span className="text-xs font-semibold text-muted-foreground">{group.label}</span>
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {group.nodes.length}
                   </span>

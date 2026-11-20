@@ -19,7 +19,7 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
     <button
       type="button"
       onClick={handleClick}
-      className="group flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-4 text-left transition-all hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-4 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="flex items-center gap-2.5">
         <Tile

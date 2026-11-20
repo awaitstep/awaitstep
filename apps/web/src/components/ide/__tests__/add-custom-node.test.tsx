@@ -116,7 +116,7 @@ describe('Add → Custom node', () => {
     await openCustom(user)
     await user.click(screen.getByRole('button', { name: /Say hello/ }))
     await user.type(targetInput(), 'ops')
-    await user.click(screen.getByRole('switch', { name: 'Inline — no step' }))
+    await user.click(screen.getByRole('switch', { name: 'Inline, no step' }))
     await user.click(screen.getByRole('button', { name: 'Insert' }))
     await waitFor(() =>
       expect(onCreateStep).toHaveBeenCalledWith({ after: 'sample' }, 'Say hello', 'say_hello', {

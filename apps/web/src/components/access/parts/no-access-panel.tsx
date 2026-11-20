@@ -98,7 +98,7 @@ export function NoAccessPanel({
         </div>
         {givers && givers.length > 0 && (
           <div className="flex flex-col items-center gap-2.5">
-            <h3 className="text-2xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+            <h3 className="text-xs font-semibold text-muted-foreground">
               {giversHeading(givers.length)}
             </h3>
             <ul
@@ -113,7 +113,7 @@ export function NoAccessPanel({
                   <Avatar name={person.name} email={person.email} src={person.image} />
                   <span className="flex flex-col text-left leading-tight">
                     <span className="text-xs font-semibold text-foreground">{person.name}</span>
-                    <span className="text-3xs text-muted-foreground">{ORG_ROLE_LABEL[role]}</span>
+                    <span className="text-2xs text-muted-foreground">{ORG_ROLE_LABEL[role]}</span>
                   </span>
                 </li>
               ))}

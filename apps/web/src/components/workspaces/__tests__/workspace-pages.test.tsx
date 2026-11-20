@@ -160,12 +160,12 @@ describe('an empty workspace', () => {
     expect(screen.queryByRole('heading', { name: 'Start building in Support' })).toBeNull()
     expect(
       screen.getByText(
-        '1 workflow and 0 functions, none of them running yet · 2 people can open it',
+        '1 workflow and 0 functions, no runs in the last 24 hours · 2 people can open it',
       ),
     ).toBeVisible()
     // No runs tile or Failing now yet: a nudge to deploy instead.
-    expect(screen.getByText('Nothing has run yet')).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Deploy one →' })).toHaveAttribute(
+    expect(screen.getByText('No runs in the last 24 hours')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Deploy one' })).toHaveAttribute(
       'href',
       '/acme/project-101/support/workflows',
     )

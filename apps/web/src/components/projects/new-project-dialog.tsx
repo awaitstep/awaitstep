@@ -100,9 +100,7 @@ export function NewProjectDialog({ open, onOpenChange, org, then }: NewProjectDi
           />
         </FormField>
         <div className="flex flex-col gap-2.5 rounded border border-border bg-background p-4">
-          <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-            What you’ll get
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">What you’ll get</span>
           <span className="flex items-center gap-2.5 text-sm text-foreground/90">
             <WorkspaceDot colour="green" size="lg" />A{' '}
             <strong className="font-semibold">Default</strong> workspace to start building in

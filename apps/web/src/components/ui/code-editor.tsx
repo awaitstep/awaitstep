@@ -126,7 +126,7 @@ export function CodeEditor({
           bordered && 'rounded-lg border border-input',
         )}
       >
-        Loading editor...
+        Loading editor…
       </div>
     )
   }
@@ -190,7 +190,7 @@ export function CodeEditor({
             style={{ height }}
             className="flex items-center justify-center bg-editor text-xs text-muted-foreground/60"
           >
-            Loading editor...
+            Loading editor…
           </div>
         }
       >

@@ -35,9 +35,7 @@ export function PendingChanges({
   if (entries.length === 0) return null
   return (
     <section aria-label={label} className="shrink-0 border-b border-border bg-card">
-      <h2 className="px-3 pt-2 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
-        {title}
-      </h2>
+      <h2 className="px-3 pt-2 text-xs font-medium text-muted-foreground">{title}</h2>
       <ul className="flex flex-col py-1">
         {entries.map((entry) => (
           <PendingChangeRow

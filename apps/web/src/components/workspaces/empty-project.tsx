@@ -138,11 +138,7 @@ export function EmptyProject({
           <span className="flex min-w-[260px] flex-1 flex-col gap-1.5">
             <span className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-2xl font-semibold tracking-tight">{project.name} is ready</h1>
-              {newProject && (
-                <Badge variant="success" dot>
-                  New project
-                </Badge>
-              )}
+              {newProject && <Badge variant="success">New project</Badge>}
             </span>
             <span className="text-sm text-muted-foreground">
               Build your first workflow or function to get going. It goes in {workspace.name}, the
@@ -205,7 +201,7 @@ export function EmptyProject({
             <span className="flex items-center gap-2 rounded-[10px] bg-muted px-3 py-2 text-xs">
               <span
                 className={cn(
-                  'flex size-[18px] items-center justify-center rounded-[5px] text-3xs font-semibold',
+                  'flex size-[18px] items-center justify-center rounded-[5px] text-2xs font-semibold',
                   WORKSPACE_TILE_CLASS[workspace.colour],
                 )}
               >

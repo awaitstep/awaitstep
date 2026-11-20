@@ -127,17 +127,17 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
       deploy('d0', 'v1', 'taken_down', 'c-stage', null),
     ])
     const [liveProd, liveStage, older, failed, takenDown] = rows()
-    expect(liveProd).toHaveTextContent('v12live')
-    expect(liveStage).toHaveTextContent('v11live')
+    expect(liveProd).toHaveTextContent('v12Live')
+    expect(liveStage).toHaveTextContent('v11Live')
     expect(within(liveStage!).queryByRole('link', { name: 'Roll back' })).toBeNull()
-    expect(older).not.toHaveTextContent('live')
+    expect(older).not.toHaveTextContent('Live')
     expect(within(older!).getByRole('link', { name: 'Roll back' })).toHaveAttribute(
       'href',
       `${BASE}/deploy?version=v2&connection=c-prod`,
     )
-    expect(failed).toHaveTextContent('failed')
+    expect(failed).toHaveTextContent('Failed')
     expect(within(failed!).queryByRole('link', { name: 'Roll back' })).toBeNull()
-    expect(takenDown).toHaveTextContent('taken down')
+    expect(takenDown).toHaveTextContent('Taken down')
     expect(within(takenDown!).getByRole('link', { name: 'Redeploy' })).toHaveAttribute(
       'href',
       `${BASE}/deploy?version=v1&connection=c-stage`,
@@ -302,13 +302,13 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
         deploy('d2', 'v2', 'success', 'c-prod', null),
       ])
       const [running, uploading, cancelled] = rows()
-      expect(running).toHaveTextContent('deploying')
+      expect(running).toHaveTextContent('Deploying')
       expect(within(running!).getByRole('button', { name: 'Cancel' })).toBeEnabled()
       expect(within(running!).queryByRole('link', { name: 'Roll back' })).toBeNull()
       // Uploading: past the point a cancel can stop it.
-      expect(uploading).toHaveTextContent('deploying')
+      expect(uploading).toHaveTextContent('Deploying')
       expect(within(uploading!).queryByRole('button', { name: 'Cancel' })).toBeNull()
-      expect(cancelled).toHaveTextContent('cancelled')
+      expect(cancelled).toHaveTextContent('Cancelled')
       expect(within(cancelled!).queryByRole('button', { name: 'Cancel' })).toBeNull()
       expect(within(cancelled!).queryByRole('link', { name: 'Roll back' })).toBeNull()
     })
@@ -321,7 +321,7 @@ describe('DeploymentsTab (WorkflowDeployments)', () => {
 
     it('shows a row already stopping as Cancelling', () => {
       renderTab([deploy('d5', 'v3', 'cancelling', 'c-prod', null)])
-      expect(rows()[0]).toHaveTextContent('cancelling')
+      expect(rows()[0]).toHaveTextContent('Cancelling')
       expect(within(rows()[0]!).getByRole('button', { name: 'Cancelling…' })).toBeDisabled()
     })
 

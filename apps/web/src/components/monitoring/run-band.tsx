@@ -8,7 +8,7 @@ import { useElapsedSeconds } from '../../hooks/use-elapsed-seconds'
 import type { RunConnection } from './run-connection'
 import { RunPayloadDialog } from './run-payload-dialog'
 
-const LABEL = 'text-2xs font-medium uppercase tracking-wider text-muted-foreground'
+const LABEL = 'text-xs text-muted-foreground'
 const COLUMN = 'flex min-w-0 flex-col gap-1 px-4 py-3.5'
 
 const TRIGGER_NAME: Record<string, string> = { dashboard: 'Dashboard', api: 'API key' }
@@ -57,7 +57,21 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
       </Column>
       <Column
         label="Version"
-        sub={connection ? [connection.name, connection.account].filter(Boolean).join(' · ') : '—'}
+        sub={
+          connection ? (
+            <span className="flex min-w-0 gap-2">
+              <span className="min-w-0 truncate">{connection.name}</span>
+              {connection.account && (
+                <span className="shrink-0">
+                  <span className="sr-only">, account </span>
+                  {connection.account}
+                </span>
+              )}
+            </span>
+          ) : (
+            '—'
+          )
+        }
       >
         {run.versionNumber != null ? `v${run.versionNumber}` : '—'}
       </Column>
@@ -70,9 +84,9 @@ export function RunBand({ workflowId, run, connection, whereabouts, call = false
           <button
             type="button"
             onClick={handleShowPayload}
-            className="self-start text-xs font-medium text-primary  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="self-start whitespace-nowrap text-xs font-medium text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            See the payload →
+            See the payload
           </button>
         )}
       </div>

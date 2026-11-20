@@ -154,9 +154,7 @@ export function ProjectMenu({
           <X size={18} aria-hidden="true" />
         </button>
       </div>
-      <p className="px-4 pb-2 pt-3 text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-        Workspace
-      </p>
+      <p className="px-4 pb-2 pt-3 text-xs font-medium text-muted-foreground">Workspace</p>
       <div className="grid grid-cols-2 gap-2 px-4 pb-3">
         {workspaces.map((workspace) => (
           <WorkspaceTile key={workspace.key} workspace={workspace} onSelect={onClose} />

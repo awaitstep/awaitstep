@@ -119,7 +119,11 @@ export function EmptyWorkspace({
         >
           <span className="flex flex-wrap gap-1.5">
             {(shared.data ?? []).map((item) => (
-              <ScopeChip key={item.id} colour={item.from.colour}>
+              <ScopeChip
+                key={item.id}
+                colour={item.from.colour}
+                title={`${item.name} · ${item.from.name}`}
+              >
                 {item.name} · {item.from.name}
               </ScopeChip>
             ))}

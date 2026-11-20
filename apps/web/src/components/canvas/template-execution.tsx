@@ -11,7 +11,7 @@ export function templateExecutionLine(config: StepConfig | undefined): string {
   const parts: string[] = []
   if (config.retries) parts.push(`retries ${config.retries.limit}`)
   if (config.timeout !== undefined) parts.push(`timeout ${config.timeout}`)
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 interface TemplateExecutionProps {

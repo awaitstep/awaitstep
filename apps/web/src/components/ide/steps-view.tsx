@@ -391,5 +391,5 @@ function metaLine(
     parts.push(workflowFile ? `In ${workflowFile.split('/').pop()}` : 'No file')
   if (settings) parts.push(settings)
   if (uses > 0) parts.push(uses === 1 ? 'uses 1 file' : `uses ${uses} files`)
-  return parts.length > 0 ? parts.join(' · ') : null
+  return parts.length > 0 ? parts.join(', ') : null
 }

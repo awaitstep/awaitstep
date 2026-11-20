@@ -230,6 +230,7 @@ export function FieldRenderer({
       return (
         <div className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
           <svg
+            aria-hidden="true"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 16 16"
             fill="currentColor"

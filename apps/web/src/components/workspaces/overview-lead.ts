@@ -20,7 +20,7 @@ export function overviewLead(facts: {
   }
   let what = facts.description
   if (facts.state === 'quiet') {
-    what = `${plural(facts.workflows, 'workflow')} and ${plural(facts.functions, 'function')}, none of them running yet`
+    what = `${plural(facts.workflows, 'workflow')} and ${plural(facts.functions, 'function')}, no runs in the last 24 hours`
   } else if (!what && facts.firstInProject) {
     what = `The workspace ${facts.projectName} started with`
   }

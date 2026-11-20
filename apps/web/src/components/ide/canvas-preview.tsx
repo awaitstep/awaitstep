@@ -125,9 +125,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <Workflow className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="text-2xs font-medium uppercase tracking-wider text-foreground">
-            Canvas preview
-          </span>
+          <span className="text-xs font-medium text-foreground">Canvas preview</span>
           {nodes.length > 0 && (
             <span className="rounded-full bg-muted/60 px-1.5 py-px text-2xs tabular-nums text-muted-foreground">
               {nodes.length}

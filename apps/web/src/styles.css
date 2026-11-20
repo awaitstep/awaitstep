@@ -1,3 +1,16 @@
+/* Hallmark · checked: 2026-11-20 · genre: modern-minimal (inferred) · scope: app
+ * floor: 0 FAIL in app code · fixed: 13 (10a, 19, 26a, 27, 30a, 33, 34, 39a, 40, 48, 49a, 63, 67) · reflex fixed: 74, 75 · finish: F2, F6, F16
+ * 63 in part: multi-part joins and glued arrows fixed; one dot in a caption kept (the gate allows it); audit details carry the API's own dots
+ * dismissed 4 · the sticky group heads in node-palette and template-picker are bg-card strips with no border, not cards
+ * dismissed 19 · "—" marks an empty table cell, and "Unlock" is the action on a locked version
+ * dismissed 56 · the two sticky top:0 are the md:hidden mobile header and the desktop sidebar column (app-shell.tsx:28,30), never on screen together
+ * dismissed 34 · the static tier reads __root.tsx; overflow-x: clip sits on html and body in @layer base below, and the render tier measures no overflow
+ * structural, printed not rebuilt: F15 org home centres its column while workspace pages left-align; F25 tables open with columns off-screen at 375px
+ * waive 39b · inline text actions sit in their sentence (See the payload, the description editor), the 236px hit is a whole project card, the 56px ones are step rows
+ * waive 72 · the run path's 120px canvas nodes keep their fixed 5px inset so the graph stays compact; the -958px reading is an offscreen measuring span
+ * waive 75 · run path sub-labels are 11px, scaled down by the read-only preview's fitView; the editor shows them at full size
+ * finish-review: subagent · recapture (extensions missing on :3100; rail fit measured: Integrations and What's new 58px in 60px) · 5 findings · 3 resolved, 1 waived (75), 1 partial (4: zero counts neutral; tile hues and audit glyphs listed for the owner)
+ * built: the project · redesign: polish · v2.0.0 */
 @import '@fontsource-variable/jetbrains-mono';
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -29,6 +42,11 @@
   --color-ring: var(--ring);
   --color-surface-overlay: var(--surface-overlay);
   --color-editor: var(--editor);
+  --color-control-track: var(--control-track);
+  --color-terminal: var(--terminal);
+  --color-terminal-foreground: var(--terminal-foreground);
+  --color-terminal-muted: var(--terminal-muted);
+  --color-terminal-error: var(--terminal-error);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -142,7 +160,9 @@ html.dark {
   --accent-foreground: oklch(0.96 0.012 285);
   --destructive: oklch(0.65 0.2 25);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 14%);
+  --input: oklch(1 0 0 / 36%);
+  /* A switch's off track: soft, so the thumb on it stays above 3:1. */
+  --control-track: oklch(1 0 0 / 14%);
   --ring: oklch(0.7 0.15 160);
   --surface-overlay: oklch(0.215 0.05 285);
   /* Backdrop behind Monaco: a step below the page, still navy. */
@@ -216,7 +236,8 @@ html.light {
   --accent-foreground: oklch(0.21 0.01 285);
   --destructive: oklch(0.55 0.2 25);
   --border: oklch(0 0 0 / 8%);
-  --input: oklch(0 0 0 / 10%);
+  --input: oklch(0 0 0 / 45%);
+  --control-track: oklch(0 0 0 / 10%);
   --ring: oklch(0.5 0.14 160);
   --surface-overlay: oklch(1 0 0);
   /* Backdrop behind Monaco: matches the editor theme, not the app card. */
@@ -274,7 +295,11 @@ html.light {
 @layer base {
   * {
     @apply border-border;
-    scrollbar-color: oklch(0.5 0 0 / 40%) transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 35%, transparent);
+    color: var(--foreground);
   }
   /*
    * The canvas is painted here rather than left to background propagation
@@ -284,9 +309,22 @@ html.light {
    */
   html {
     @apply bg-background;
+    overflow-x: clip;
   }
   body {
     @apply bg-background text-foreground antialiased;
+    overflow-x: clip;
+  }
+  /* Spinners, pulses and skeletons stand still; state changes still show, without motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -294,6 +332,13 @@ html.light {
    main column. PageBody uses it; change the width here and nowhere else. */
 :root {
   --page-max-width: 74rem;
+  /* The same grey reads on both themes' panels. */
+  --scrollbar-thumb: oklch(0.5 0 0 / 40%);
+  /* The log viewer stays dark in both themes: the ANSI palette (lib/ansi.ts) is set for a dark ground. */
+  --terminal: oklch(0.16 0.005 285);
+  --terminal-foreground: oklch(0.87 0.005 285);
+  --terminal-muted: oklch(0.6 0.005 285);
+  --terminal-error: oklch(0.81 0.1 20);
 }
 
 @utility page-width {

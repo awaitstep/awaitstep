@@ -30,6 +30,27 @@ describe('SegmentedFilter', () => {
     expect(pressed[0]).toHaveAccessibleName('Failing 1')
   })
 
+  it('tints a danger count red only when something is failing', () => {
+    render(
+      <SegmentedFilter
+        label="Filter"
+        options={[
+          { id: 'all', label: 'All', count: 3 },
+          { id: 'failing', label: 'Failing', count: 0, tone: 'danger' },
+          { id: 'failed', label: 'Failed', count: 2, tone: 'danger' },
+        ]}
+        value="all"
+        onChange={vi.fn()}
+      />,
+    )
+    expect(
+      within(screen.getByRole('button', { name: 'Failing 0' })).getByText('0'),
+    ).not.toHaveClass('text-status-error')
+    expect(within(screen.getByRole('button', { name: 'Failed 2' })).getByText('2')).toHaveClass(
+      'text-status-error',
+    )
+  })
+
   it('puts each count in its button name, apart from the label', () => {
     render(<SegmentedFilter label="Filter" options={OPTIONS} value="all" onChange={vi.fn()} />)
     expect(screen.getByRole('button', { name: 'All 4' })).toBeInTheDocument()

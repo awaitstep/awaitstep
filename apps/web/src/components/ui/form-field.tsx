@@ -84,7 +84,7 @@ export function FormField({
         <p
           id={messageId}
           role={message.tone === 'error' ? 'alert' : undefined}
-          className={`text-2xs ${MESSAGE_TONE_CLASS[message.tone]}`}
+          className={`text-xs ${MESSAGE_TONE_CLASS[message.tone]}`}
         >
           {message.text}
         </p>
@@ -113,7 +113,7 @@ export function FieldGroup({ legend, hint, error, children }: FieldGroupProps) {
     >
       <legend className="mb-2.5 p-0 text-xs font-medium text-foreground/80">{legend}</legend>
       {message && (
-        <p id={messageId} className={`-mt-2.5 text-2xs ${MESSAGE_TONE_CLASS[message.tone]}`}>
+        <p id={messageId} className={`-mt-2.5 text-xs ${MESSAGE_TONE_CLASS[message.tone]}`}>
           {message.text}
         </p>
       )}

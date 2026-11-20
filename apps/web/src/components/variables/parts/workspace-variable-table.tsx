@@ -35,7 +35,7 @@ function note(variable: WorkspaceVariable): string {
   const notes = []
   if (variable.overrides) notes.push(OVERRIDES_NOTE[variable.overrides])
   if (variable.isSecret) notes.push('Secret')
-  return notes.join(' · ')
+  return notes.join(', ')
 }
 
 /** Variables as a workspace resolves them (`Access` › Variables): value, where it's set, notes. */

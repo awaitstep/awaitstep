@@ -83,9 +83,7 @@ export function WorkspaceCard({
           </span>
         </span>
         {current ? (
-          <Badge variant="success" dot>
-            You’re here
-          </Badge>
+          <Badge variant="success">You’re here</Badge>
         ) : (
           isNew && <Badge variant="info">New</Badge>
         )}

@@ -98,7 +98,7 @@ function shown(value: unknown): string {
 }
 
 /**
- * A group's values in one line ("Logs on · Sampling 1"), from the fields the
+ * A group's values in one line ("Logs on; Sampling 1"), from the fields the
  * provider gave a summary label, shown or not; "Defaults" when none is set.
  */
 export function groupSummary(
@@ -112,7 +112,7 @@ export function groupSummary(
       const value = fieldValue(config, field, hints)
       return value === undefined ? [] : [`${field.summaryLabel} ${shown(value)}`]
     })
-  return parts.length > 0 ? parts.join(' · ') : 'Defaults'
+  return parts.length > 0 ? parts.join('; ') : 'Defaults'
 }
 
 export interface SettingChange {

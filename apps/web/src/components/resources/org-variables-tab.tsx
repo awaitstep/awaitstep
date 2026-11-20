@@ -18,7 +18,7 @@ function notes(variable: OrgVariable): string {
   if (variable.overriddenIn > 0) {
     parts.push(`Overridden in ${plural(variable.overriddenIn, 'project')}`)
   }
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 function variableColumns(org: string, canManage: boolean): DataColumn<OrgVariable>[] {

@@ -20,9 +20,9 @@ describe('AuditRow', () => {
     expect(row).toHaveTextContent('Tom Becker tried to delete the workspace IT')
     const bold = row.querySelectorAll('strong')
     expect([...bold].map((node) => node.textContent)).toEqual(['Tom Becker', 'IT'])
-    expect(
-      within(row).getByText('tom@acme.test · Blocked by the deletion lock · 81.2.69.x'),
-    ).toBeVisible()
+    // The address and the detail sit apart, not joined by a separator.
+    expect(within(row).getByText('tom@acme.test')).toBeVisible()
+    expect(within(row).getByText('Blocked by the deletion lock · 81.2.69.x')).toBeVisible()
   })
 
   it('says who a person was by address', () => {

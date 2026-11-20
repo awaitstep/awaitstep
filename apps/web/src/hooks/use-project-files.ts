@@ -289,6 +289,6 @@ export function useProjectFiles({
 function announceCascade(cascaded: readonly PendingGraphOp[]): void {
   if (cascaded.length === 0) return
   actionToast.info('Also discarded', {
-    description: cascaded.map((entry) => entry.label).join(' · '),
+    description: cascaded.map((entry) => entry.label).join(', '),
   })
 }

@@ -29,6 +29,22 @@ describe('invitationLabel', () => {
         sentAt: '',
         invitedBy: { id: 'a', name: 'Ama' },
       }),
-    ).toBe('Member · Project 101 · IT')
+    ).toBe('Member, invited to Project 101 · IT')
+  })
+
+  it('keeps the org role apart from the places, and the places apart from each other', () => {
+    expect(
+      invitationLabel({
+        id: 'i',
+        email: 'sam@acme.test',
+        role: 'member',
+        places: [
+          { kind: 'workspace', project: 'Project 101', workspace: 'IT', role: 'editor' },
+          { kind: 'project', project: 'Project 102', workspace: null, role: 'member' },
+        ],
+        sentAt: '',
+        invitedBy: { id: 'a', name: 'Ama' },
+      }),
+    ).toMatch(/^Member, invited to Project 101 · IT; Project 102 \(/)
   })
 })

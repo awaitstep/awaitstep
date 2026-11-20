@@ -31,7 +31,7 @@ interface WorkspaceOverviewPageProps {
 
 /**
  * `/{org}/{project}/{workspace}/overview`: `WsOverview` in its three states —
- * Empty (nothing built), Built with no runs yet, and Active. One request
+ * Empty (nothing built), Built with no runs in the last 24 hours, and Active. One request
  * answers the counts, the failing items, the latest runs and the shares;
  * people come from `/scope`, and an empty workspace asks for nothing else.
  */

@@ -93,9 +93,7 @@ export function AddWorkspacePeopleDialog({
       }}
       access={
         <>
-          <p className="text-2xs font-semibold tracking-[0.06em] text-muted-foreground uppercase">
-            Role in {workspaceName}
-          </p>
+          <p className="text-xs font-semibold text-muted-foreground">Role in {workspaceName}</p>
           <div className="mt-3">
             <SegmentedChoice label="Role" options={ROLE_OPTIONS} value={role} onChange={setRole} />
           </div>

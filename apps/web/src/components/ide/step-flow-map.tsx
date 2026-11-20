@@ -162,16 +162,14 @@ export function StepFlowMap({
           {getNodeVisuals('step', registry.get('step')?.icon).icon}
         </span>
         {arm && (
-          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-3xs uppercase tracking-wider text-primary">
+          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-2xs text-primary">
             {arm}
           </span>
         )}
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
           {name.trim() || 'new_step'}
         </span>
-        <span className="shrink-0 rounded bg-primary/15 px-1 py-px text-3xs uppercase tracking-wider text-primary">
-          New
-        </span>
+        <span className="shrink-0 rounded bg-primary/15 px-1 py-px text-2xs text-primary">New</span>
         {!compact && <span className="shrink-0 text-2xs text-primary">lands here</span>}
       </div>
     )
@@ -183,7 +181,7 @@ export function StepFlowMap({
     if (!arm) return null
     return (
       <span
-        className="block truncate rounded border border-primary/40 bg-primary/10 px-1 py-px text-center text-3xs uppercase tracking-wider text-primary"
+        className="block truncate rounded border border-primary/40 bg-primary/10 px-1 py-px text-center text-2xs text-primary"
         title={arm}
       >
         {arm}
@@ -256,7 +254,7 @@ export function StepFlowMap({
         </span>
         <span className="min-w-0 flex-1 truncate text-xs text-foreground">{node.name}</span>
         {entryNodeId !== null && !reachable.has(row.nodeId) && (
-          <span className="shrink-0 rounded bg-muted px-1 py-px text-3xs uppercase tracking-wider text-muted-foreground">
+          <span className="shrink-0 rounded bg-muted px-1 py-px text-2xs text-muted-foreground">
             Not connected
           </span>
         )}
@@ -282,17 +280,12 @@ export function StepFlowMap({
           {getNodeVisuals(node.type, registry.get(node.type)?.icon).icon}
         </span>
         {row.arm && row.armStart && (
-          <span
-            className={cn(
-              'rounded border px-1 py-px text-3xs uppercase tracking-wider',
-              armTone(row.arm),
-            )}
-          >
+          <span className={cn('rounded border px-1 py-px text-2xs', armTone(row.arm))}>
             {row.arm}
           </span>
         )}
         <span className="min-w-0 flex-1 truncate text-xs text-foreground">{node.name}</span>
-        <span className="shrink-0 rounded border border-node-error-handling/30 bg-node-error-handling/10 px-1 py-px text-3xs uppercase tracking-wider text-node-error-handling">
+        <span className="shrink-0 rounded border border-node-error-handling/30 bg-node-error-handling/10 px-1 py-px text-2xs text-node-error-handling">
           {nodeMeta(node, { kind, arms }) ?? node.type}
         </span>
       </div>
@@ -314,7 +307,7 @@ export function StepFlowMap({
     const pill = (
       <span
         className={cn(
-          'block truncate rounded border px-1 py-px text-center text-3xs uppercase tracking-wider',
+          'block truncate rounded border px-1 py-px text-center text-2xs',
           armTone(openArmPill(arm)),
         )}
         title={openArmPill(arm)}
@@ -397,7 +390,7 @@ export function StepFlowMap({
       node.row.arm && node.row.armStart ? (
         <span
           className={cn(
-            'block truncate rounded border px-1 py-px text-center text-3xs uppercase tracking-wider',
+            'block truncate rounded border px-1 py-px text-center text-2xs',
             armTone(node.row.arm),
           )}
           title={node.row.arm}
@@ -475,7 +468,7 @@ export function StepFlowMap({
         <Zap className="h-3 w-3" />
       </span>
       <span className="min-w-0 flex-1 truncate text-xs text-foreground">{triggerLabel}</span>
-      <span className="text-3xs uppercase tracking-wider text-muted-foreground">trigger</span>
+      <span className="text-2xs text-muted-foreground">trigger</span>
     </div>,
   )
   body.push(gate('first-gate', firstChoice))

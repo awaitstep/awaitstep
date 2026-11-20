@@ -171,8 +171,8 @@ export interface TemplateNodeMetaOptions {
 }
 
 /**
- * The Steps list line for a custom or marketplace node: "Custom node ·
- * v1.0.1", "Marketplace node · v2.0.0", with "inline" when it runs without a
+ * The Steps list line for a custom or marketplace node: "Custom node,
+ * v1.0.1", "Marketplace node, v2.0.0", with "inline" when it runs without a
  * step. It has no source file of its own, so the line names no file.
  */
 export function templateNodeMeta(node: SummaryNode, options: TemplateNodeMetaOptions = {}): string {
@@ -181,7 +181,7 @@ export function templateNodeMeta(node: SummaryNode, options: TemplateNodeMetaOpt
   const parts = [library ? 'Custom node' : 'Marketplace node']
   if (version) parts.push(`v${version}`)
   if (node.data.inline === true) parts.push('inline')
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 /** A non-blank string, trimmed; blank and non-string values fall back. */
@@ -217,7 +217,7 @@ export function stepMeta(node: SummaryNode, options?: StepSettingsOptions): stri
   ) {
     parts.push(`timeout ${settings.timeout}`)
   }
-  return parts.length > 0 ? parts.join(' · ') : null
+  return parts.length > 0 ? parts.join(', ') : null
 }
 
 export type LastRunTone = 'ok' | 'error' | 'active'

@@ -93,7 +93,7 @@ describe('project Workspaces page', () => {
     expect(members).toHaveTextContent('4 project keys')
     const variables = poolCard('Variables')
     expect(variables).toHaveTextContent('5')
-    expect(variables).toHaveTextContent('5variables · 2 set here · 3 from Acme Inc')
+    expect(variables).toHaveTextContent('5variables, 2 set here, 3 from Acme Inc')
     expect(within(variables).getByText('SLACK_TOKEN')).toBeVisible()
     expect(within(variables).getByText('+3')).toBeVisible()
     const shared = poolCard('Workflows & functions')

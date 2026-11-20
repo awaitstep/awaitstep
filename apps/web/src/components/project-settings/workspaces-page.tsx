@@ -42,7 +42,7 @@ function PoolSkeleton() {
   )
 }
 
-/** "5 variables · 2 set here · 3 from Acme": the parts that are not zero. */
+/** "5 variables, 2 set here, 3 from Acme": the parts that are not zero. */
 function variablesCaption(
   variables: { total: number; own: number; inherited: number },
   orgName: string,
@@ -50,7 +50,7 @@ function variablesCaption(
   const parts = [pluralNoun(variables.total, 'variable')]
   if (variables.own > 0 && variables.inherited > 0) parts.push(`${variables.own} set here`)
   if (variables.inherited > 0) parts.push(`${variables.inherited} from ${orgName}`)
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 function MoreChip({ count }: { count: number }) {
@@ -214,7 +214,11 @@ export function WorkspacesPage({ slugs, dialogOpen, onDialogChange }: Workspaces
         >
           <span className="flex flex-wrap gap-1.5">
             {shared.first.map((item) => (
-              <ScopeChip key={item.id} colour={item.from.colour}>
+              <ScopeChip
+                key={item.id}
+                colour={item.from.colour}
+                title={`${item.name} · ${item.from.name}`}
+              >
                 {item.name} · {item.from.name}
               </ScopeChip>
             ))}

@@ -20,16 +20,25 @@ const defaults = { ...cloudflareDefaultDeploymentConfig } as Record<string, unkn
 const group = (title: string) => schema.groups.find((g) => g.title === title)!
 
 describe('deploy settings', () => {
+  it('keeps a list value apart from the next setting', () => {
+    const summary = groupSummary(
+      group('Routing'),
+      { ...defaults, routes: [{ pattern: 'api.acme.test/*' }], customDomains: ['a.com', 'b.com'] },
+      objects,
+    )
+    expect(summary).toMatch(/; Domains a\.com, b\.com$/)
+  })
+
   it('summarises a group in one line from its values', () => {
     expect(groupSummary(group('Preview & access'), defaults, objects)).toBe(
-      'workers.dev on · Preview URLs on',
+      'workers.dev on; Preview URLs on',
     )
     expect(
       groupSummary(group('Scheduling'), { ...defaults, cronTriggers: ['0 */6 * * *'] }, objects),
     ).toBe('Cron 0 */6 * * *')
     expect(groupSummary(group('Scheduling'), defaults, objects)).toBe('Defaults')
     expect(groupSummary(group('Instance retention'), defaults, objects)).toBe(
-      'Success 7 days · Failure 7 days',
+      'Success 7 days; Failure 7 days',
     )
   })
 
@@ -40,11 +49,11 @@ describe('deploy settings', () => {
         { placement: { mode: 'smart' }, limits: { cpuMs: 50 } },
         objects,
       ),
-    ).toBe('Smart Placement on · CPU ms 50')
+    ).toBe('Smart Placement on; CPU ms 50')
     expect(groupSummary(group('Observability'), {}, objects)).toBe('Observability off')
     // The provider's default is what an unset config deploys: logs and traces on.
     expect(groupSummary(group('Observability'), defaults, objects)).toBe(
-      'Observability on · Logs on · Sampling 1',
+      'Observability on; Logs on; Sampling 1',
     )
     // Off is stored in its object form, and reads back as off.
     expect(
@@ -55,7 +64,7 @@ describe('deploy settings', () => {
       ),
     ).toBe('Observability off')
     expect(groupSummary(group('Observability'), { observability: true }, objects)).toBe(
-      'Observability on · Logs on · Sampling 1',
+      'Observability on; Logs on; Sampling 1',
     )
   })
 

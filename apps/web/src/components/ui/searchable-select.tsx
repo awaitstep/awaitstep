@@ -67,7 +67,7 @@ export function SearchableSelect<T extends string>({
         className={cn(
           // Its own width in a toolbar row: shrinking hid the value and pushed
           // the chevron out of the border. Only a long value truncates.
-          'flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-[9px] border border-border bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          'flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[9px] border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           className,
         )}
       >
@@ -206,7 +206,7 @@ export function SearchableMultiSelect<T extends string>({
         <Popover.Trigger
           aria-label={`${label}: ${summary(values.length)}`}
           className={cn(
-            'flex h-9 w-56 shrink-0 items-center gap-2 whitespace-nowrap rounded-[9px] border border-border bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'flex h-10 w-56 shrink-0 items-center gap-2 whitespace-nowrap rounded-[9px] border border-input bg-card px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
             className,
           )}
         >

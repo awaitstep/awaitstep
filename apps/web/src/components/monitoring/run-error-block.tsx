@@ -22,9 +22,7 @@ export function RunErrorBlock({ error }: { error: unknown }) {
     <div>
       <div className="rounded-md border border-status-error/10 bg-status-error/5 p-4">
         {parsed.name && (
-          <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-status-error/60">
-            {parsed.name}
-          </div>
+          <div className="mb-1.5 text-xs font-semibold text-status-error/60">{parsed.name}</div>
         )}
         <p className="text-sm leading-relaxed text-status-error">{parsed.message}</p>
         {parsed.stack && (

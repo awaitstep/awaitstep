@@ -150,7 +150,7 @@ describe('EnvVarsDialog', () => {
       'aria-pressed',
       'true',
     )
-    expect(screen.getByText('1 encrypted · 1 linked')).toBeVisible()
+    expect(screen.getByText('1 encrypted, 1 linked')).toBeVisible()
     await user.click(screen.getByRole('button', { name: 'Unlink from global' }))
     expect(screen.queryByText('Global')).toBeNull()
     expect(screen.getAllByLabelText('Value')[1]).toHaveValue('')
@@ -169,7 +169,7 @@ describe('EnvVarsDialog', () => {
     expect(screen.getByText('Needs attention')).toBeVisible()
     expect(screen.getByText('Encrypted')).toBeVisible()
     expect(screen.getByPlaceholderText('Needs a value')).toBeVisible()
-    expect(screen.getByText('1 encrypted · 1 needs a value')).toBeVisible()
+    expect(screen.getByText('1 encrypted, 1 needs a value')).toBeVisible()
   })
 
   it('keeps a row where it is while its name is typed, so the field keeps focus', async () => {

@@ -32,7 +32,7 @@ export function LibraryUpdates({ updates, redeployHref }: LibraryUpdatesProps) {
               className={cn(
                 'flex size-[22px] shrink-0 items-center justify-center rounded-md font-mono text-2xs font-semibold',
                 update.kind === 'module'
-                  ? 'bg-amber-500/15 text-amber-300'
+                  ? 'bg-status-warning/15 text-status-warning'
                   : 'bg-node-custom/15 text-node-custom',
               )}
             >

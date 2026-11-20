@@ -162,7 +162,7 @@ export function EditableDescription({
         onChange={(event) => setDraft(event.target.value)}
         onBlur={handleSave}
         onKeyDown={handleKeyDown}
-        placeholder="Add a description..."
+        placeholder="Add a description…"
         maxLength={1000}
         autoFocus
         className={cn(
@@ -192,7 +192,7 @@ export function EditableDescription({
         className ?? 'mt-1 text-sm',
       )}
     >
-      {shown || <span className="italic text-muted-foreground/40">Add a description...</span>}
+      {shown || <span className="italic text-muted-foreground/40">Add a description…</span>}
     </button>
   )
 }

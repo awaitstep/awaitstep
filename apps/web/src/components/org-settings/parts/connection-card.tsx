@@ -182,9 +182,7 @@ export function ConnectionCard({
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-2xs font-medium uppercase tracking-wider text-muted-foreground">
-          Available to
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">Available to</span>
         {connection.projects === 'all' ? (
           <Badge className="font-normal">All projects, including new ones</Badge>
         ) : (

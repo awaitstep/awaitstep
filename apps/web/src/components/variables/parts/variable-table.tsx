@@ -37,7 +37,7 @@ function Notes({
     <span className="text-xs text-muted-foreground">
       {notes.map((note, i) => (
         <Fragment key={i}>
-          {i > 0 && ' · '}
+          {i > 0 && ', '}
           {note}
         </Fragment>
       ))}

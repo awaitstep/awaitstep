@@ -63,7 +63,7 @@ export const ORG_GROUPS: ScopeGroup[] = [
       {
         id: 'acme',
         name: 'Acme Inc',
-        detail: 'Owner · 3 projects · 6 members',
+        detail: 'Owner, 3 projects, 6 members',
         tile: { initial: 'A', colour: 'green' },
       },
       {

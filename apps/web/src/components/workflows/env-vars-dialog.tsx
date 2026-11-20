@@ -218,7 +218,7 @@ function EnvVarsForm({ workflowId, onDone, onEditedChange }: EnvVarsFormProps) {
         <EmptyEnvVars canEdit={access.canEdit} onAdd={handleAdd} onImport={handleImportClick} />
       ) : (
         <div className="-mx-1 max-h-[52vh] overflow-y-auto px-1 py-1">
-          <div className="grid grid-cols-[minmax(0,184px)_minmax(0,1fr)_28px_28px] gap-2 text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[minmax(0,184px)_minmax(0,1fr)_28px_28px] gap-2 text-2xs font-semibold text-muted-foreground">
             <span>Name</span>
             <span>Value</span>
           </div>
@@ -290,7 +290,7 @@ function EnvVarsForm({ workflowId, onDone, onEditedChange }: EnvVarsFormProps) {
   )
 }
 
-/** "1 encrypted · 1 linked · 1 needs a value", or how many there are when none is special. */
+/** "1 encrypted, 1 linked, 1 needs a value", or how many there are when none is special. */
 function footerSummary(counts: ReturnType<typeof summarize>): string {
   const parts = [
     counts.secrets > 0 && `${counts.secrets} encrypted`,
@@ -298,7 +298,7 @@ function footerSummary(counts: ReturnType<typeof summarize>): string {
     counts.missing > 0 && `${counts.missing} ${counts.missing === 1 ? 'needs' : 'need'} a value`,
   ].filter(Boolean)
   const total = `${counts.total} ${counts.total === 1 ? 'variable' : 'variables'}`
-  return parts.length > 0 ? parts.join(' · ') : total
+  return parts.length > 0 ? parts.join(', ') : total
 }
 
 /** The link button: point at the global of this name, or take the pointer away. */

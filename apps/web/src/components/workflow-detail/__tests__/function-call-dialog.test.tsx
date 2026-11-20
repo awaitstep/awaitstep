@@ -92,7 +92,7 @@ describe('FunctionCallDialog', () => {
     expect(curl).toHaveTextContent(`-d '{"address":"x"}'`)
     expect(screen.getByText('Calls the live version. Each call is kept in Runs.')).toBeVisible()
     // The call is one of the function's runs: it links there.
-    expect(screen.getByRole('link', { name: 'Open this run →' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open this run' })).toHaveAttribute(
       'href',
       '/runs/run-9',
     )

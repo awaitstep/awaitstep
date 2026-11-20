@@ -43,11 +43,7 @@ export function ExplorerHeader({
 
   return (
     <div className="flex h-9 shrink-0 items-center justify-between border-b border-border px-3">
-      {tabs ?? (
-        <span className="text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Explorer
-        </span>
-      )}
+      {tabs ?? <span className="text-xs font-semibold text-muted-foreground">Explorer</span>}
       {canEdit && (
         <div className="flex items-center">
           <button

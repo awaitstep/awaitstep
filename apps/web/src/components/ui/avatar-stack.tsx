@@ -33,7 +33,7 @@ export function avatarColour(id: string): WorkspaceColour {
 
 // 30px with a 2px border in the card colour, overlapping by 8px: as the boards
 // draw it, so two initials stay readable under the next avatar.
-const CIRCLE = 'size-[30px] border-2 border-card text-3xs font-semibold'
+const CIRCLE = 'size-[30px] border-2 border-card text-2xs font-semibold'
 
 /** Overlapping avatars for who is in a project or workspace. */
 export function AvatarStack({ people, max = 3 }: AvatarStackProps) {

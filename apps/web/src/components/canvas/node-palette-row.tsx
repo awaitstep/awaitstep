@@ -101,7 +101,7 @@ export function PaletteRow({
       draggable
       onDragStart={handleDragStart}
       onClick={handleClick}
-      className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-all hover:bg-muted/60 active:cursor-grabbing"
+      className="flex cursor-grab items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-muted/60 active:cursor-grabbing"
     >
       {content}
     </div>

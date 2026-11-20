@@ -54,7 +54,7 @@ export function VersionsCard({
                 >
                   v{v.version}
                 </ShellLink>
-                {live && <Badge variant="success">deployed</Badge>}
+                {live && <Badge variant="success">Deployed</Badge>}
                 {v.locked === 1 && (
                   <Badge variant="warning">
                     <Lock aria-hidden="true" className="size-3" />

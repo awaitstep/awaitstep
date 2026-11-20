@@ -119,7 +119,7 @@ describe('OrgSwitcher', () => {
     renderOrgSwitcher()
     await open('Acme Inc')
     const acme = screen.getByRole('option', { name: /Acme Inc/ })
-    expect(acme).toHaveTextContent('Owner · 3 projects · 6 members')
+    expect(acme).toHaveTextContent('Owner, 3 projects, 6 members')
     expect(within(acme).getByRole('img', { name: 'Current organization' })).toBeInTheDocument()
   })
 
@@ -163,7 +163,7 @@ describe('ProjectSwitcher', () => {
     await open('Project 101')
     expect(screen.getByRole('group', { name: 'Acme Inc projects' })).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /Project 101/ })).toHaveTextContent(
-      '2 workspaces · Sales, IT · opens in IT',
+      '2 workspaces (Sales, IT), opens in IT',
     )
     expect(screen.getByRole('option', { name: /Marketing Site/ })).toHaveTextContent('1 workspace')
   })

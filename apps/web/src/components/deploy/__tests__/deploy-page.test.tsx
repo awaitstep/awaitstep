@@ -226,7 +226,7 @@ describe('DeployPage account', () => {
     const card = await screen.findByRole('region', { name: 'Account' })
     await userEvent.click(within(card).getByRole('button', { name: 'Change' }))
     expect(await screen.findByRole('menuitem', { name: /Acme production/ })).toBeVisible()
-    expect(screen.queryByText('Manage project connections →')).not.toBeInTheDocument()
+    expect(screen.queryByText('Manage project connections')).not.toBeInTheDocument()
     unmount()
 
     getDeployConnections.mockResolvedValue({ connections: [], defaultId: null, deployedWith: [] })

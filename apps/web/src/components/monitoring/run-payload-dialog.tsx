@@ -12,7 +12,7 @@ interface RunPayloadDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
-/** "See the payload →": what the run was started with, read when it opens. */
+/** "See the payload": what the run was started with, read when it opens. */
 export function RunPayloadDialog({ workflowId, runId, open, onOpenChange }: RunPayloadDialogProps) {
   const api = useApi()
   const { data, isLoading, isError } = useQuery({

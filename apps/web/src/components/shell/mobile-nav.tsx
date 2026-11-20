@@ -29,7 +29,7 @@ function TabLink({
       aria-current={active ? 'page' : undefined}
       aria-label={shownBadge ? `${label}, ${shownBadge.description}` : undefined}
       className={cn(
-        'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 pb-2 pt-2.5 text-3xs font-medium transition-colors',
+        'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 pb-2 pt-2.5 text-2xs font-medium transition-colors',
         active ? 'text-sidebar-foreground' : 'text-muted-foreground',
       )}
     >
