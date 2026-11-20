@@ -21,7 +21,7 @@ function WorkspaceSettingsRoute() {
   const navigate = Route.useNavigate()
 
   function handleTabChange(tab: string) {
-    void navigate({ search: (prev) => searchForTab(prev, tab, 'general'), replace: true })
+    void navigate({ search: searchForTab(tab, 'general'), replace: true })
   }
 
   function handleCloseDialog() {

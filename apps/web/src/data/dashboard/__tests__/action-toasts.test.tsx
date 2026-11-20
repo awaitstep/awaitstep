@@ -1,12 +1,11 @@
 import { QueryClient, QueryClientProvider, type UseMutationResult } from '@tanstack/react-query'
 import { act, renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { toastLines } from '../../../lib/action-toast'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import {
   useConnectProvider,
   useDeleteAccount,
@@ -59,7 +58,6 @@ import {
 import { useCreateProject, useDeleteProject, useMoveProject, useUpdateProject } from '../projects'
 import { useRequestEditAccess } from '../requests'
 import { useInstallNode, useUninstallNode, useUpdateNode } from '../resources'
-import { MockScenarioProvider } from '../scenario-context'
 import { useCreateOrg, useSwitchOrg } from '../session'
 import { useDeleteVariable, useSetVariable } from '../variables'
 import { useCreateWorkspace, useDeleteWorkspace, useUpdateWorkspace } from '../workspaces'
@@ -107,7 +105,8 @@ const ROWS: Record<string, Record<string, Row>> = {
     useConnectProvider: {
       hook: useConnectProvider,
       vars: 'github',
-      success: 'Account connected',
+      // The browser leaves for the provider; nothing to say here.
+      success: null,
       error: 'Couldn’t connect the account',
     },
     useDisconnectProvider: {
@@ -467,18 +466,12 @@ const ROWS: Record<string, Record<string, Row>> = {
 function metaOf(row: Row) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <MockScenarioProvider>{children}</MockScenarioProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
   const { result } = renderHook(row.hook, { wrapper: Wrapper })
   act(() => result.current.mutate(row.vars))
   return client.getMutationCache().getAll()[0]?.meta?.toast
 }
-
-beforeEach(() => resetMockDb())
 
 describe('dashboard action toasts', () => {
   for (const [file, rows] of Object.entries(ROWS)) {

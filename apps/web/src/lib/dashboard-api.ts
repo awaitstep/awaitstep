@@ -410,6 +410,8 @@ export interface ApiWorkspaceOverview {
     kind: 'workflow' | 'script'
     status: string
     createdAt: string
+    /** When it last changed; a finished run's end, so Recent runs can say how long it took. */
+    updatedAt: string
   }[]
   shared: {
     out: { id: string; name: string }[]

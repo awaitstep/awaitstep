@@ -3,8 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { InboxNotification as ApiInboxNotification } from '@awaitstep/ir'
-import { SAMPLE_RELEASE_NOTES } from '../../../mocks/dashboard/fixtures/release-notes'
-import { resetMockDb } from '../../../mocks/dashboard/db'
+import { SAMPLE_RELEASE_NOTES } from '../../../__tests__/fixtures/seed/release-notes'
 import {
   useDecideEditRequest,
   useMarkAllNotificationsRead,
@@ -13,12 +12,10 @@ import {
   useRecordReleasesVisit,
   useReleases,
 } from '../inbox'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider, type DataSource } from '../source'
 
 // The app's own notes are the fragments in `release-notes/`; these tests need some.
 vi.mock('../../../content/releases', async () => {
-  const { SAMPLE_RELEASE_NOTES } = await import('../../../mocks/dashboard/fixtures/release-notes')
+  const { SAMPLE_RELEASE_NOTES } = await import('../../../__tests__/fixtures/seed/release-notes')
   return { RELEASE_NOTES: SAMPLE_RELEASE_NOTES }
 })
 
@@ -64,7 +61,6 @@ function json(body: unknown) {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
 })
 
@@ -73,18 +69,10 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-function wrapperFor(source: DataSource) {
+function wrapperFor() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source={source}>
-          <MockScenarioProvider scenario="none" userId="usr_ama">
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 }
 
@@ -95,7 +83,7 @@ describe('useNotifications', () => {
     fetchMock.mockResolvedValue(
       json({ data: [FAILURE, REQUEST], counts: { all: 7, unread: 5, action: 3 } }),
     )
-    const { result } = renderHook(() => useNotifications('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useNotifications('acme'), { wrapper: wrapperFor() })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(calls()).toEqual([['GET', '/api/notifications?org=acme']])
     expect(result.current.data!.counts).toEqual({ all: 7, unread: 5, action: 3 })
@@ -105,19 +93,12 @@ describe('useNotifications', () => {
     })
     expect(result.current.data!.list[1]!.request).toEqual({ id: 'req_9', status: 'pending' })
   })
-
-  it('counts the dummy server’s rows itself', async () => {
-    const { result } = renderHook(() => useNotifications('acme'), { wrapper: wrapperFor('mock') })
-    await waitFor(() => expect(result.current.data).toBeDefined())
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current.data!.counts).toEqual({ all: 6, unread: 3, action: 4 })
-  })
 })
 
 describe('Inbox writes on the API', () => {
   it('marks one, marks all, and decides a request by the request’s id', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(json({ ok: true })))
-    const wrapper = wrapperFor('api')
+    const wrapper = wrapperFor()
     const one = renderHook(() => useMarkNotificationRead('acme'), { wrapper })
     const all = renderHook(() => useMarkAllNotificationsRead('acme'), { wrapper })
     const decide = renderHook(() => useDecideEditRequest('acme'), { wrapper })
@@ -140,7 +121,7 @@ describe('useReleases', () => {
         seen: ['rel_lock', 'rel_variables', 'rel_keys', 'rel_workspaces'],
       }),
     )
-    const { result } = renderHook(() => useReleases('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useReleases('acme'), { wrapper: wrapperFor() })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(calls()).toEqual([['GET', '/api/releases/visit']])
     expect(result.current.data!.releases).toHaveLength(SAMPLE_RELEASE_NOTES.length)
@@ -155,7 +136,7 @@ describe('useReleases', () => {
   it('records the visit and the notes it showed on the API when What’s new closes', async () => {
     fetchMock.mockImplementation(() => Promise.resolve(json({ lastVisit: null, seen: [] })))
     const view = renderHook(({ shown }) => useRecordReleasesVisit('acme', shown), {
-      wrapper: wrapperFor('api'),
+      wrapper: wrapperFor(),
       initialProps: { shown: ['rel_inbox', 'rel_audit'] as string[] | undefined },
     })
     view.unmount()
@@ -166,7 +147,7 @@ describe('useReleases', () => {
 
   it('records nothing for notes that never loaded', () => {
     const view = renderHook(() => useRecordReleasesVisit('acme', undefined), {
-      wrapper: wrapperFor('api'),
+      wrapper: wrapperFor(),
     })
     view.unmount()
     expect(fetchMock).not.toHaveBeenCalled()

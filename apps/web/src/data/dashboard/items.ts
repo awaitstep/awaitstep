@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { defineToast } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { parseImportFile } from '../../lib/workflows/import-file'
-import { mockServer } from '../../mocks/dashboard/server'
 import type {
   ImportItemInput,
   ItemKind,
@@ -17,8 +16,6 @@ import { toSharedItem } from './api/sharing'
 import { collectPages } from './export-pages'
 import { dashKeys, invalidateAll } from './keys'
 import { useProjectId } from './projects'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 import { useScope, useWorkspaceId, useWorkspaces } from './workspaces'
 
 type WorkspaceSlugs = Required<ScopeSlugs>
@@ -39,32 +36,23 @@ function useShareCapability(slugs: WorkspaceSlugs): Allowed {
 
 /** A workspace's own workflows (`'workflow'`) or functions (`'script'`), each with its share switch state. */
 export function useWorkspaceItems(slugs: WorkspaceSlugs, kind: ItemKind) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const share = useShareCapability(slugs)
   return useQuery({
-    queryKey: key(dashKeys.itemsOf(slugs, kind)),
+    queryKey: dashKeys.itemsOf(slugs, kind),
     queryFn: () =>
-      source === 'api'
-        ? collectPages((cursor, limit) =>
-            dashboardApi.listWorkflows(slugs, { kind, cursor, limit }),
-          ).then((rows) => rows.map((row) => toWorkspaceItem(row, SHARE_PENDING)))
-        : mockServer.items.listItems(ctx, slugs, kind),
+      collectPages((cursor, limit) =>
+        dashboardApi.listWorkflows(slugs, { kind, cursor, limit }),
+      ).then((rows) => rows.map((row) => toWorkspaceItem(row, SHARE_PENDING))),
     // The API's rows carry no capability: the switch's state is the scope's.
-    select:
-      source === 'api'
-        ? (items: WorkspaceItem[]) => items.map((item) => ({ ...item, shareToggle: share }))
-        : undefined,
+    select: (items: WorkspaceItem[]) => items.map((item) => ({ ...item, shareToggle: share })),
   })
 }
 
 /** A workflow page's current version, deploys and runs, in one request. */
 export function useWorkflowPageSummary(workflowId: string, ready: boolean) {
-  const key = useDashKey()
   const api = useApi()
   return useQuery({
-    queryKey: key(dashKeys.workflowSummary(workflowId)),
+    queryKey: dashKeys.workflowSummary(workflowId),
     queryFn: () => api.getWorkflowPageSummary(workflowId),
     enabled: ready,
     staleTime: 30_000,
@@ -73,37 +61,27 @@ export function useWorkflowPageSummary(workflowId: string, ready: boolean) {
 
 /** "Shared with Sales": the project's other workspaces' shared items; `kind` omitted = both. */
 export function useSharedWithWorkspace(slugs: WorkspaceSlugs, kind?: ItemKind) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const workspaceId = useWorkspaceId(slugs)
   return useQuery({
-    queryKey: key(dashKeys.sharedWith(slugs, kind ?? null)),
+    queryKey: dashKeys.sharedWith(slugs, kind ?? null),
     queryFn: () =>
-      source === 'api'
-        ? collectPages((cursor, limit) =>
-            dashboardApi.listSharedWith(workspaceId!, { kind, cursor, limit }),
-          ).then((rows) => rows.map(toSharedItem))
-        : mockServer.items.listSharedWith(ctx, slugs, kind),
-    enabled: source !== 'api' || workspaceId !== null,
+      collectPages((cursor, limit) =>
+        dashboardApi.listSharedWith(workspaceId!, { kind, cursor, limit }),
+      ).then((rows) => rows.map(toSharedItem)),
+    enabled: workspaceId !== null,
   })
 }
 
 /** Project settings → Workflows & functions. */
 export function useProjectShared(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const projectId = useProjectId(org, project)
   return useQuery({
-    queryKey: key(dashKeys.projectShared(org, project)),
+    queryKey: dashKeys.projectShared(org, project),
     queryFn: () =>
-      source === 'api'
-        ? collectPages((cursor, limit) =>
-            dashboardApi.listProjectShared(org, projectId!, { cursor, limit }),
-          ).then((rows) => rows.map(toSharedItem))
-        : mockServer.items.listProjectShared(ctx, org, project),
-    enabled: source !== 'api' || projectId !== null,
+      collectPages((cursor, limit) =>
+        dashboardApi.listProjectShared(org, projectId!, { cursor, limit }),
+      ).then((rows) => rows.map(toSharedItem)),
+    enabled: projectId !== null,
   })
 }
 
@@ -125,11 +103,8 @@ function itemKeys(slugs: WorkspaceSlugs) {
 
 /** Shares or unshares one item in `slugs`' workspace, on either source. */
 function useShareWrite() {
-  const source = useDataSource()
-  const ctx = useMockContext()
   return async (slugs: WorkspaceSlugs, itemId: string, shared: boolean): Promise<void> => {
-    if (source === 'api') await dashboardApi.setWorkflowShared(slugs, itemId, shared)
-    else await mockServer.items.setShared(ctx, slugs, itemId, shared)
+    await dashboardApi.setWorkflowShared(slugs, itemId, shared)
   }
 }
 
@@ -170,12 +145,10 @@ function movedLine(moved: number): string {
 
 /** Move workflows: sends items (and their runs) to another workspace in the project. */
 export function useMoveWorkflows(slugs: WorkspaceSlugs) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   // The dialog that moves lists the project's workspaces, so the target's id is at hand.
-  const workspaces = useWorkspaces(slugs.org, slugs.project, { enabled: source === 'api' })
+  const workspaces = useWorkspaces(slugs.org, slugs.project)
   return useMutation({
     meta: {
       toast: defineToast<MoveItemsInput, { moved: number }>({
@@ -184,7 +157,6 @@ export function useMoveWorkflows(slugs: WorkspaceSlugs) {
       }),
     },
     mutationFn: async (input: MoveItemsInput): Promise<{ moved: number }> => {
-      if (source !== 'api') return mockServer.items.moveItems(ctx, slugs, input)
       const target = workspaces.data?.find((w) => w.slug === input.to)
       if (!workspaceId || !target) throw new Error('The workspaces have not loaded yet')
       const result = await dashboardApi.moveWorkflows(workspaceId, {
@@ -207,8 +179,6 @@ interface CreateItemOptions {
 
 /** New workflow / New function: adds a draft at the top of its list. */
 export function useCreateItem(slugs: WorkspaceSlugs, { onCreated }: CreateItemOptions = {}) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const share = useShareCapability(slugs)
   return useMutation({
@@ -219,15 +189,13 @@ export function useCreateItem(slugs: WorkspaceSlugs, { onCreated }: CreateItemOp
       }),
     },
     mutationFn: (input: NewItemInput): Promise<WorkspaceItem> =>
-      source === 'api'
-        ? dashboardApi
-            .createWorkflow(slugs, {
-              name: input.name?.trim() || UNTITLED[input.kind],
-              description: input.description?.trim() || undefined,
-              kind: input.kind,
-            })
-            .then((row) => toWorkspaceItem(newDraftRow(row), share))
-        : mockServer.items.createItem(ctx, slugs, input),
+      dashboardApi
+        .createWorkflow(slugs, {
+          name: input.name?.trim() || UNTITLED[input.kind],
+          description: input.description?.trim() || undefined,
+          kind: input.kind,
+        })
+        .then((row) => toWorkspaceItem(newDraftRow(row), share)),
     onSuccess: (item) => {
       onCreated?.(item)
       return invalidateAll(client, itemKeys(slugs))
@@ -260,14 +228,11 @@ export function useImportItem(
   slugs: WorkspaceSlugs,
   { onImported }: { onImported?: (item: WorkspaceItem) => void } = {},
 ) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const share = useShareCapability(slugs)
   return useMutation({
     meta: { toast: { success: 'Workflow imported', error: 'Couldn’t import the workflow' } },
     mutationFn: async (input: ImportItemInput): Promise<WorkspaceItem> => {
-      if (source !== 'api') return mockServer.items.importItem(ctx, slugs, input)
       const file = parseImportFile(input.content, input.fileName)
       const row = await dashboardApi.createWorkflow(slugs, {
         name: file.name,

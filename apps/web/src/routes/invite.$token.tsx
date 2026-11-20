@@ -1,6 +1,5 @@
-import { createFileRoute, retainSearchParams } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import {
-  DASHBOARD_SEARCH_KEYS,
   DashboardProviders,
   validateDashboardSearch,
 } from '../components/navigation/dashboard-providers'
@@ -10,17 +9,14 @@ import { InvitePage } from '../components/invites/invite-page'
 export const Route = createFileRoute('/invite/$token')({
   ssr: false,
   validateSearch: validateDashboardSearch,
-  // Keeps the dummy session (?as=, ?mock=) between /dashboard and invites, as $org does.
-  search: { middlewares: [retainSearchParams([...DASHBOARD_SEARCH_KEYS])] },
   head: () => ({ meta: [{ title: 'Invitation · AwaitStep' }] }),
   component: InviteRoute,
 })
 
 function InviteRoute() {
   const { token } = Route.useParams()
-  const search = Route.useSearch()
   return (
-    <DashboardProviders search={search}>
+    <DashboardProviders>
       <InvitePage token={token} />
     </DashboardProviders>
   )

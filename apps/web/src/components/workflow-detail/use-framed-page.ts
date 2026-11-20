@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { useScopedClient } from '../../contexts/api-client-context'
-import { useDataSource } from '../../data/dashboard/source'
 import { isInOtherWorkspace, itemScopeFrom } from '../../lib/workflows/route-scope'
 import type { ScopeLookup } from '../../types/dashboard/scope'
 import {
@@ -22,9 +21,8 @@ import type { DashboardPage } from '../navigation/dashboard-page'
 export function useFramedPage(declared: DashboardPage | null, lookup: ScopeLookup | undefined) {
   const { id, _splat: splat } = useParams({ strict: false }) as { id?: string; _splat?: string }
   const extensions = useEnabledExtensions()
-  const source = useDataSource()
   const isItem = declared?.kind === 'item' && !!id
-  const itemScope = source === 'api' ? itemScopeFrom(lookup) : null
+  const itemScope = itemScopeFrom(lookup)
   const { queries } = useScopedClient(itemScope)
   const workflow = useQuery({
     ...queries.workflows.detail(id ?? ''),

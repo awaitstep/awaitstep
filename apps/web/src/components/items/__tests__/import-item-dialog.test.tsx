@@ -8,11 +8,9 @@ const goTo = vi.fn()
 const hook = vi.hoisted(() => ({
   onImported: undefined as ((item: WorkspaceItem) => void) | undefined,
   mutate: vi.fn(),
-  source: 'api' as 'api' | 'mock',
 }))
 
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
-vi.mock('../../../data/dashboard/source', () => ({ useDataSource: () => hook.source }))
 vi.mock('../../../data/dashboard/items', () => ({
   useImportItem: (_slugs: unknown, options: { onImported?: (item: WorkspaceItem) => void }) => {
     hook.onImported = options.onImported
@@ -26,7 +24,6 @@ afterEach(() => {
   goTo.mockReset()
   hook.mutate.mockReset()
   hook.onImported = undefined
-  hook.source = 'api'
 })
 
 async function importFile() {
@@ -39,18 +36,9 @@ async function importFile() {
 describe('ImportItemDialog', () => {
   it('opens the imported item from the hook, so it still opens once the dialog is gone', async () => {
     await importFile()
-    expect(hook.mutate).toHaveBeenCalledWith(
-      { fileName: 'a.ir.json', content: '{}' },
-      { onSuccess: undefined },
-    )
+    expect(hook.mutate).toHaveBeenCalledWith({ fileName: 'a.ir.json', content: '{}' })
     hook.onImported?.({ id: 'wf_9', kind: 'script' } as WorkspaceItem)
     expect(goTo).toHaveBeenCalledWith('/acme/core/sales/workflows/wf_9')
-  })
-
-  it('opens nothing for sample data, which has no editor', async () => {
-    hook.source = 'mock'
-    await importFile()
-    expect(hook.onImported).toBeUndefined()
   })
 
   it('refuses a file over the API’s 1 MB limit without reading it', async () => {

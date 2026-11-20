@@ -4,8 +4,6 @@ import { defineToast } from '../../lib/action-toast'
 import { authError } from './errors'
 import { authClient } from '../../lib/auth-client'
 import { dashboardApi } from '../../lib/dashboard-api'
-import { readAsDataUrl } from '../../lib/read-file'
-import { mockServer } from '../../mocks/dashboard/server'
 import type { AccessGrant } from '../../types/dashboard/access'
 import type {
   Connection,
@@ -27,36 +25,24 @@ import {
 import { allPages } from './api/pages'
 import { DEPLOY_CONNECTIONS } from './project-connections'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 import { useScope } from './workspaces'
 
 /** Org Settings → Members. */
 export function useOrgMembers(org: string, { enabled = true }: { enabled?: boolean } = {}) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
     enabled,
-    queryKey: key(dashKeys.orgMembers(org)),
+    queryKey: dashKeys.orgMembers(org),
     queryFn: (): Promise<OrgMember[]> =>
-      source === 'api'
-        ? dashboardApi.listOrgMembers(org).then((res) => res.data.map(toOrgMember))
-        : mockServer.org.listOrgMembers(ctx, org),
+      dashboardApi.listOrgMembers(org).then((res) => res.data.map(toOrgMember)),
   })
 }
 
 /** The access editor's data for one person; waits for a person. */
 export function usePersonAccess(org: string, userId: string | null) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.personAccess(org, userId ?? '')),
+    queryKey: dashKeys.personAccess(org, userId ?? ''),
     queryFn: (): Promise<PersonAccess> =>
-      source === 'api'
-        ? dashboardApi.getPersonAccess(org, userId!).then(toPersonAccess)
-        : mockServer.org.getPersonAccess(ctx, org, userId!),
+      dashboardApi.getPersonAccess(org, userId!).then(toPersonAccess),
     enabled: userId !== null,
   })
 }
@@ -74,13 +60,10 @@ function accessKeys(org: string) {
 }
 
 export function useSaveAccess(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Access saved', error: 'Couldn’t save the access' } },
     mutationFn: async ({ userId, grant }: { userId: string; grant: AccessGrant }) => {
-      if (source !== 'api') return mockServer.org.saveAccess(ctx, org, userId, grant)
       await dashboardApi.saveAccess(org, userId, grant)
     },
     onSuccess: () => invalidateAll(client, accessKeys(org)),
@@ -88,8 +71,6 @@ export function useSaveAccess(org: string) {
 }
 
 export function useRemoveFromOrg(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: {
@@ -99,7 +80,6 @@ export function useRemoveFromOrg(org: string) {
       },
     },
     mutationFn: async (userId: string) => {
-      if (source !== 'api') return mockServer.org.removeFromOrg(ctx, org, userId)
       await dashboardApi.removeFromOrg(org, userId)
     },
     onSuccess: () => invalidateAll(client, accessKeys(org)),
@@ -108,23 +88,16 @@ export function useRemoveFromOrg(org: string) {
 
 /** Pending invitations, for owners and admins: `enabled: false` keeps a member's page from asking. */
 export function useInvitations(org: string, { enabled = true }: { enabled?: boolean } = {}) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.invitations(org)),
+    queryKey: dashKeys.invitations(org),
     queryFn: (): Promise<Invitation[]> =>
-      source === 'api'
-        ? dashboardApi.listInvitations(org).then((res) => res.data.map(toInvitation))
-        : mockServer.org.listInvitations(ctx, org),
+      dashboardApi.listInvitations(org).then((res) => res.data.map(toInvitation)),
     enabled,
   })
 }
 
 /** Invite people: one invitation per address, each emailed. The list refetches for the rows. */
 export function useSendInvites(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: {
@@ -135,10 +108,6 @@ export function useSendInvites(org: string) {
       }),
     },
     mutationFn: async (input: NewInvitesInput): Promise<void> => {
-      if (source !== 'api') {
-        await mockServer.org.sendInvites(ctx, org, input)
-        return
-      }
       await dashboardApi.sendInvites(org, input)
     },
     onSuccess: () => invalidateAll(client, [dashKeys.invitations(org)]),
@@ -146,13 +115,10 @@ export function useSendInvites(org: string) {
 }
 
 export function useResendInvite(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Invite sent again', error: 'Couldn’t resend the invite' } },
     mutationFn: async (invitationId: string) => {
-      if (source !== 'api') return mockServer.org.resendInvite(ctx, org, invitationId)
       await dashboardApi.resendInvite(org, invitationId)
     },
     onSuccess: () => invalidateAll(client, [dashKeys.invitations(org)]),
@@ -160,13 +126,10 @@ export function useResendInvite(org: string) {
 }
 
 export function useCancelInvite(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Invite canceled', error: 'Couldn’t cancel the invite' } },
     mutationFn: async (invitationId: string) => {
-      if (source !== 'api') return mockServer.org.cancelInvite(ctx, org, invitationId)
       await dashboardApi.cancelInvite(org, invitationId)
     },
     onSuccess: () => invalidateAll(client, [dashKeys.invitations(org)]),
@@ -175,17 +138,12 @@ export function useCancelInvite(org: string) {
 
 /** Org Settings → Connections: the org's Cloudflare accounts. */
 export function useConnections(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.connections(org)),
+    queryKey: dashKeys.connections(org),
     queryFn: (): Promise<Connection[]> =>
-      source === 'api'
-        ? allPages((cursor) => dashboardApi.listConnections(org, cursor)).then((res) =>
-            res.data.map(toConnection),
-          )
-        : mockServer.org.listConnections(ctx, org),
+      allPages((cursor) => dashboardApi.listConnections(org, cursor)).then((res) =>
+        res.data.map(toConnection),
+      ),
   })
 }
 
@@ -194,40 +152,21 @@ export function useConnections(org: string) {
  * name, account suffix, how it signs in, whether it can deploy, token health.
  */
 export function useOrgAccounts(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.connectionAccounts(org)),
+    queryKey: dashKeys.connectionAccounts(org),
     queryFn: (): Promise<ConnectionAccount[]> =>
-      source === 'api'
-        ? allPages((cursor) => dashboardApi.listConnectionAccounts(org, cursor)).then(
-            (res) => res.data,
-          )
-        : mockServer.org.listConnections(ctx, org).then((rows) => rows.map(toAccount)),
+      allPages((cursor) => dashboardApi.listConnectionAccounts(org, cursor)).then(
+        (res) => res.data,
+      ),
   })
-}
-
-/** The dummy server's card, cut to an accounts row. */
-function toAccount(row: Connection): ConnectionAccount {
-  return {
-    id: row.id,
-    name: row.name,
-    accountSuffix: row.accountSuffix,
-    authKind: row.authKind ?? 'api-token',
-    canDeploy: row.canDeploy ?? true,
-    tokenStatus: row.tokenStatus,
-  }
 }
 
 /** Whether this deployment offers the OAuth connect flow; the dummy source always does. */
 export function useOAuthStatus(enabled = true) {
-  const source = useDataSource()
   return useQuery({
     queryKey: ['oauth-status'],
     // The dummy source can't run the real browser flow, so it offers the token path.
-    queryFn: (): Promise<{ enabled: boolean }> =>
-      source === 'api' ? dashboardApi.getOAuthStatus() : Promise.resolve({ enabled: false }),
+    queryFn: (): Promise<{ enabled: boolean }> => dashboardApi.getOAuthStatus(),
     enabled,
     staleTime: 60_000,
   })
@@ -289,13 +228,10 @@ const LEGACY_CONNECTIONS = ['connections']
 
 /** Connect Cloudflare: on the API the token is checked with Cloudflare before anything is stored. */
 export function useConnect(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Connection added', error: 'Couldn’t add the connection' } },
     mutationFn: async (input: NewConnectionInput) => {
-      if (source !== 'api') return mockServer.org.connect(ctx, org, input)
       await dashboardApi.createConnection(org, {
         name: input.name.trim(),
         accountId: input.accountId.trim(),
@@ -308,13 +244,10 @@ export function useConnect(org: string) {
 }
 
 export function useReplaceToken(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Token replaced', error: 'Couldn’t replace the token' } },
     mutationFn: async ({ connectionId, token }: { connectionId: string; token: string }) => {
-      if (source !== 'api') return mockServer.org.replaceToken(ctx, org, connectionId, token)
       await dashboardApi.updateConnection(org, connectionId, { apiToken: token.trim() })
     },
     onSuccess: () => invalidateAll(client, connectionKeys(org)),
@@ -322,8 +255,6 @@ export function useReplaceToken(org: string) {
 }
 
 export function useUpdateConnection(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Connection saved', error: 'Couldn’t save the connection' } },
@@ -334,9 +265,6 @@ export function useUpdateConnection(org: string) {
       connectionId: string
       update: { name?: string; projects?: 'all' | string[] }
     }) => {
-      if (source !== 'api') {
-        return mockServer.org.updateConnection(ctx, org, connectionId, update)
-      }
       await dashboardApi.updateConnection(org, connectionId, {
         ...(update.name !== undefined && { name: update.name.trim() }),
         ...(update.projects !== undefined && toProjectsBody(update.projects)),
@@ -347,13 +275,10 @@ export function useUpdateConnection(org: string) {
 }
 
 export function useRemoveConnection(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Connection removed', error: 'Couldn’t remove the connection' } },
     mutationFn: async (connectionId: string) => {
-      if (source !== 'api') return mockServer.org.removeConnection(ctx, org, connectionId)
       await dashboardApi.deleteConnection(org, connectionId)
     },
     onSuccess: () => invalidateAll(client, connectionKeys(org)),
@@ -373,20 +298,12 @@ function orgAuthError(error: { message?: string; status?: number } | null, fallb
  * new URL).
  */
 export function useUpdateOrg(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const scope = useScope({ org })
   const current = scope.data?.found ? scope.data.org.org : null
   return useMutation({
     meta: { toast: { success: 'Organization saved', error: 'Couldn’t save the organization' } },
     mutationFn: async ({ logo, ...update }: OrgUpdate): Promise<OrgSummary> => {
-      if (source !== 'api') {
-        if (logo !== undefined) {
-          await mockServer.org.setLogo(ctx, org, logo && (await readAsDataUrl(logo)))
-        }
-        return mockServer.org.updateOrg(ctx, org, update)
-      }
       if (!current) throw new Error('The organization has not loaded yet')
       let savedLogo = current.logo
       if (logo) savedLogo = (await dashboardApi.uploadOrgLogo(current.id, logo)).logo
@@ -416,15 +333,12 @@ export function useUpdateOrg(org: string) {
 
 /** Deletes an org with no projects left (owners only); better-auth's hook refuses otherwise. */
 export function useDeleteOrg(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const scope = useScope({ org })
   const current = scope.data?.found ? scope.data.org.org : null
   return useMutation({
     meta: { toast: { success: 'Organization deleted', error: 'Couldn’t delete the organization' } },
     mutationFn: async (): Promise<void> => {
-      if (source !== 'api') return mockServer.org.deleteOrg(ctx, org)
       if (!current) throw new Error('The organization has not loaded yet')
       const res = await authClient.organization.delete({ organizationId: current.id })
       if (res.error) throw orgAuthError(res.error, 'Could not delete the organization')

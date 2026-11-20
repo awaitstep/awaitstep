@@ -6,7 +6,6 @@ import { useIdeStore } from '../../../stores/ide-store'
 import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { isMacPlatform } from '../../../lib/platform'
 import { LibraryWorkspaceView } from '../library-workspace'
-import { DataSourceProvider } from '../../../data/dashboard/source'
 import { ProjectFileConflictError } from '../../../lib/api-client'
 import { SOURCES, salesTree, withFile } from './fixtures/library-tree'
 
@@ -73,16 +72,14 @@ function renderIde(
 ) {
   return render(
     <QueryClientProvider client={client}>
-      <DataSourceProvider source="api">
-        <LibraryWorkspaceView
-          place={place}
-          placeName="Sales"
-          initialItem={open.item}
-          initialFile={open.file}
-          initialNew={open.new}
-          onNewConsumed={onNewConsumed}
-        />
-      </DataSourceProvider>
+      <LibraryWorkspaceView
+        place={place}
+        placeName="Sales"
+        initialItem={open.item}
+        initialFile={open.file}
+        initialNew={open.new}
+        onNewConsumed={onNewConsumed}
+      />
     </QueryClientProvider>,
   )
 }
@@ -107,12 +104,12 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks())
 
 describe('Library IDE', () => {
-  it('lists the place’s items under /modules and /nodes, opening the item the URL names', async () => {
+  it('lists the place’s items under modules and nodes, opening the item the URL names', async () => {
     renderIde()
     const files = await screen.findByRole('navigation', { name: 'Files' })
     expect(await within(files).findByRole('button', { name: 'lead-scoring' })).toBeVisible()
-    expect(within(files).getByText('/modules')).toBeVisible()
-    expect(within(files).getByText('/nodes')).toBeVisible()
+    expect(within(files).getByText('modules')).toBeVisible()
+    expect(within(files).getByText('nodes')).toBeVisible()
     expect(within(files).getByRole('button', { name: 'post' })).toBeVisible()
     const editor = await screen.findByLabelText(
       'Editor awaitstep://workflow/library-workspace-ws-sales/modules/lead-scoring/index.ts',
@@ -337,7 +334,7 @@ describe('Library IDE', () => {
     api.createItem.mockResolvedValue({ id: 'fmt', kind: 'module', slug: 'fmt', name: 'Fmt' })
     renderIde({})
     await screen.findByText('lead-scoring')
-    await userEvent.click(screen.getByRole('button', { name: 'New in /modules' }))
+    await userEvent.click(screen.getByRole('button', { name: 'New in modules' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     await userEvent.type(screen.getByRole('textbox', { name: 'New module name' }), 'Fmt{Enter}')
     await waitFor(() =>

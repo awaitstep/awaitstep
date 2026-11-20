@@ -3,11 +3,8 @@ import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import exported from '../../../lib/workflows/__tests__/fixtures/exported-workflow.json'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { useImportItem } from '../items'
 import { dashKeys } from '../keys'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider } from '../source'
 
 // Import on the API: create in the URL's workspace, then save the file's graph
 // as the first version; nothing is left behind when either step fails.
@@ -32,7 +29,6 @@ function json(body: unknown, status = 200) {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
 })
 
@@ -45,21 +41,13 @@ function setup() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
-  client.setQueryData([...dashKeys.scopeOf(sales), 'api'], {
+  client.setQueryData(dashKeys.scopeOf(sales), {
     found: true,
     project: { project: { id: 'p-1' } },
     workspace: { workspace: { id: 'ws-1' }, viewerCan: { share: { allowed: true } } },
   })
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source="api">
-          <MockScenarioProvider scenario="empty" userId="user-real" real>
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 }
 

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { slugify } from '@awaitstep/ir'
 import { availableSlug } from '../../lib/available-slug'
 import { dashboardApi } from '../../lib/dashboard-api'
-import { mockServer } from '../../mocks/dashboard/server'
 import type {
   NewProjectInput,
   Project,
@@ -13,11 +12,8 @@ import type { Workspace } from '../../types/dashboard/workspaces'
 import { projectFromRow, toPerson, toProject, workspaceFromRow } from './api/records'
 import { collectPages } from './export-pages'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
 import { useOrgs } from './session'
-import { useDashKey, useDataSource } from './source'
 import { useScope } from './workspaces'
-import { projectAdmins } from '../../components/project-settings/project-pool'
 
 /** `enabled: false` holds the request back, for a frame that needs the list on one page only. */
 export function useProjects(org: string, { enabled = true }: { enabled?: boolean } = {}) {
@@ -26,17 +22,12 @@ export function useProjects(org: string, { enabled = true }: { enabled?: boolean
 
 /** The list's key and fetcher, for the hooks that read it from the cache before a write. */
 function useProjectsQuery(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return {
-    queryKey: key(dashKeys.projects(org)),
+    queryKey: dashKeys.projects(org),
     queryFn: (): Promise<Project[]> =>
-      source === 'api'
-        ? collectPages((cursor, limit) => dashboardApi.listProjects(org, { cursor, limit })).then(
-            (rows) => rows.map(toProject),
-          )
-        : mockServer.projects.listProjects(ctx, org),
+      collectPages((cursor, limit) => dashboardApi.listProjects(org, { cursor, limit })).then(
+        (rows) => rows.map(toProject),
+      ),
   }
 }
 
@@ -70,64 +61,28 @@ export function useProjectId(org: string, project: string): string | null {
  * builds the same shape from its own lists.
  */
 export function useProjectSummary(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const projectId = useProjectId(org, project)
   return useQuery({
-    queryKey: key(dashKeys.projectSummary(org, project)),
+    queryKey: dashKeys.projectSummary(org, project),
     queryFn: async (): Promise<ProjectOverviewSummary> => {
-      if (source === 'api') {
-        if (!projectId) throw new Error('The project has not loaded yet')
-        const summary = await dashboardApi.getProjectSummary(org, projectId)
-        return {
-          admins: {
-            count: summary.admins.count,
-            people: summary.admins.people.map((person) => toPerson(person)),
-          },
-          projectKeys: summary.projectKeys,
-          variables: summary.variables,
-          shared: summary.shared,
-        }
-      }
-      const [members, setup, variables, shared] = await Promise.all([
-        mockServer.members.listProjectMembers(ctx, org, project),
-        mockServer.setup.getProjectSetup(ctx, org, project),
-        mockServer.variables.listProjectVariables(ctx, org, project),
-        mockServer.items.listProjectShared(ctx, org, project),
-      ])
-      const own = variables.filter((v) => v.setAt.level === 'project').length
+      if (!projectId) throw new Error('The project has not loaded yet')
+      const summary = await dashboardApi.getProjectSummary(org, projectId)
       return {
         admins: {
-          count: projectAdmins(members).length,
-          people: projectAdmins(members).slice(0, 5),
+          count: summary.admins.count,
+          people: summary.admins.people.map((person) => toPerson(person)),
         },
-        projectKeys: setup.projectKeys,
-        variables: {
-          total: variables.length,
-          own,
-          inherited: variables.length - own,
-          first: variables.slice(0, 2).map((v) => v.name),
-        },
-        shared: {
-          count: shared.length,
-          first: shared.slice(0, 2).map((item) => ({
-            id: item.id,
-            name: item.name,
-            kind: item.kind,
-            from: item.from,
-          })),
-        },
+        projectKeys: summary.projectKeys,
+        variables: summary.variables,
+        shared: summary.shared,
       }
     },
-    enabled: source !== 'api' || projectId !== null,
+    enabled: projectId !== null,
   })
 }
 
 /** Creates the project with its Default workspace; resolves to both, so the page can open it. */
 export function useCreateProject(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const projects = useProjectsQuery(org)
   return useMutation({
@@ -135,7 +90,6 @@ export function useCreateProject(org: string) {
     mutationFn: async (
       input: NewProjectInput,
     ): Promise<{ project: Project; workspace: Workspace }> => {
-      if (source !== 'api') return mockServer.projects.createProject(ctx, org, input)
       const name = input.name.trim()
       const base = slugify(name) || 'project'
       // The slug steps past the org's existing ones, as the dummy server does: the list
@@ -164,14 +118,11 @@ export function useCreateProject(org: string) {
 }
 
 export function useUpdateProject(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const projectId = useProjectId(org, project)
   return useMutation({
     meta: { toast: { success: 'Project saved', error: 'Couldn’t save the project' } },
     mutationFn: async (update: ProjectUpdate): Promise<Project> => {
-      if (source !== 'api') return mockServer.projects.updateProject(ctx, org, project, update)
       if (!projectId) throw new Error('The project has not loaded yet')
       const row = await dashboardApi.updateProject(org, projectId, {
         name: update.name,
@@ -190,14 +141,11 @@ export function useUpdateProject(org: string, project: string) {
 }
 
 export function useDeleteProject(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const projectId = useProjectId(org, project)
   return useMutation({
     meta: { toast: { success: 'Project deleted', error: 'Couldn’t delete the project' } },
     mutationFn: async (): Promise<void> => {
-      if (source !== 'api') return mockServer.projects.deleteProject(ctx, org, project)
       if (!projectId) throw new Error('The project has not loaded yet')
       await dashboardApi.deleteProject(org, projectId)
     },
@@ -217,15 +165,12 @@ export function useDeleteProject(org: string, project: string) {
 
 /** Moves the project to another org (one the viewer runs too); resolves to its new slugs, for the page to follow. */
 export function useMoveProject(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const projectId = useProjectId(org, project)
   const orgs = useOrgs()
   return useMutation({
     meta: { toast: { success: 'Project moved', error: 'Couldn’t move the project' } },
     mutationFn: async (toOrg: string): Promise<{ org: string; project: string }> => {
-      if (source !== 'api') return mockServer.projects.moveProject(ctx, org, project, toOrg)
       const target = orgs.data?.find((o) => o.slug === toOrg)
       if (!projectId || !target) throw new Error('The organization has not loaded yet')
       await dashboardApi.moveProject(projectId, target.id)

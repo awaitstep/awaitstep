@@ -2,7 +2,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { defineToast, failureLine } from '../../lib/action-toast'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { plural } from '../../lib/plural'
-import { mockServer } from '../../mocks/dashboard/server'
 import type {
   AddPeopleInput,
   AddPeopleOutcome,
@@ -12,8 +11,6 @@ import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { WorkspaceRole } from '../../types/dashboard/workspaces'
 import { dashKeys, invalidateAll } from './keys'
 import { useProjectId } from './projects'
-import { useMockContext } from './scenario-context'
-import { useDataSource } from './source'
 import { useWorkspaceId } from './workspaces'
 
 // Add people (21a from a project, 21b from a workspace): each picked org
@@ -94,22 +91,11 @@ function peopleKeys(org: string, project: string) {
 
 /** 21b: picked org members get `role` in the workspace; new addresses are invited with it. */
 export function useAddWorkspacePeople(slugs: Required<ScopeSlugs>) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
     meta: { toast: addToast },
     mutationFn: ({ role, ...input }: AddPeopleInput & { role: WorkspaceRole }) => {
-      if (source !== 'api') {
-        return addEach(
-          input,
-          async (userId) => {
-            await mockServer.members.addWorkspaceMember(ctx, slugs, userId, role)
-          },
-          async (emails) => mockServer.members.inviteToWorkspace(ctx, slugs, emails, role),
-        )
-      }
       if (!workspaceId) throw new Error('The workspace has not loaded yet')
       return addEach(
         input,
@@ -125,20 +111,11 @@ export function useAddWorkspacePeople(slugs: Required<ScopeSlugs>) {
 
 /** 21a: picked org members get `access` in the project; new addresses are invited with it. */
 export function useAddProjectPeople(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const projectId = useProjectId(org, project)
   return useMutation({
     meta: { toast: addToast },
     mutationFn: ({ access, ...input }: AddPeopleInput & { access: ProjectAccessChoice }) => {
-      if (source !== 'api') {
-        return addEach(
-          input,
-          async (userId) => mockServer.members.addToProject(ctx, org, project, userId, access),
-          async (emails) => mockServer.members.inviteToProject(ctx, org, project, emails, access),
-        )
-      }
       if (!projectId) throw new Error('The project has not loaded yet')
       return addEach(
         input,

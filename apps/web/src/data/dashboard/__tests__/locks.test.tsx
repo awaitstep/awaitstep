@@ -3,11 +3,8 @@ import { renderHook } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { dashKeys } from '../keys'
 import { useSetLock } from '../locks'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider } from '../source'
 
 // The lock switch on the API: it addresses what the page is on by the id the
 // page's scope already resolved.
@@ -15,7 +12,6 @@ import { DataSourceProvider } from '../source'
 const fetchMock = vi.fn()
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
   fetchMock.mockResolvedValue(
     new Response(JSON.stringify({ lock: null }), {
@@ -34,17 +30,9 @@ function setup(slugs: ScopeSlugs, resolved: unknown) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
-  client.setQueryData([...dashKeys.scopeOf(slugs), 'api'], resolved)
+  client.setQueryData(dashKeys.scopeOf(slugs), resolved)
   function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source="api">
-          <MockScenarioProvider scenario="empty" userId="user-real" real>
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
   return Wrapper
 }

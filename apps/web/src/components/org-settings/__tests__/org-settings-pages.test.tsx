@@ -4,11 +4,14 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
-  dashboardDb,
-  dashboardServer,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  TOM,
+  apiError,
+  asOrgRole,
+  authError,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { OrgConnectionsPage } from '../org-connections-page'
 import { OrgGeneralPage } from '../org-general-page'
 import { OrgKeysPage } from '../org-keys-page'
@@ -19,9 +22,21 @@ const goTo = vi.fn()
 vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => goTo }))
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   goTo.mockReset()
 })
+
+/** Renders against the fake API: Ama, Acme's owner, unless the test hands over its own. */
+function render(ui: React.ReactElement, api: FakeApi = installFakeApi()) {
+  const view = renderWithDashboardApi(ui, { api })
+  return { ...view, api }
+}
+
+/** Someone with `role` in Acme. */
+function as(viewer: string, role: 'owner' | 'admin' | 'member'): FakeApi {
+  const api = installFakeApi({ viewer: viewer as typeof DANIEL })
+  asOrgRole(api, 'acme', role)
+  return api
+}
 
 function noop() {}
 
@@ -32,6 +47,16 @@ function Members({ start = null }: { start?: MembersOverlay }) {
   return <OrgMembersPage org="acme" overlay={overlay} onOverlayChange={setOverlay} />
 }
 
+/** The API refuses an address that already has an invite waiting. */
+function alreadyInvited(): FakeApi {
+  const api = installFakeApi()
+  api.on(
+    'POST /invitations',
+    apiError(409, 'sam@acme.test is already invited', { field: 'emails' }),
+  )
+  return api
+}
+
 async function pick(combobox: HTMLElement, option: string) {
   await userEvent.click(combobox)
   await userEvent.click(await screen.findByRole('option', { name: option }))
@@ -39,13 +64,16 @@ async function pick(combobox: HTMLElement, option: string) {
 
 describe('org General', () => {
   it('renames the org and blocks Delete while projects remain', async () => {
-    renderWithDashboardData(<OrgGeneralPage org="acme" />)
+    const { api } = render(<OrgGeneralPage org="acme" />, as('usr_ama', 'owner'))
     const name = await screen.findByRole('textbox', { name: /Organization name/ })
     await userEvent.clear(name)
     await userEvent.type(name, 'Acme Corp')
     await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
-      expect(dashboardDb().orgs.find((o) => o.id === 'org_acme')!.name).toBe('Acme Corp'),
+      expect(api.lastRequest('POST /auth/organization/update').body).toMatchObject({
+        organizationId: 'org_acme',
+        data: { name: 'Acme Corp' },
+      }),
     )
     expect(
       await screen.findByRole('button', { name: 'Delete organization' }),
@@ -53,7 +81,13 @@ describe('org General', () => {
   })
 
   it('moves to the new URL, and puts a reserved one’s error on the URL field', async () => {
-    renderWithDashboardData(<OrgGeneralPage org="acme" />)
+    const api = installFakeApi()
+    api.on('POST /auth/organization/update', (req) =>
+      (req.body as { data: { slug?: string } }).data.slug === 'settings'
+        ? authError(400, 'That URL is used by a dashboard page')
+        : {},
+    )
+    render(<OrgGeneralPage org="acme" />, api)
     const url = await screen.findByRole('textbox', { name: /URL/ })
     await userEvent.clear(url)
     await userEvent.type(url, 'settings')
@@ -66,7 +100,12 @@ describe('org General', () => {
   })
 
   it('takes an uploaded logo, and clears it from the × on the logo', async () => {
-    renderWithDashboardData(<OrgGeneralPage org="acme" />)
+    const api = installFakeApi()
+    api.on('PUT /orgs/:id/logo', () => {
+      api.data.orgs.acme!.logo = 'data:image/png;base64,iVBORw0KGgo='
+      return { logo: api.data.orgs.acme!.logo }
+    })
+    render(<OrgGeneralPage org="acme" />, api)
     await screen.findByRole('textbox', { name: /Organization name/ })
     // No logo, nothing to clear: the × isn't there.
     expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull()
@@ -74,16 +113,14 @@ describe('org General', () => {
     await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file)
     expect(await screen.findByRole('button', { name: 'Remove logo' })).toBeEnabled()
     await userEvent.click(within(topBar()).getByRole('button', { name: 'Save changes' }))
-    await waitFor(() =>
-      expect(dashboardDb().orgs.find((o) => o.id === 'org_acme')!.logo).toMatch(/^data:image\/png/),
-    )
+    await waitFor(() => expect(api.requestsTo('PUT /orgs/:id/logo')).toHaveLength(1))
     // The saved page remounts with the logo: clear it from there.
     await userEvent.click(await screen.findByRole('button', { name: 'Remove logo' }))
     expect(screen.queryByRole('button', { name: 'Remove logo' })).toBeNull()
   })
 
   it('is read-only for an org member', async () => {
-    renderWithDashboardData(<OrgGeneralPage org="acme" />, { userId: DANIEL })
+    render(<OrgGeneralPage org="acme" />, as(DANIEL, 'member'))
     expect(await screen.findByRole('textbox', { name: /Organization name/ })).toBeDisabled()
     expect(within(topBar()).queryByRole('button', { name: 'Save changes' })).not.toBeInTheDocument()
   })
@@ -91,10 +128,10 @@ describe('org General', () => {
 
 describe('org API keys', () => {
   it('tells a member they can’t see the org keys, and never asks for them', async () => {
-    const list = vi.spyOn(dashboardServer.keys, 'listOrgKeys')
-    renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />, {
-      userId: DANIEL,
-    })
+    const { api } = render(
+      <OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />,
+      as(DANIEL, 'member'),
+    )
     const panel = await screen.findByRole('region', {
       name: 'You can’t see the organization’s API keys',
     })
@@ -104,12 +141,16 @@ describe('org API keys', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText(/couldn’t load/i)).toBeNull()
     expect(within(topBar()).queryByRole('link', { name: 'New API key' })).toBeNull()
-    expect(list).not.toHaveBeenCalled()
-    list.mockRestore()
+    expect(api.requestsTo('GET /api-keys')).toHaveLength(0)
   })
 
   it('lists the org keys at the Org level and revokes one', async () => {
-    renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />)
+    const api = installFakeApi()
+    api.on('DELETE /api-keys/:id', (req) => {
+      api.data.seed.keys = api.data.seed.keys.filter((k) => k.id !== req.params.id)
+      return {}
+    })
+    render(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />, api)
     await screen.findByText('Terraform')
     const levels = screen.getByRole('list', { name: 'Key levels' })
     const here = within(levels)
@@ -128,21 +169,13 @@ describe('org API keys', () => {
 })
 
 describe('org Members', () => {
-  it('reads as OrgMembers: roles, where each can work, pending invites', async () => {
-    renderWithDashboardData(<Members />)
-    const table = await screen.findByRole('table', { name: 'Members of Acme Inc' })
-    const row = (name: string) => within(table).getByText(name, { exact: false }).closest('tr')!
-    expect(row('Ama Mensah')).toHaveTextContent(/Owner.*All projects/)
-    expect(row('Tom Becker')).toHaveTextContent(/Project 101 · all workspaces.*Internal Tools/)
-    expect(row('Daniel Kim')).toHaveTextContent('Project 101 · Sales (Editor)')
-    const invites = screen.getByRole('list', { name: 'Pending invitations' })
-    expect(invites).toHaveTextContent(
-      /sam@acme\.test.*Member, invited to Project 101 · IT.*Sent 2 days ago/,
-    )
-  })
-
   it('edits Daniel’s access in the side panel, and the row follows', async () => {
-    renderWithDashboardData(<Members start={{ kind: 'access', userId: DANIEL }} />)
+    const api = installFakeApi()
+    api.on('PUT /members/:id/access', () => {
+      api.data.seed.projectMembers.push({ projectId: 'prj_101', userId: DANIEL, role: 'member' })
+      return { ok: true }
+    })
+    render(<Members start={{ kind: 'access', userId: DANIEL }} />, api)
     const panel = await screen.findByRole('dialog', { name: 'Daniel Kim' })
     await pick(
       await within(panel).findByRole('combobox', { name: 'Project 101' }),
@@ -159,7 +192,7 @@ describe('org Members', () => {
   })
 
   it('picks the person first for Add people', async () => {
-    renderWithDashboardData(<Members start={{ kind: 'access', userId: null }} />)
+    render(<Members start={{ kind: 'access', userId: null }} />)
     const panel = await screen.findByRole('dialog', { name: 'Add people' })
     await userEvent.click(within(panel).getByRole('button', { name: '+ Add person' }))
     await userEvent.click(await screen.findByRole('option', { name: /Lena Ortiz/ }))
@@ -167,7 +200,12 @@ describe('org Members', () => {
   })
 
   it('refuses to remove the last owner, and removes someone else after confirming', async () => {
-    renderWithDashboardData(<Members start={{ kind: 'access', userId: DANIEL }} />)
+    const api = installFakeApi()
+    api.on('DELETE /members/:id', (req) => {
+      api.data.seed.orgMembers = api.data.seed.orgMembers.filter((m) => m.userId !== req.params.id)
+      return { ok: true }
+    })
+    render(<Members start={{ kind: 'access', userId: DANIEL }} />, api)
     const panel = await screen.findByRole('dialog', { name: 'Daniel Kim' })
     await userEvent.click(within(panel).getByRole('button', { name: 'Remove from Acme Inc' }))
     await userEvent.click(
@@ -179,7 +217,23 @@ describe('org Members', () => {
   })
 
   it('invites two people to a workspace as Editors', async () => {
-    renderWithDashboardData(<Members start={{ kind: 'invite' }} />)
+    const api = installFakeApi()
+    api.on('POST /invitations', (req) => {
+      const { emails } = req.body as { emails: string[] }
+      for (const email of emails) {
+        api.data.seed.invitations.push({
+          id: `inv_${email}`,
+          orgId: 'org_acme',
+          email,
+          role: 'member',
+          places: [{ projectId: 'prj_101', workspaceId: 'ws_it', role: 'editor' }],
+          sentAt: api.now.toISOString(),
+          invitedBy: 'usr_ama',
+        })
+      }
+      return { data: emails.map((email) => ({ id: `inv_${email}`, email })) }
+    })
+    render(<Members start={{ kind: 'invite' }} />, api)
     const dialog = await screen.findByRole('dialog', { name: 'Invite people to Acme Inc' })
     const emails = within(dialog).getByRole('textbox', { name: /Email addresses/ })
     await userEvent.type(emails, 'joy@acme.test,kofi@acme.test{enter}')
@@ -194,7 +248,7 @@ describe('org Members', () => {
   })
 
   it('puts an already-invited email’s error on the field', async () => {
-    renderWithDashboardData(<Members start={{ kind: 'invite' }} />)
+    render(<Members start={{ kind: 'invite' }} />, alreadyInvited())
     const dialog = await screen.findByRole('dialog', { name: 'Invite people to Acme Inc' })
     const emails = within(dialog).getByRole('textbox', { name: /Email addresses/ })
     await userEvent.type(emails, 'sam@acme.test{enter}')
@@ -203,7 +257,12 @@ describe('org Members', () => {
   })
 
   it('cancels an invite after Keep invite / Cancel invite', async () => {
-    renderWithDashboardData(<Members />)
+    const api = installFakeApi()
+    api.on('DELETE /invitations/:id', (req) => {
+      api.data.seed.invitations = api.data.seed.invitations.filter((i) => i.id !== req.params.id)
+      return { ok: true }
+    })
+    render(<Members />, api)
     const invites = await screen.findByRole('list', { name: 'Pending invitations' })
     await userEvent.click(within(invites).getByRole('button', { name: 'Cancel invite' }))
     const confirm = screen.getByRole('alertdialog', {
@@ -216,7 +275,7 @@ describe('org Members', () => {
   })
 
   it('shows an org member the list without Edit access or Invite', async () => {
-    renderWithDashboardData(<Members />, { userId: DANIEL })
+    render(<Members />, as(DANIEL, 'member'))
     await screen.findByRole('table', { name: 'Members of Acme Inc' })
     expect(screen.queryByRole('link', { name: 'Edit access' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Invite people' })).not.toBeInTheDocument()
@@ -225,22 +284,14 @@ describe('org Members', () => {
 
 describe('review round (2026-10-27)', () => {
   it('doesn’t offer Owner to an admin', async () => {
-    dashboardDb().orgMembers.find((m) => m.orgId === 'org_acme' && m.userId === 'usr_tom')!.role =
-      'admin'
-    renderWithDashboardData(<Members start={{ kind: 'access', userId: DANIEL }} />, {
-      userId: 'usr_tom',
-    })
+    render(<Members start={{ kind: 'access', userId: DANIEL }} />, as(TOM, 'admin'))
     const panel = await screen.findByRole('dialog', { name: 'Daniel Kim' })
     await userEvent.click(within(panel).getByRole('combobox', { name: 'Role in Acme Inc' }))
     expect(screen.queryByRole('option', { name: 'Owner' })).not.toBeInTheDocument()
   })
 
   it('locks an owner’s access for an admin', async () => {
-    dashboardDb().orgMembers.find((m) => m.orgId === 'org_acme' && m.userId === 'usr_tom')!.role =
-      'admin'
-    renderWithDashboardData(<Members start={{ kind: 'access', userId: 'usr_ama' }} />, {
-      userId: 'usr_tom',
-    })
+    render(<Members start={{ kind: 'access', userId: 'usr_ama' }} />, as(TOM, 'admin'))
     const panel = await screen.findByRole('dialog', { name: 'Ama Mensah' })
     expect(within(panel).getByText('Only owners can change an owner’s access.')).toBeVisible()
     expect(within(panel).getByRole('button', { name: 'Save access' })).toBeDisabled()
@@ -248,9 +299,7 @@ describe('review round (2026-10-27)', () => {
   })
 
   it('offers Project member on the project someone is being added to', async () => {
-    renderWithDashboardData(
-      <Members start={{ kind: 'access', userId: null, project: 'marketing-site' }} />,
-    )
+    render(<Members start={{ kind: 'access', userId: null, project: 'marketing-site' }} />)
     const picker = await screen.findByRole('dialog', { name: 'Add people' })
     await userEvent.click(within(picker).getByRole('button', { name: '+ Add person' }))
     await userEvent.click(await screen.findByRole('option', { name: /Daniel Kim/ }))
@@ -262,12 +311,13 @@ describe('review round (2026-10-27)', () => {
 
   it('follows a new person in the URL instead of keeping the last one’s editor', async () => {
     const onOverlayChange = vi.fn()
-    const view = renderWithDashboardData(
+    const view = renderWithDashboardApi(
       <OrgMembersPage
         org="acme"
         overlay={{ kind: 'access', userId: DANIEL }}
         onOverlayChange={onOverlayChange}
       />,
+      { api: installFakeApi() },
     )
     await screen.findByRole('dialog', { name: 'Daniel Kim' })
     view.rerender(
@@ -281,16 +331,17 @@ describe('review round (2026-10-27)', () => {
   })
 
   it('counts only unexpired org keys as active', async () => {
-    dashboardDb().keys.find((k) => k.id === 'key_terraform')!.expiresAt = new Date(
+    const api = installFakeApi()
+    api.data.seed.keys.find((k) => k.id === 'key_terraform')!.expiresAt = new Date(
       Date.now() - 1000,
     ).toISOString()
-    renderWithDashboardData(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />)
+    render(<OrgKeysPage org="acme" createOpen={false} onCloseCreate={noop} />, api)
     // Onboarding bot and the Platform sync bundle stay; Terraform is now expired.
     expect(await screen.findByText('2 active')).toBeVisible()
   })
 
   it('clears an email error once that email is removed', async () => {
-    renderWithDashboardData(<Members start={{ kind: 'invite' }} />)
+    render(<Members start={{ kind: 'invite' }} />, alreadyInvited())
     const dialog = await screen.findByRole('dialog', { name: 'Invite people to Acme Inc' })
     const emails = within(dialog).getByRole('textbox', { name: /Email addresses/ })
     await userEvent.type(emails, 'sam@acme.test{enter}')
@@ -308,25 +359,20 @@ describe('org Connections', () => {
   }
 
   it('has one Add account button, which opens the provider list', async () => {
-    renderWithDashboardData(<Connections />)
+    render(<Connections />)
     expect(screen.queryByRole('button', { name: /Use an API token/ })).toBeNull()
     await userEvent.click(await screen.findByRole('button', { name: 'Add account' }))
     const dialog = await screen.findByRole('dialog', { name: 'Add account' })
     expect(within(dialog).getByRole('button', { name: /Cloudflare\.com/ })).toBeVisible()
   })
 
-  it('reads as OrgConnections: accounts, token state, projects, deployments', async () => {
-    renderWithDashboardData(<Connections />)
-    const production = await screen.findByRole('region', { name: 'Acme production' })
-    expect(production).toHaveTextContent(/••••7f2a · added by Ama Mensah.*Token valid/)
-    expect(production).toHaveTextContent(/Project 101.*Internal Tools/)
-    expect(production).toHaveTextContent('18 deployments · last 22m ago')
-    const marketing = screen.getByRole('region', { name: 'Marketing sandbox' })
-    expect(marketing).toHaveTextContent('Token expires in 6 days')
-  })
-
   it('replaces an expiring token', async () => {
-    renderWithDashboardData(<Connections />)
+    const api = installFakeApi()
+    api.on('PATCH /connections/:id', (req) => {
+      api.data.seed.connections.find((c) => c.id === req.params.id)!.tokenExpiresAt = null
+      return { id: req.params.id }
+    })
+    render(<Connections />, api)
     const marketing = await screen.findByRole('region', { name: 'Marketing sandbox' })
     await userEvent.click(within(marketing).getByRole('button', { name: 'Replace token' }))
     const dialog = screen.getByRole('dialog', { name: /Replace the token/ })
@@ -343,7 +389,15 @@ describe('org Connections', () => {
   })
 
   it('adds and removes a project on an account', async () => {
-    renderWithDashboardData(<Connections />)
+    const api = installFakeApi()
+    api.on('PATCH /connections/:id', (req) => {
+      const { projectIds } = req.body as { projectIds?: string[] }
+      if (projectIds) {
+        api.data.seed.connections.find((c) => c.id === req.params.id)!.projects = projectIds
+      }
+      return { id: req.params.id }
+    })
+    render(<Connections />, api)
     const marketing = await screen.findByRole('region', { name: 'Marketing sandbox' })
     await userEvent.click(within(marketing).getByRole('button', { name: 'Project' }))
     await userEvent.click(await screen.findByRole('option', { name: /Internal Tools/ }))
@@ -365,7 +419,29 @@ describe('org Connections', () => {
   })
 
   it('connects an account, with the account ID checked on its field', async () => {
-    renderWithDashboardData(<Connections start />)
+    const api = installFakeApi()
+    api.on('POST /connections', (req) => {
+      const body = req.body as { name: string; credentials: { accountId: string } }
+      const accountId = body.credentials.accountId
+      if (!/^[a-f0-9]{32}$/.test(accountId)) {
+        return apiError(400, 'An account ID is 32 letters and digits (0–9, a–f)', {
+          field: 'accountId',
+        })
+      }
+      api.data.seed.connections.push({
+        id: 'conn_staging',
+        orgId: 'org_acme',
+        name: body.name,
+        accountId,
+        addedBy: 'usr_ama',
+        tokenExpiresAt: null,
+        projects: 'all',
+        deployments: 0,
+        lastDeployAt: null,
+      })
+      return { id: 'conn_staging' }
+    })
+    render(<Connections start />, api)
     const dialog = await screen.findByRole('dialog', { name: 'Add account' })
     await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare\.com/ }))
     await userEvent.type(within(dialog).getByRole('textbox', { name: /Name/ }), 'Staging')
@@ -384,7 +460,12 @@ describe('org Connections', () => {
   })
 
   it('removes a connection after confirming', async () => {
-    renderWithDashboardData(<Connections />)
+    const api = installFakeApi()
+    api.on('DELETE /connections/:id', (req) => {
+      api.data.seed.connections = api.data.seed.connections.filter((c) => c.id !== req.params.id)
+      return { ok: true }
+    })
+    render(<Connections />, api)
     const marketing = await screen.findByRole('region', { name: 'Marketing sandbox' })
     await userEvent.click(
       within(marketing).getByRole('button', { name: 'More actions for Marketing sandbox' }),

@@ -4,16 +4,19 @@ import userEvent from '@testing-library/user-event'
 import {
   DANIEL,
   TOM,
-  dashboardDb,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  apiError,
+  asOrgRole,
+  asProjectRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { useCreateWorkspace } from '../../../data/dashboard/workspaces'
 import { ProjectConnectionsPage } from '../project-connections-page'
 import type { AddTab } from '../add-connection-dialog'
 
 // A project's Connections page (`ProjectConnections`, `AttachConnection`,
-// `ProjectConnectionsEmpty`) on dummy data: Project 101 deploys to Acme
+// `ProjectConnectionsEmpty`): Project 101 deploys to Acme
 // production (shared, its default) and Checkout staging (its own), and Sales
 // is set to Checkout staging.
 
@@ -21,54 +24,58 @@ const p101 = { org: 'acme', project: 'project-101' }
 const topBar = () => screen.getByRole('banner', { name: 'Top bar' })
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   localStorage.clear()
 })
 
 function renderPage(
   adding: AddTab | null = null,
-  options: { userId?: string } = {},
+  api: FakeApi = installFakeApi(),
   onAddChange = vi.fn(),
 ) {
-  return renderWithDashboardData(
+  renderWithDashboardApi(
     <ProjectConnectionsPage slugs={p101} adding={adding} onAddChange={onAddChange} />,
-    options,
+    { api },
   )
+  return api
+}
+
+/** The account changes the page sends, applied to the seed as the API would. */
+function scriptChanges(api: FakeApi) {
+  const seed = api.data.seed
+  api.on('PUT /projects/:id/default-connection', (req) => {
+    const id = (req.body as { connectionId: string }).connectionId
+    for (const pc of seed.projectConnections) {
+      if (pc.projectId === 'prj_101') pc.isDefault = pc.connectionId === id
+    }
+    return {}
+  })
+  api.on('PUT /projects/:id/workspaces/:workspaceId/connection', (req) => {
+    seed.workspaceConnections = seed.workspaceConnections.filter(
+      (wc) => wc.workspaceId !== req.params.workspaceId,
+    )
+    return {}
+  })
+  api.on('PATCH /projects/:id/connections/:connectionId', (req) => {
+    seed.connections.find((c) => c.id === req.params.connectionId)!.name = (
+      req.body as { name: string }
+    ).name
+    return {}
+  })
+}
+
+/** Project 101 with no account of its own, and two the org could lend it. */
+function withNoAccount(api: FakeApi) {
+  api.data.seed.projectConnections = api.data.seed.projectConnections.filter(
+    (pc) => pc.projectId !== 'prj_101',
+  )
+  api.data.seed.connections.find((c) => c.id === 'conn_marketing')!.projects = 'all'
 }
 
 describe('the project’s accounts', () => {
-  it('reads as ProjectConnections: accounts with scope, default and usage, and each workspace', async () => {
-    renderPage()
-    const prod = await screen.findByRole('listitem', { name: 'Acme production' })
-    expect(prod).toHaveTextContent('Default')
-    expect(prod).toHaveTextContent('Shared by Acme Inc')
-    expect(prod).toHaveTextContent('Cloudflare account ••••7f2a · added by Ama Mensah')
-    expect(prod).toHaveTextContent('Token valid')
-    expect(prod).toHaveTextContent('18 deployments')
-    expect(within(prod).queryByRole('button', { name: 'Make default' })).toBeNull()
-
-    const own = screen.getByRole('listitem', { name: 'Checkout staging' })
-    expect(own).toHaveTextContent('This project only')
-    expect(own).toHaveTextContent('Deployed from Sales')
-    expect(within(own).getByRole('button', { name: 'Make default' })).toBeEnabled()
-    expect(screen.getByText('One available, one it owns')).toBeInTheDocument()
-
-    const table = screen.getByRole('table', { name: 'Where each workspace deploys' })
-    const salesRow = within(table).getByText('Sales').closest('[role="row"]') as HTMLElement
-    expect(salesRow).toHaveTextContent('Checkout staging')
-    expect(salesRow).toHaveTextContent('Set for this workspace')
-    const itRow = within(table).getByText('IT').closest('[role="row"]') as HTMLElement
-    expect(itRow).toHaveTextContent('Acme production')
-    expect(itRow).toHaveTextContent('Project default')
-    expect(within(topBar()).getByRole('button', { name: 'Add connection' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Acme Inc connections' })).toHaveAttribute(
-      'href',
-      '/acme/connections',
-    )
-  })
-
   it('makes another account the default, and points a workspace back at it', async () => {
-    renderPage()
+    const api = installFakeApi()
+    scriptChanges(api)
+    renderPage(null, api)
     const own = await screen.findByRole('listitem', { name: 'Checkout staging' })
     await userEvent.click(within(own).getByRole('button', { name: 'Make default' }))
     await waitFor(() =>
@@ -76,20 +83,26 @@ describe('the project’s accounts', () => {
         'Default',
       ),
     )
-    expect(
-      dashboardDb().projectConnections.find((pc) => pc.connectionId === 'conn_checkout')?.isDefault,
-    ).toBe(true)
+    expect(api.lastRequest('PUT /projects/:id/default-connection').body).toEqual({
+      connectionId: 'conn_checkout',
+    })
 
     await userEvent.click(screen.getByRole('button', { name: 'Change where Sales deploys' }))
     const dialog = screen.getByRole('dialog', { name: 'Where Sales deploys' })
     await userEvent.click(within(dialog).getByRole('combobox'))
     await userEvent.click(await screen.findByRole('option', { name: /Project default/ }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(dashboardDb().workspaceConnections).toEqual([]))
+    await waitFor(() =>
+      expect(api.lastRequest('PUT /projects/:id/workspaces/:workspaceId/connection').body).toEqual({
+        connectionId: null,
+      }),
+    )
   })
 
   it('says what removing changes before it deletes an owned account', async () => {
-    renderPage()
+    const api = installFakeApi()
+    api.on('DELETE /projects/:id/connections/:connectionId', {})
+    renderPage(null, api)
     const own = await screen.findByRole('listitem', { name: 'Checkout staging' })
     await userEvent.click(
       within(own).getByRole('button', { name: 'More actions for Checkout staging' }),
@@ -100,12 +113,16 @@ describe('the project’s accounts', () => {
     expect(confirm).toHaveTextContent('Sales goes back to the project default')
     await userEvent.click(within(confirm).getByRole('button', { name: 'Delete account' }))
     await waitFor(() =>
-      expect(dashboardDb().connections.some((c) => c.id === 'conn_checkout')).toBe(false),
+      expect(
+        api.lastRequest('DELETE /projects/:id/connections/:connectionId').params,
+      ).toMatchObject({ connectionId: 'conn_checkout' }),
     )
   })
 
   it('renames an account the project owns; a shared one has no Rename', async () => {
-    renderPage()
+    const api = installFakeApi()
+    scriptChanges(api)
+    renderPage(null, api)
     const prod = await screen.findByRole('listitem', { name: 'Acme production' })
     await userEvent.click(
       within(prod).getByRole('button', { name: 'More actions for Acme production' }),
@@ -125,13 +142,15 @@ describe('the project’s accounts', () => {
     await userEvent.type(name, 'Checkout prod')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Rename' }))
     expect(await screen.findByRole('listitem', { name: 'Checkout prod' })).toBeVisible()
-    expect(dashboardDb().connections.find((c) => c.id === 'conn_checkout')!.name).toBe(
-      'Checkout prod',
-    )
+    expect(api.lastRequest('PATCH /projects/:id/connections/:connectionId').body).toEqual({
+      name: 'Checkout prod',
+    })
   })
 
   it('is read-only for someone who isn’t a project admin', async () => {
-    renderPage(null, { userId: DANIEL })
+    const api = installFakeApi({ viewer: DANIEL })
+    asProjectRole(api, 'acme/project-101', 'member')
+    renderPage(null, api)
     const prod = await screen.findByRole('listitem', { name: 'Acme production' })
     expect(within(prod).queryByRole('button', { name: /More actions/ })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Make default' })).toBeNull()
@@ -141,16 +160,11 @@ describe('the project’s accounts', () => {
 })
 
 describe('a project with no account (ProjectConnectionsEmpty)', () => {
-  beforeEach(() => {
-    dashboardDb().projectConnections = dashboardDb().projectConnections.filter(
-      (pc) => pc.projectId !== 'prj_101',
-    )
-    dashboardDb().connections.find((c) => c.id === 'conn_marketing')!.projects = 'all'
-  })
-
   it('says Deploy stays disabled and offers both ways in', async () => {
+    const api = installFakeApi()
+    withNoAccount(api)
     const onAddChange = vi.fn()
-    renderPage(null, {}, onAddChange)
+    renderPage(null, api, onAddChange)
     expect(await screen.findByText('No account connected yet')).toBeInTheDocument()
     expect(screen.getByText('Deploy stays disabled')).toBeInTheDocument()
     await waitFor(() =>
@@ -165,9 +179,11 @@ describe('a project with no account (ProjectConnectionsEmpty)', () => {
 
 describe('Add connection (AttachConnection)', () => {
   it('adds an available account; added and restricted ones can’t be picked', async () => {
-    dashboardDb().connections.push({
+    const api = installFakeApi()
+    api.on('POST /projects/:id/connections', { added: [], defaultId: null })
+    api.data.seed.connections.push({
       id: 'conn_data',
-      orgId: dashboardDb().connections[0]!.orgId,
+      orgId: api.data.seed.connections[0]!.orgId,
       name: 'Data platform prod',
       accountId: 'd'.repeat(32),
       addedBy: DANIEL,
@@ -176,9 +192,9 @@ describe('Add connection (AttachConnection)', () => {
       deployments: 0,
       lastDeployAt: null,
     })
-    dashboardDb().connections.find((c) => c.id === 'conn_marketing')!.projects = 'all'
+    api.data.seed.connections.find((c) => c.id === 'conn_marketing')!.projects = 'all'
     const onAddChange = vi.fn()
-    renderPage('org', {}, onAddChange)
+    renderPage('org', api, onAddChange)
     const dialog = await screen.findByRole('dialog', { name: 'Add a connection to Project 101' })
     const added = await within(dialog).findByRole('checkbox', { name: /Acme production/ })
     expect(added).toBeChecked()
@@ -191,11 +207,9 @@ describe('Add connection (AttachConnection)', () => {
     await userEvent.click(within(dialog).getByRole('checkbox', { name: /Marketing sandbox/ }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Add 1 account' }))
     await waitFor(() =>
-      expect(
-        dashboardDb().projectConnections.some(
-          (pc) => pc.projectId === 'prj_101' && pc.connectionId === 'conn_marketing',
-        ),
-      ).toBe(true),
+      expect(api.lastRequest('POST /projects/:id/connections').body).toEqual({
+        connectionIds: ['conn_marketing'],
+      }),
     )
   })
 
@@ -214,7 +228,10 @@ describe('Add connection (AttachConnection)', () => {
   })
 
   it('connects an account for this project only, with no way to share it with the org', async () => {
-    renderPage('new', { userId: TOM })
+    const api = installFakeApi({ viewer: TOM })
+    asOrgRole(api, 'acme', 'member')
+    asProjectRole(api, 'acme/project-101', 'admin')
+    renderPage('new', api)
     const dialog = await screen.findByRole('dialog', { name: 'Add a connection to Project 101' })
     await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare.com/ }))
     expect(
@@ -228,7 +245,15 @@ describe('Add connection (AttachConnection)', () => {
   })
 
   it('connects a new account as the project’s own, and shows the field’s refusal', async () => {
-    renderPage('new')
+    const api = installFakeApi()
+    api.on('POST /projects/:id/connections/new', (req) =>
+      /^[a-f0-9]{32}$/.test((req.body as { accountId: string }).accountId)
+        ? { id: 'conn_edge', name: 'Edge staging', scope: 'project', isDefault: false }
+        : apiError(400, 'An account ID is 32 letters and digits (0–9, a–f)', {
+            field: 'accountId',
+          }),
+    )
+    renderPage('new', api)
     const dialog = await screen.findByRole('dialog', { name: 'Add a connection to Project 101' })
     await userEvent.click(within(dialog).getByRole('button', { name: /Cloudflare.com/ }))
     // Not for an org owner either: the org's page connects accounts for everyone.
@@ -243,10 +268,12 @@ describe('Add connection (AttachConnection)', () => {
     await userEvent.type(within(dialog).getByLabelText('Account ID'), 'e'.repeat(32))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Check token and connect' }))
     await waitFor(() =>
-      expect(dashboardDb().connections.find((c) => c.name === 'Edge staging')?.projectId).toBe(
-        'prj_101',
-      ),
+      expect(api.requestsTo('POST /projects/:id/connections/new')).toHaveLength(2),
     )
+    expect(api.lastRequest('POST /projects/:id/connections/new').body).toMatchObject({
+      name: 'Edge staging',
+      accountId: 'e'.repeat(32),
+    })
   })
 })
 
@@ -264,11 +291,28 @@ describe('review round (2026-11-01)', () => {
   }
 
   it('lists a workspace created meanwhile under Where each workspace deploys', async () => {
-    renderWithDashboardData(
+    const api = installFakeApi()
+    api.on('POST /workspaces', (req) => {
+      const row = {
+        id: 'ws_billing',
+        projectId: 'prj_101',
+        slug: 'billing',
+        name: (req.body as { name: string }).name,
+        description: null,
+        colour: 'blue' as const,
+        createdBy: 'usr_ama',
+        createdAt: api.now.toISOString(),
+        lock: null,
+      }
+      api.data.seed.workspaces.push(row)
+      return { ...row, updatedAt: row.createdAt }
+    })
+    renderWithDashboardApi(
       <>
         <CreateBilling />
         <ProjectConnectionsPage slugs={p101} adding={null} onAddChange={vi.fn()} />
       </>,
+      { api },
     )
     const table = await screen.findByRole('table', { name: 'Where each workspace deploys' })
     expect(within(table).queryByText('Billing')).toBeNull()

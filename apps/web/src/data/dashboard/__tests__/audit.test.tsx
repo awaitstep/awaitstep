@@ -3,10 +3,7 @@ import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AuditEvent } from '../../../types/dashboard/audit'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { useAuditExport, useAuditLog } from '../audit'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider, type DataSource } from '../source'
 
 // The audit log's hooks on both sources (B7): the API's `GET /audit-events`,
 // and the dummy server's samples, which carry the same fields.
@@ -37,7 +34,6 @@ function page(data: AuditEvent[], nextCursor: string | null, total: number) {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
 })
 
@@ -46,18 +42,10 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-function wrapperFor(source: DataSource) {
+function wrapperFor() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source={source}>
-          <MockScenarioProvider scenario="none" userId="usr_ama">
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 }
 
@@ -66,7 +54,7 @@ describe('useAuditLog', () => {
     fetchMock.mockResolvedValue(page([EVENT], null, 1))
     const { result } = renderHook(
       () => useAuditLog('acme', { level: 'project', period: '30d', search: 'lock' }),
-      { wrapper: wrapperFor('api') },
+      { wrapper: wrapperFor() },
     )
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(result.current.data).toEqual({ data: [EVENT], nextCursor: null, total: 1 })
@@ -75,21 +63,8 @@ describe('useAuditLog', () => {
   })
 
   it('asks nothing of the API while off', () => {
-    renderHook(() => useAuditLog('acme', {}, false), { wrapper: wrapperFor('api') })
+    renderHook(() => useAuditLog('acme', {}, false), { wrapper: wrapperFor() })
     expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('serves the dummy samples with the API’s fields', async () => {
-    const { result } = renderHook(() => useAuditLog('acme', {}), { wrapper: wrapperFor('mock') })
-    await waitFor(() => expect(result.current.data).toBeDefined())
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current.data!.data[0]).toMatchObject({
-      event: 'workspace.delete.blocked',
-      actorType: 'user',
-      ip: '81.2.69.x',
-    })
-    const deploy = result.current.data!.data.find((e) => e.kind === 'deploy')!
-    expect(deploy).toMatchObject({ actorType: 'key', ip: null })
   })
 })
 
@@ -98,7 +73,7 @@ describe('useAuditExport', () => {
     fetchMock
       .mockResolvedValueOnce(page([EVENT], 'aud-1_2026-10-30T09:00:00.000Z', 2))
       .mockResolvedValueOnce(page([{ ...EVENT, id: 'aud-2' }], null, 2))
-    const { result } = renderHook(() => useAuditExport('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useAuditExport('acme'), { wrapper: wrapperFor() })
     const all = await result.current({ period: '90d' })
     expect(all.map((e) => e.id)).toEqual(['aud-1', 'aud-2'])
     const [second] = fetchMock.mock.calls[1] as [string]

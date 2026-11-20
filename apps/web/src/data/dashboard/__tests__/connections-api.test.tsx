@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ConnectionSummary } from '@awaitstep/ir'
 import { ApiError } from '../../../lib/api-client'
 import type { ApiMarketplaceNode } from '../../../lib/dashboard-api'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { errorFieldOf } from '../errors'
 import {
   useConnect,
@@ -17,8 +16,6 @@ import {
 } from '../org-settings'
 import { useInstallNode, useOrgNodes, useUninstallNode, useUpdateNode } from '../resources'
 import { useProjectSetup } from '../setup'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider, type DataSource } from '../source'
 import type * as ProjectHooks from '../projects'
 
 // Connections, nodes and the setup counts on both sources (B9): the API's
@@ -81,7 +78,6 @@ function json(body: unknown, status = 200) {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
 })
 
@@ -90,17 +86,9 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-function wrapperFor(source: DataSource, client = newClient()) {
+function wrapperFor(client = newClient()) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source={source}>
-          <MockScenarioProvider scenario="none" userId="usr_ama">
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 }
 
@@ -123,7 +111,7 @@ describe('useConnections', () => {
         nextCursor: null,
       }),
     )
-    const { result } = renderHook(() => useConnections('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useConnections('acme'), { wrapper: wrapperFor() })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(calls().map(([method, url]) => [method, url])).toEqual([
       ['GET', '/api/connections?org=acme'],
@@ -146,17 +134,6 @@ describe('useConnections', () => {
       expect.objectContaining({ id: 'conn_2', projects: 'all' }),
     ])
   })
-
-  it('reads the dummy server off the API', async () => {
-    const { result } = renderHook(() => useConnections('acme'), { wrapper: wrapperFor('mock') })
-    await waitFor(() => expect(result.current.data).toBeDefined())
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current.data?.map((c) => c.name)).toEqual([
-      'Acme production',
-      'Marketing sandbox',
-    ])
-    expect(result.current.data?.every((c) => c.tokenStatus === 'active')).toBe(true)
-  })
 })
 
 describe('useOrgAccounts', () => {
@@ -173,7 +150,7 @@ describe('useOrgAccounts', () => {
     fetchMock
       .mockResolvedValueOnce(json({ data: [ACCOUNT], nextCursor: 'c2' }))
       .mockResolvedValueOnce(json({ data: [{ ...ACCOUNT, id: 'conn_2' }], nextCursor: null }))
-    const { result } = renderHook(() => useOrgAccounts('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useOrgAccounts('acme'), { wrapper: wrapperFor() })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(calls().map(([method, url]) => [method, url])).toEqual([
       ['GET', '/api/connections/accounts?org=acme'],
@@ -182,31 +159,13 @@ describe('useOrgAccounts', () => {
     expect(result.current.data).toEqual([ACCOUNT, { ...ACCOUNT, id: 'conn_2' }])
   })
 
-  it('reads the dummy server off the API, cut to the accounts row', async () => {
-    const { result } = renderHook(() => useOrgAccounts('acme'), { wrapper: wrapperFor('mock') })
-    await waitFor(() => expect(result.current.data).toBeDefined())
-    expect(fetchMock).not.toHaveBeenCalled()
-    expect(result.current.data?.map((c) => c.name)).toEqual([
-      'Acme production',
-      'Marketing sandbox',
-    ])
-    expect(Object.keys(result.current.data![0]!).sort()).toEqual([
-      'accountSuffix',
-      'authKind',
-      'canDeploy',
-      'id',
-      'name',
-      'tokenStatus',
-    ])
-  })
-
   it('refreshes after a rename and after a remove', async () => {
     fetchMock.mockImplementation(async (url: string) =>
       url.startsWith('/api/connections/accounts')
         ? json({ data: [ACCOUNT], nextCursor: null })
         : json(ROW),
     )
-    const wrapper = wrapperFor('api')
+    const wrapper = wrapperFor()
     const accounts = renderHook(() => useOrgAccounts('acme'), { wrapper }).result
     await waitFor(() => expect(accounts.current.data).toBeDefined())
     const update = renderHook(() => useUpdateConnection('acme'), { wrapper }).result
@@ -229,7 +188,7 @@ describe('useOrgAccounts', () => {
 describe('connection changes on the API', () => {
   it('connects with the token, the account and the projects', async () => {
     fetchMock.mockResolvedValue(json(ROW, 201))
-    const { result } = renderHook(() => useConnect('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useConnect('acme'), { wrapper: wrapperFor() })
     await act(() =>
       result.current.mutateAsync({
         name: ' Acme production ',
@@ -256,7 +215,7 @@ describe('connection changes on the API', () => {
     const client = newClient()
     client.setQueryData(['connections', 'org-acme'], { pages: [], pageParams: [] })
     const { result } = renderHook(() => useConnect('acme'), {
-      wrapper: wrapperFor('api', client),
+      wrapper: wrapperFor(client),
     })
     await act(() =>
       result.current.mutateAsync({
@@ -276,7 +235,7 @@ describe('connection changes on the API', () => {
         400,
       ),
     )
-    const { result } = renderHook(() => useConnect('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useConnect('acme'), { wrapper: wrapperFor() })
     await act(async () => {
       await result.current
         .mutateAsync({ name: 'A', accountId: 'a'.repeat(32), token: 't', projects: 'all' })
@@ -289,7 +248,7 @@ describe('connection changes on the API', () => {
 
   it('replaces only the token, edits names and projects, and removes', async () => {
     fetchMock.mockImplementation(async () => json(ROW))
-    const wrapper = wrapperFor('api')
+    const wrapper = wrapperFor()
     const replace = renderHook(() => useReplaceToken('acme'), { wrapper }).result
     const update = renderHook(() => useUpdateConnection('acme'), { wrapper }).result
     const remove = renderHook(() => useRemoveConnection('acme'), { wrapper }).result
@@ -317,7 +276,7 @@ describe('connection changes on the API', () => {
 describe('useOrgNodes', () => {
   it('reads the marketplace into cards, installed versions and updates included', async () => {
     fetchMock.mockResolvedValue(json({ nodes: [SLACK, STRIPE] }))
-    const { result } = renderHook(() => useOrgNodes('acme'), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useOrgNodes('acme'), { wrapper: wrapperFor() })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(calls()[0]?.slice(0, 2)).toEqual(['GET', '/api/marketplace?org=acme'])
     expect(result.current.data).toEqual([
@@ -349,7 +308,7 @@ describe('useOrgNodes', () => {
 
   it('installs, updates and uninstalls through the marketplace routes', async () => {
     fetchMock.mockImplementation(async () => json({ ok: true }))
-    const wrapper = wrapperFor('api')
+    const wrapper = wrapperFor()
     const install = renderHook(() => useInstallNode('acme'), { wrapper }).result
     const update = renderHook(() => useUpdateNode('acme'), { wrapper }).result
     const uninstall = renderHook(() => useUninstallNode('acme'), { wrapper }).result
@@ -374,7 +333,7 @@ describe('useProjectSetup', () => {
     }
     fetchMock.mockResolvedValue(json(setup))
     const { result } = renderHook(() => useProjectSetup('acme', 'project-101'), {
-      wrapper: wrapperFor('api'),
+      wrapper: wrapperFor(),
     })
     await waitFor(() => expect(result.current.data).toEqual(setup))
     expect(calls()[0]?.slice(0, 2)).toEqual(['GET', '/api/projects/p-101/setup?org=acme'])
@@ -382,7 +341,7 @@ describe('useProjectSetup', () => {
 
   it('waits for the project’s id', async () => {
     const { result } = renderHook(() => useProjectSetup('acme', 'unknown'), {
-      wrapper: wrapperFor('api'),
+      wrapper: wrapperFor(),
     })
     expect(result.current.fetchStatus).toBe('idle')
     expect(fetchMock).not.toHaveBeenCalled()

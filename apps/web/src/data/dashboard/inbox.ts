@@ -5,14 +5,10 @@ import { useEffect } from 'react'
 import { RELEASE_NOTES } from '../../content/releases'
 import { dashboardApi } from '../../lib/dashboard-api'
 import { releaseFeed } from '../../lib/release-feed'
-import { mockServer } from '../../mocks/dashboard/server'
 import type { InboxList, ReleaseFeed } from '../../types/dashboard/inbox'
-import { inboxCounts } from '../../components/inbox/inbox-filter'
 import { useDisabledFeatures } from '../../lib/feature-switches'
 import { inboxNotification } from './inbox-links'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 
 /** How often an open dashboard looks for new notifications (D-B8-9). */
 const INBOX_REFRESH_MS = 60_000
@@ -22,27 +18,20 @@ const INBOX_REFRESH_MS = 60_000
  * unread rows. On the API it refreshes every minute and on focus.
  */
 export function useNotifications(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const disabled = useDisabledFeatures()
   return useQuery({
-    queryKey: key(dashKeys.notifications(org)),
+    queryKey: dashKeys.notifications(org),
     queryFn: async (): Promise<InboxList> => {
-      if (source === 'api') {
-        const page = await dashboardApi.listNotifications(org)
-        return {
-          list: page.data.map((n) => inboxNotification(org, n, disabled)),
-          counts: page.counts,
-        }
+      const page = await dashboardApi.listNotifications(org)
+      return {
+        list: page.data.map((n) => inboxNotification(org, n, disabled)),
+        counts: page.counts,
       }
-      const list = await mockServer.inbox.listNotifications(ctx, org)
-      return { list, counts: inboxCounts(list) }
     },
-    ...(source === 'api' && {
+    ...{
       refetchInterval: INBOX_REFRESH_MS,
       refetchOnWindowFocus: true,
-    }),
+    },
   })
 }
 
@@ -51,47 +40,36 @@ export function useNotifications(org: string) {
  * fetched by the popover when it opens.
  */
 export function useNotificationCount(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return useQuery({
-    queryKey: key(dashKeys.notificationCount(org)),
+    queryKey: dashKeys.notificationCount(org),
     queryFn: async (): Promise<number> => {
-      if (source === 'api') return (await dashboardApi.getNotificationCount(org)).unread
-      const list = await mockServer.inbox.listNotifications(ctx, org)
-      return inboxCounts(list).unread
+      return (await dashboardApi.getNotificationCount(org)).unread
     },
-    ...(source === 'api' && {
+    ...{
       refetchInterval: INBOX_REFRESH_MS,
       refetchOnWindowFocus: true,
-    }),
+    },
   })
 }
 
 export function useMarkNotificationRead(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     // Following a notification's link marks it read; its dot going is the answer.
     meta: { toast: { success: null, error: 'Couldn’t mark the notification as read' } },
     mutationFn: async (id: string) => {
-      if (source === 'api') await dashboardApi.markNotificationRead(org, id)
-      else await mockServer.inbox.markNotificationRead(ctx, org, id)
+      await dashboardApi.markNotificationRead(org, id)
     },
     onSuccess: () => invalidateAll(client, [dashKeys.notifications(org)]),
   })
 }
 
 export function useMarkAllNotificationsRead(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'All marked as read', error: 'Couldn’t mark everything as read' } },
     mutationFn: async () => {
-      if (source === 'api') await dashboardApi.markAllNotificationsRead(org)
-      else await mockServer.inbox.markAllNotificationsRead(ctx, org)
+      await dashboardApi.markAllNotificationsRead(org)
     },
     onSuccess: () => invalidateAll(client, [dashKeys.notifications(org)]),
   })
@@ -102,8 +80,6 @@ export function useMarkAllNotificationsRead(org: string) {
  * and their "Asked …" change too.
  */
 export function useDecideEditRequest(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   return useMutation({
     meta: {
@@ -113,8 +89,7 @@ export function useDecideEditRequest(org: string) {
       }),
     },
     mutationFn: async ({ id, decision }: { id: string; decision: 'approve' | 'decline' }) => {
-      if (source === 'api') await dashboardApi.decideAccessRequest(id, decision)
-      else await mockServer.inbox.decideEditRequest(ctx, org, id, decision)
+      await dashboardApi.decideAccessRequest(id, decision)
     },
     onSuccess: () =>
       invalidateAll(client, [
@@ -134,14 +109,10 @@ export function useDecideEditRequest(org: string) {
  * ship with the app; on the API only the visit is fetched.
  */
 export function useReleases(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const disabled = useDisabledFeatures()
   return useQuery({
-    queryKey: key(dashKeys.releases(org)),
+    queryKey: dashKeys.releases(org),
     queryFn: async (): Promise<ReleaseFeed> => {
-      if (source === 'mock') return mockServer.inbox.listReleases(ctx, org)
       return releaseFeed(org, RELEASE_NOTES, await dashboardApi.getReleaseVisit(), disabled)
     },
     // The visit changes only when this person closes What's new (or another
@@ -152,25 +123,20 @@ export function useReleases(org: string) {
 }
 
 function useMarkReleasesSeen(org: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
-  const key = useDashKey()
   const disabled = useDisabledFeatures()
   return useMutation({
     // Recorded when What's new closes, not clicked (D-AT-2).
     meta: { toast: 'silent' },
     mutationFn: async (seen: string[]): Promise<ReleaseVisit | null> => {
-      if (source === 'api') return dashboardApi.recordReleaseVisit(seen)
-      await mockServer.inbox.markReleasesSeen(ctx, seen)
-      return null
+      return dashboardApi.recordReleaseVisit(seen)
     },
     // The write already answers the new visit: rebuild the feed in the cache
     // instead of fetching it back. The rail's dot clears in the same render.
     onSuccess: (visit) => {
-      if (source === 'api' && visit) {
+      if (visit) {
         client.setQueryData(
-          key(dashKeys.releases(org)),
+          dashKeys.releases(org),
           releaseFeed(org, RELEASE_NOTES, visit, disabled),
         )
         return

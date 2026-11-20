@@ -1,6 +1,5 @@
-import { createFileRoute, Navigate, Outlet, retainSearchParams } from '@tanstack/react-router'
+import { createFileRoute, Navigate, Outlet } from '@tanstack/react-router'
 import {
-  DASHBOARD_SEARCH_KEYS,
   DashboardProviders,
   validateDashboardSearch,
 } from '../../components/navigation/dashboard-providers'
@@ -16,17 +15,15 @@ import { OrgLessShell } from '../../components/navigation/orgless-shell'
 export const Route = createFileRoute('/_authed/_orgless')({
   ssr: false,
   validateSearch: validateDashboardSearch,
-  search: { middlewares: [retainSearchParams([...DASHBOARD_SEARCH_KEYS])] },
   component: OrgLessLayout,
 })
 
 function OrgLessLayout() {
-  const search = Route.useSearch()
   const org = useCurrentOrg()
   // With no organization at all there is no rail to borrow: /dashboard offers to make one.
   if (!org) return <Navigate to="/dashboard" replace />
   return (
-    <DashboardProviders search={search}>
+    <DashboardProviders>
       <TopBarSlotProvider>
         <CurrentOrgProvider value={org}>
           <OrgLessShell>

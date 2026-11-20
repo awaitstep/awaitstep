@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
-import { DataSourceProvider } from '../../../data/dashboard/source'
+import { createTestQueryClient, dashboardApiWrapper } from '../../../__tests__/fake-api'
 import type { Connection } from '../../../types/dashboard/org-settings'
 import { AddAccountDialog } from '../add-account-dialog'
 import { ConnectionCard, tokenStatus } from '../parts/connection-card'
@@ -87,7 +83,6 @@ describe('Add account on the API', () => {
   const fetchMock = vi.fn()
 
   beforeEach(() => {
-    resetDashboardData(NOW)
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -105,11 +100,9 @@ describe('Add account on the API', () => {
   }
 
   function openDialog() {
-    renderWithDashboardData(
-      <DataSourceProvider source="api">
-        <AddAccountDialog org={{ slug: 'acme', name: 'Acme' }} onClose={vi.fn()} />
-      </DataSourceProvider>,
-    )
+    render(<AddAccountDialog org={{ slug: 'acme', name: 'Acme' }} onClose={vi.fn()} />, {
+      wrapper: dashboardApiWrapper(createTestQueryClient()),
+    })
     return screen.findByRole('dialog', { name: 'Add account' })
   }
 

@@ -1,11 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
-import { DataSourceProvider } from '../../../data/dashboard/source'
+import { renderWithDashboardApi } from '../../../__tests__/fake-api'
 import { ProjectFileConflictError } from '../../../lib/api-client'
 import { LibraryPage } from '../library-page'
 import { salesSummary } from './fixtures/library-rows'
@@ -28,15 +24,12 @@ const project = { org: 'acme', project: 'project-101' }
 
 function renderPage(place: typeof sales | typeof project = sales) {
   const name = 'workspace' in place ? 'Sales' : 'Project 101'
-  return renderWithDashboardData(
-    <DataSourceProvider source="api">
-      <LibraryPage place={place} placeName={name} projectName="Project 101" />
-    </DataSourceProvider>,
+  return renderWithDashboardApi(
+    <LibraryPage place={place} placeName={name} projectName="Project 101" />,
   )
 }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   api.getSummary.mockResolvedValue(salesSummary())
 })
 

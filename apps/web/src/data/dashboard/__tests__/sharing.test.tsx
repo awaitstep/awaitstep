@@ -3,7 +3,6 @@ import { renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ApiSharedItem, ApiWorkflowRow } from '../../../lib/dashboard-api'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import type { ScopeSlugs } from '../../../types/dashboard/scope'
 import {
   useProjectShared,
@@ -13,8 +12,6 @@ import {
   useWorkspaceItems,
 } from '../items'
 import { dashKeys } from '../keys'
-import { MockScenarioProvider } from '../scenario-context'
-import { DataSourceProvider } from '../source'
 
 // The share hooks on the API (B6): each addresses what the page is on by the
 // id its scope already resolved, and the switch's state is the scope's.
@@ -33,7 +30,6 @@ function respond(body: unknown) {
 }
 
 beforeEach(() => {
-  resetMockDb()
   vi.stubGlobal('fetch', fetchMock)
   respond({ sharing: null })
 })
@@ -57,18 +53,10 @@ function setup(scopes: [ScopeSlugs, unknown][]) {
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
   for (const [slugs, resolved] of scopes) {
-    client.setQueryData([...dashKeys.scopeOf(slugs), 'api'], resolved)
+    client.setQueryData(dashKeys.scopeOf(slugs), resolved)
   }
   function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source="api">
-          <MockScenarioProvider scenario="empty" userId="user-real" real>
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
   return Wrapper
 }

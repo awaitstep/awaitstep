@@ -1,19 +1,12 @@
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-// The dummy data is reached only through the dashboard hooks, so each backend
-// slice swaps one hook and no page notices (W1 criterion 6).
-const MAY_IMPORT_MOCKS = [
-  'mocks/',
-  'data/dashboard/',
-  // The boundary tests quote mock paths as test input.
-  '__tests__/mock-boundary.test.ts',
-  'components/__tests__/import-boundary.test.ts',
-]
+// The app runs against the real API only: test fakes and fixtures live under
+// `__tests__/`, and nothing the app ships may import from there.
 
 const IMPORT_PATTERN = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g
 
@@ -25,35 +18,40 @@ function listSourceFiles(dir: string): string[] {
   })
 }
 
-/** Imports in `source` (a file at `file`) that land inside `src/mocks/`. */
-function mockImports(file: string, source: string): string[] {
+const isTestCode = (path: string) =>
+  path.split('/').includes('__tests__') || /\.(test|stories)\.tsx?$/.test(path)
+
+/** Relative imports in `source` (a file at `file`) that land in test code. */
+function testImports(file: string, source: string): string[] {
   return [...source.matchAll(IMPORT_PATTERN)]
     .map(([, spec]) => spec!)
     .filter((spec) => spec.startsWith('.'))
-    .filter((spec) => relative(SRC, resolve(dirname(file), spec)).startsWith('mocks'))
+    .filter((spec) => isTestCode(relative(SRC, resolve(dirname(file), spec))))
 }
 
-describe('mock import boundary', () => {
-  const files = listSourceFiles(SRC).filter(
-    (file) => !MAY_IMPORT_MOCKS.some((prefix) => relative(SRC, file).startsWith(prefix)),
-  )
+describe('no dummy data in the app', () => {
+  it('has no dummy backend folder', () => {
+    expect(existsSync(join(SRC, 'mocks'))).toBe(false)
+  })
 
-  it('nothing outside the dashboard hooks imports the dummy data', () => {
-    const offenders = files.flatMap((file) =>
-      mockImports(file, readFileSync(file, 'utf8')).map(
-        (spec) => `${relative(SRC, file)} → ${spec}`,
-      ),
-    )
+  it('imports no test fake or fixture from app code', () => {
+    const offenders = listSourceFiles(SRC)
+      .filter((file) => !isTestCode(relative(SRC, file)))
+      .flatMap((file) =>
+        testImports(file, readFileSync(file, 'utf8')).map(
+          (spec) => `${relative(SRC, file)} → ${spec}`,
+        ),
+      )
     expect(offenders).toEqual([])
   })
 
-  it('catches a page importing a mock directly', () => {
+  it('catches a page importing a test fixture', () => {
     const page = join(SRC, 'routes/example.tsx')
     expect(
-      mockImports(
+      testImports(
         page,
-        "import { mockServer } from '../mocks/dashboard/server'\nimport { x } from './y'",
+        "import { seedDb } from '../__tests__/fixtures/seed'\nimport { x } from './y'",
       ),
-    ).toEqual(['../mocks/dashboard/server'])
+    ).toEqual(['../__tests__/fixtures/seed'])
   })
 })

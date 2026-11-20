@@ -1,24 +1,20 @@
-import { useState, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import {
   BookOpen,
   Keyboard,
   LogOut,
   Moon,
-  RotateCcw,
   Shield,
   Sparkles,
   SquareTerminal,
   Sun,
   UserRound,
 } from 'lucide-react'
-import { useResetMockData } from '../../data/dashboard/reset'
 import { handleSignOut } from '../../lib/auth-client'
 import { accountPath } from '../../lib/dashboard-paths'
 import type { Theme } from '../../lib/theme'
-import { ConfirmDialog } from '../ui/confirm-dialog'
 import { AccountMenu, type AccountMenuItem } from '../shell/account-menu'
 import { useFeatureOn } from '../../lib/feature-switches'
-import { mockSourceAllowed } from './dashboard-providers'
 import { useEnabledExtensions } from '../../extensions/registry'
 import { withOverlay } from '../../lib/dashboard-paths'
 import { DOCS_URL, railExtensionEntries, railPrimaryEntries } from './nav-model'
@@ -35,8 +31,6 @@ interface DashboardAccountMenuProps {
   org: string
   theme: Theme
   onToggleTheme: () => void
-  /** "Reset dummy data" is a dev tool; production builds leave it out. */
-  showReset?: boolean
 }
 
 function accountItems(): AccountMenuItem[] {
@@ -97,7 +91,7 @@ function phoneItems(
   ]
 }
 
-/** The account avatar's menu in the dashboard, with its links, sign out and dev tools. */
+/** The account avatar's menu in the dashboard, with its links and sign out. */
 export function DashboardAccountMenu({
   trigger,
   user,
@@ -106,23 +100,10 @@ export function DashboardAccountMenu({
   org,
   theme,
   onToggleTheme,
-  showReset = mockSourceAllowed(import.meta.env.MODE),
 }: DashboardAccountMenuProps) {
-  const resetMockData = useResetMockData()
   const playground = useFeatureOn('playground')
   const docs = useFeatureOn('docs')
   const extensions = useEnabledExtensions()
-  const [confirmReset, setConfirmReset] = useState(false)
-
-  function handleAskReset() {
-    setConfirmReset(true)
-  }
-
-  function handleReset() {
-    setConfirmReset(false)
-    void resetMockData()
-  }
-
   function handleSignOutSelect() {
     void handleSignOut()
   }
@@ -137,11 +118,6 @@ export function DashboardAccountMenu({
     ].map(({ key, href, icon, label, external }) => ({ key, href, icon, label, external }))
     groups.push(phoneItems(here, theme, onToggleTheme, { playground, docs }, extensionLinks))
   }
-  if (showReset) {
-    groups.push([
-      { key: 'reset', label: 'Reset dummy data', icon: RotateCcw, onSelect: handleAskReset },
-    ])
-  }
   groups.push([
     {
       key: 'sign-out',
@@ -153,23 +129,12 @@ export function DashboardAccountMenu({
   ])
 
   return (
-    <>
-      <AccountMenu
-        trigger={trigger}
-        user={user}
-        groups={groups}
-        side={placement === 'rail' ? 'right' : 'bottom'}
-        align="end"
-      />
-      <ConfirmDialog
-        open={confirmReset}
-        onOpenChange={setConfirmReset}
-        title="Reset dummy data?"
-        description="Resets the sample data to its original state. Your real account isn’t affected."
-        confirmLabel="Reset"
-        variant="destructive"
-        onConfirm={handleReset}
-      />
-    </>
+    <AccountMenu
+      trigger={trigger}
+      user={user}
+      groups={groups}
+      side={placement === 'rail' ? 'right' : 'bottom'}
+      align="end"
+    />
   )
 }

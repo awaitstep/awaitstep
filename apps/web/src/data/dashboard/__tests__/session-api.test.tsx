@@ -3,12 +3,9 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { orgOpenedAt, rememberOrg } from '../../../components/navigation/scope-memory'
-import { resetMockDb } from '../../../mocks/dashboard/db'
 import { useOrgStore } from '../../../stores/org-store'
 import { errorFieldOf } from '../errors'
-import { MockScenarioProvider } from '../scenario-context'
 import { useCreateOrg, useOrgs } from '../session'
-import { DataSourceProvider, type DataSource } from '../source'
 
 // /dashboard's reads and its one write: the org list with this browser's
 // "opened" times, and Create an organization through better-auth.
@@ -44,7 +41,6 @@ const ACME_ROW = {
 }
 
 beforeEach(() => {
-  resetMockDb()
   localStorage.clear()
   vi.stubGlobal('fetch', fetchMock)
   auth.organization.create.mockReset()
@@ -56,18 +52,10 @@ afterEach(() => {
   fetchMock.mockReset()
 })
 
-function wrapperFor(source: DataSource) {
+function wrapperFor() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return function Wrapper({ children }: { children: ReactNode }) {
-    return (
-      <QueryClientProvider client={client}>
-        <DataSourceProvider source={source}>
-          <MockScenarioProvider scenario="none" userId="usr_daniel">
-            {children}
-          </MockScenarioProvider>
-        </DataSourceProvider>
-      </QueryClientProvider>
-    )
+    return <QueryClientProvider client={client}>{children}</QueryClientProvider>
   }
 }
 
@@ -77,7 +65,7 @@ describe('useOrgs on the API', () => {
     fetchMock.mockResolvedValueOnce(
       json({ data: [ACME_ROW, { ...ACME_ROW, id: 'org-g', slug: 'globex', name: 'Globex' }] }),
     )
-    const { result } = renderHook(() => useOrgs(), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useOrgs(), { wrapper: wrapperFor() })
     await waitFor(() => expect(result.current.data).toBeDefined())
     expect(result.current.data).toMatchObject([
       {
@@ -99,7 +87,7 @@ describe('useCreateOrg', () => {
       error: null,
     })
     fetchMock.mockResolvedValue(json({ data: [] }))
-    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor() })
     let created: { slug: string } | undefined
     await act(async () => {
       created = await result.current.mutateAsync('  Globex Labs ')
@@ -125,7 +113,7 @@ describe('useCreateOrg', () => {
       error: null,
     })
     fetchMock.mockResolvedValue(json({ data: [] }))
-    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor() })
     await act(async () => {
       await result.current.mutateAsync('Globex Labs')
     })
@@ -137,7 +125,7 @@ describe('useCreateOrg', () => {
       data: null,
       error: { message: 'Organization slug already exists', status: 400 },
     })
-    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor('api') })
+    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor() })
     await act(async () => {
       await result.current.mutateAsync('Acme').catch(() => undefined)
     })
@@ -145,18 +133,5 @@ describe('useCreateOrg', () => {
     expect(result.current.error?.message).toBe('Organization slug already exists')
     expect(errorFieldOf(result.current.error)).toBe('name')
     expect(useOrgStore.getState().organizations).toEqual([])
-  })
-
-  it('creates in the dummy session with you as owner, refusing a reserved name', async () => {
-    const { result } = renderHook(() => useCreateOrg(), { wrapper: wrapperFor('mock') })
-    let created: { slug: string } | undefined
-    await act(async () => {
-      created = await result.current.mutateAsync('Globex Labs')
-    })
-    expect(created).toMatchObject({ slug: 'globex-labs' })
-    await act(async () => {
-      await result.current.mutateAsync('Dashboard').catch(() => undefined)
-    })
-    await waitFor(() => expect(result.current.error).not.toBeNull())
   })
 })

@@ -1,7 +1,6 @@
-import { createFileRoute, retainSearchParams } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { DashboardPage } from '../../components/orgs/dashboard-page'
 import {
-  DASHBOARD_SEARCH_KEYS,
   DashboardProviders,
   validateDashboardSearch,
 } from '../../components/navigation/dashboard-providers'
@@ -11,8 +10,6 @@ import {
 export const Route = createFileRoute('/_authed/dashboard')({
   ssr: false,
   validateSearch: validateDashboardSearch,
-  // Keeps the dummy session (?as=, ?mock=) between /dashboard and invites, as $org does.
-  search: { middlewares: [retainSearchParams([...DASHBOARD_SEARCH_KEYS])] },
   head: () => ({ meta: [{ title: 'Your organizations · AwaitStep' }] }),
   component: DashboardRoute,
 })
@@ -26,7 +23,7 @@ function DashboardRoute() {
   }
 
   return (
-    <DashboardProviders search={search}>
+    <DashboardProviders>
       <DashboardPage dialog={search.new} onCloseDialog={handleCloseDialog} />
     </DashboardProviders>
   )

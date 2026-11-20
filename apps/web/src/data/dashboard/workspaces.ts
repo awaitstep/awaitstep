@@ -3,7 +3,6 @@ import { slugify } from '@awaitstep/ir'
 import { availableSlug } from '../../lib/available-slug'
 import { ApiError } from '../../lib/api-client'
 import { dashboardApi } from '../../lib/dashboard-api'
-import { mockServer } from '../../mocks/dashboard/server'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type {
   NewWorkspaceInput,
@@ -14,10 +13,8 @@ import type {
 } from '../../types/dashboard/workspaces'
 import { toWorkspacePerson } from './api/access'
 import { toScopeLookup, toWorkspace, workspaceFromRow } from './api/records'
-import { toWorkspaceRun } from './api/runs'
+import { toWorkspaceOverview } from './api/workspace-overview'
 import { dashKeys, invalidateAll } from './keys'
-import { useMockContext } from './scenario-context'
-import { useDashKey, useDataSource } from './source'
 
 /**
  * What the URL's slugs name, with the viewer's role and `viewerCan` at each
@@ -30,23 +27,13 @@ import { useDashKey, useDataSource } from './source'
  */
 export function apiScopeQuery(slugs: ScopeSlugs) {
   return {
-    queryKey: [...dashKeys.scopeOf(slugs), 'api'] as const,
+    queryKey: dashKeys.scopeOf(slugs),
     queryFn: () => dashboardApi.getScope(slugs).then(toScopeLookup),
   }
 }
 
 export function useScope(slugs: ScopeSlugs) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
-  return useQuery(
-    source === 'api'
-      ? apiScopeQuery(slugs)
-      : {
-          queryKey: key(dashKeys.scopeOf(slugs)),
-          queryFn: () => mockServer.workspaces.getScope(ctx, slugs),
-        },
-  )
+  return useQuery(apiScopeQuery(slugs))
 }
 
 /** Everyone who can open the workspace, with their effective role there. */
@@ -54,20 +41,13 @@ export function useWorkspacePeople(
   slugs: Required<ScopeSlugs>,
   { enabled = true }: { enabled?: boolean } = {},
 ) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const workspaceId = useWorkspaceId(slugs)
   return useQuery({
-    queryKey: key(dashKeys.workspacePeople(slugs)),
+    queryKey: dashKeys.workspacePeople(slugs),
     queryFn: (): Promise<WorkspacePerson[]> =>
-      source === 'api'
-        ? dashboardApi
-            .listWorkspacePeople(workspaceId!)
-            .then((res) => res.data.map(toWorkspacePerson))
-        : mockServer.workspaces.listWorkspacePeople(ctx, slugs),
+      dashboardApi.listWorkspacePeople(workspaceId!).then((res) => res.data.map(toWorkspacePerson)),
     // On the API people are read by the workspace's id, which the scope read gives.
-    enabled: enabled && (source !== 'api' || workspaceId !== null),
+    enabled: enabled && workspaceId !== null,
   })
 }
 
@@ -76,29 +56,14 @@ export function useWorkspaceSettingsCounts(
   slugs: Required<ScopeSlugs>,
   { enabled = true }: { enabled?: boolean } = {},
 ) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const workspaceId = useWorkspaceId(slugs)
   return useQuery({
-    queryKey: key(dashKeys.workspaceSettingsCounts(slugs)),
+    queryKey: dashKeys.workspaceSettingsCounts(slugs),
     queryFn: async (): Promise<{ members: number; keys: number; variables: number }> => {
-      if (source === 'api') {
-        if (!workspaceId) throw new Error('The workspace has not loaded yet')
-        return dashboardApi.getWorkspaceSettingsCounts(workspaceId)
-      }
-      const [people, keys, variables] = await Promise.all([
-        mockServer.workspaces.listWorkspacePeople(ctx, slugs),
-        mockServer.keys.listWorkspaceKeys(ctx, slugs),
-        mockServer.variables.listWorkspaceVariables(ctx, slugs),
-      ])
-      return {
-        members: people.length,
-        keys: keys.own.length + keys.reaching.length,
-        variables: variables.length,
-      }
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      return dashboardApi.getWorkspaceSettingsCounts(workspaceId)
     },
-    enabled: enabled && (source !== 'api' || workspaceId !== null),
+    enabled: enabled && workspaceId !== null,
   })
 }
 
@@ -110,120 +75,15 @@ export function useWorkspaceOverview(
   slugs: Required<ScopeSlugs>,
   { enabled = true }: { enabled?: boolean } = {},
 ) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   const workspaceId = useWorkspaceId(slugs)
   return useQuery({
-    queryKey: key(dashKeys.workspaceOverview(slugs)),
+    queryKey: dashKeys.workspaceOverview(slugs),
     queryFn: async (): Promise<WorkspaceOverviewData> => {
-      if (source === 'api') {
-        if (!workspaceId) throw new Error('The workspace has not loaded yet')
-        const overview = await dashboardApi.getWorkspaceOverview(workspaceId)
-        return {
-          counts: overview.counts,
-          needsAttention: overview.needsAttention.map((entry) => ({
-            item: entry.item,
-            run: entry.run
-              ? toWorkspaceRun(
-                  {
-                    id: entry.run.id,
-                    workflowId: entry.run.workflowId,
-                    versionId: null,
-                    versionNumber: null,
-                    connectionId: null,
-                    instanceId: '',
-                    status: entry.run.status,
-                    output: null,
-                    error: entry.run.error,
-                    createdAt: entry.run.createdAt,
-                    updatedAt: entry.run.createdAt,
-                  },
-                  entry.item,
-                )
-              : null,
-            failures: entry.failures,
-            total: entry.total,
-          })),
-          recent: overview.recent.map((run) =>
-            toWorkspaceRun(
-              {
-                id: run.id,
-                workflowId: run.workflowId,
-                versionId: null,
-                versionNumber: null,
-                connectionId: null,
-                instanceId: '',
-                status: run.status,
-                output: null,
-                error: null,
-                createdAt: run.createdAt,
-                updatedAt: run.createdAt,
-              },
-              { name: run.workflowName, kind: run.kind },
-            ),
-          ),
-          shared: {
-            out: overview.shared.out,
-            in: overview.shared.in.map((item) => ({
-              id: item.id,
-              name: item.name,
-              kind: item.kind,
-              version: null,
-              from: { ...item.from },
-              usedBy: [],
-              canOpen: false,
-              unshare: { allowed: false },
-              sharedAt: '',
-              sharedBy: { id: '', name: '' },
-            })),
-          },
-        }
-      }
-      const workspace = (
-        await mockServer.workspaces.listWorkspaces(ctx, slugs.org, slugs.project)
-      ).find((row) => row.slug === slugs.workspace)
-      if (!workspace) throw new Error('The workspace has not loaded yet')
-      const [workflows, functions, page, sharedIn] = await Promise.all([
-        mockServer.items.listItems(ctx, slugs, 'workflow'),
-        mockServer.items.listItems(ctx, slugs, 'script'),
-        mockServer.runs.listRuns(ctx, slugs, { period: '24h', limit: 50 }),
-        mockServer.items.listSharedWith(ctx, slugs),
-      ])
-      const items = [...workflows, ...functions]
-      const failed = page.data.filter((run) => run.result === 'failed')
-      const recent: WorkspaceOverviewData['recent'] = []
-      const seen = new Set<string>()
-      for (const run of page.data) {
-        if (run.result === 'running' || seen.has(run.workflowId)) continue
-        seen.add(run.workflowId)
-        recent.push(run)
-        if (recent.length === 4) break
-      }
-      return {
-        // Counted off the lists read above, so a scenario that empties them empties these too.
-        counts: {
-          ...workspace.counts,
-          workflows: workflows.length,
-          functions: functions.length,
-          runs24h: page.data.length === 0 ? 0 : workspace.counts.runs24h,
-        },
-        needsAttention: items
-          .filter((item) => item.lastRun?.result === 'failed')
-          .map((item) => ({
-            item: { id: item.id, name: item.name, kind: item.kind },
-            run: failed.find((run) => run.workflowId === item.id) ?? null,
-            failures: item.recentRuns.filter((result) => result === 'failed').length,
-            total: item.recentRuns.length,
-          })),
-        recent,
-        shared: {
-          out: items.filter((item) => item.sharing).map(({ id, name }) => ({ id, name })),
-          in: sharedIn,
-        },
-      }
+      if (!workspaceId) throw new Error('The workspace has not loaded yet')
+      const overview = await dashboardApi.getWorkspaceOverview(workspaceId)
+      return toWorkspaceOverview(overview)
     },
-    enabled: enabled && (source !== 'api' || workspaceId !== null),
+    enabled: enabled && workspaceId !== null,
   })
 }
 
@@ -238,15 +98,10 @@ export function useWorkspaces(
 
 /** The list's key and fetcher, for the hooks that read it from the cache before a write. */
 function useWorkspacesQuery(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
-  const key = useDashKey()
   return {
-    queryKey: key(dashKeys.workspaces(org, project)),
+    queryKey: dashKeys.workspaces(org, project),
     queryFn: (): Promise<Workspace[]> =>
-      source === 'api'
-        ? dashboardApi.listWorkspaces({ org, project }).then((res) => res.data.map(toWorkspace))
-        : mockServer.workspaces.listWorkspaces(ctx, org, project),
+      dashboardApi.listWorkspaces({ org, project }).then((res) => res.data.map(toWorkspace)),
   }
 }
 
@@ -281,14 +136,11 @@ const workspaceKeys = (org: string, project: string) => [
  * does. "Who can get in → choose people" is written with it, as one unit.
  */
 export function useCreateWorkspace(org: string, project: string) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const siblings = useWorkspacesQuery(org, project)
   return useMutation({
     meta: { toast: { success: 'Workspace created', error: 'Couldn’t create the workspace' } },
     mutationFn: async (input: NewWorkspaceInput): Promise<Workspace> => {
-      if (source !== 'api') return mockServer.workspaces.createWorkspace(ctx, org, project, input)
       const name = input.name.trim()
       const base = slugify(name)
       if (!base) {
@@ -315,14 +167,11 @@ export function useCreateWorkspace(org: string, project: string) {
 }
 
 export function useUpdateWorkspace(slugs: Required<ScopeSlugs>) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
     meta: { toast: { success: 'Workspace saved', error: 'Couldn’t save the workspace' } },
     mutationFn: async (update: WorkspaceUpdate): Promise<Workspace> => {
-      if (source !== 'api') return mockServer.workspaces.updateWorkspace(ctx, slugs, update)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')
       const row = await dashboardApi.updateWorkspace(workspaceId, update)
       return workspaceFromRow(row)
@@ -337,14 +186,11 @@ export function useUpdateWorkspace(slugs: Required<ScopeSlugs>) {
 }
 
 export function useDeleteWorkspace(slugs: Required<ScopeSlugs>) {
-  const source = useDataSource()
-  const ctx = useMockContext()
   const client = useQueryClient()
   const workspaceId = useWorkspaceId(slugs)
   return useMutation({
     meta: { toast: { success: 'Workspace deleted', error: 'Couldn’t delete the workspace' } },
     mutationFn: async (): Promise<void> => {
-      if (source !== 'api') return mockServer.workspaces.deleteWorkspace(ctx, slugs)
       if (!workspaceId) throw new Error('The workspace has not loaded yet')
       await dashboardApi.deleteWorkspace(workspaceId)
     },

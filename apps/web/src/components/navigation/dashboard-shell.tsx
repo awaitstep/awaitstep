@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { useLocation, useMatches, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useNotificationCount, useReleases } from '../../data/dashboard/inbox'
 import { useViewer } from '../../data/dashboard/session'
-import { useDataSource } from '../../data/dashboard/source'
 import { useScope } from '../../data/dashboard/workspaces'
 import { dashboardPath, orgPath, projectPath, withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
@@ -75,7 +74,6 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const notifications = useNotificationCount(slugs.org)
   const releases = useReleases(slugs.org)
-  const source = useDataSource()
   const disabled = useDisabledFeatures()
   const extensions = useEnabledExtensions()
 
@@ -105,7 +103,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   // The editor fills the screen itself once its scope is found; sample items
   // get the framed placeholder instead.
-  if (found && declaredPage?.kind === 'editor' && source === 'api') return children
+  if (found && declaredPage?.kind === 'editor') return children
 
   let content: ReactNode
   if (scope.isPending) content = <ScopeLoading />

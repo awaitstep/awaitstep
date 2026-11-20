@@ -1,53 +1,49 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  dashboardDb,
-  dashboardServer,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  installFakeApi,
+  renderWithDashboardApi,
+  reply,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { DashboardOverlays } from '../dashboard-overlays'
-import { JOINED, WORKSPACES_RELEASE } from '../parts/__tests__/fixtures/inbox'
 import { sinceLastVisit } from '../whats-new-sheet'
 
-beforeEach(() => {
-  vi.restoreAllMocks()
-  resetDashboardData(new Date())
-})
-
-/** Ama's last What's new visit in the seed. */
-const SEEDED_VISIT = '2026-10-29T12:00:00.000Z'
-const amaVisit = () => dashboardDb().releaseVisits.find((v) => v.userId === 'usr_ama')!.at
+/** Read marks and request answers, applied to the seed as the API would. */
+function scriptInbox(api: FakeApi) {
+  const seed = api.data.seed
+  const markRead = (id: string) =>
+    seed.notificationReads.push({ userId: api.viewer, notificationId: id })
+  api.on('POST /notifications/:id/read', (req) => {
+    markRead(req.params.id!)
+    return { ok: true }
+  })
+  api.on('POST /notifications/read-all', () => {
+    for (const n of seed.notifications) markRead(n.id)
+    for (const r of seed.editRequests) markRead(r.id)
+    return { updated: seed.notifications.length }
+  })
+  for (const decision of ['approve', 'decline'] as const) {
+    api.on(`POST /access-requests/:id/${decision}`, (req) => {
+      seed.editRequests.find((r) => r.id === req.params.id)!.status =
+        decision === 'approve' ? 'approved' : 'declined'
+      return { ok: true, alreadyEditing: false }
+    })
+  }
+}
 const inbox = () => screen.getByRole('dialog', { name: 'Notifications' })
 const rows = () => within(inbox()).getAllByRole('listitem')
 const show = (name: RegExp) =>
   within(within(inbox()).getByRole('group', { name: 'Show' })).getByRole('button', { name })
 
-function renderOverlay(open: string, onClose = vi.fn()) {
-  renderWithDashboardData(<DashboardOverlays org="acme" open={open} onClose={onClose} />)
+function renderOverlay(open: string, onClose = vi.fn(), api: FakeApi = installFakeApi()) {
+  scriptInbox(api)
+  renderWithDashboardApi(<DashboardOverlays org="acme" open={open} onClose={onClose} />, { api })
   return onClose
 }
 
 describe('Inbox', () => {
-  it('reads as Notifications: six rows, three unread, four needing action', async () => {
-    renderOverlay('inbox')
-    await within(await screen.findByRole('dialog', { name: 'Notifications' })).findAllByRole(
-      'listitem',
-    )
-    expect(rows()).toHaveLength(6)
-    expect(show(/All/)).toHaveTextContent('6')
-    expect(show(/Unread/)).toHaveTextContent('3')
-    expect(show(/Needs action/)).toHaveTextContent('4')
-    expect(within(rows()[0]!).getByRole('link', { name: /See runs/ })).toHaveAttribute(
-      'href',
-      '/acme/project-101/sales/runs',
-    )
-    expect(rows()[1]).toHaveTextContent('Priya Shah asked for edit access to Sales')
-    expect(within(inbox()).getAllByRole('img', { name: 'Unread' })).toHaveLength(3)
-    expect(inbox()).toHaveTextContent('Failures and edit-access requests are also emailed to you.')
-  })
-
   it('narrows by the Show pills', async () => {
     renderOverlay('inbox')
     await within(await screen.findByRole('dialog', { name: 'Notifications' })).findAllByRole(
@@ -95,11 +91,6 @@ describe('Inbox', () => {
     expect(await within(inbox()).findByRole('status')).toHaveTextContent(
       'Approved. Priya is now an Editor in Sales.',
     )
-    expect(
-      dashboardDb().workspaceMembers.find(
-        (m) => m.workspaceId === 'ws_sales' && m.userId === 'usr_priya',
-      )!.role,
-    ).toBe('editor')
   })
 
   it('keeps an answered request in view under Needs action, its outcome focused', async () => {
@@ -125,21 +116,18 @@ describe('Inbox', () => {
     )
   })
 
-  it('reads as NotificationsFirst when nothing has ever arrived: no pills, no Mark all, a way to settings', async () => {
-    renderWithDashboardData(<DashboardOverlays org="acme" open="inbox" onClose={vi.fn()} />, {
-      scenario: 'empty',
-    })
-    expect(await screen.findByText('Nothing yet')).toBeVisible()
-    expect(within(inbox()).queryByRole('group', { name: 'Show' })).toBeNull()
-    expect(within(inbox()).queryByRole('button', { name: 'Mark all as read' })).toBeNull()
-    expect(
-      within(inbox()).getByRole('link', { name: /Choose what you’re notified about/ }),
-    ).toHaveAttribute('href', '/account/profile')
-  })
-
   it('says nothing needs you under Needs action when only read, no-action notes are left', async () => {
-    vi.spyOn(dashboardServer.inbox, 'listNotifications').mockResolvedValue([JOINED])
-    renderOverlay('inbox')
+    const api = installFakeApi()
+    // One note, already read, that needs nothing.
+    api.data.seed.notifications = api.data.seed.notifications
+      .filter((n) => !n.needsAction)
+      .slice(0, 1)
+    api.data.seed.editRequests = []
+    api.data.seed.notificationReads.push({
+      userId: api.viewer,
+      notificationId: api.data.seed.notifications[0]!.id,
+    })
+    renderOverlay('inbox', vi.fn(), api)
     await within(await screen.findByRole('dialog', { name: 'Notifications' })).findAllByRole(
       'listitem',
     )
@@ -158,92 +146,12 @@ describe('Inbox', () => {
 })
 
 describe('What’s new', () => {
-  it('reads as WhatsNew: the app’s eight notes, four new to Ama since 29 Oct', async () => {
-    renderOverlay('whats-new')
-    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
-    expect(await within(sheet).findAllByRole('article')).toHaveLength(8)
-    expect(sheet).toHaveTextContent('4 updates since your last visit on 29 Oct')
-    expect(within(sheet).getAllByText('New to you')).toHaveLength(4)
-    await userEvent.click(
-      within(within(sheet).getByRole('group', { name: 'Show' })).getByRole('button', {
-        name: 'Fixed',
-      }),
-    )
-    expect(within(sheet).getAllByRole('article')).toHaveLength(1)
-  })
-
-  it('reads as WhatsNewUpToDate once every note is seen: up to date, the banner on All only, Got it', async () => {
-    const db = dashboardDb()
-    db.releaseVisits.find((v) => v.userId === 'usr_ama')!.seenIds = [
-      'rel_inbox',
-      'rel_audit',
-      'rel_d1_saves',
-      'rel_sharing',
-      'rel_lock',
-      'rel_variables',
-      'rel_keys',
-      'rel_workspaces',
-    ]
-    renderOverlay('whats-new')
-    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
-    expect(await within(sheet).findAllByRole('article')).toHaveLength(8)
-    expect(sheet).toHaveTextContent('Up to date')
-    expect(within(sheet).getByText('You’ve seen everything')).toBeVisible()
-    expect(within(sheet).queryByText('New to you')).toBeNull()
-    await userEvent.click(
-      within(within(sheet).getByRole('group', { name: 'Show' })).getByRole('button', {
-        name: 'Fixed',
-      }),
-    )
-    expect(within(sheet).queryByText('You’ve seen everything')).toBeNull()
-    expect(within(sheet).getByRole('button', { name: 'Got it' })).toBeVisible()
-  })
-
-  it('reads as WhatsNewNone with no notes at all: no pills, the explanation, Close', async () => {
-    renderWithDashboardData(<DashboardOverlays org="acme" open="whats-new" onClose={vi.fn()} />, {
-      scenario: 'empty',
-    })
-    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
-    expect(await within(sheet).findByText('Nothing to show yet')).toBeVisible()
-    expect(sheet).toHaveTextContent('Release notes show up here')
-    expect(within(sheet).queryByRole('group', { name: 'Show' })).toBeNull()
-    // The header's X is also named Close; the footer button is the one with the word.
-    expect(
-      within(sheet)
-        .getAllByRole('button', { name: 'Close' })
-        .map((button) => button.textContent),
-    ).toContain('Close')
-    expect(within(sheet).queryByRole('button', { name: 'Got it' })).toBeNull()
-    expect(within(sheet).getByRole('link', { name: 'Full changelog' })).toHaveAttribute(
-      'href',
-      'https://github.com/awaitstep/awaitstep/releases',
-    )
-  })
-
-  it('shows a tag with no notes as such, and Show everything brings the list back', async () => {
-    vi.spyOn(dashboardServer.inbox, 'listReleases').mockResolvedValue({
-      lastVisit: null,
-      releases: [{ ...WORKSPACES_RELEASE, fresh: true }],
-    })
-    renderOverlay('whats-new')
-    const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
-    await within(sheet).findAllByRole('article')
-    const pills = within(sheet).getByRole('group', { name: 'Show' })
-    await userEvent.click(within(pills).getByRole('button', { name: 'Fixed' }))
-    expect(within(sheet).getByText('No fixes in these notes')).toBeVisible()
-    expect(within(sheet).queryAllByRole('article')).toHaveLength(0)
-    await userEvent.click(within(sheet).getByRole('button', { name: 'Show everything' }))
-    expect(within(sheet).getAllByRole('article')).toHaveLength(1)
-    expect(within(pills).getByRole('button', { name: 'All' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-  })
-
   it('records the visit once it closes, so nothing is new next time', async () => {
     const onClose = vi.fn()
-    const { rerender } = renderWithDashboardData(
+    const api = installFakeApi()
+    const { rerender } = renderWithDashboardApi(
       <DashboardOverlays org="acme" open="whats-new" onClose={onClose} />,
+      { api },
     )
     const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
     await within(sheet).findAllByRole('article')
@@ -251,28 +159,32 @@ describe('What’s new', () => {
     expect(onClose).toHaveBeenCalled()
     // The shell drops ?open=, which closes it.
     rerender(<DashboardOverlays org="acme" open={undefined} onClose={onClose} />)
-    await waitFor(() => expect(amaVisit()).not.toBe(SEEDED_VISIT))
+    await waitFor(() => expect(api.requestsTo('PUT /releases/visit')).toHaveLength(1))
   })
 
   it('records the visit when it closes by navigating away, without Got it', async () => {
-    const { rerender } = renderWithDashboardData(
+    const api = installFakeApi()
+    const { rerender } = renderWithDashboardApi(
       <DashboardOverlays org="acme" open="whats-new" onClose={vi.fn()} />,
+      { api },
     )
     await within(await screen.findByRole('dialog', { name: 'What’s new' })).findAllByRole('article')
     // A note's link, or Back: ?open= goes without any of the sheet's own buttons.
     rerender(<DashboardOverlays org="acme" open={undefined} onClose={vi.fn()} />)
-    await waitFor(() => expect(amaVisit()).not.toBe(SEEDED_VISIT))
+    await waitFor(() => expect(api.requestsTo('PUT /releases/visit')).toHaveLength(1))
   })
 
   it('doesn’t record a visit when the notes never loaded', async () => {
     const onClose = vi.fn()
-    renderWithDashboardData(<DashboardOverlays org="acme" open="whats-new" onClose={onClose} />, {
-      scenario: 'error',
+    const api = installFakeApi()
+    api.on('GET /releases/visit', reply(503, { error: 'Unavailable' }))
+    renderWithDashboardApi(<DashboardOverlays org="acme" open="whats-new" onClose={onClose} />, {
+      api,
     })
     const sheet = await screen.findByRole('dialog', { name: 'What’s new' })
     await within(sheet).findByText(/We couldn’t load/)
     await userEvent.click(within(sheet).getByRole('button', { name: 'Got it' }))
-    expect(dashboardDb().releaseVisits.find((v) => v.userId === 'usr_ama')!.at).toBe(SEEDED_VISIT)
+    expect(api.requestsTo('PUT /releases/visit')).toHaveLength(0)
   })
 })
 

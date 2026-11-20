@@ -22,7 +22,6 @@ const FORBIDDEN_PACKAGES = ['@tanstack/react-router', '@tanstack/react-query']
 const FORBIDDEN_SRC_PREFIXES = [
   'stores/',
   'data/',
-  'mocks/',
   'wrappers/',
   'contexts/',
   'lib/api-client',
@@ -134,7 +133,7 @@ describe('kit import boundary', () => {
         "import { useQuery } from '@tanstack/react-query'",
         "import { useAuthStore } from '../../stores/auth-store'",
         "import { apiClient } from '../../lib/api-client'",
-        "const lazy = import('../../mocks/dashboard/projects')",
+        "const lazy = import('../../stores/org-store')",
         "import { cn } from '../../lib/utils'",
       ].join('\n'),
       [join(SRC, 'lib/utils.ts')]: "import { clsx } from 'clsx'",
@@ -144,7 +143,7 @@ describe('kit import boundary', () => {
       'components/shell/example.tsx → @tanstack/react-query',
       'components/shell/example.tsx → ../../stores/auth-store',
       'components/shell/example.tsx → ../../lib/api-client',
-      'components/shell/example.tsx → ../../mocks/dashboard/projects',
+      'components/shell/example.tsx → ../../stores/org-store',
     ])
   })
 

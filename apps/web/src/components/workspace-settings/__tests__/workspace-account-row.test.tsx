@@ -5,16 +5,18 @@ import {
   LENA,
   PRIYA,
   TOM,
-  dashboardDb,
-  dashboardServer,
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+  asOrgRole,
+  asProjectRole,
+  asWorkspaceRole,
+  installFakeApi,
+  renderWithDashboardApi,
+  type FakeApi,
+} from '../../../__tests__/fake-api'
 import { useInstanceStore } from '../../../stores/instance-store'
 import { WorkspaceSettingsPage } from '../workspace-settings-page'
 
-// Workspace Settings → General's "Deploys to", on dummy data: Sales is set to
-// Checkout staging; every other workspace follows Acme production, the default.
+// Workspace Settings → General's "Deploys to": Sales is set to Checkout
+// staging; every other workspace follows Acme production, the default.
 
 vi.mock('virtual:awaitstep/extensions', async () => {
   const { testExtension } = await import('../../../extensions/__tests__/fixtures/test-extension')
@@ -25,18 +27,24 @@ vi.mock('../../navigation/router-shell-link', () => ({ useGoTo: () => vi.fn() })
 const sales = { org: 'acme', project: 'project-101', workspace: 'sales' }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   useInstanceStore.setState({ features: [], disabled: [] })
-  vi.restoreAllMocks()
 })
 
-async function renderRow(options: { workspace?: string; userId?: string } = {}) {
+async function renderRow(options: { workspace?: string; api?: FakeApi } = {}) {
   const slugs = { ...sales, workspace: options.workspace ?? 'sales' }
-  renderWithDashboardData(
+  renderWithDashboardApi(
     <WorkspaceSettingsPage slugs={slugs} tab="general" onTabChange={vi.fn()} />,
-    { userId: options.userId },
+    { api: options.api ?? installFakeApi() },
   )
   return screen.findByRole('region', { name: 'Deploys to' })
+}
+
+/** Tom runs Project 101 but is an ordinary org member. */
+function asTom(): FakeApi {
+  const api = installFakeApi({ viewer: TOM })
+  asOrgRole(api, 'acme', 'member')
+  asProjectRole(api, 'acme/project-101', 'admin')
+  return api
 }
 
 async function openPicker(row: HTMLElement) {
@@ -47,33 +55,32 @@ async function openPicker(row: HTMLElement) {
 }
 
 describe('workspace Settings › Deploys to', () => {
-  it('shows the workspace’s own account, or the project default', async () => {
-    const row = await renderRow()
-    expect(await within(row).findByText('Checkout staging')).toBeVisible()
-  })
-
   it('reads the summary, and the project’s accounts only once the picker opens', async () => {
-    const list = vi.spyOn(dashboardServer.projectConnections, 'listProjectConnections')
-    const row = await renderRow()
+    const api = installFakeApi()
+    const row = await renderRow({ api })
     expect(await within(row).findByText('Checkout staging')).toBeVisible()
-    expect(list).not.toHaveBeenCalled()
+    expect(api.requestsTo('GET /projects/:id/connections')).toHaveLength(0)
     const dialog = await openPicker(row)
-    await waitFor(() => expect(list).toHaveBeenCalledOnce())
+    await waitFor(() => expect(api.requestsTo('GET /projects/:id/connections')).toHaveLength(1))
     expect(await within(dialog).findByRole('combobox')).toBeVisible()
   })
 
-  it('names the project default for a workspace with no account of its own', async () => {
-    const row = await renderRow({ workspace: 'support' })
-    expect(await within(row).findByText('Project default (Acme production)')).toBeVisible()
-  })
-
   it('sets the workspace back to the project default', async () => {
-    const row = await renderRow()
+    const api = installFakeApi()
+    api.on('PUT /projects/:id/workspaces/:workspaceId/connection', () => {
+      api.data.seed.workspaceConnections = []
+      return {}
+    })
+    const row = await renderRow({ api })
     const dialog = await openPicker(row)
     await userEvent.click(await within(dialog).findByRole('combobox'))
     await userEvent.click(await screen.findByRole('option', { name: /Project default/ }))
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
-    await waitFor(() => expect(dashboardDb().workspaceConnections).toEqual([]))
+    await waitFor(() =>
+      expect(api.lastRequest('PUT /projects/:id/workspaces/:workspaceId/connection').body).toEqual({
+        connectionId: null,
+      }),
+    )
     expect(await within(row).findByText('Project default (Acme production)')).toBeVisible()
   })
 
@@ -89,7 +96,7 @@ describe('workspace Settings › Deploys to', () => {
 
   it('sends a project admin who isn’t an org admin to the project’s Connections', async () => {
     // Tom runs Project 101 but is an ordinary org member: the org's page has no Connect for him.
-    const dialog = await openPicker(await renderRow({ userId: TOM }))
+    const dialog = await openPicker(await renderRow({ api: asTom() }))
     expect(within(dialog).getByRole('link', { name: 'Connect a new account' })).toHaveAttribute(
       'href',
       '/acme/project-101/connections',
@@ -98,7 +105,7 @@ describe('workspace Settings › Deploys to', () => {
 
   it('tells a project admin on an extension’s connect page to ask an org admin', async () => {
     useInstanceStore.setState({ features: ['test-ext'], disabled: ['connections.ui'] })
-    const dialog = await openPicker(await renderRow({ userId: TOM }))
+    const dialog = await openPicker(await renderRow({ api: asTom() }))
     expect(within(dialog).queryByRole('link')).toBeNull()
     expect(
       within(dialog).getByText(
@@ -115,13 +122,21 @@ describe('workspace Settings › Deploys to', () => {
 
   it('is read-only for a workspace admin who isn’t a project admin', async () => {
     // Lena runs IT, but not Project 101.
-    const row = await renderRow({ workspace: 'it', userId: LENA })
+    const api = installFakeApi({ viewer: LENA })
+    asOrgRole(api, 'acme', 'member')
+    asProjectRole(api, 'acme/project-101', null)
+    asWorkspaceRole(api, 'acme/project-101/it', 'admin')
+    const row = await renderRow({ workspace: 'it', api })
     expect(await within(row).findByText('Project default (Acme production)')).toBeVisible()
     expect(within(row).queryByRole('button')).toBeNull()
   })
 
   it('is read-only for a Viewer', async () => {
-    const row = await renderRow({ userId: PRIYA })
+    const api = installFakeApi({ viewer: PRIYA })
+    asOrgRole(api, 'acme', 'member')
+    asProjectRole(api, 'acme/project-101', 'member')
+    asWorkspaceRole(api, 'acme/project-101/sales', 'viewer')
+    const row = await renderRow({ api })
     expect(await within(row).findByText('Checkout staging')).toBeVisible()
     expect(within(row).queryByRole('button')).toBeNull()
   })

@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
-import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import type { DashboardPage } from '../dashboard-page'
 import { useInstanceStore } from '../../../stores/instance-store'
 import { DashboardShell } from '../dashboard-shell'
@@ -162,13 +161,11 @@ function rail() {
   return screen.getAllByRole('navigation', { name: 'Organization' })[0]!
 }
 
-function renderShell(source: DataSource = 'mock') {
+function renderShell() {
   return render(
-    <DataSourceProvider source={source}>
-      <DashboardShell>
-        <p>Page content</p>
-      </DashboardShell>
-    </DataSourceProvider>,
+    <DashboardShell>
+      <p>Page content</p>
+    </DashboardShell>,
   )
 }
 
@@ -195,7 +192,7 @@ describe('DashboardShell', () => {
       state.params = workspaceSlugs
       state.page = { kind: 'editor' }
       settle(found('workspace'))
-      renderShell('api')
+      renderShell()
       expect(screen.getByText('Page content')).toBeVisible()
       expect(screen.queryByRole('navigation', { name: 'Organization' })).not.toBeInTheDocument()
     })
@@ -203,17 +200,8 @@ describe('DashboardShell', () => {
     it('keeps the frame while the workspace loads, so a missing one gets its not-found page', () => {
       state.params = workspaceSlugs
       state.page = { kind: 'editor' }
-      renderShell('api')
+      renderShell()
       expect(screen.getByRole('status')).toHaveTextContent('Loading')
-      expect(rail()).toBeInTheDocument()
-    })
-
-    it('frames the sample-data notice', () => {
-      state.params = workspaceSlugs
-      state.page = { kind: 'editor' }
-      settle(found('workspace'))
-      renderShell('mock')
-      expect(screen.getByText('Page content')).toBeVisible()
       expect(rail()).toBeInTheDocument()
     })
   })
@@ -226,7 +214,7 @@ describe('DashboardShell', () => {
       state.page = { kind: 'item', page: 'runs' }
       state.workflow = { name: 'Lead enrichment', kind: 'workflow' }
       settle(found('workspace'))
-      renderShell('api')
+      renderShell()
       expect(screen.getByText('Page content')).toBeVisible()
       const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
       expect(within(crumbs).getByRole('link', { name: 'Workflows' })).toHaveAttribute(
@@ -246,7 +234,7 @@ describe('DashboardShell', () => {
       state.page = { kind: 'item', page: 'overview' }
       state.workflow = { name: 'CRM sync', kind: 'script' }
       settle(found('workspace'))
-      renderShell('api')
+      renderShell()
       expect(screen.getByRole('link', { name: 'Functions', current: 'page' })).toBeVisible()
     })
 
@@ -254,7 +242,7 @@ describe('DashboardShell', () => {
       state.params = itemParams
       state.page = { kind: 'item', page: 'overview' }
       settle(found('workspace'))
-      renderShell('api')
+      renderShell()
       const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
       expect(within(crumbs).getByRole('link', { name: 'wf_1' })).toBeVisible()
       for (const list of ['Workflows', 'Functions']) {
@@ -267,19 +255,17 @@ describe('DashboardShell', () => {
       state.page = { kind: 'item', page: 'overview' }
       state.workflow = { name: 'Ops job', kind: 'workflow', workspaceId: 'ws_ops' }
       settle(found('workspace'))
-      renderShell('api')
+      renderShell()
       const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' })
       expect(within(crumbs).queryByText('Ops job')).not.toBeInTheDocument()
       expect(within(crumbs).getByRole('link', { name: 'wf_1' })).toBeVisible()
     })
 
-    it('reads no workflow on sample data or on other pages', () => {
+    it('reads no workflow on pages other than its own', () => {
       state.params = itemParams
-      state.page = { kind: 'item', page: 'overview' }
-      settle(found('workspace'))
-      renderShell('mock')
       state.page = { kind: 'workspace', page: 'workflows' }
-      renderShell('api')
+      settle(found('workspace'))
+      renderShell()
       expect(state.workflowAsked.every((asked) => !asked)).toBe(true)
     })
   })

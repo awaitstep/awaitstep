@@ -1,5 +1,4 @@
 import type { QueryClient, QueryKey } from '@tanstack/react-query'
-import type { MockContext } from '../../mocks/dashboard/scenario'
 import type { AuditFilter } from '../../types/dashboard/audit'
 import type { ItemKind } from '../../types/dashboard/items'
 import type { RunFilter } from '../../types/dashboard/runs'
@@ -136,14 +135,6 @@ const ORG_DOMAINS = new Set([
   'notifications',
   'releases',
 ])
-
-/**
- * Appends the dummy session's scenario and person, so switching either
- * refetches instead of serving another state's cache. Goes with the mocks.
- */
-export function withMockContext(key: QueryKey, ctx: MockContext): QueryKey {
-  return [...key, ctx.real ? 'real' : ctx.scenario, ctx.userId]
-}
 
 /** Whether a scoped key reads through slugs that no longer exist. */
 function readsGoneSlugs(key: QueryKey, gone: ScopeSlugs): boolean {

@@ -2,10 +2,7 @@ import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  renderWithDashboardData,
-  resetDashboardData,
-} from '../../../data/dashboard/__tests__/fixtures/dashboard-data'
+import { renderWithDashboardApi } from '../../../__tests__/fake-api'
 import type * as OrgSettingsHooks from '../../../data/dashboard/org-settings'
 import { OrgConnectionsPage } from '../org-connections-page'
 
@@ -30,13 +27,12 @@ function Connections() {
 }
 
 beforeEach(() => {
-  resetDashboardData(new Date())
   mutate.mockReset()
 })
 
 describe('project chips while a change is on its way', () => {
   it('waits rather than sending a list without the first change', async () => {
-    renderWithDashboardData(<Connections />)
+    renderWithDashboardApi(<Connections />)
     const production = await screen.findByRole('region', { name: 'Acme production' })
     await userEvent.click(
       within(production).getByRole('button', { name: 'Remove Project 101 from Acme production' }),
@@ -47,7 +43,7 @@ describe('project chips while a change is on its way', () => {
   it('sends the change once nothing else is on its way', async () => {
     pending.isPending = false
     try {
-      renderWithDashboardData(<Connections />)
+      renderWithDashboardApi(<Connections />)
       const production = await screen.findByRole('region', { name: 'Acme production' })
       await userEvent.click(
         within(production).getByRole('button', { name: 'Remove Project 101 from Acme production' }),
