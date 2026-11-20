@@ -23,9 +23,9 @@ describe('overviewLead', () => {
     )
   })
 
-  it('counts what is built when nothing has run', () => {
+  it('counts what is built when nothing ran in the last 24 hours', () => {
     expect(overviewLead({ ...base, state: 'quiet', workflows: 6, functions: 2 })).toBe(
-      '6 workflows and 2 functions, none of them running yet · 2 people can open it',
+      '6 workflows and 2 functions, no runs in the last 24 hours · 2 people can open it',
     )
   })
 

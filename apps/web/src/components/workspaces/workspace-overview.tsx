@@ -95,7 +95,7 @@ interface WorkspaceOverviewProps {
   overview: WorkspaceOverviewData
   people: WorkspacePerson[]
   projectName: string
-  /** Built, but nothing has run yet (`WsOverview`, Built no runs): the runs tiles become a nudge to deploy. */
+  /** Built, but no runs in the last 24 hours (`WsOverview`, Built no runs): the runs tiles give way to one quiet tile. */
   quiet?: boolean
 }
 
@@ -123,13 +123,14 @@ export function WorkspaceOverview({
   const workflowsHref = workspacePath(slugs, 'workflows')
   const libraryHref = workspacePath(slugs, 'scripts-nodes')
   const nothingShared = shared.out.length === 0 && shared.in.length === 0
+  const anyDeployed = overview.counts.deployed > 0
 
   return (
     <>
       <div
         className={cn(
           'grid grid-cols-2 gap-3',
-          quiet ? 'md:grid-cols-[1fr_1fr_2.2fr]' : 'md:grid-cols-[1fr_1fr_2.2fr_1fr]',
+          quiet ? 'lg:grid-cols-[1fr_1fr_2.2fr]' : 'lg:grid-cols-[1fr_1fr_2.2fr_1fr]',
         )}
       >
         <StatTile value={workflows} label="Workflows" href={workflowsHref} />
@@ -139,22 +140,28 @@ export function WorkspaceOverview({
           href={workspacePath(slugs, 'functions')}
         />
         {quiet ? (
-          <div className="col-span-2 flex items-center gap-3.5 rounded border border-dashed border-input bg-card px-4 py-3 md:col-span-1">
+          <div className="col-span-2 flex items-center gap-3.5 rounded border border-dashed border-border bg-card px-4 py-3 lg:col-span-1">
             <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[10px] bg-muted text-muted-foreground">
               <Play className="size-4" aria-hidden="true" />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-semibold text-foreground">Nothing has run yet</span>
+              <span className="text-sm font-semibold text-foreground">
+                No runs in the last 24 hours
+              </span>
               <span className="text-xs text-muted-foreground">
-                Deploy a workflow and its runs appear here.
+                {anyDeployed
+                  ? 'Runs show here when a trigger starts a deployed workflow.'
+                  : 'Deploy a workflow and its runs appear here.'}
               </span>
             </span>
-            <ShellLink
-              href={workflowsHref}
-              className="text-xs font-medium whitespace-nowrap text-status-success"
-            >
-              Deploy one →
-            </ShellLink>
+            {!anyDeployed && (
+              <ShellLink
+                href={workflowsHref}
+                className="text-xs font-medium whitespace-nowrap text-status-success"
+              >
+                Deploy one
+              </ShellLink>
+            )}
           </div>
         ) : (
           <>
@@ -214,13 +221,11 @@ export function WorkspaceOverview({
           </ShellLink>
         }
       >
-        {quiet ? (
+        {quiet && recentRuns.length === 0 ? (
           <OverviewEmpty
             icon={Play}
             title="No runs yet"
-            body={
-              'Runs appear here once a webhook, a schedule or Run triggers a workflow. Nothing is deployed yet.'
-            }
+            body={'Runs appear here once a webhook, a schedule or Run triggers a workflow.'}
             action={{ label: 'Deploy a workflow', href: workflowsHref }}
           />
         ) : (
@@ -305,7 +310,10 @@ export function WorkspaceOverview({
                 ) : (
                   shared.in.map((item) => (
                     <dd key={item.id}>
-                      <ScopeChip colour={item.from.colour}>
+                      <ScopeChip
+                        colour={item.from.colour}
+                        title={`${item.name} · ${item.from.name}`}
+                      >
                         {item.name} · {item.from.name}
                       </ScopeChip>
                     </dd>
