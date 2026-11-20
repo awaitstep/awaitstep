@@ -23,6 +23,7 @@ import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { MOVE_PROJECT_COPY } from './move-project-copy'
 import { MoveProjectDialog } from './move-project-dialog'
+import { ProjectAccountSection } from './project-account-section'
 import { useProjectScope } from './use-project-scope'
 import { Textarea } from '../ui/textarea'
 
@@ -48,17 +49,31 @@ function valuesOf(project: Project): FormValues {
   return { name: project.name, slug: project.slug, description: project.description ?? '' }
 }
 
-/** `/{org}/{project}/settings` (`ProjectGeneral`): name, URL, description, and the danger zone. */
+/**
+ * `/{org}/{project}/settings` (`ProjectGeneral`): name, URL, description, the
+ * Cloudflare account it deploys to, and the danger zone.
+ */
 export function GeneralPage({ slugs }: GeneralPageProps) {
   const scope = useProjectScope(slugs)
   if (!scope) return null
   // Keyed so the form starts again from the saved values after a save.
   return (
-    <GeneralSettings key={scope.project.project.updatedAt} slugs={slugs} scope={scope.project} />
+    <GeneralSettings
+      key={scope.project.project.updatedAt}
+      slugs={slugs}
+      scope={scope.project}
+      orgName={scope.org.org.name}
+    />
   )
 }
 
-function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: ProjectScope }) {
+interface GeneralSettingsProps {
+  slugs: ProjectSlugs
+  scope: ProjectScope
+  orgName: string
+}
+
+function GeneralSettings({ slugs, scope, orgName }: GeneralSettingsProps) {
   const project = scope.project
   const can = scope.viewerCan
   const update = useUpdateProject(slugs.org, slugs.project)
@@ -199,6 +214,12 @@ function GeneralSettings({ slugs, scope }: { slugs: ProjectSlugs; scope: Project
             />
           </FormField>
         </FormCard>
+        <ProjectAccountSection
+          slugs={slugs}
+          orgName={orgName}
+          projectName={project.name}
+          canManage={!readOnly}
+        />
         <DangerZone>
           <LockSwitch
             locked={lock !== null}
