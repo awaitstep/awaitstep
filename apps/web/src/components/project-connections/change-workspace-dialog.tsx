@@ -8,7 +8,10 @@ import { Button } from '../ui/button'
 import { FormField } from '../ui/form-field'
 import { ModalDialog } from '../ui/modal-dialog'
 import { Select } from '../ui/select'
+import { Bone } from '../ui/skeletons'
 import { Tile } from '../ui/tile'
+import type { ConnectAccountLink } from '../connections/connect-account-link'
+import { ConnectNewAccount } from '../connections/connect-new-account'
 
 /** The Select's value for "follow the project default". */
 const PROJECT_DEFAULT = '__default'
@@ -24,6 +27,12 @@ interface ChangeWorkspaceDialogProps {
   onConnectNew?: () => void
   /** The start request is out. */
   connectPending?: boolean
+  /** Without `onConnectNew`: a link to the page where accounts are connected (Settings). */
+  connectLink?: ConnectAccountLink | null
+  /** `connections` is still on its way (Settings fetches it when the dialog opens). */
+  loading?: boolean
+  /** Why `connections` couldn't be read. */
+  loadError?: string
   onClose: () => void
 }
 
@@ -36,6 +45,9 @@ export function ChangeWorkspaceDialog({
   onSubmit,
   onConnectNew,
   connectPending = false,
+  connectLink = null,
+  loading = false,
+  loadError,
   onClose,
 }: ChangeWorkspaceDialogProps) {
   const formId = useId()
@@ -62,6 +74,19 @@ export function ChangeWorkspaceDialog({
     onSubmit(value === PROJECT_DEFAULT ? null : value)
   }
 
+  let field
+  if (loadError) {
+    field = <p className="text-xs text-status-error">{loadError}</p>
+  } else if (loading) {
+    field = <Bone className="h-10 w-full rounded" />
+  } else {
+    field = (
+      <FormField label="Deploys to" error={error}>
+        <Select value={value} onValueChange={setValue} options={options} className="w-full" />
+      </FormField>
+    )
+  }
+
   return (
     <ModalDialog
       open
@@ -79,16 +104,14 @@ export function ChangeWorkspaceDialog({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} disabled={pending}>
+          <Button type="submit" form={formId} disabled={pending || loading || !!loadError}>
             Save
           </Button>
         </>
       }
     >
       <form id={formId} onSubmit={handleSubmit}>
-        <FormField label="Deploys to" error={error}>
-          <Select value={value} onValueChange={setValue} options={options} className="w-full" />
-        </FormField>
+        {field}
         {onConnectNew && (
           <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-4">
             <Button
@@ -106,6 +129,7 @@ export function ChangeWorkspaceDialog({
             </span>
           </div>
         )}
+        {!onConnectNew && connectLink && <ConnectNewAccount link={connectLink} />}
       </form>
     </ModalDialog>
   )

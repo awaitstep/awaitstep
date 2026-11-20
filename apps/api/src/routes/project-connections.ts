@@ -5,6 +5,7 @@ import {
   PROJECT_CONNECTION_REASONS,
   type AvailableConnection,
   type ProjectConnections,
+  type ProjectConnectionSummary,
 } from '@awaitstep/ir'
 import { isUniqueViolation, type ProjectConnectionsRows } from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
@@ -113,6 +114,42 @@ projectConnectionRoutes.get('/connections', async (c) => {
   if (!rows) return c.json(NOT_FOUND, 404)
   return c.json(projectConnections(rows))
 })
+
+const summaryQuery = z.object({ workspaceId: connectionIdSchema.optional() })
+
+/**
+ * What the Settings pages show: Project Settings the project's default
+ * account; Workspace Settings (`?workspaceId=`) only where that workspace
+ * deploys. A workspace of another project, or one the reader can't open, is
+ * not found.
+ */
+projectConnectionRoutes.get(
+  '/connections/summary',
+  zValidator('query', summaryQuery),
+  async (c) => {
+    const { projectId, organizationId } = projectOf(c)
+    const { workspaceId } = c.req.valid('query')
+    const row = await c
+      .get('db')
+      .getProjectConnectionSummary(projectId, organizationId, workspaceId ?? null, c.get('userId'))
+    if (!row) return c.json(NOT_FOUND, 404)
+    if (workspaceId !== undefined) {
+      if (!row.workspace) return c.json(NOT_FOUND, 404)
+      const summary: ProjectConnectionSummary = { workspace: row.workspace }
+      return c.json(summary)
+    }
+    const summary: ProjectConnectionSummary = {
+      default: row.default
+        ? {
+            id: row.default.id,
+            name: row.default.name,
+            accountSuffix: accountSuffixOf(row.default.credentials),
+          }
+        : null,
+    }
+    return c.json(summary)
+  },
+)
 
 /** The organization's accounts as Add connection lists them: added, available, restricted. */
 projectConnectionRoutes.get('/connections/available', async (c) => {

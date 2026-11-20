@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ConnectionAccount } from '@awaitstep/ir'
 import { defineToast } from '../../lib/action-toast'
 import { authError } from './errors'
 import { authClient } from '../../lib/auth-client'
@@ -186,6 +187,37 @@ export function useConnections(org: string) {
           )
         : mockServer.org.listConnections(ctx, org),
   })
+}
+
+/**
+ * The org's own Cloudflare accounts with only what an accounts page shows:
+ * name, account suffix, how it signs in, whether it can deploy, token health.
+ */
+export function useOrgAccounts(org: string) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  return useQuery({
+    queryKey: key(dashKeys.connectionAccounts(org)),
+    queryFn: (): Promise<ConnectionAccount[]> =>
+      source === 'api'
+        ? allPages((cursor) => dashboardApi.listConnectionAccounts(org, cursor)).then(
+            (res) => res.data,
+          )
+        : mockServer.org.listConnections(ctx, org).then((rows) => rows.map(toAccount)),
+  })
+}
+
+/** The dummy server's card, cut to an accounts row. */
+function toAccount(row: Connection): ConnectionAccount {
+  return {
+    id: row.id,
+    name: row.name,
+    accountSuffix: row.accountSuffix,
+    authKind: row.authKind ?? 'api-token',
+    canDeploy: row.canDeploy ?? true,
+    tokenStatus: row.tokenStatus,
+  }
 }
 
 /** Whether this deployment offers the OAuth connect flow; the dummy source always does. */

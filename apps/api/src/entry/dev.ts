@@ -134,7 +134,7 @@ async function start() {
 
   // A workspace that wraps this repo plugs its features in by linking the
   // extensions package; a plain clone has none.
-  const { extensions, disabled } = await loadExtensionsPackage()
+  const { extensions, disabled, oauthReturnPath } = await loadExtensionsPackage()
   if (extensions.length > 0) {
     logger.info(
       `Extensions from ${EXTENSIONS_PACKAGE}/api: ${extensions.map((e) => e.id).join(', ')}`,
@@ -190,6 +190,7 @@ async function start() {
     imageStore,
     extensions,
     disabledFeatures: disabled,
+    ...(oauthReturnPath && { oauthReturnPath }),
 
     connectionAddress: (c) => getConnInfo(c).remote.address,
     // The Vite dev server is not a trusted hop: in dev, SSR calls are keyed

@@ -26,6 +26,7 @@ import { imageResponseHeaders, images } from './routes/images.js'
 import { databaseImageStore } from './lib/images.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
 import { MAX_REQUEST_BYTES } from './lib/request-limits.js'
+import { checkOAuthReturnPath } from './lib/oauth-return-path.js'
 import {
   compileClientIpPolicy,
   headersForAuth,
@@ -94,6 +95,12 @@ export interface AppDeps {
    * `GET /api/instance` → `disabled`. An unknown name is refused at startup.
    */
   disabledFeatures?: readonly OssFeature[]
+  /**
+   * The web page the Cloudflare OAuth callback returns to, as a path template
+   * (`/{org}/ext/cloud/integrations`). Absent, it is the Connections page the flow
+   * started from. A path that could leave the web app is refused at startup.
+   */
+  oauthReturnPath?: string
 }
 
 export function createApp(deps: AppDeps) {
@@ -108,6 +115,8 @@ export function createApp(deps: AppDeps) {
   checkExtensions(extensions)
   const disabled = checkDisabledFeatures(deps.disabledFeatures ?? [])
   const disabledFeatures: ReadonlySet<OssFeature> = new Set(disabled)
+  const oauthReturnPath =
+    deps.oauthReturnPath === undefined ? undefined : checkOAuthReturnPath(deps.oauthReturnPath)
   const instance = { features: extensions.map((extension) => extension.id), disabled }
   const app = new Hono<AppEnv>()
 
@@ -242,6 +251,7 @@ export function createApp(deps: AppDeps) {
       ...(deps.enableLocalDev !== undefined && { enableLocalDev: deps.enableLocalDev }),
       ...(deps.cloudflareOAuth && { cloudflareOAuth: deps.cloudflareOAuth }),
       webUrl,
+      ...(oauthReturnPath && { oauthReturnPath }),
       extensions,
     }),
   )

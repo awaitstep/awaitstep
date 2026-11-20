@@ -6,6 +6,7 @@ import {
   type ConnectionSummary,
   type DeployConnections,
   type ProjectConnections,
+  type ProjectConnectionSummary,
 } from '@awaitstep/ir'
 import { CONNECTION_NOT_SERVING, prepareDeploy } from '../lib/deploy-prepare.js'
 import { stubCloudflare, type CloudflareAnswer } from './fixtures/cloudflare.js'
@@ -109,6 +110,75 @@ describe('project connections on the API', () => {
 
     it('answers someone outside the project as not found', async () => {
       expect((await call('u-cleo', '/projects/p-101/connections')).status).toBe(404)
+    })
+  })
+
+  describe('the Settings summary', () => {
+    const summary = (who: string, query = '') =>
+      call(who, `/projects/p-101/connections/summary${query}`)
+
+    async function summaryOf(who: string, query = ''): Promise<ProjectConnectionSummary> {
+      const res = await summary(who, query)
+      expect(res.status).toBe(200)
+      return res.json()
+    }
+
+    it('gives the default account with its suffix only, never its credentials', async () => {
+      expect(await summaryOf('u-dan')).toEqual({ default: null })
+      await add([prod])
+      const res = await summary('u-dan')
+      const text = await res.text()
+      expect(JSON.parse(text)).toEqual({
+        default: { id: prod, name: 'Acme production', accountSuffix: 'aaaa' },
+      })
+      expect(text).not.toMatch(/credentials|apiToken|"tok"|aaaaaaaa/)
+    })
+
+    it('says where a workspace deploys: its own account, the project default, or none', async () => {
+      expect((await summaryOf('u-fay', '?workspaceId=ws-sales')).workspace).toEqual({
+        connectionId: null,
+        connectionName: null,
+        source: 'none',
+      })
+      await add([prod])
+      const { id: own } = await (await connectOwn('u-fay', { makeDefault: false })).json()
+      await send(
+        'u-fay',
+        '/projects/p-101/workspaces/ws-ops/connection',
+        { connectionId: own },
+        'PUT',
+      )
+      // Only what the workspace row shows: no default, and no account read for it.
+      expect(await summaryOf('u-fay', '?workspaceId=ws-ops')).toEqual({
+        workspace: { connectionId: own, connectionName: 'Checkout staging', source: 'override' },
+      })
+      expect((await summaryOf('u-fay', '?workspaceId=ws-sales')).workspace).toEqual({
+        connectionId: prod,
+        connectionName: 'Acme production',
+        source: 'default',
+      })
+    })
+
+    it('answers another project’s workspace, and one the reader can’t open, as not found', async () => {
+      expect((await summary('u-fay', '?workspaceId=ws-202')).status).toBe(404)
+      expect((await summary('u-fay', '?workspaceId=ws-g')).status).toBe(404)
+      // Eve sees Sales only.
+      expect((await summary('u-eve', '?workspaceId=ws-sales')).status).toBe(200)
+      expect((await summary('u-eve', '?workspaceId=ws-ops')).status).toBe(404)
+    })
+
+    it('answers another org’s project as not found', async () => {
+      expect((await call('u-ama', '/projects/p-g/connections/summary?org=acme')).status).toBe(404)
+    })
+
+    it('refuses whoever the list refuses, with the same status', async () => {
+      await h.seed.person('u-ivy', 'Ivy Moss', 'ivy@acme.test')
+      await h.seed.member('u-ivy', 'org-acme', 'member')
+      for (const who of ['u-cleo', 'u-hal', 'u-ivy']) {
+        const list = (await call(who, '/projects/p-101/connections')).status
+        expect(list).toBeGreaterThanOrEqual(400)
+        expect((await summary(who)).status).toBe(list)
+      }
     })
   })
 

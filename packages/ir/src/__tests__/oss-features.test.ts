@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { OSS_FEATURES, checkDisabledFeatures, isOssFeature } from '../oss-features.js'
 
 describe('switchable OSS features', () => {
-  it('names the playground and both connections switches', () => {
+  it('names the playground, both connections switches and docs', () => {
     expect(Object.keys(OSS_FEATURES)).toEqual([
       'playground',
       'connections.ui',
       'connections.apiTokens',
+      'docs',
     ])
   })
 
@@ -30,7 +31,7 @@ describe('switchable OSS features', () => {
 
   it('refuses an unknown name, naming it and the known ones', () => {
     expect(() => checkDisabledFeatures(['playground', 'connection.ui'])).toThrow(
-      /Unknown feature switch "connection\.ui"\. Known: playground, connections\.ui, connections\.apiTokens\./,
+      /Unknown feature switch "connection\.ui"\. Known: playground, connections\.ui, connections\.apiTokens, docs\./,
     )
   })
 

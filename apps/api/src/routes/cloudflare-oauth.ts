@@ -20,6 +20,7 @@ import { recordAudit } from '../lib/audit.js'
 import { parseCredentials } from '../lib/connection-token.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { authKindOf } from '../lib/connection-fields.js'
+import { DEFAULT_OAUTH_RETURN_PATH, oauthReturnUrl } from '../lib/oauth-return-path.js'
 import { orgCapabilities, projectCapabilities, resolveRoles, UNLOCKED_PROJECT } from '@awaitstep/ir'
 
 const log = createLogger('cloudflare-oauth')
@@ -60,6 +61,8 @@ interface Options {
   config: CloudflareOAuthRuntime
   /** The web app's origin, where the callback sends the browser back. */
   webUrl: string
+  /** The page below `webUrl` it lands on, checked by `checkOAuthReturnPath`; Connections by default. */
+  returnPath?: string
 }
 
 /**
@@ -93,12 +96,13 @@ export function createCloudflareOAuthRoutes(options: Options) {
     orgSlug: string,
     params: Record<string, string>,
     projectSlug?: string,
-  ): string => {
-    const base = options.webUrl.replace(/\/+$/, '')
-    const query = new URLSearchParams(params).toString()
-    const project = projectSlug ? `${encodeURIComponent(projectSlug)}/` : ''
-    return `${base}/${encodeURIComponent(orgSlug)}/${project}connections?${query}`
-  }
+  ): string =>
+    oauthReturnUrl(
+      options.webUrl,
+      options.returnPath ?? DEFAULT_OAUTH_RETURN_PATH,
+      { org: orgSlug, project: projectSlug },
+      params,
+    )
 
   // The replaced authorization is withdrawn so the person's Cloudflare
   // profile doesn't keep a dead grant. A failure is logged, never fatal.
@@ -162,7 +166,7 @@ export function createCloudflareOAuthRoutes(options: Options) {
 <html lang="en"><head><meta charset="utf-8"><title>Authorization failed</title>
 <style>body{font:15px/1.5 ui-sans-serif,system-ui,sans-serif;max-width:520px;margin:64px auto;padding:0 20px;color:#1c1f24}</style>
 </head><body><h1>Authorization failed</h1><p>${message}</p>
-<p>Close this tab and try again from AwaitStep's Connections page.</p></body></html>`
+<p>Close this tab and try again from where you connected the account in AwaitStep.</p></body></html>`
 
   const routes = new Hono<AppEnv>()
 
@@ -283,7 +287,9 @@ export function createCloudflareOAuthRoutes(options: Options) {
     const entry = state ? pending.get(state) : undefined
     if (!state || !entry) {
       return c.html(
-        errorPage('This authorization link expired. Start again from the Connections page.'),
+        errorPage(
+          'This authorization link expired. Start again from where you connected the account.',
+        ),
         400,
       )
     }
@@ -291,7 +297,9 @@ export function createCloudflareOAuthRoutes(options: Options) {
 
     if (Date.now() - entry.createdAt > STATE_TTL_MS) {
       return c.html(
-        errorPage('This authorization took too long. Start again from the Connections page.'),
+        errorPage(
+          'This authorization took too long. Start again from where you connected the account.',
+        ),
         400,
       )
     }

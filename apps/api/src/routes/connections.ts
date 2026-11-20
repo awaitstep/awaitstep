@@ -1,8 +1,13 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
-import type { ConnectionSummary } from '@awaitstep/ir'
-import type { ConnectionListOptions, ConnectionListRow, ConnectionTokenCheck } from '@awaitstep/db'
+import type { ConnectionAccount, ConnectionSummary } from '@awaitstep/ir'
+import type {
+  ConnectionAccountRow,
+  ConnectionListOptions,
+  ConnectionListRow,
+  ConnectionTokenCheck,
+} from '@awaitstep/db'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
 import type { AppEnv } from '../types.js'
@@ -86,6 +91,17 @@ export function createConnectionRoutes() {
       visibleTo: listReader(c),
     })
     return c.json({ data: result.data.map(connectionSummary), nextCursor: result.nextCursor })
+  })
+
+  // The organization's own accounts with only what an accounts page shows:
+  // no creator, projects or deployments, and never the credentials.
+  connections.get('/accounts', zValidator('query', paginationQuerySchema), async (c) => {
+    const { cursor, limit } = c.req.valid('query')
+    const result = await c.get('db').listConnectionAccounts(c.get('organizationId'), {
+      cursor,
+      limit,
+    })
+    return c.json({ data: result.data.map(connectionAccount), nextCursor: result.nextCursor })
   })
 
   // Every account connected here comes with a pasted token; OAuth connects through its own routes.
@@ -271,6 +287,19 @@ function connectionSummary(row: ConnectionListRow): ConnectionSummary {
     deployments: row.deployments,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  }
+}
+
+/** An accounts page's row: derived from the decrypted credentials, which stay here. */
+function connectionAccount(row: ConnectionAccountRow): ConnectionAccount {
+  const authKind = authKindOf(row.credentials)
+  return {
+    id: row.id,
+    name: row.name,
+    accountSuffix: accountSuffixOf(row.credentials),
+    authKind,
+    canDeploy: authKind !== 'oauth' || canDeployWithScopes(scopesOf(row.credentials)),
+    tokenStatus: parseTokenStatus(row.tokenStatus),
   }
 }
 

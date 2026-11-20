@@ -20,7 +20,8 @@ import { AccountMenu, type AccountMenuItem } from '../shell/account-menu'
 import { useFeatureOn } from '../../lib/feature-switches'
 import { mockSourceAllowed } from './dashboard-providers'
 import { useEnabledExtensions } from '../../extensions/registry'
-import { DOCS_URL, railExtensionEntries } from './nav-model'
+import { withOverlay } from '../../lib/dashboard-paths'
+import { DOCS_URL, railExtensionEntries, railPrimaryEntries } from './nav-model'
 
 interface DashboardAccountMenuProps {
   /** The rail's or the phone header's avatar. */
@@ -28,8 +29,10 @@ interface DashboardAccountMenuProps {
   user: { name: string; email: string; image: string | null }
   /** The phone menu also carries the rail items the tab bar has no room for. */
   placement: 'rail' | 'phone'
-  /** The phone menu's What's new: opens over the page you're on, as the rail's does. */
-  whatsNewHref: string
+  /** The page you're on (path and query): the phone menu's What's new and panels open over it, as the rail's do. */
+  here: string
+  /** The org whose extension pages the phone menu links. */
+  org: string
   theme: Theme
   onToggleTheme: () => void
   /** "Reset dummy data" is a dev tool; production builds leave it out. */
@@ -56,10 +59,10 @@ function accountItems(): AccountMenuItem[] {
 }
 
 function phoneItems(
-  whatsNewHref: string,
+  here: string,
   theme: Theme,
   onToggleTheme: () => void,
-  playground: boolean,
+  on: { playground: boolean; docs: boolean },
   extensionLinks: AccountMenuItem[],
 ): AccountMenuItem[] {
   const api: AccountMenuItem = {
@@ -68,11 +71,23 @@ function phoneItems(
     href: '/api-playground',
     icon: SquareTerminal,
   }
+  const docs: AccountMenuItem = {
+    key: 'docs',
+    label: 'Docs',
+    href: DOCS_URL,
+    icon: BookOpen,
+    external: true,
+  }
   return [
-    { key: 'whats-new', label: 'What’s new', href: whatsNewHref, icon: Sparkles },
-    ...(playground ? [api] : []),
+    {
+      key: 'whats-new',
+      label: 'What’s new',
+      href: withOverlay(here, 'whats-new'),
+      icon: Sparkles,
+    },
+    ...(on.playground ? [api] : []),
     ...extensionLinks,
-    { key: 'docs', label: 'Docs', href: DOCS_URL, icon: BookOpen, external: true },
+    ...(on.docs ? [docs] : []),
     {
       key: 'theme',
       label: theme === 'dark' ? 'Light mode' : 'Dark mode',
@@ -87,13 +102,15 @@ export function DashboardAccountMenu({
   trigger,
   user,
   placement,
-  whatsNewHref,
+  here,
+  org,
   theme,
   onToggleTheme,
   showReset = mockSourceAllowed(import.meta.env.MODE),
 }: DashboardAccountMenuProps) {
   const resetMockData = useResetMockData()
   const playground = useFeatureOn('playground')
+  const docs = useFeatureOn('docs')
   const extensions = useEnabledExtensions()
   const [confirmReset, setConfirmReset] = useState(false)
 
@@ -112,11 +129,13 @@ export function DashboardAccountMenu({
 
   const groups: AccountMenuItem[][] = [accountItems()]
   if (placement === 'phone') {
-    // The rail's extension links, as the rail draws them: the phone has no rail.
-    const extensionLinks = railExtensionEntries(extensions).map(
-      ({ key, href, icon, label, external }) => ({ key, href, icon, label, external }),
-    )
-    groups.push(phoneItems(whatsNewHref, theme, onToggleTheme, playground, extensionLinks))
+    // The rail's extension entries, as the rail draws them: the phone has no rail.
+    // Their org pages (Integrations) too: the tab bar has no room for them.
+    const extensionLinks = [
+      ...railPrimaryEntries(org, extensions),
+      ...railExtensionEntries(extensions, here),
+    ].map(({ key, href, icon, label, external }) => ({ key, href, icon, label, external }))
+    groups.push(phoneItems(here, theme, onToggleTheme, { playground, docs }, extensionLinks))
   }
   if (showReset) {
     groups.push([

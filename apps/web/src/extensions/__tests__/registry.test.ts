@@ -1,4 +1,5 @@
 import { createRequire } from 'node:module'
+import { CircleHelp } from 'lucide-react'
 import { describe, expect, it } from 'vitest'
 import installed from 'virtual:awaitstep/extensions'
 import { isInstalledCopy } from '@awaitstep/ir'
@@ -8,9 +9,12 @@ import {
   checkWebExtensions,
   enabledExtensions,
   extensionPageKey,
+  findExtensionPanel,
+  isAccountsConnectPage,
   framedExtensionPage,
   resolveExtensionPage,
 } from '../registry'
+import type { WebExtension } from '../types'
 import { testExtension } from './fixtures/test-extension'
 
 const other = { id: 'other', pages: [] }
@@ -142,6 +146,53 @@ describe('checkWebExtensions', () => {
 
   it('refuses the same id installed twice', () => {
     expect(() => checkWebExtensions([testExtension, testExtension])).toThrow('installed twice')
+  })
+
+  const withPanel = (extension: string, panel: string): WebExtension => ({
+    id: extension,
+    slots: { 'rail.panels': [{ id: panel, label: 'P', icon: CircleHelp, component: () => null }] },
+  })
+
+  it('refuses a panel id a built-in overlay already answers', () => {
+    // `?open=inbox` must keep opening the Inbox.
+    for (const builtIn of ['inbox', 'whats-new', 'marketplace']) {
+      expect(() => checkWebExtensions([withPanel('a', builtIn)])).toThrow(
+        `Panel id "${builtIn}" of web extension "a" is already taken`,
+      )
+    }
+  })
+
+  it('refuses the same panel id in two extensions, and an id that is not one', () => {
+    expect(() => checkWebExtensions([withPanel('a', 'help'), withPanel('b', 'help')])).toThrow(
+      'Panel id "help" of web extension "b" is already taken',
+    )
+    expect(() => checkWebExtensions([withPanel('a', 'Help me')])).toThrow('is not valid')
+  })
+})
+
+describe('isAccountsConnectPage', () => {
+  it('is the enabled extension’s accounts.connect page only, at its exact path', () => {
+    expect(isAccountsConnectPage([testExtension], 'test-ext/integrations')).toBe(true)
+    expect(isAccountsConnectPage([testExtension], 'test-ext/integrations/')).toBe(true)
+  })
+
+  it('is no other page, no deeper URL, and nothing of a disabled extension', () => {
+    // A made-up `?oauth=ok` on these must not announce a connected account.
+    expect(isAccountsConnectPage([testExtension], 'test-ext/usage')).toBe(false)
+    expect(isAccountsConnectPage([testExtension], 'test-ext/integrations/x')).toBe(false)
+    expect(isAccountsConnectPage([], 'test-ext/integrations')).toBe(false)
+    expect(isAccountsConnectPage([{ ...testExtension, slots: {} }], 'test-ext/integrations')).toBe(
+      false,
+    )
+  })
+})
+
+describe('findExtensionPanel', () => {
+  it('finds an enabled extension’s panel by its ?open= id, and nothing else', () => {
+    expect(findExtensionPanel([testExtension], 'support')?.label).toBe('Support')
+    expect(findExtensionPanel([testExtension], 'inbox')).toBeNull()
+    expect(findExtensionPanel([testExtension], undefined)).toBeNull()
+    expect(findExtensionPanel([], 'support')).toBeNull()
   })
 })
 

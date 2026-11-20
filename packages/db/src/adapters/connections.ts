@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm'
 import type {
   Connection,
+  ConnectionAccountRow,
   ConnectionCoverage,
   ConnectionListOptions,
   ConnectionListRow,
@@ -28,7 +29,7 @@ import type {
   ProjectSetupCounts,
 } from '../types.js'
 import type { TokenCrypto } from '../crypto.js'
-import type { PaginatedResult } from '../pagination.js'
+import type { PaginatedResult, PaginationParams } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import { atomicallyReturning } from './atomic.js'
 import { boundFields } from './insert-where.js'
@@ -491,6 +492,40 @@ export class ConnectionsAdapter {
     const limit = clampLimit(options.limit)
     const rows = (await this.listQuery(this.db, organizationId, options, limit + 1)) as ListedRow[]
     return paginateResults(await this.shape(rows), limit, (r) => r.createdAt)
+  }
+
+  /**
+   * The organization's own accounts — no project's — newest first as the
+   * list orders them, with only what an accounts page derives its row from.
+   * One statement, keyset-paginated like the list.
+   */
+  async listAccounts(
+    organizationId: string,
+    pagination: PaginationParams = {},
+  ): Promise<PaginatedResult<ConnectionAccountRow>> {
+    const c = this.table
+    const limit = clampLimit(pagination.limit)
+    const conditions: SQL[] = [eq(c.organizationId, organizationId), sql`${c.projectId} is null`]
+    if (pagination.cursor) {
+      const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
+      conditions.push(
+        or(lt(c.createdAt, timestamp), and(eq(c.createdAt, timestamp), lt(c.id, cursorId)))!,
+      )
+    }
+    const rows = (await this.db
+      .select({
+        id: c.id,
+        name: c.name,
+        credentials: c.credentials,
+        tokenStatus: c.tokenStatus,
+        createdAt: c.createdAt,
+      })
+      .from(c)
+      .where(and(...conditions))
+      .orderBy(desc(c.createdAt), desc(c.id))
+      .limit(limit + 1)) as ConnectionAccountRow[]
+    for (const row of rows) row.credentials = await this.tryDecrypt(row.credentials)
+    return paginateResults(rows, limit, (r) => r.createdAt)
   }
 
   /** The list's statement, built on `tx` and not run: a write reads its row back with it. */

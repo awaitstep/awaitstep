@@ -71,11 +71,16 @@ export const dashKeys = {
   personAccess: (org: string, userId: string) => ['dash', 'orgMembers', org, userId] as const,
   invitations: (org: string) => ['dash', 'invitations', org] as const,
   connections: (org: string) => ['dash', 'connections', org] as const,
+  /** The org's own accounts (`/connections/accounts`); under `connections(org)`, never a project slug. */
+  connectionAccounts: (org: string) => ['dash', 'connections', org, null, 'accounts'] as const,
   /** Under `connections(org)`, so a change to any connection refreshes it too. */
   projectConnections: (org: string, project: string) =>
     ['dash', 'connections', org, project] as const,
   availableConnections: (org: string, project: string) =>
     ['dash', 'connections', org, project, 'available'] as const,
+  /** The Settings rows' account(s); under `connections(org)` too. */
+  connectionSummary: (org: string, project: string, workspaceId?: string) =>
+    ['dash', 'connections', org, project, 'summary', workspaceId ?? null] as const,
   orgKeys: (org: string) => ['dash', 'orgKeys', org] as const,
   orgNodes: (org: string) => ['dash', 'orgNodes', org] as const,
   resourceCounts: (org: string) => ['dash', 'resources', org, 'counts'] as const,

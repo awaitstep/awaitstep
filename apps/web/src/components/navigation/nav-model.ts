@@ -26,6 +26,7 @@ import {
   itemPagePath,
   orgPath,
   withOverlay,
+  orgExtensionPath,
   orgSettingsPath,
   projectWorkspacesPath,
   projectPagePath,
@@ -136,8 +137,19 @@ export function railModel(
     { key: 'projects', href: orgPath(org, 'projects'), icon: House, label: 'Projects' },
     { key: 'resources', href: orgPath(org, 'resources'), icon: Box, label: 'Resources' },
     { key: 'audit', href: orgPath(org, 'audit'), icon: Activity, label: 'Audit log' },
-    { key: 'connections', href: orgPath(org, 'connections'), icon: Plug, label: 'Connections' },
+    ...(on('connections.ui')
+      ? [
+          {
+            key: 'connections',
+            href: orgPath(org, 'connections'),
+            icon: Plug,
+            label: 'Connections',
+          },
+        ]
+      : []),
     { key: 'api-keys', href: orgPath(org, 'api-keys'), icon: KeyRound, label: 'API' },
+    // An extension's org pages (Integrations, say): before Settings.
+    ...railPrimaryEntries(org, extensions),
     { key: 'settings', href: orgSettingsPath(org), icon: Settings, label: 'Settings' },
   ]
   const playground: RailEntry = {
@@ -146,15 +158,22 @@ export function railModel(
     icon: SquareTerminal,
     label: 'Playground',
   }
+  const docs: RailEntry = {
+    key: 'docs',
+    href: DOCS_URL,
+    icon: BookOpen,
+    label: 'Docs',
+    external: true,
+  }
   return {
-    primary: on('connections.ui') ? primary : primary.filter((e) => e.key !== 'connections'),
+    primary,
     secondary: [
       whatsNew,
       inbox,
       ...(on('playground') ? [playground] : []),
       // Where an extension adds its own (Help, say): beside the Playground, before Docs.
-      ...railExtensionEntries(extensions),
-      { key: 'docs', href: DOCS_URL, icon: BookOpen, label: 'Docs', external: true },
+      ...railExtensionEntries(extensions, overlays.here),
+      ...(on('docs') ? [docs] : []),
     ],
     activeKey: railActiveKey(page),
   }
@@ -173,12 +192,37 @@ export function isRailHref(href: string, external: boolean | undefined): boolean
   }
 }
 
-/** The `rail.secondary` links of the enabled extensions, in installation order. */
-export function railExtensionEntries(extensions: readonly WebExtension[]): RailEntry[] {
-  return extensions.flatMap((extension) =>
-    (extension.slots?.['rail.secondary'] ?? []).flatMap((link, i) =>
+/**
+ * The rail's lower-group entries of the enabled extensions, in installation
+ * order: each one's `rail.secondary` links, then its `rail.panels`, which open
+ * over `here` (the current path and query).
+ */
+export function railExtensionEntries(
+  extensions: readonly WebExtension[],
+  here: string,
+): RailEntry[] {
+  return extensions.flatMap((extension) => [
+    ...(extension.slots?.['rail.secondary'] ?? []).flatMap((link, i) =>
       isRailHref(link.href, link.external) ? [railExtensionEntry(extension.id, link, i)] : [],
     ),
+    ...(extension.slots?.['rail.panels'] ?? []).map((panel) => ({
+      key: `panel:${panel.id}`,
+      href: withOverlay(here, panel.id),
+      icon: panel.icon,
+      label: panel.label,
+    })),
+  ])
+}
+
+/** The `rail.primary` links of the enabled extensions: their org pages. */
+export function railPrimaryEntries(org: string, extensions: readonly WebExtension[]): RailEntry[] {
+  return extensions.flatMap((extension) =>
+    (extension.slots?.['rail.primary'] ?? []).map((link) => ({
+      key: extensionPageKey(extension.id, link.path),
+      href: orgExtensionPath(org, extension.id, link.path),
+      icon: link.icon,
+      label: link.label,
+    })),
   )
 }
 
@@ -207,6 +251,7 @@ function railActiveKey(page: DashboardPage): string {
     case 'org-settings':
       return 'settings'
     case 'extension':
+      if (page.scope === 'org') return page.page?.key ?? ''
       return page.scope === 'org-settings' ? 'settings' : 'projects'
     case 'account':
       // Your account isn't one of the rail's places.
@@ -311,8 +356,9 @@ export function panelModel(
       return workspacePanel(slugs, list ?? 'workflows', list ?? '', extensions)
     }
     case 'extension':
-      // Org Settings' extension tabs are tabs on that page, like its own.
-      if (page.scope === 'org-settings') return { mode: 'none' }
+      // Org Settings' extension tabs are tabs on that page, like its own; an
+      // org page is its own rail item.
+      if (page.scope !== 'workspace') return { mode: 'none' }
       // Switching workspace from an extension's page opens the new one's Overview.
       return workspacePanel(slugs, DEFAULT_WORKSPACE_PAGE, page.page?.key ?? '', extensions)
   }
@@ -359,6 +405,10 @@ export function breadcrumbs(page: DashboardPage, slugs: ScopeSlugs, names: Scope
     return [{ label: pageLabel(page) }]
   }
   const crumbs: Crumb[] = [{ label: names.org, href: orgPath(slugs.org) }]
+  if (page.kind === 'extension' && page.scope === 'org') {
+    crumbs.push({ label: pageLabel(page) })
+    return crumbs
+  }
   // Settings' sections are tabs on the page: the crumb stops at Settings.
   if (
     page.kind === 'org-settings' ||

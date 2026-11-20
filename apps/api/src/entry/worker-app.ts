@@ -5,6 +5,7 @@ import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@await
 import { createApp, createAuth, type AppDeps } from '../index.js'
 import type { AppExtension, ExtensionsPackage } from '../types.js'
 import { checkExtensions } from '../lib/extensions.js'
+import { checkOAuthReturnPath } from '../lib/oauth-return-path.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
 import { createLogger } from '../lib/logger.js'
@@ -242,10 +243,17 @@ export type WorkerOptions = Partial<ExtensionsPackage>
 export function workerAppOptions(options: WorkerOptions): {
   extensions: readonly AppExtension[]
   disabledFeatures: readonly OssFeature[]
+  oauthReturnPath?: string
 } {
   const extensions = options.extensions ?? []
   checkExtensions(extensions)
-  return { extensions, disabledFeatures: checkDisabledFeatures(options.disabled ?? []) }
+  return {
+    extensions,
+    disabledFeatures: checkDisabledFeatures(options.disabled ?? []),
+    ...(options.oauthReturnPath !== undefined && {
+      oauthReturnPath: checkOAuthReturnPath(options.oauthReturnPath),
+    }),
+  }
 }
 
 /**
@@ -253,10 +261,11 @@ export function workerAppOptions(options: WorkerOptions): {
  * plugs features in exports `createWorker(extensionsPackage)` as its default
  * instead, and must also `export { Sandbox } from '@cloudflare/sandbox'`, as
  * `worker.ts` does — wrangler refuses the containers config without it.
- * A malformed set of extensions or an unknown switch throws here, at module load.
+ * A malformed set of extensions, an unknown switch or a return path that could
+ * leave the web app throws here, at module load.
  */
 export function createWorker(options: WorkerOptions = {}) {
-  const { extensions, disabledFeatures } = workerAppOptions(options)
+  const appOptions = workerAppOptions(options)
   let cached: { env: Env; baseURL: string; app: ReturnType<typeof createApp> } | null = null
 
   return {
@@ -264,7 +273,7 @@ export function createWorker(options: WorkerOptions = {}) {
       const baseURL = env.BETTER_AUTH_URL ?? new URL(request.url).origin
       if (!cached || cached.env !== env || cached.baseURL !== baseURL) {
         const deps = await buildWorkerDeps(env, baseURL)
-        cached = { env, baseURL, app: createApp({ ...deps, extensions, disabledFeatures }) }
+        cached = { env, baseURL, app: createApp({ ...deps, ...appOptions }) }
       }
       return cached.app.fetch(request, env, ctx)
     },

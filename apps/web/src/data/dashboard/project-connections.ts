@@ -6,6 +6,7 @@ import type {
   AvailableConnection,
   NewProjectConnectionInput,
   ProjectConnections,
+  ProjectConnectionSummary,
 } from '../../types/dashboard/project-connections'
 import { dashKeys, invalidateAll } from './keys'
 import { useProjectId } from './projects'
@@ -46,6 +47,31 @@ export function useProjectConnections(org: string, project: string) {
         ? dashboardApi.listProjectConnections(org, projectId!)
         : mockServer.projectConnections.listProjectConnections(ctx, org, project),
     enabled: source !== 'api' || projectId !== null,
+  })
+}
+
+/**
+ * What the Settings rows show: the project's default account and, with
+ * `workspaceId`, where that workspace deploys. The full list stays for the
+ * Connections page and the pickers.
+ */
+export function useProjectConnectionSummary(
+  org: string,
+  project: string,
+  workspaceId?: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
+  const source = useDataSource()
+  const ctx = useMockContext()
+  const key = useDashKey()
+  const projectId = useProjectId(org, project)
+  return useQuery({
+    queryKey: key(dashKeys.connectionSummary(org, project, workspaceId)),
+    queryFn: (): Promise<ProjectConnectionSummary> =>
+      source === 'api'
+        ? dashboardApi.getProjectConnectionSummary(org, projectId!, workspaceId)
+        : mockServer.projectConnections.getProjectConnectionSummary(ctx, org, project, workspaceId),
+    enabled: enabled && (source !== 'api' || projectId !== null),
   })
 }
 

@@ -931,6 +931,17 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
+    id: 'list-connection-accounts',
+    group: 'Connections',
+    method: 'GET',
+    path: '/api/connections/accounts',
+    label: 'List the organization’s accounts',
+    permission: 'connections:read',
+    belowPermission: 'workflows:read',
+    params: [...paginationParams],
+    hasBody: false,
+  },
+  {
     id: 'verify-connection-token',
     group: 'Connections',
     method: 'POST',
@@ -1008,6 +1019,19 @@ export const endpoints: EndpointDef[] = [
     label: 'List accounts the project can add',
     permission: 'connections:read',
     params: [{ name: 'id', in: 'path', required: true }],
+    hasBody: false,
+  },
+  {
+    id: 'get-project-connection-summary',
+    group: 'Project connections',
+    method: 'GET',
+    path: '/api/projects/:id/connections/summary',
+    label: 'Get the default account and a workspace’s',
+    permission: 'connections:read',
+    params: [
+      { name: 'id', in: 'path', required: true },
+      { name: 'workspaceId', in: 'query', required: false },
+    ],
     hasBody: false,
   },
   {

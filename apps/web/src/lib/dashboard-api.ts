@@ -14,10 +14,12 @@ import type {
   AuditPage,
   InboxPage,
   ReleaseVisit,
+  ConnectionAccount,
   ConnectionSummary,
   ProjectSetup,
   AvailableConnection,
   ProjectConnections,
+  ProjectConnectionSummary,
   AccountExport,
   AccountSession,
   ApiAccount,
@@ -937,6 +939,14 @@ export const dashboardApi = {
     return request(apiPath`/connections` + query({ org, cursor, project }))
   },
 
+  /** The organization's own accounts with only what an accounts page shows. */
+  listConnectionAccounts(
+    org: string,
+    cursor?: string,
+  ): Promise<PaginatedResponse<ConnectionAccount>> {
+    return request(apiPath`/connections/accounts` + query({ org, cursor }))
+  },
+
   /** Checks the token with Cloudflare first: a refusal is a `400` on `token` or `accountId`. */
   createConnection(
     org: string,
@@ -991,6 +1001,17 @@ export const dashboardApi = {
   // A project's accounts (23a–23c), by the project's id.
   listProjectConnections(org: string, projectId: string): Promise<ProjectConnections> {
     return request(apiPath`/projects/${projectId}/connections` + query({ org }))
+  },
+
+  /** The default account and, with `workspaceId`, that workspace's: the Settings rows. */
+  getProjectConnectionSummary(
+    org: string,
+    projectId: string,
+    workspaceId?: string,
+  ): Promise<ProjectConnectionSummary> {
+    return request(
+      apiPath`/projects/${projectId}/connections/summary` + query({ org, workspaceId }),
+    )
   },
 
   listAvailableProjectConnections(

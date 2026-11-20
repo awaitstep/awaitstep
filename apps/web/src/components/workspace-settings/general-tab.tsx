@@ -25,6 +25,7 @@ import { FormCard } from '../ui/form-card'
 import { useGoTo } from '../navigation/router-shell-link'
 import { TopBarContent } from '../navigation/top-bar-slot'
 import { MoveWorkflowsDialog } from './move-workflows-dialog'
+import { WorkspaceAccountRow } from './workspace-account-row'
 import { Textarea } from '../ui/textarea'
 
 const FORM_ID = 'workspace-general'
@@ -58,7 +59,10 @@ function lockText(workspace: Workspace, on: boolean, projectName: string): strin
     : `Off. Turn on to stop ${workspace.name} from being deleted by mistake. Its admins and editors can change this.`
 }
 
-/** Workspace settings → General (`Access`): name, description, colour, and the danger zone. */
+/**
+ * Workspace settings → General (`Access`): name, description, colour, where it
+ * deploys, and the danger zone.
+ */
 export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
   const workspace = scope.workspace
   const can = scope.viewerCan
@@ -188,6 +192,7 @@ export function GeneralTab({ slugs, scope, projectName }: GeneralTabProps) {
         </FormField>
         <SwatchPicker value={values.colour} onChange={handleColour} />
       </FormCard>
+      <WorkspaceAccountRow slugs={slugs} />
       <DangerZone>
         <LockSwitch
           locked={locked}

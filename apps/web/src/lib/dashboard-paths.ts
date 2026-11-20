@@ -113,6 +113,11 @@ export function workspaceExtensionPath(slugs: WorkspaceSlugs, id: string, path: 
   return `${projectPath(slugs)}/${segment(slugs.workspace)}/ext/${extensionTail(id, path)}`
 }
 
+/** An extension's org-level page, a rail destination: `/{org}/ext/{id}/{path}`. */
+export function orgExtensionPath(org: string, id: string, path: string): string {
+  return `/${segment(org)}/ext/${extensionTail(id, path)}`
+}
+
 /** An extension's tab in Org Settings: `/{org}/settings/ext/{id}/{path}`. */
 export function orgSettingsExtensionPath(org: string, id: string, path: string): string {
   return `/${segment(org)}/settings/ext/${extensionTail(id, path)}`
@@ -219,9 +224,13 @@ export type DashboardOverlay = (typeof DASHBOARD_OVERLAYS)[number]
 /**
  * The page you're on (path and query) with an overlay open over it (`?open=`),
  * or with none for `null`. Inbox and What's new are the rail's; the canvas
- * opens the marketplace this way so its graph stays mounted.
+ * opens the marketplace this way so its graph stays mounted. An extension's
+ * rail panel opens by its own id.
  */
-export function withOverlay(here: string, overlay: DashboardOverlay | null): string {
+export function withOverlay(
+  here: string,
+  overlay: DashboardOverlay | (string & {}) | null,
+): string {
   // Parsed as a URL so a #fragment stays a fragment, after the query.
   const url = new URL(here, 'https://dashboard.invalid')
   if (overlay) url.searchParams.set('open', overlay)

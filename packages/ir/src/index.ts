@@ -379,6 +379,7 @@ export {
   TOKEN_RECHECK_MS,
   connectionServes,
   tokenUsable,
+  type ConnectionAccount,
   type ConnectionSummary,
   type ConnectionTokenStatus,
   type ProjectSetup,
@@ -390,6 +391,7 @@ export {
   type ProjectConnection,
   type ProjectConnections,
   type ProjectConnectionScope,
+  type ProjectConnectionSummary,
   type ProjectWorkspaceConnection,
   type WorkspaceConnectionSource,
 } from './connections.js'

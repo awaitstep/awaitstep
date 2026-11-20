@@ -61,6 +61,7 @@ import type {
   LiveDeploymentRow,
   ConnectionCoverage,
   ConnectionListOptions,
+  ConnectionAccountRow,
   ConnectionListRow,
   ConnectionRefresh,
   ConnectionTokenCheck,
@@ -72,6 +73,7 @@ import type {
   ProjectConnectionCreate,
   ProjectConnectionRemoval,
   ProjectConnectionsRows,
+  ProjectConnectionSummaryRow,
   WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
@@ -1310,6 +1312,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<PaginatedResult<ConnectionListRow>> {
     return this._connections.list(organizationId, options)
   }
+  listConnectionAccounts(
+    organizationId: string,
+    pagination?: PaginationParams,
+  ): Promise<PaginatedResult<ConnectionAccountRow>> {
+    return this._connections.listAccounts(organizationId, pagination)
+  }
   updateConnection(id: string, data: ConnectionUpdate): Promise<ConnectionListRow | null> {
     return this._connections.update(id, data)
   }
@@ -1351,6 +1359,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     viewer?: string,
   ): Promise<ProjectConnectionsRows | null> {
     return this._projectConnections.list(projectId, organizationId, viewer)
+  }
+  getProjectConnectionSummary(
+    projectId: string,
+    organizationId: string,
+    workspaceId: string | null,
+    viewer?: string,
+  ): Promise<ProjectConnectionSummaryRow | null> {
+    return this._projectConnections.summary(projectId, organizationId, workspaceId, viewer)
   }
   listAvailableProjectConnections(
     projectId: string,
