@@ -1,12 +1,7 @@
 import { useMemo } from 'react'
 import { useFeatureOn } from '../../lib/feature-switches'
-import {
-  orgExtensionPath,
-  orgPath,
-  projectPagePath,
-  type ProjectSlugs,
-} from '../../lib/dashboard-paths'
-import { useEnabledExtensions } from '../../extensions/registry'
+import { orgPath, projectPagePath, type ProjectSlugs } from '../../lib/dashboard-paths'
+import { findIntegrationsPage, useEnabledExtensions } from '../../extensions/registry'
 import type { WebExtension } from '../../extensions/types'
 
 /** Where a new Cloudflare account is connected, from an account picker. */
@@ -14,7 +9,7 @@ export type ConnectAccountLink =
   | {
       kind: 'link'
       href: string
-      /** The page's name: "Connections", or the extension's own (Cloud's "Integrations"). */
+      /** The page's name: "Connections", or "Integrations" on Cloud. */
       label: string
     }
   /** Only org owners and admins connect accounts there: the viewer is told to ask one. */
@@ -22,8 +17,8 @@ export type ConnectAccountLink =
 
 /**
  * Where the viewer connects an account the picker doesn't list yet.
- * - An enabled extension's `accounts.connect` page (Cloud's Integrations):
- *   only org managers can connect there, so anyone else is told to ask one.
+ * - Integrations, when an enabled extension draws it (Cloud's): only org
+ *   managers can connect there, so anyone else is told to ask one.
  * - Else, while `connections.ui` is on: the org's Connections page for an
  *   org manager; the project's for a project admin, who can connect an
  *   account of the project's own there.
@@ -35,16 +30,10 @@ export function connectAccountLink(
   connectionsOn: boolean,
   orgManager: boolean,
 ): ConnectAccountLink | null {
-  for (const extension of extensions) {
-    const page = extension.slots?.['accounts.connect']
-    if (!page) continue
+  if (findIntegrationsPage(extensions)) {
     return orgManager
-      ? {
-          kind: 'link',
-          href: orgExtensionPath(slugs.org, extension.id, page.path),
-          label: page.label,
-        }
-      : { kind: 'ask', label: page.label }
+      ? { kind: 'link', href: orgPath(slugs.org, 'integrations'), label: 'Integrations' }
+      : { kind: 'ask', label: 'Integrations' }
   }
   if (!connectionsOn) return null
   return orgManager

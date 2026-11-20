@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  Blocks,
   BookOpen,
   Box,
   Braces,
@@ -38,7 +39,7 @@ import {
 } from '../../lib/dashboard-paths'
 import type { OssFeature } from '@awaitstep/ir'
 import { plural } from '../../lib/plural'
-import { extensionPageKey } from '../../extensions/registry'
+import { extensionPageKey, findIntegrationsPage } from '../../extensions/registry'
 import type { ExtensionRailLink, WebExtension } from '../../extensions/types'
 import type { ScopeSlugs } from '../../types/dashboard/scope'
 import type { RailEntry } from '../shell/org-rail'
@@ -148,7 +149,7 @@ export function railModel(
         ]
       : []),
     { key: 'api-keys', href: orgPath(org, 'api-keys'), icon: KeyRound, label: 'API' },
-    // An extension's org pages (Integrations, say): before Settings.
+    // Integrations (when an extension draws it), then extensions' org pages: before Settings.
     ...railPrimaryEntries(org, extensions),
     { key: 'settings', href: orgSettingsPath(org), icon: Settings, label: 'Settings' },
   ]
@@ -214,16 +215,32 @@ export function railExtensionEntries(
   ])
 }
 
-/** The `rail.primary` links of the enabled extensions: their org pages. */
+/**
+ * The rail's main entries the enabled extensions bring: Integrations when one
+ * draws it (`org.integrations`), then their `rail.primary` links to their org pages.
+ */
 export function railPrimaryEntries(org: string, extensions: readonly WebExtension[]): RailEntry[] {
-  return extensions.flatMap((extension) =>
-    (extension.slots?.['rail.primary'] ?? []).map((link) => ({
-      key: extensionPageKey(extension.id, link.path),
-      href: orgExtensionPath(org, extension.id, link.path),
-      icon: link.icon,
-      label: link.label,
-    })),
-  )
+  const integrations: RailEntry[] = findIntegrationsPage(extensions)
+    ? [
+        {
+          key: 'integrations',
+          href: orgPath(org, 'integrations'),
+          icon: Blocks,
+          label: 'Integrations',
+        },
+      ]
+    : []
+  return [
+    ...integrations,
+    ...extensions.flatMap((extension) =>
+      (extension.slots?.['rail.primary'] ?? []).map((link) => ({
+        key: extensionPageKey(extension.id, link.path),
+        href: orgExtensionPath(org, extension.id, link.path),
+        icon: link.icon,
+        label: link.label,
+      })),
+    ),
+  ]
 }
 
 function railExtensionEntry(id: string, link: ExtensionRailLink, i: number): RailEntry {

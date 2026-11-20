@@ -535,6 +535,31 @@ describe('DashboardShell', () => {
       expect(screen.getByText('/acme/project-101/connections')).toBeVisible()
     })
 
+    it('answers page-not-found on Integrations while no extension draws it', () => {
+      // Nothing mounts, so a made-up `?oauth=ok` there announces nothing either.
+      state.params = { org: 'acme' }
+      state.pathname = '/acme/integrations'
+      state.page = { kind: 'org', page: 'integrations' }
+      settle(found('org'))
+      renderShell()
+      expect(screen.queryByText('Page content')).not.toBeInTheDocument()
+      expect(screen.getByText('/acme/integrations')).toBeVisible()
+      expect(within(rail()).queryByRole('link', { name: 'Integrations' })).not.toBeInTheDocument()
+    })
+
+    it('shows Integrations and its rail entry when an enabled extension draws it', () => {
+      useInstanceStore.setState({ features: ['test-ext'] })
+      state.params = { org: 'acme' }
+      state.page = { kind: 'org', page: 'integrations' }
+      settle(found('org'))
+      renderShell()
+      expect(screen.getByText('Page content')).toBeVisible()
+      expect(within(rail()).getByRole('link', { name: 'Integrations' })).toHaveAttribute(
+        'href',
+        '/acme/integrations',
+      )
+    })
+
     it('shows the other pages and the rail as before', () => {
       useInstanceStore.setState({ disabled: ALL })
       state.params = { org: 'acme' }

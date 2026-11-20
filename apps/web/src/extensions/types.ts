@@ -27,7 +27,7 @@ export interface ExtensionPageProps {
   ids: ExtensionScopeIds
   /**
    * The viewer's effective role where the page is: the org's on an org page
-   * or a settings tab, the workspace's on a workspace page. For showing or hiding controls;
+   * (Integrations included) or a settings tab, the workspace's on a workspace page. For showing or hiding controls;
    * the extension's API routes still check access themselves.
    */
   viewerRole: OrgRole | WorkspaceRole
@@ -131,11 +131,13 @@ export interface WebExtensionSlots {
   /** Org Settings tabs, after the built-in ones: links to `org-settings` pages. */
   'org.settings.tabs'?: ExtensionLink[]
   /**
-   * The `org` page where Cloudflare accounts are connected (Cloud's
-   * Integrations). The Settings account pickers link to it in place of the
-   * org's Connections page; the first enabled extension's wins.
+   * The body of the org's Integrations page (`/{org}/integrations`), where
+   * Cloudflare accounts are connected on Cloud. With it, the rail lists
+   * Integrations before Settings and the Settings account pickers link there
+   * in place of Connections; the first enabled extension's wins. Without it
+   * the page is not found.
    */
-  'accounts.connect'?: ExtensionLink
+  'org.integrations'?: ComponentType<ExtensionPageProps>
   /** The canvas editor's top bar, left of Save. It owns whatever it opens. */
   'canvas.toolbar'?: ComponentType<EditorSlotProps>
   /** The Code editor's top bar, left of Save. It owns whatever it opens. */

@@ -11,6 +11,8 @@ import {
   ExtensionOrgPage,
   ExtensionSettingsPage,
   ExtensionWorkspacePage,
+  IntegrationsPage,
+  integrationsPageHead,
 } from '../extension-pages'
 
 // The package a wrapping workspace would install, plugged in here.
@@ -144,16 +146,28 @@ describe('extension pages', () => {
 
   it('render the org page on its own, without Org Settings’ tabs', () => {
     enable('test-ext')
-    render(<ExtensionOrgPage org="acme" splat="test-ext/integrations" />)
-    expect(screen.getByText('Integrations of acme (org_1) as member')).toBeInTheDocument()
+    render(<ExtensionOrgPage org="acme" splat="test-ext/billing" />)
+    expect(screen.getByText('Billing of acme (org_1) as member')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Settings' })).toBeNull()
+  })
+
+  it('render Integrations from the enabled extension’s org.integrations', () => {
+    enable('test-ext')
+    render(<IntegrationsPage org="acme" />)
+    expect(screen.getByText('Integrations of acme (org_1) as member')).toBeInTheDocument()
+  })
+
+  it('find no Integrations page while no enabled extension draws it', () => {
+    render(<IntegrationsPage org="acme" />)
+    expect(screen.getByText('Page not found')).toBeInTheDocument()
+    expect(screen.queryByText(/Integrations of/)).toBeNull()
   })
 
   it('find no org page in the settings scope, nor a settings page at org level', () => {
     enable('test-ext')
     render(
       <>
-        <ExtensionSettingsPage org="acme" splat="test-ext/integrations" />
+        <ExtensionSettingsPage org="acme" splat="test-ext/billing" />
         <ExtensionOrgPage org="acme" splat="test-ext/usage" />
         <ExtensionOrgPage org="acme" splat="other/integrations" />
       </>,
@@ -194,6 +208,15 @@ describe('extension page head', () => {
     })
   })
 
+  it('titles Integrations from an enabled extension’s org.integrations, else not found', () => {
+    expect(integrationsPageHead(matches(['test-ext']))).toEqual({
+      meta: [{ title: 'Integrations · AwaitStep' }],
+    })
+    expect(integrationsPageHead(matches([]))).toEqual({
+      meta: [{ title: 'Page not found · AwaitStep' }],
+    })
+  })
+
   it('titles it not found while the extension is not listed', () => {
     expect(extensionPageHead('workspace', 'test-ext/history', matches([]))).toEqual({
       meta: [{ title: 'Page not found · AwaitStep' }],
@@ -204,8 +227,8 @@ describe('extension page head', () => {
   })
 
   it('titles an org page by its own title', () => {
-    expect(extensionPageHead('org', 'test-ext/integrations', matches(['test-ext']))).toEqual({
-      meta: [{ title: 'Integrations · AwaitStep' }],
+    expect(extensionPageHead('org', 'test-ext/billing', matches(['test-ext']))).toEqual({
+      meta: [{ title: 'Billing · AwaitStep' }],
     })
   })
 })

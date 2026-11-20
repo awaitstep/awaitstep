@@ -170,8 +170,18 @@ describe('DashboardAccountMenu', () => {
     await openMenu()
     expect(screen.getByRole('menuitem', { name: 'Integrations' })).toHaveAttribute(
       'href',
-      '/acme/ext/test-ext/integrations',
+      '/acme/integrations',
     )
+    expect(screen.getByRole('menuitem', { name: 'Billing' })).toHaveAttribute(
+      'href',
+      '/acme/ext/test-ext/billing',
+    )
+  })
+
+  it('has no Integrations in the phone menu without an extension that draws it', async () => {
+    renderMenu('phone')
+    await openMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Integrations' })).toBeNull()
   })
 
   it('drops Docs from the phone menu with docs switched off', async () => {

@@ -10,7 +10,7 @@ import {
   enabledExtensions,
   extensionPageKey,
   findExtensionPanel,
-  isAccountsConnectPage,
+  findIntegrationsPage,
   framedExtensionPage,
   resolveExtensionPage,
 } from '../registry'
@@ -170,20 +170,18 @@ describe('checkWebExtensions', () => {
   })
 })
 
-describe('isAccountsConnectPage', () => {
-  it('is the enabled extension’s accounts.connect page only, at its exact path', () => {
-    expect(isAccountsConnectPage([testExtension], 'test-ext/integrations')).toBe(true)
-    expect(isAccountsConnectPage([testExtension], 'test-ext/integrations/')).toBe(true)
+describe('findIntegrationsPage', () => {
+  it('is the first enabled extension’s org.integrations', () => {
+    const other = () => null
+    const second = { id: 'second', slots: { 'org.integrations': other } }
+    expect(findIntegrationsPage([{ id: 'plain', slots: {} }, testExtension, second])).toBe(
+      testExtension.slots!['org.integrations'],
+    )
   })
 
-  it('is no other page, no deeper URL, and nothing of a disabled extension', () => {
-    // A made-up `?oauth=ok` on these must not announce a connected account.
-    expect(isAccountsConnectPage([testExtension], 'test-ext/usage')).toBe(false)
-    expect(isAccountsConnectPage([testExtension], 'test-ext/integrations/x')).toBe(false)
-    expect(isAccountsConnectPage([], 'test-ext/integrations')).toBe(false)
-    expect(isAccountsConnectPage([{ ...testExtension, slots: {} }], 'test-ext/integrations')).toBe(
-      false,
-    )
+  it('is nothing without an extension that draws it', () => {
+    expect(findIntegrationsPage([])).toBeUndefined()
+    expect(findIntegrationsPage([{ ...testExtension, slots: {} }])).toBeUndefined()
   })
 })
 

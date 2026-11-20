@@ -138,12 +138,12 @@ describe('loadExtensionsPackage', () => {
   it('returns the OAuth return path, and refuses one that is not a web app path', async () => {
     const named = loaderAt(LINKED, {
       extensions: [],
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     await expect(loadExtensionsPackage(PACKAGE, named)).resolves.toEqual({
       extensions: [],
       disabled: [],
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     const offsite = loaderAt(LINKED, { extensions: [], oauthReturnPath: '//evil.test/{org}' })
     await expect(loadExtensionsPackage(PACKAGE, offsite)).rejects.toThrow(/is not valid/)

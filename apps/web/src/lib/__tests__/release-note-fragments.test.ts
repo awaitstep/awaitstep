@@ -52,6 +52,7 @@ describe('parseFragment', () => {
     ['an unknown key', { titel: 'Audit log' }, 'unknown key "titel"'],
     ['an empty title', { title: '' }, 'title is required'],
     ['an unknown page', { link: 'nowhere' }, 'unknown page "nowhere"'],
+    ['Cloud’s Integrations page', { link: 'integrations' }, 'which only Cloud has'],
     ['an unknown settings section', { link: 'settings/billing' }, 'unknown settings section'],
     ['an empty link label', { linkLabel: '' }, 'linkLabel is required'],
   ])('rejects %s, naming the file', (_name, overrides, message) => {

@@ -50,6 +50,8 @@ function readLink(slug: string, link: string | undefined): ReleaseNote['link']['
     return { settings: section as OrgSettingsPage }
   }
   if (!(ORG_PAGES as readonly string[]).includes(link)) return fail(slug, `unknown page "${link}"`)
+  // Only Cloud draws Integrations: a public note linking there is dead on self-hosted.
+  if (link === 'integrations') return fail(slug, 'links to Integrations, which only Cloud has')
   return link as OrgPage
 }
 

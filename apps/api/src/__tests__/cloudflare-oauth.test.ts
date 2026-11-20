@@ -740,11 +740,11 @@ describe('Cloudflare OAuth return path', () => {
     const app = createTestApp({
       cloudflareOAuth: CONFIG,
       webUrl: 'http://web.test/',
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     const back = await callbackFrom(app, `org=${TEST_ORG_SLUG}`)
     expect(back.origin).toBe('http://web.test')
-    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/ext/cloud/integrations`)
+    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/integrations`)
     expect(back.searchParams.get('oauth')).toBe('ok')
     expect(back.searchParams.get('connected')).toBe('1')
   })
@@ -759,10 +759,10 @@ describe('Cloudflare OAuth return path', () => {
     const app = createTestApp({
       cloudflareOAuth: CONFIG,
       webUrl: 'http://web.test',
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     const back = await callbackFrom(app, `org=${TEST_ORG_SLUG}&project=${TEST_PROJECT_SLUG}`)
-    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/ext/cloud/integrations`)
+    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/integrations`)
   })
 
   it('reports a refusal on the named page as well', async () => {
@@ -770,7 +770,7 @@ describe('Cloudflare OAuth return path', () => {
     const app = createTestApp({
       cloudflareOAuth: CONFIG,
       webUrl: 'http://web.test',
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     const started = await postStart(app, `org=${TEST_ORG_SLUG}`)
     const state = new URL(((await started.json()) as { url: string }).url).searchParams.get(
@@ -780,7 +780,7 @@ describe('Cloudflare OAuth return path', () => {
       `/api/oauth/cloudflare/callback?error=access_denied&state=${encodeURIComponent(state)}`,
     )
     const back = new URL(res.headers.get('location')!)
-    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/ext/cloud/integrations`)
+    expect(back.pathname).toBe(`/${TEST_ORG_SLUG}/integrations`)
     expect(back.searchParams.get('oauth')).toBe('denied')
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -790,7 +790,7 @@ describe('Cloudflare OAuth return path', () => {
     const app = createTestApp({
       cloudflareOAuth: CONFIG,
       webUrl: 'http://web.test',
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     const res = await app.request('/api/oauth/cloudflare/callback?code=c&state=nope')
     const html = await res.text()

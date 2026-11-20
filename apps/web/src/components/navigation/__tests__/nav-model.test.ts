@@ -455,10 +455,10 @@ describe('rail.primary slot', () => {
   const framed = {
     kind: 'extension' as const,
     scope: 'org' as const,
-    page: { key: 'ext:test-ext/integrations' as const, title: 'Integrations' },
+    page: { key: 'ext:test-ext/billing' as const, title: 'Billing' },
   }
 
-  it('adds an enabled extension’s org pages before Settings', () => {
+  it('adds Integrations, then an enabled extension’s org pages, before Settings', () => {
     const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
       extensions: [testExtension],
     })
@@ -468,21 +468,36 @@ describe('rail.primary slot', () => {
       'audit',
       'connections',
       'api-keys',
-      'ext:test-ext/integrations',
+      'integrations',
+      'ext:test-ext/billing',
       'settings',
     ])
-    expect(rail.primary.find((e) => e.label === 'Integrations')?.href).toBe(
-      '/acme/ext/test-ext/integrations',
-    )
+    expect(rail.primary.find((e) => e.label === 'Integrations')?.href).toBe('/acme/integrations')
+    expect(rail.primary.find((e) => e.label === 'Billing')?.href).toBe('/acme/ext/test-ext/billing')
+  })
+
+  it('has no Integrations without an extension that draws it', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET)
+    expect(rail.primary.map((entry) => entry.key)).not.toContain('integrations')
+  })
+
+  it('marks Integrations on its page, with a crumb after the org', () => {
+    const integrations = { kind: 'org' as const, page: 'integrations' as const }
+    const rail = railModel('acme', integrations, QUIET, { extensions: [testExtension] })
+    expect(rail.activeKey).toBe('integrations')
+    expect(breadcrumbs(integrations, ORG, NAMES)).toEqual([
+      { label: 'Acme Inc', href: '/acme/projects' },
+      { label: 'Integrations' },
+    ])
   })
 
   it('marks the org page’s own rail entry, with no panel and a crumb after the org', () => {
     const rail = railModel('acme', framed, QUIET, { extensions: [testExtension] })
-    expect(rail.activeKey).toBe('ext:test-ext/integrations')
+    expect(rail.activeKey).toBe('ext:test-ext/billing')
     expect(panelModel(framed, ORG, [testExtension])).toEqual({ mode: 'none' })
     expect(breadcrumbs(framed, ORG, NAMES)).toEqual([
       { label: 'Acme Inc', href: '/acme/projects' },
-      { label: 'Integrations' },
+      { label: 'Billing' },
     ])
   })
 

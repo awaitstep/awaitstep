@@ -3664,7 +3664,7 @@ Where Cloudflare sends the browser back. It saves the account, then redirects to
 Connections page the flow started from (the organization's, or the project's), with the
 result as the query (`oauth=ok|denied|error`, `account`, `connected`, `reason`). An
 instance that hides the Connections pages names another page instead (the extensions
-package's `oauthReturnPath`, such as `/{org}/ext/cloud/integrations`). An expired or
+package's `oauthReturnPath`, such as `/{org}/integrations`). An expired or
 unknown `state` gets a short HTML page.
 
 ### Your account
