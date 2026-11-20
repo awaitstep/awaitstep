@@ -41,6 +41,7 @@ export const RESERVED_SLUGS = {
     'settings',
     'account',
     'items',
+    'ext',
   ],
   workspace: [
     'workspaces',

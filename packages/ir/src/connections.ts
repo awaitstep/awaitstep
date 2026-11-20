@@ -37,6 +37,22 @@ export interface ConnectionSummary {
 }
 
 /**
+ * One of the organization's own accounts as `GET /connections/accounts`
+ * lists it: only what an accounts page shows, never the credentials.
+ */
+export interface ConnectionAccount {
+  id: string
+  name: string
+  /** Last four characters of the account id; null when the stored value cannot be read. */
+  accountSuffix: string | null
+  /** How it authenticates: an API token, or an OAuth grant that renews itself. */
+  authKind: 'api-token' | 'oauth'
+  /** False when an OAuth grant lacks every Workers deploy scope; API tokens are optimistic. */
+  canDeploy: boolean
+  tokenStatus: ConnectionTokenStatus
+}
+
+/**
  * Whether a listed connection serves the project — what `POST /deploy`
  * holds a new deploy to. Read from the list a person can see: a project
  * they are deploying in is one they can see, so it is named when served.
@@ -121,6 +137,23 @@ export interface ProjectConnections {
   connections: ProjectConnection[]
   workspaces: ProjectWorkspaceConnection[]
 }
+
+/**
+ * What a Settings page shows of a project's accounts
+ * (`GET /projects/:id/connections/summary`): its default, and with
+ * `?workspaceId=` where that workspace deploys.
+ */
+export type ProjectConnectionSummary =
+  | {
+      /** The project's default account, while it can still deploy with it; null with none. */
+      default: { id: string; name: string; accountSuffix: string | null } | null
+      workspace?: never
+    }
+  | {
+      /** With `?workspaceId=`: where that workspace deploys, and only that. */
+      workspace: Pick<ProjectWorkspaceConnection, 'connectionId' | 'connectionName' | 'source'>
+      default?: never
+    }
 
 /**
  * An organization account as the project's *Add connection* lists it (23b):
