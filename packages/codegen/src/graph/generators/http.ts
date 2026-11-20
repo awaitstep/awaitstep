@@ -1,6 +1,7 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerationContext } from '../internal.js'
 import { generateStepConfig } from './config.js'
+import { FieldExpression } from './custom.js'
 import { isJsonLiteralBody } from './http-body.js'
 import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
 
@@ -18,7 +19,7 @@ import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
  */
 export function generateHttp(node: WorkflowNode, ctx: GenerationContext): string {
   const method = String(node.data.method ?? 'GET')
-  const url = String(node.data.url ?? '')
+  const url = node.data.url instanceof FieldExpression ? node.data.url : String(node.data.url ?? '')
   const headers = recordField(node.data.headers)
   const queryParams = recordField(node.data.queryParams)
   const body = node.data.body
@@ -61,9 +62,9 @@ export function generateHttp(node: WorkflowNode, ctx: GenerationContext): string
   return `const ${varName} = await flow.step("${stepLabel(node)}"${configArg}, async () => ${call});`
 }
 
-function recordField(value: unknown): Record<string, string> | undefined {
+function recordField(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, string>)
+    ? (value as Record<string, unknown>)
     : undefined
 }
 
@@ -73,6 +74,8 @@ function objectLiteral(entries: [string, unknown][]): string {
 }
 
 function toJsLiteral(value: unknown): string {
+  // A `{{…}}` value, compiled and escaped already: written as code.
+  if (value instanceof FieldExpression) return value.code
   if (value === null || value === undefined) return 'null'
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   if (typeof value === 'string') {

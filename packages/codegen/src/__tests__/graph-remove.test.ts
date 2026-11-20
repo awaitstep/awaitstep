@@ -254,6 +254,28 @@ describe('nodeReaders', () => {
     ])
   })
 
+  it('finds a {{…}} read in an HTTP header value', () => {
+    const ir = graph(
+      [
+        producer,
+        node('h', 'Call', 'http_request', {
+          url: 'https://x',
+          headers: { Authorization: 'Bearer {{p.token}}' },
+        }),
+      ],
+      [],
+    )
+    expect(nodeReaders(ir, 'p')).toEqual([
+      {
+        nodeId: 'h',
+        nodeName: 'Call',
+        field: 'headers.Authorization',
+        text: '{{p.token}}',
+        byName: false,
+      },
+    ])
+  })
+
   it('finds a step module’s inputs reads, member and destructured', () => {
     const member = `export default async function notify({ inputs }) {\n  return inputs.say_hello\n}\n`
     const destructured = `export default async function mail({ inputs }) {\n  const { say_hello } = inputs\n  return say_hello\n}\n`

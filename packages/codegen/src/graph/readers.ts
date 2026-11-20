@@ -64,7 +64,9 @@ export function nodeReaders(ir: Pick<ArtifactIR, 'nodes'>, nodeId: NodeId): Node
     for (const found of findExpressions(node)) {
       if (expressionRefNodeId(found.ast.ref, allIds, idByName) !== nodeId) continue
       add(
-        fieldPath(found.dataKey, found.arrayIndex, found.arrayKey),
+        found.objectKey === undefined
+          ? fieldPath(found.dataKey, found.arrayIndex, found.arrayKey)
+          : `${found.dataKey}.${found.objectKey}`,
         found.raw,
         !allIds.has(found.ast.ref),
       )

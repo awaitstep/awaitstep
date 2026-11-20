@@ -51,7 +51,12 @@ export function fieldExpressionErrors(
 ): Record<string, string> {
   // No prototype: a field named like `constructor` reads as its own entry.
   const errors: Record<string, string> = Object.create(null)
-  for (const problem of nodeExpressionProblems(data, scope, codeFieldsOf(configSchema, type))) {
+  for (const problem of nodeExpressionProblems(
+    data,
+    scope,
+    codeFieldsOf(configSchema, type),
+    type,
+  )) {
     errors[problem.field] ??= problem.message
   }
   return errors

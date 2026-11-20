@@ -112,6 +112,7 @@ export function graphExpressionProblems(
           node.data,
           scopes.scopeOf(node.id),
           codeFieldsOf(definitionOf?.(node.type)?.configSchema, node.type),
+          node.type,
         ).map((problem) => ({
           ...problem,
           nodeId: node.id,

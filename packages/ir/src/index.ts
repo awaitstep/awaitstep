@@ -197,6 +197,9 @@ export {
   validateExpressionRefs,
   expressionRefNodeId,
   BUILTIN_CODE_FIELDS,
+  BUILTIN_TEXT_FIELDS,
+  isTextMap,
+  textFieldsOf,
   codeFieldsOf,
   nodeExpressionProblems,
   valueExpressionProblems,
@@ -211,6 +214,7 @@ export {
   type ExpressionSpan,
   type MalformedExpression,
   type FoundExpression,
+  type TextFields,
   type NodeDefinitionLookup,
   type ExpressionValidationError,
 } from './expressions.js'

@@ -2,6 +2,8 @@ import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import {
   RESERVED_EXPRESSION_REFS,
   isBuiltinNodeType,
+  isTextMap,
+  textFieldsOf,
   resolveExpressions,
   scanExpressions,
 } from '@awaitstep/ir'
@@ -11,6 +13,7 @@ import { GenerateInputError, childContext } from './internal.js'
 import type { FieldExpression } from './generators/custom.js'
 import {
   compileFieldExpressions,
+  compileInterpolatedField,
   generateCustomNode,
   generateCustomNodeModule,
   generateCustomNodeParts,
@@ -160,23 +163,41 @@ export function resolveNodeExpressions(
   // A template node's fields are written out as values, not code text: an
   // expression there must stay recognisable as code, or it ships quoted.
   const template = !isBuiltinNodeType(node.type)
-  const resolve = (value: string): string | FieldExpression =>
-    template ? compileFieldExpressions(value, refFor) : resolveExpressions(value, refFor)
+  // Text fields (an HTTP URL, header and query values; `BUILTIN_TEXT_FIELDS`)
+  // become template strings; every other built-in string is code text.
+  const textFields = template ? undefined : textFieldsOf(node.type)
+  const resolve = (value: string, field?: string): string | FieldExpression => {
+    if (template) return compileFieldExpressions(value, refFor)
+    if (field !== undefined && textFields?.fields.has(field)) {
+      return compileInterpolatedField(value, refFor, textFields)
+    }
+    return resolveExpressions(value, refFor)
+  }
+  const resolveRecord = (value: object, field: string): Record<string, unknown> => {
+    const resolved: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) {
+      resolved[k] = typeof v === 'string' ? resolve(v, field) : v
+    }
+    return resolved
+  }
   const resolvedData: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(node.data)) {
     if (typeof value === 'string') {
-      resolvedData[key] = resolve(value)
+      resolvedData[key] = resolve(value, key)
     } else if (Array.isArray(value)) {
       resolvedData[key] = value.map((item) => {
         if (typeof item === 'object' && item !== null) {
           const resolved: Record<string, unknown> = {}
           for (const [k, v] of Object.entries(item as Record<string, unknown>)) {
-            resolved[k] = typeof v === 'string' ? resolve(v) : v
+            resolved[k] = typeof v === 'string' ? resolve(v, key) : v
           }
           return resolved
         }
-        return typeof item === 'string' ? resolve(item) : item
+        return typeof item === 'string' ? resolve(item, key) : item
       })
+    } else if (!template && isTextMap(node.type, key, value)) {
+      // header/query maps: each string value is text like the URL.
+      resolvedData[key] = resolveRecord(value, key)
     } else {
       resolvedData[key] = value
     }

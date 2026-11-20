@@ -480,7 +480,7 @@ export function validateWorkflowForPublish(
     // ── Template expressions: well formed, and naming a step that runs before ──
     const scope = { nodeId: id, upstream: upstreamSets.get(id) ?? new Set(), allNodeIds, idByName }
     const codeFields = codeFieldsOf(nodeRegistry?.get(ir.type)?.configSchema, ir.type)
-    for (const problem of nodeExpressionProblems(ir.data, scope, codeFields)) {
+    for (const problem of nodeExpressionProblems(ir.data, scope, codeFields, ir.type)) {
       add('error', id, name, problem.message)
     }
   }

@@ -226,8 +226,10 @@ describe('findExpressions / containsExpressions', () => {
   })
 
   it('containsExpressions matches the resolution surface exactly', () => {
-    // Plain nested objects (headers) are never resolved, so never detected.
-    expect(containsExpressions(node({ headers: { auth: '{{a.token}}' } }))).toBe(false)
+    // An HTTP header map is resolved (BUILTIN_TEXT_FIELDS), so it is detected;
+    // any other nested object is not resolved, so never detected.
+    expect(containsExpressions(node({ headers: { auth: '{{a.token}}' } }))).toBe(true)
+    expect(containsExpressions(node({ options: { auth: '{{a.token}}' } }))).toBe(false)
     expect(containsExpressions(node({ url: '{{a.token}}' }))).toBe(true)
     // Branch arms ARE resolved, so they must trigger detection too.
     expect(containsExpressions(node({ branches: [{ label: 'y', condition: '{{b.ok}}' }] }))).toBe(
