@@ -43,6 +43,14 @@ Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the
 
 A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. A project-level key names which of its projects a request addresses with `?projectId=<id>` (or the slugs); when it reaches exactly one, naming none defaults to it, and when it reaches several, a request that names none is `400`. A project outside its set is `404`. A workspace-level key names one of its workspaces with `?workspaceId=<id>` (or defaults to it when it reaches one); a workspace outside its set is `404`. An empty parameter counts as none.
 
+### API keys on the wrong route
+
+These answers are for API keys; a session gets the router's own `404`.
+
+- A route keys may not use: `403` `{ "error": "This endpoint is not available to API keys" }`.
+- A path that exists only for other methods: `405`, with an `Allow` header and `{ "error": "Method not allowed. Use POST." }`.
+- A path no route answers: `404` `{ "error": "Not found" }`.
+
 ## Rate Limits
 
 | Scope                   | Limit               |

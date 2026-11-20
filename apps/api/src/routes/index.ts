@@ -653,7 +653,10 @@ export function createRouter(
   // After the last mapping and before the first handler: a key on a route
   // none judged is refused — the local-dev handlers included, so one added
   // there without a mapping is session-only like any other.
-  router.use('*', requireKeyMapped)
+  router.use(
+    '*',
+    requireKeyMapped(() => router.routes),
+  )
 
   // The OAuth flow is a person's: a browser redirect, a session cookie and a
   // state row that names them. A key has no browser and no session to bind.

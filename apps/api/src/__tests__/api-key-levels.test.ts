@@ -744,6 +744,97 @@ describe('the dashboard’s run routes', () => {
   })
 })
 
+describe('a key on a route that is not there', () => {
+  // A 403 here read as a missing permission: an agent that sent GET to a
+  // POST-only route went looking for a broader key instead of the method.
+  async function keyApp() {
+    resetStore()
+    const app = createTestApp()
+    await mockDb.createWorkflow({
+      id: 'wf-1',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'Lead enrichment',
+    })
+    await seedProjectKey(presetPermissions('project', 'full'))
+    return app
+  }
+
+  it('answers 405 with Allow for a method the path does not take', async () => {
+    const app = await keyApp()
+    const res = await app.request('/api/workflows/wf-1/source/check', asKey({ method: 'GET' }))
+    expect(res.status).toBe(405)
+    expect(res.headers.get('Allow')).toBe('POST')
+    expect(await errorOf(res)).toBe('Method not allowed. Use POST.')
+  })
+
+  it('lists every method a path takes, HEAD with GET', async () => {
+    const app = await keyApp()
+    // `/workflows/:id` answers GET, PATCH and DELETE.
+    const res = await app.request('/api/workflows/wf-1', asKey({ method: 'PUT', body: '{}' }))
+    expect(res.status).toBe(405)
+    expect(res.headers.get('Allow')?.split(', ').sort()).toEqual(
+      ['DELETE', 'GET', 'HEAD', 'PATCH'].sort(),
+    )
+  })
+
+  it('answers 404 for a path no route answers', async () => {
+    const app = await keyApp()
+    const res = await app.request('/api/workflows/wf-1/no-such-thing', asKey({ method: 'GET' }))
+    expect(res.status).toBe(404)
+    expect(await errorOf(res)).toBe('Not found')
+  })
+
+  it('matches paths as strictly as routing does', async () => {
+    // The trailing slash reaches no mapping and no handler; telling the key
+    // it lacks access to a route it simply misspelled was the old confusion.
+    const app = await keyApp()
+    const res = await app.request('/api/workflows/wf-1/', asKey({ method: 'GET' }))
+    expect(res.status).toBe(404)
+  })
+
+  it('does not count a key mapping registered with a method as a route', async () => {
+    // `router.get('/nodes/*', key(…))` is middleware: a POST there has no
+    // GET handler to point at.
+    const app = await keyApp()
+    const res = await app.request('/api/nodes/foo/bar', asKey({ method: 'POST', body: '{}' }))
+    expect(res.status).toBe(404)
+  })
+
+  it('recognises a handler on every route the API registers', () => {
+    // The refusal tells handlers from middleware by arity. A sub-app that sets
+    // `onError` has every handler re-wrapped as `(c, next)`; its routes would
+    // then look missing and keys would get 404 instead of 403. This fails first.
+    const groups = new Map<string, number[]>()
+    for (const route of createTestApp({ enableLocalDev: true }).routes) {
+      if (route.method === 'ALL' || route.path.includes('*')) continue
+      // Param names differ between a mapping and its handler; routing does not care.
+      const id = `${route.method} ${route.path.replace(/:[^/{]+(\{[^}]*\})?/g, ':p')}`
+      groups.set(id, [...(groups.get(id) ?? []), route.handler.length])
+    }
+    const unseen = [...groups].filter(([, arities]) => !arities.some((n) => n < 2))
+    expect(unseen.map(([id]) => id)).toEqual([])
+    expect(groups.size).toBeGreaterThan(100)
+  })
+
+  it('leaves session requests to the router', async () => {
+    resetStore()
+    const res = await createTestApp().request('/api/workflows/wf-1/source/check', {
+      method: 'GET',
+    })
+    expect(res.status).not.toBe(405)
+  })
+
+  it('still answers 403 for a real route keys may not use', async () => {
+    const app = await keyApp()
+    const res = await app.request(
+      '/api/workflows/wf-1/trigger',
+      asKey({ method: 'POST', body: JSON.stringify({ connectionId: 'c' }) }),
+    )
+    expect(res.status).toBe(403)
+  })
+})
+
 describe('router middleware', () => {
   // In afterEach, not the test body: a failed assertion must not leave the
   // database spies in place for every test that runs after it.
