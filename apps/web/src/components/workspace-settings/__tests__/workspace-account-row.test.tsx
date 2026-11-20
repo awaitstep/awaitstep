@@ -82,7 +82,7 @@ describe('workspace Settings › Deploys to', () => {
     const dialog = await openPicker(await renderRow())
     expect(within(dialog).getByRole('link', { name: 'Connect a new account' })).toHaveAttribute(
       'href',
-      '/acme/ext/test-ext/integrations',
+      '/acme/integrations',
     )
     expect(within(dialog).queryByRole('button', { name: 'Connect a new account' })).toBeNull()
   })

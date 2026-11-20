@@ -10,6 +10,7 @@ import type {
   ExtensionPageScope,
   ExtensionPanel,
   WebExtension,
+  WebExtensionSlots,
 } from './types'
 
 /**
@@ -83,22 +84,15 @@ export function findExtensionPanel(
   return null
 }
 
-/**
- * Whether an org page's URL (`<id>/<path>` below `ext/`) is the page an
- * enabled extension connects accounts on (`accounts.connect`): the only
- * extension page the Cloudflare OAuth callback is meant to land on.
- */
-export function isAccountsConnectPage(
+/** The first enabled extension's `org.integrations`: the body of `/{org}/integrations`. */
+export function findIntegrationsPage(
   enabled: readonly WebExtension[],
-  splat: string | undefined,
-): boolean {
-  const resolved = resolveExtensionPage(enabled, 'org', splat)
-  const connect = resolved?.extension.slots?.['accounts.connect']
-  return (
-    connect !== undefined &&
-    resolved!.subpath === '' &&
-    normalizeExtensionPath(connect.path) === normalizeExtensionPath(resolved!.page.path)
-  )
+): WebExtensionSlots['org.integrations'] {
+  for (const extension of enabled) {
+    const page = extension.slots?.['org.integrations']
+    if (page) return page
+  }
+  return undefined
 }
 
 /** An extension page's path without empty segments: `/history/` and `history` are one page. */

@@ -201,6 +201,6 @@ export interface AppExtension {
 export interface ExtensionsPackage {
   extensions: readonly AppExtension[]
   disabled?: readonly OssFeature[]
-  /** A web path template with `{org}` (and `{project}`): `/{org}/ext/cloud/integrations`. */
+  /** A web path template with `{org}` (and `{project}`): `/{org}/integrations`. */
   oauthReturnPath?: string
 }

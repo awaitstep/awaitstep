@@ -11,6 +11,8 @@ export const ORG_PAGES = [
   'api-keys',
   'inbox',
   'whats-new',
+  // Drawn by an extension's `org.integrations` (Cloud's); not found without one.
+  'integrations',
 ] as const
 export type OrgPage = (typeof ORG_PAGES)[number]
 

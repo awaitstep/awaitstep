@@ -1,4 +1,4 @@
-import { Blocks, CircleHelp, LifeBuoy, Sparkles } from 'lucide-react'
+import { CircleHelp, LifeBuoy, Receipt, Sparkles } from 'lucide-react'
 import type {
   EditorSlotProps,
   ExtensionPageProps,
@@ -31,7 +31,15 @@ function UsagePage({ org, ids, viewerRole }: ExtensionPageProps) {
   )
 }
 
-function IntegrationsPage({ org, ids, viewerRole }: ExtensionPageProps) {
+function BillingPage({ org, ids, viewerRole }: ExtensionPageProps) {
+  return (
+    <p>
+      Billing of {org} ({ids.organizationId}) as {viewerRole}
+    </p>
+  )
+}
+
+function IntegrationsBody({ org, ids, viewerRole }: ExtensionPageProps) {
   return (
     <p>
       Integrations of {org} ({ids.organizationId}) as {viewerRole}
@@ -53,12 +61,12 @@ export const testExtension: WebExtension = {
   slots: {
     'workspace.nav': [{ path: 'history', label: 'Assistant history', icon: Sparkles }],
     'org.settings.tabs': [{ path: 'usage', label: 'Usage' }],
-    'rail.primary': [{ path: 'integrations', label: 'Integrations', icon: Blocks }],
+    'rail.primary': [{ path: 'billing', label: 'Billing', icon: Receipt }],
     'rail.panels': [{ id: 'support', label: 'Support', icon: CircleHelp, component: SupportPanel }],
     'rail.secondary': [
       { href: 'https://help.example.test', label: 'Help', icon: LifeBuoy, external: true },
     ],
-    'accounts.connect': { path: 'integrations', label: 'Integrations' },
+    'org.integrations': IntegrationsBody,
     'canvas.toolbar': ToolbarButton,
     'ide.toolbar': ToolbarButton,
   },
@@ -71,6 +79,6 @@ export const testExtension: WebExtension = {
       component: HistoryPage,
     },
     { scope: 'org-settings', path: 'usage', title: 'Usage', component: UsagePage },
-    { scope: 'org', path: 'integrations', title: 'Integrations', component: IntegrationsPage },
+    { scope: 'org', path: 'billing', title: 'Billing', component: BillingPage },
   ],
 }

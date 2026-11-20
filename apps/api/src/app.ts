@@ -97,7 +97,7 @@ export interface AppDeps {
   disabledFeatures?: readonly OssFeature[]
   /**
    * The web page the Cloudflare OAuth callback returns to, as a path template
-   * (`/{org}/ext/cloud/integrations`). Absent, it is the Connections page the flow
+   * (`/{org}/integrations`). Absent, it is the Connections page the flow
    * started from. A path that could leave the web app is refused at startup.
    */
   oauthReturnPath?: string

@@ -15,10 +15,10 @@ const plain = { id: 'plain', slots: {} }
 const SLUGS = { org: 'acme', project: 'checkout' }
 
 describe('connectAccountLink', () => {
-  it('sends an org manager to the extension’s accounts.connect page, even with Connections on', () => {
+  it('sends an org manager to Integrations when an extension draws it, even with Connections on', () => {
     expect(connectAccountLink(SLUGS, [plain, testExtension], true, true)).toEqual({
       kind: 'link',
-      href: '/acme/ext/test-ext/integrations',
+      href: '/acme/integrations',
       label: 'Integrations',
     })
   })
@@ -67,12 +67,12 @@ describe('useConnectAccountLink', () => {
     })
   })
 
-  it('uses the enabled extension’s page with connections.ui switched off', () => {
+  it('uses Integrations with connections.ui switched off', () => {
     useInstanceStore.setState({ features: ['test-ext'], disabled: ['connections.ui'] })
     const { result } = renderHook(() => useConnectAccountLink(SLUGS, true))
     expect(result.current).toEqual({
       kind: 'link',
-      href: '/acme/ext/test-ext/integrations',
+      href: '/acme/integrations',
       label: 'Integrations',
     })
   })

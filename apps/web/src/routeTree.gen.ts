@@ -24,6 +24,7 @@ import { Route as AuthedOrgApiKeysRouteImport } from './routes/_authed/$org.api-
 import { Route as AuthedOrgAuditRouteImport } from './routes/_authed/$org.audit'
 import { Route as AuthedOrgConnectionsRouteImport } from './routes/_authed/$org.connections'
 import { Route as AuthedOrgInboxRouteImport } from './routes/_authed/$org.inbox'
+import { Route as AuthedOrgIntegrationsRouteImport } from './routes/_authed/$org.integrations'
 import { Route as AuthedOrgProjectsRouteImport } from './routes/_authed/$org.projects'
 import { Route as AuthedOrgResourcesRouteImport } from './routes/_authed/$org.resources'
 import { Route as AuthedOrgWhatsNewRouteImport } from './routes/_authed/$org.whats-new'
@@ -146,6 +147,11 @@ const AuthedOrgConnectionsRoute = AuthedOrgConnectionsRouteImport.update({
 const AuthedOrgInboxRoute = AuthedOrgInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => AuthedOrgRoute,
+} as any)
+const AuthedOrgIntegrationsRoute = AuthedOrgIntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
   getParentRoute: () => AuthedOrgRoute,
 } as any)
 const AuthedOrgProjectsRoute = AuthedOrgProjectsRouteImport.update({
@@ -451,6 +457,7 @@ export interface FileRoutesByFullPath {
   '/$org/audit': typeof AuthedOrgAuditRoute
   '/$org/connections': typeof AuthedOrgConnectionsRoute
   '/$org/inbox': typeof AuthedOrgInboxRoute
+  '/$org/integrations': typeof AuthedOrgIntegrationsRoute
   '/$org/projects': typeof AuthedOrgProjectsRoute
   '/$org/resources': typeof AuthedOrgResourcesRoute
   '/$org/whats-new': typeof AuthedOrgWhatsNewRoute
@@ -514,6 +521,7 @@ export interface FileRoutesByTo {
   '/$org/audit': typeof AuthedOrgAuditRoute
   '/$org/connections': typeof AuthedOrgConnectionsRoute
   '/$org/inbox': typeof AuthedOrgInboxRoute
+  '/$org/integrations': typeof AuthedOrgIntegrationsRoute
   '/$org/projects': typeof AuthedOrgProjectsRoute
   '/$org/resources': typeof AuthedOrgResourcesRoute
   '/$org/whats-new': typeof AuthedOrgWhatsNewRoute
@@ -580,6 +588,7 @@ export interface FileRoutesById {
   '/_authed/$org/audit': typeof AuthedOrgAuditRoute
   '/_authed/$org/connections': typeof AuthedOrgConnectionsRoute
   '/_authed/$org/inbox': typeof AuthedOrgInboxRoute
+  '/_authed/$org/integrations': typeof AuthedOrgIntegrationsRoute
   '/_authed/$org/projects': typeof AuthedOrgProjectsRoute
   '/_authed/$org/resources': typeof AuthedOrgResourcesRoute
   '/_authed/$org/whats-new': typeof AuthedOrgWhatsNewRoute
@@ -647,6 +656,7 @@ export interface FileRouteTypes {
     | '/$org/audit'
     | '/$org/connections'
     | '/$org/inbox'
+    | '/$org/integrations'
     | '/$org/projects'
     | '/$org/resources'
     | '/$org/whats-new'
@@ -710,6 +720,7 @@ export interface FileRouteTypes {
     | '/$org/audit'
     | '/$org/connections'
     | '/$org/inbox'
+    | '/$org/integrations'
     | '/$org/projects'
     | '/$org/resources'
     | '/$org/whats-new'
@@ -775,6 +786,7 @@ export interface FileRouteTypes {
     | '/_authed/$org/audit'
     | '/_authed/$org/connections'
     | '/_authed/$org/inbox'
+    | '/_authed/$org/integrations'
     | '/_authed/$org/projects'
     | '/_authed/$org/resources'
     | '/_authed/$org/whats-new'
@@ -941,6 +953,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/$org/inbox'
       preLoaderRoute: typeof AuthedOrgInboxRouteImport
+      parentRoute: typeof AuthedOrgRoute
+    }
+    '/_authed/$org/integrations': {
+      id: '/_authed/$org/integrations'
+      path: '/integrations'
+      fullPath: '/$org/integrations'
+      preLoaderRoute: typeof AuthedOrgIntegrationsRouteImport
       parentRoute: typeof AuthedOrgRoute
     }
     '/_authed/$org/projects': {
@@ -1417,6 +1436,7 @@ interface AuthedOrgRouteChildren {
   AuthedOrgAuditRoute: typeof AuthedOrgAuditRoute
   AuthedOrgConnectionsRoute: typeof AuthedOrgConnectionsRoute
   AuthedOrgInboxRoute: typeof AuthedOrgInboxRoute
+  AuthedOrgIntegrationsRoute: typeof AuthedOrgIntegrationsRoute
   AuthedOrgProjectsRoute: typeof AuthedOrgProjectsRoute
   AuthedOrgResourcesRoute: typeof AuthedOrgResourcesRoute
   AuthedOrgWhatsNewRoute: typeof AuthedOrgWhatsNewRoute
@@ -1439,6 +1459,7 @@ const AuthedOrgRouteChildren: AuthedOrgRouteChildren = {
   AuthedOrgAuditRoute: AuthedOrgAuditRoute,
   AuthedOrgConnectionsRoute: AuthedOrgConnectionsRoute,
   AuthedOrgInboxRoute: AuthedOrgInboxRoute,
+  AuthedOrgIntegrationsRoute: AuthedOrgIntegrationsRoute,
   AuthedOrgProjectsRoute: AuthedOrgProjectsRoute,
   AuthedOrgResourcesRoute: AuthedOrgResourcesRoute,
   AuthedOrgWhatsNewRoute: AuthedOrgWhatsNewRoute,

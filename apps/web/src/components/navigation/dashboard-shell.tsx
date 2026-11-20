@@ -15,7 +15,8 @@ import { PageBody } from '../shell/page-intro'
 import { DashboardOverlays } from '../inbox/dashboard-overlays'
 import { useFramedPage } from '../workflow-detail/use-framed-page'
 import { useDisabledFeatures } from '../../lib/feature-switches'
-import { pageSwitchedOff, type DashboardPage } from './dashboard-page'
+import { useEnabledExtensions } from '../../extensions/registry'
+import { pageUnavailable, type DashboardPage } from './dashboard-page'
 import type { DashboardSearch } from './dashboard-providers'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
 import type { RailOverlays } from './nav-model'
@@ -76,6 +77,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const releases = useReleases(slugs.org)
   const source = useDataSource()
   const disabled = useDisabledFeatures()
+  const extensions = useEnabledExtensions()
 
   // A new history entry, as opening one is: Back reopens it rather than standing still.
   function handleCloseOverlay() {
@@ -97,8 +99,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
   const found = scope.data?.found === true
   const notFound = scope.data && !scope.data.found ? scope.data.notFound : null
-  // A page the instance switches off is not there: it never mounts, so it fetches nothing.
-  const switchedOff = declaredPage !== null && pageSwitchedOff(declaredPage, disabled)
+  // A page the instance switches off (or Integrations with nothing to draw it)
+  // is not there: it never mounts, so it fetches nothing and announces nothing.
+  const switchedOff = declaredPage !== null && pageUnavailable(declaredPage, disabled, extensions)
 
   // The editor fills the screen itself once its scope is found; sample items
   // get the framed placeholder instead.

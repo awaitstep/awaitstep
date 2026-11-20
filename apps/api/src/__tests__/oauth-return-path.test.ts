@@ -7,9 +7,7 @@ import {
 
 describe('checkOAuthReturnPath', () => {
   it('accepts a web app path naming {org}, with or without {project}', () => {
-    expect(checkOAuthReturnPath('/{org}/ext/cloud/integrations')).toBe(
-      '/{org}/ext/cloud/integrations',
-    )
+    expect(checkOAuthReturnPath('/{org}/integrations')).toBe('/{org}/integrations')
     expect(checkOAuthReturnPath(DEFAULT_OAUTH_RETURN_PATH)).toBe(DEFAULT_OAUTH_RETURN_PATH)
   })
 
@@ -55,8 +53,8 @@ describe('oauthReturnUrl', () => {
   })
 
   it('fills the named page with the slugs, encoded', () => {
-    expect(
-      oauthReturnUrl('http://web.test', '/{org}/ext/cloud/integrations', { org: 'a/b' }, ok),
-    ).toBe('http://web.test/a%2Fb/ext/cloud/integrations?oauth=ok&connected=1')
+    expect(oauthReturnUrl('http://web.test', '/{org}/integrations', { org: 'a/b' }, ok)).toBe(
+      'http://web.test/a%2Fb/integrations?oauth=ok&connected=1',
+    )
   })
 })

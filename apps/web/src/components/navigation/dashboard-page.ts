@@ -8,7 +8,8 @@ import type {
 } from '../../lib/dashboard-paths'
 import type { OssFeature } from '@awaitstep/ir'
 import type { ItemKind } from '../../types/dashboard/items'
-import type { ExtensionPageKey, ExtensionPageScope } from '../../extensions/types'
+import type { ExtensionPageKey, ExtensionPageScope, WebExtension } from '../../extensions/types'
+import { findIntegrationsPage } from '../../extensions/registry'
 
 /** A workflow or function page's own pages, and one run of it. */
 export type ItemDetailPage = ItemPage | 'run'
@@ -65,6 +66,7 @@ const ORG_PAGE_LABEL: Record<OrgPage, string> = {
   'api-keys': 'API',
   inbox: 'Inbox',
   'whats-new': 'What’s new',
+  integrations: 'Integrations',
 }
 
 const ORG_SETTINGS_LABEL: Record<OrgSettingsPage, string> = {
@@ -152,6 +154,19 @@ export function pageSwitchedOff(page: DashboardPage, disabled: readonly OssFeatu
  * `head` for a dashboard route. `disabled` (`disabledIn(matches)`) is what
  * the instance switches off: a page it switches off is titled as not found.
  */
+/**
+ * Whether the page answers page-not-found here: switched off, or Integrations
+ * with no enabled extension to draw it. Either way it never mounts.
+ */
+export function pageUnavailable(
+  page: DashboardPage,
+  disabled: readonly OssFeature[],
+  extensions: readonly WebExtension[],
+): boolean {
+  if (pageSwitchedOff(page, disabled)) return true
+  return page.kind === 'org' && page.page === 'integrations' && !findIntegrationsPage(extensions)
+}
+
 export function pageHead(page: DashboardPage, disabled: readonly OssFeature[] = []) {
   const title = pageSwitchedOff(page, disabled) ? 'Page not found · AwaitStep' : pageTitle(page)
   return { meta: [{ title }] }

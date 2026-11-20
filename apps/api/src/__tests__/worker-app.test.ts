@@ -38,10 +38,10 @@ describe('createWorker', () => {
   })
 
   it('passes the OAuth return path on, and refuses one that could leave the web app', () => {
-    expect(workerAppOptions({ oauthReturnPath: '/{org}/ext/cloud/integrations' })).toEqual({
+    expect(workerAppOptions({ oauthReturnPath: '/{org}/integrations' })).toEqual({
       extensions: [],
       disabledFeatures: [],
-      oauthReturnPath: '/{org}/ext/cloud/integrations',
+      oauthReturnPath: '/{org}/integrations',
     })
     expect(() => createWorker({ oauthReturnPath: 'https://evil.test/{org}' })).toThrow(
       /is not valid/,

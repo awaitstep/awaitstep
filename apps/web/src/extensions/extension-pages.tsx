@@ -11,6 +11,7 @@ import { itemScopeFrom } from '../lib/workflows/route-scope'
 import {
   enabledExtensions,
   extensionPageKey,
+  findIntegrationsPage,
   framedExtensionPage,
   resolveExtensionPage,
   useEnabledExtensions,
@@ -34,6 +35,16 @@ export function extensionPageHead(
     splat,
   )
   return pageHead({ kind: 'extension', scope, page: framedExtensionPage(resolved) })
+}
+
+/** `head` for `/{org}/integrations`: "Page not found" while no enabled extension draws it. */
+export function integrationsPageHead(matches: readonly AnyRouteMatch[]) {
+  const loaderData = matches.find((match) => match.routeId === '/_authed')?.loaderData as
+    { features?: readonly string[] } | undefined
+  const page = findIntegrationsPage(enabledExtensions(installed, loaderData?.features ?? []))
+  return page
+    ? pageHead({ kind: 'org', page: 'integrations' })
+    : { meta: [{ title: 'Page not found · AwaitStep' }] }
 }
 
 interface ExtensionWorkspacePageProps {
@@ -81,6 +92,22 @@ export function ExtensionOrgPage({ org, splat }: ExtensionOrgPageProps) {
       ids={{ organizationId: scope.org.id }}
       viewerRole={scope.viewerRole}
       subpath={resolved.subpath}
+    />
+  )
+}
+
+/** `/{org}/integrations`: drawn by an extension's `org.integrations`; not found without one. */
+export function IntegrationsPage({ org }: { org: string }) {
+  const Body = findIntegrationsPage(useEnabledExtensions())
+  const scope = useOrgScope(org)
+  if (!Body) return <PageNotFound />
+  if (!scope) return null
+  return (
+    <Body
+      org={org}
+      ids={{ organizationId: scope.org.id }}
+      viewerRole={scope.viewerRole}
+      subpath=""
     />
   )
 }
