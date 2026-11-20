@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - 'apps/docs/**'
+      - 'skills/**'
+      - 'scripts/skills.mjs'
+      - 'scripts/skills.test.mjs'
 
 concurrency:
   group: docs-deploy
@@ -28,6 +31,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - run: pnpm skills:check
 
       - run: pnpm --filter @awaitstep/docs build
 
