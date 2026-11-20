@@ -72,7 +72,7 @@ export const YourOrganizations: Story = {
       <div className="flex flex-col gap-1.5">
         <h1 className="text-3xl font-semibold text-foreground">Welcome back, Daniel</h1>
         <p className="text-sm text-muted-foreground">
-          Signed in as daniel@acme.test. Pick an organization, or carry on where you left off.
+          Pick an organization, or carry on where you left off.
         </p>
       </div>
       <DeclinableInvite />

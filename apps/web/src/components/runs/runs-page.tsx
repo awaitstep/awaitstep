@@ -270,10 +270,7 @@ export function RunsPage({ slugs }: RunsPageProps) {
         </Button>
       </TopBarContent>
       <PageBody>
-        <PageIntro
-          title="Runs"
-          description="Runs of this workspace’s workflows and functions. Runs of shared workflows appear in the workspace that owns them."
-        />
+        <PageIntro title="Runs" description="Runs of this workspace’s workflows and functions." />
         {exportFailed && (
           <p role="alert" className="text-xs text-status-error">
             {EXPORT_FAILED_COPY}

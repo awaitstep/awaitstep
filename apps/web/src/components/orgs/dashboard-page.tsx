@@ -164,7 +164,6 @@ export function DashboardPage({ dialog, onCloseDialog }: DashboardPageProps) {
             {hasOrgs ? 'Welcome back' : 'Welcome to AwaitStep'}, {firstName(me.name)}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Signed in as {me.email}.
             {hasOrgs && ' Pick an organization, or carry on where you left off.'}
           </p>
         </div>

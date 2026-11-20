@@ -34,7 +34,7 @@ export function IntegrationCard({
         <p className="text-sm text-muted-foreground">{description}</p>
         {hasContent(status) && <p className="text-xs text-muted-foreground">{status}</p>}
       </div>
-      {hasContent(actions) && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {hasContent(actions) && <div className="flex flex-wrap items-center gap-1">{actions}</div>}
     </section>
   )
 }

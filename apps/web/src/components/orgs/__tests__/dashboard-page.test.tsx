@@ -89,11 +89,7 @@ describe('DashboardPage', () => {
     settle()
     renderPage()
     expect(screen.getByRole('heading', { level: 1, name: 'Welcome back, Daniel' })).toBeVisible()
-    expect(
-      screen.getByText(
-        'Signed in as daniel@acme.test. Pick an organization, or carry on where you left off.',
-      ),
-    ).toBeVisible()
+    expect(screen.getByText('Pick an organization, or carry on where you left off.')).toBeVisible()
     expect(screen.getByText('2 organizations · most recently opened first')).toBeVisible()
     const section = screen.getByRole('region', { name: 'Your organizations' })
     const links = within(section).getAllByRole('link')
