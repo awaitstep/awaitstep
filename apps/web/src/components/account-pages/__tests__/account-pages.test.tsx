@@ -124,9 +124,7 @@ describe('Profile', () => {
     expect(api.requestsTo('PUT /account/photo')).toHaveLength(0)
   })
 
-  // Known gap: `useUpdateProfile` tags every refused `updateUser` with field
-  // `name`, so a 503 lands under the name. Fixed in the next commit.
-  it.fails('says a failed save below the form, not as a problem with the name', async () => {
+  it('says a failed save below the form, not as a problem with the name', async () => {
     const api = renderProfile()
     api.on('POST /auth/update-user', authError(503, 'The service didn’t answer in time.'))
     const input = await screen.findByLabelText('Full name')

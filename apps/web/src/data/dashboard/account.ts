@@ -57,7 +57,11 @@ export function useUpdateProfile() {
       try {
         if (update.name !== undefined) {
           const res = await authClient.updateUser({ name: update.name })
-          if (res.error) throw authError(res.error, 'Could not save your profile', 'name')
+          if (res.error) {
+            // A refusal of the name belongs under the name; a server failure isn't about it.
+            const field = (res.error.status ?? 400) < 500 ? 'name' : undefined
+            throw authError(res.error, 'Could not save your profile', field)
+          }
         }
         if (update.image) await dashboardApi.uploadPhoto(update.image)
         else if (update.image === null) await dashboardApi.removePhoto()
