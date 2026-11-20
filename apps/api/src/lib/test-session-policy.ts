@@ -147,6 +147,14 @@ export function quotaWindowStart(limits: TestSessionLimits, now: number = Date.n
 
 export type TestSessionStartRefusal = {
   limit: 'concurrency' | 'capacity' | 'quota' | 'disabled' | 'race'
+  /**
+   * `409` when the caller's own state is in the way (a session already
+   * running, or a lost race): stopping it or starting again resolves it now,
+   * where waiting only helps once the session is reaped. `429` for the shared
+   * caps, which free up as other people's sessions end.
+   * `503` when an operator switched sessions off.
+   */
+  status: 409 | 429 | 503
   error: string
 }
 
@@ -166,11 +174,12 @@ export function testSessionStartRefusal(
     limits.maxConcurrentTotal === 0 ||
     limits.maxPerWindowPerProject === 0
   ) {
-    return { limit: 'disabled', error: 'Test sessions are currently disabled' }
+    return { limit: 'disabled', status: 503, error: 'Test sessions are currently disabled' }
   }
   if (usage.activeForUser >= limits.maxConcurrentPerUser) {
     return {
       limit: 'concurrency',
+      status: 409,
       error:
         limits.maxConcurrentPerUser === 1
           ? 'You already have a test session running — stop it before starting another'
@@ -180,16 +189,18 @@ export function testSessionStartRefusal(
   if (usage.activeEverywhere >= limits.maxConcurrentTotal) {
     return {
       limit: 'capacity',
+      status: 429,
       error: 'All test session capacity is in use — try again in a few minutes',
     }
   }
   if (usage.createdInWindow >= limits.maxPerWindowPerProject) {
     return {
       limit: 'quota',
+      status: 429,
       error: 'This project has reached its test-session quota — try again later',
     }
   }
   // Neither cap is full now, so the reservation lost a race — telling the
   // user their quota is spent would be a lie they cannot act on.
-  return { limit: 'race', error: 'Could not start a test session — try again' }
+  return { limit: 'race', status: 409, error: 'Could not start a test session — try again' }
 }

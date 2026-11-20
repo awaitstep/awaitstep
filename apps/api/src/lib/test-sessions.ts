@@ -241,7 +241,7 @@ export async function startTestSession(
     // The database refused it; usage only turns that into a message.
     const usage = await db.getTestSessionUsage(projectId, userId, quotaWindowStart(limits))
     const refusal = testSessionStartRefusal(usage, limits)
-    return { ok: false, status: refusal.limit === 'disabled' ? 503 : 429, error: refusal.error }
+    return { ok: false, status: refusal.status, error: refusal.error }
   }
 
   const { vars, secrets } = prepared.envVars

@@ -155,7 +155,8 @@ describe('test session routes', () => {
       await mockDb.updateWorkflow('wf-2', { currentVersionId: version.id })
 
       const res = await app.request(url('/api/workflows/wf-2/test-sessions'), { method: 'POST' })
-      expect(res.status).toBe(429)
+      // A conflict with the user's own session, not a rate limit: stopping it frees the slot.
+      expect(res.status).toBe(409)
       expect((await res.json()) as { error: string }).toMatchObject({
         error: expect.stringContaining('stop it'),
       })

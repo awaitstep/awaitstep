@@ -3292,8 +3292,10 @@ started before manifests were stored. Compare it with the hashes from
 `GET /workflows/:workflowId/source` to tell whether files were saved, deleted
 or added since the session started.
 
-Refusals: `400` no saved version to run, `429` the user's concurrency cap or the
-project's quota, `502` the worker could not start (the message carries the
+Refusals: `400` no saved version to run, `409` the user already has a session
+running (stop it first; a key counts as the person who made it), another start
+overlapped (start again) or the session was stopped while starting, `429` the instance's capacity or the project's quota, `503`
+sessions switched off, `502` the worker could not start (the message carries the
 worker's own output), `504` the start took longer than the start timeout.
 
 ### `GET /workflows/:workflowId/test-sessions`
