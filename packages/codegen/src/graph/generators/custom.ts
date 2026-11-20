@@ -113,6 +113,11 @@ export class FieldExpression {
 }
 
 const TEMPLATE_TEXT_ESCAPES = /[\\`]|\$\{/g
+// A built-in HTTP value may hold the user's own closed `${…}` around its
+// `{{…}}` spans, which the HTTP generator has always written as code: that
+// stays live (with `\` and a backtick escaped, as that generator does). An
+// unclosed `${` would break the template, so it stays text.
+const RAW_TEMPLATE_TEXT_ESCAPES = /\$\{[^{}]*\}|[\\`]|\$\{/g
 
 /** A field's string with `{{…}}` spans as code: the value for one whole span, else a template string. */
 export function compileFieldExpressions(
@@ -124,14 +129,45 @@ export function compileFieldExpressions(
   if (spans.length === 1 && value.trim() === spans[0]!.raw) {
     return new FieldExpression(compileExpression(spans[0]!.ast, refFor))
   }
+  return templateString(value, spans, refFor, TEMPLATE_TEXT_ESCAPES)
+}
+
+/**
+ * A built-in field the runtime receives as text (an HTTP URL, header or query
+ * value): every `{{…}}` span becomes `${…}` in a template string, so a whole
+ * value is still a string. The compiled expression is written as is; only the
+ * text around it is escaped. `rawInterpolation` keeps a `${…}` the user wrote
+ * in that text live (the HTTP node documents it); otherwise it stays text.
+ */
+export function compileInterpolatedField(
+  value: string,
+  refFor: (ref: string) => string,
+  { rawInterpolation }: { rawInterpolation: boolean },
+): string | FieldExpression {
+  const spans = scanExpressions(value)
+  if (spans.length === 0) return value
+  const escapes = rawInterpolation ? RAW_TEMPLATE_TEXT_ESCAPES : TEMPLATE_TEXT_ESCAPES
+  return templateString(value, spans, refFor, escapes)
+}
+
+function templateString(
+  value: string,
+  spans: ReturnType<typeof scanExpressions>,
+  refFor: (ref: string) => string,
+  escapes: RegExp,
+): FieldExpression {
+  const text = (part: string): string =>
+    part.replace(escapes, (m) =>
+      m.length > 2 && m.startsWith('${') ? m.replace(/[\\`]/g, (c) => `\\${c}`) : `\\${m}`,
+    )
   let out = '`'
   let cursor = 0
   for (const span of spans) {
-    out += value.slice(cursor, span.start).replace(TEMPLATE_TEXT_ESCAPES, (m) => `\\${m}`)
+    out += text(value.slice(cursor, span.start))
     out += `\${${compileExpression(span.ast, refFor)}}`
     cursor = span.end
   }
-  out += value.slice(cursor).replace(TEMPLATE_TEXT_ESCAPES, (m) => `\\${m}`) + '`'
+  out += text(value.slice(cursor)) + '`'
   return new FieldExpression(out)
 }
 

@@ -1,0 +1,17 @@
+{
+  "name": "awaitstep",
+  "description": "Agent skills for building on AwaitStep.",
+  "owner": {
+    "name": "AwaitStep",
+    "url": "https://awaitstep.dev"
+  },
+  "plugins": [
+    {
+      "name": "awaitstep",
+      "source": "./",
+      "description": "Create and change AwaitStep workflows, Functions, modules, custom nodes and Code projects from Claude Code.",
+      "category": "development",
+      "tags": ["workflows", "agents", "cloudflare"]
+    }
+  ]
+}

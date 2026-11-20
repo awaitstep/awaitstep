@@ -1,0 +1,13 @@
+{
+  "name": "awaitstep",
+  "version": "1.0.0",
+  "description": "Build and change AwaitStep workflows, Functions, modules, custom nodes and Code projects with an AI agent.",
+  "author": {
+    "name": "AwaitStep",
+    "url": "https://awaitstep.dev"
+  },
+  "homepage": "https://docs.awaitstep.dev/agents/",
+  "repository": "https://github.com/awaitstep/awaitstep",
+  "license": "Apache-2.0",
+  "keywords": ["workflows", "agents", "cloudflare", "durable workflows"]
+}

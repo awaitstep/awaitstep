@@ -1,4 +1,5 @@
 import { scanExpressions } from './parse.js'
+import { isTextMap } from './text-fields.js'
 import { validateExpressionRefs, type NodeIdSet } from './refs.js'
 
 /** What an expression may name from a node: the nodes before it, and every node by id or variable name. */
@@ -103,13 +104,15 @@ export const MAX_PROBLEMS_PER_NODE = 50
 
 /**
  * The problems in a node's fields: every string codegen reads expressions
- * from — each top-level string, and the strings one level inside an array
- * (a branch's conditions) — so what is flagged is what would ship.
+ * from — each top-level string, the strings one level inside an array (a
+ * branch's conditions), and a built-in text map's values (HTTP headers, when
+ * `type` names the node type) — so what is flagged is what would ship.
  */
 export function nodeExpressionProblems(
   data: Readonly<Record<string, unknown>>,
   scope: ExpressionScope,
   codeFields: ReadonlySet<string> = CODE_FIELDS,
+  type?: string,
 ): FieldExpressionProblem[] {
   const problems: FieldExpressionProblem[] = []
   const check = (field: string, value: string) => {
@@ -130,6 +133,10 @@ export function nodeExpressionProblems(
             if (typeof inner === 'string') check(field, inner)
           }
         }
+      }
+    } else if (isTextMap(type, field, value)) {
+      for (const inner of Object.values(value as Record<string, unknown>)) {
+        if (typeof inner === 'string') check(field, inner)
       }
     }
   }

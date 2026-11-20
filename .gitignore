@@ -49,6 +49,9 @@ awaitstep.db*
 # Plan
 plan/
 
+# Agent skills copied into the docs site by scripts/skills.mjs
+apps/docs/public/skills/
+
 # Node registry (local dev build artifact)
 nodes/registry.json
 

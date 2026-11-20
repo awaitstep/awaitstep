@@ -131,6 +131,17 @@ describe('testSessionStartRefusal', () => {
     expect(refusal.error).toContain('stop it')
   })
 
+  it('answers a conflict for the caller’s own state and a rate limit for the shared caps', () => {
+    const at = (activeForUser: number, activeEverywhere: number, createdInWindow: number) =>
+      testSessionStartRefusal({ activeForUser, activeEverywhere, createdInWindow }, limits).status
+    expect(at(1, 1, 0)).toBe(409) // own session running: stop it
+    expect(at(0, 0, 0)).toBe(409) // lost a race: start again
+    expect(at(0, 5, 0)).toBe(429) // instance capacity
+    expect(at(0, 0, 3)).toBe(429) // project quota
+    const idle = { activeForUser: 0, activeEverywhere: 0, createdInWindow: 0 }
+    expect(testSessionStartRefusal(idle, { ...limits, maxConcurrentPerUser: 0 }).status).toBe(503)
+  })
+
   it('names the limit when more than one session is allowed', () => {
     const refusal = testSessionStartRefusal(
       { activeForUser: 2, activeEverywhere: 2, createdInWindow: 0 },

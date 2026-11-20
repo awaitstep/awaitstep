@@ -62,6 +62,12 @@ export interface GeneratedBundle {
    * workflow's own files under `modules/` never count.
    */
   libraryModules?: string[]
+  /**
+   * The class the provider entry exports as the workflow's entrypoint, when
+   * it has one (a workflow bundle on a provider that runs a class). The deploy
+   * config binds this name; nothing reads it back out of the source.
+   */
+  entryClass?: string
 }
 
 export const DIAGNOSTIC_SOURCES = ['ir', 'provider', 'compile', 'import', 'env', 'library'] as const

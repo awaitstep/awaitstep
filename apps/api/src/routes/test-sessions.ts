@@ -99,31 +99,9 @@ workflowTestSessions.post('/:workflowId/test-sessions', async (c) => {
   const userId = c.get('userId')
   const projectId = c.get('projectId')
 
-  // An existing session is reused rather than refused: the cap would turn a
-  // second click into an error about the very session the user is asking
-  // for. A session still starting counts — otherwise a second click builds
-  // the bundle again and then collides with its own reservation.
-  const existing = await context.db.getLiveTestSessionForWorkflow(
-    workflow.id,
-    userId,
-    testSessionCutoffs(context.limits),
-  )
-  if (existing) {
-    // Running the version the user is looking at is the whole point: after a
-    // save, handing back a session on the old code would quietly test the
-    // wrong thing.
-    if (existing.versionId === workflow.currentVersionId) {
-      // Reuse is use: without this the session handed back can expire a
-      // moment later.
-      await context.db.touchTestSession(existing.id, userId, testSessionCutoffs(context.limits))
-      return c.json({ session: serialize(existing), reused: true })
-    }
-    await stopTestSession(context, existing, 'stopped', {
-      error: 'Replaced by a newer version',
-      userId,
-    })
-  }
-
+  // A live session is handed back rather than refused (the cap would turn a
+  // second click into an error about the very session asked for), but only
+  // when it runs the code that would be built now; startTestSession decides.
   const result = await startTestSession({
     ...context,
     workflow,
@@ -138,6 +116,7 @@ workflowTestSessions.post('/:workflowId/test-sessions', async (c) => {
       result.status as 400,
     )
   }
+  if (result.reused) return c.json({ session: serialize(result.session), reused: true })
   return c.json({ session: serialize(result.session), reused: false }, 201)
 })
 

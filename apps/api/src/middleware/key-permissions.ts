@@ -1,4 +1,8 @@
 import { createMiddleware } from 'hono/factory'
+import { basePath } from 'hono/route'
+import { RegExpRouter } from 'hono/router/reg-exp-router'
+import { SmartRouter } from 'hono/router/smart-router'
+import { TrieRouter } from 'hono/router/trie-router'
 import {
   keyMay,
   resourceAtLevel,
@@ -55,14 +59,68 @@ export function requireKeyPermission(
   })
 }
 
+/** A route as Hono records it in `app.routes`. */
+export interface RegisteredRoute {
+  method: string
+  path: string
+  handler: { length: number }
+}
+
+const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const
+
+/**
+ * The methods each path has a handler for. Built once, on the first refused
+ * request (every route is registered by then), into a router of its own with
+ * Hono's default routing, so strict paths, params and wildcards match as
+ * dispatch does — without building, and so locking, the app's own router.
+ * Middleware is not a handler, even when registered with a method
+ * (`router.get('/nodes/*', key(…))`): Hono middleware takes `(c, next)`, a
+ * handler only `c`. An `ALL` handler answers every method.
+ */
+function handlerMethods(routes: () => readonly RegisteredRoute[]): (path: string) => string[] {
+  let matcher: SmartRouter<true> | null = null
+  return (path) => {
+    if (!matcher) {
+      matcher = new SmartRouter<true>({ routers: [new RegExpRouter(), new TrieRouter()] })
+      for (const route of routes()) {
+        if (route.handler.length < 2) matcher.add(route.method, route.path, true)
+      }
+    }
+    const built = matcher
+    return METHODS.filter((method) => built.match(method, path)[0].length > 0).flatMap((method) =>
+      method === 'GET' ? ['GET', 'HEAD'] : [method],
+    )
+  }
+}
+
+// Extension routes are the deployment's own, not the open-source table: an
+// unjudged key gets the flat refusal there, so a key cannot map their shape.
+const EXTENSION_PREFIX = '/ext/'
+
 /**
  * Registered after every mapping: a key on a route no mapping judged is
  * refused, so a route added later is session-only until someone decides
- * which cell it needs.
+ * which cell it needs. The refusal says what is actually wrong: a method the
+ * path does not answer is `405` with `Allow`, a path nothing answers is `404`,
+ * and only a real route a key may not use is `403`. A `403` for a mistyped
+ * method reads as a missing permission and sends the caller after the key.
+ * Whatever the answer, the request never reaches a handler. `routes` are the
+ * ones of the router this middleware is registered on; paths are matched
+ * below its mount.
  */
-export const requireKeyMapped = createMiddleware<AppEnv>(async (c, next) => {
-  if (c.get('apiKey') !== null && !c.get('keyPermissionChecked')) {
+export function requireKeyMapped(routes: () => readonly RegisteredRoute[]) {
+  const methodsFor = handlerMethods(routes)
+  return createMiddleware<AppEnv>(async (c, next) => {
+    if (c.get('apiKey') === null || c.get('keyPermissionChecked')) return next()
+    const path = c.req.path.slice(basePath(c).length) || '/'
+    if (path.startsWith(EXTENSION_PREFIX)) return c.json({ error: KEYS_NOT_ALLOWED }, 403)
+    const methods = methodsFor(path)
+    if (methods.length === 0) return c.json({ error: 'Not found' }, 404)
+    if (!methods.includes(c.req.method)) {
+      const allow = methods.join(', ')
+      c.header('Allow', allow)
+      return c.json({ error: `Method not allowed. Use ${allow}.` }, 405)
+    }
     return c.json({ error: KEYS_NOT_ALLOWED }, 403)
-  }
-  return next()
-})
+  })
+}

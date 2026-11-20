@@ -165,6 +165,25 @@ describe('CloudflareWorkflowsAdapter', () => {
       expect(result.deploymentId).toBe('awaitstep-test-workflow')
     })
 
+    it('binds the class the generated entry exports, after a rename too', async () => {
+      // The workflow row was renamed; the saved IR still carries the old name.
+      const artifact = adapter.generate({
+        ...simpleIR,
+        metadata: { ...simpleIR.metadata, name: 'Order follow-up' },
+      })
+      expect(artifact.entryClass).toBe('OrderFollowUp')
+      const entry = artifact.files.find((file) => file.path === 'awaitstep/entry.ts')!
+      expect(entry.source).toContain('export class OrderFollowUp extends WorkflowEntrypoint')
+
+      vi.mocked(mockDeployer.deploy).mockClear()
+      await adapter.deploy(artifact, {
+        ...providerConfig,
+        options: { ...providerConfig.options, workflowName: 'Order follow-up v2' },
+      })
+      const [, options] = vi.mocked(mockDeployer.deploy).mock.calls.at(-1)!
+      expect(options.className).toBe('OrderFollowUp')
+    })
+
     it('hands back the name it deployed under, which lookups name the Workflow from once', async () => {
       const artifact = adapter.generate(simpleIR)
       // Names the naming rule changes, and would change again if applied twice.

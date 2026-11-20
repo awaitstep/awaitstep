@@ -99,6 +99,16 @@ describe('app extensions', () => {
     expect(res.status).toBe(403)
     expect((await res.json()).error).toBe(KEYS_NOT_ALLOWED)
     expect(extension.calls).toBe(0)
+
+    // The deployment's own routes: a wrong method gets the same flat refusal,
+    // so a key cannot tell which paths and methods an extension has.
+    const wrongMethod = await createTestApp({ extensions: [extension] }).request(
+      '/api/ext/echo/note',
+      { headers: { Authorization: `Bearer ${raw}` } },
+    )
+    expect(wrongMethod.status).toBe(403)
+    expect(wrongMethod.headers.get('Allow')).toBeNull()
+    expect(extension.calls).toBe(0)
   })
 
   it('refuses a cross-origin cookie write to an extension route', async () => {

@@ -39,7 +39,33 @@ export async function createTokenCrypto(keyHex: string): Promise<TokenCrypto> {
     ['encrypt', 'decrypt'],
   )
 
+  // Its own key, derived from the same secret: one key, one purpose.
+  const hkdfKey = await crypto.subtle.importKey(
+    'raw',
+    keyBytes.buffer as ArrayBuffer,
+    'HKDF',
+    false,
+    ['deriveKey'],
+  )
+  const digestKey = await crypto.subtle.deriveKey(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new Uint8Array(0),
+      info: new TextEncoder().encode('awaitstep:fingerprint'),
+    },
+    hkdfKey,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+
   return {
+    async digest(input: string): Promise<string> {
+      const signature = await crypto.subtle.sign('HMAC', digestKey, new TextEncoder().encode(input))
+      return [...new Uint8Array(signature)].map((b) => b.toString(16).padStart(2, '0')).join('')
+    },
+
     async encrypt(plaintext: string): Promise<string> {
       const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH))
       const encoded = new TextEncoder().encode(plaintext)

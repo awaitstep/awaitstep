@@ -4,6 +4,9 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 export default withMermaid(
   defineConfig({
     title: 'AwaitStep',
+    // The skill pack is copied into public/skills as static Markdown for agents
+    // to fetch; VitePress must not turn those files into pages.
+    srcExclude: ['public/**'],
     description: 'Self-hosted visual workflow builder for Cloudflare Workflows',
     cleanUrls: true,
     head: [
@@ -169,6 +172,10 @@ export default withMermaid(
             { text: 'Webhooks', link: '/api/webhooks' },
             { text: 'IR Schema', link: '/api/ir-schema' },
           ],
+        },
+        {
+          text: 'For AI agents',
+          items: [{ text: 'Agent skills', link: '/agents/' }],
         },
         { text: 'Configuration Reference', link: '/configuration' },
         {

@@ -896,6 +896,13 @@ export interface DatabaseAdapter {
 
   // Test sessions (disposable workers running a workflow before deploy)
   /**
+   * A hex digest of `input`, keyed with the server's encryption key when one
+   * is configured, for a stored fingerprint whose input holds secret values
+   * (a test session's source). Without a key the values are stored in the
+   * clear anyway, and it is a plain SHA-256.
+   */
+  fingerprint(input: string): Promise<string>
+  /**
    * Records a session as `starting` if both caps have room — the counts are
    * subqueries of the INSERT. Null when a cap was full.
    */

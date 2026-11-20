@@ -1,0 +1,35 @@
+# AwaitStep
+
+> AwaitStep is a self-hosted visual workflow builder that compiles a node graph into portable TypeScript and deploys it to Cloudflare. It has durable Workflows, HTTP-only Functions, a reusable Library of modules and custom nodes, and a browser IDE over the same project files. This file is the entry point for AI agents.
+
+## Agent skills
+
+- [Agent skills](https://docs.awaitstep.dev/agents/): what the pack covers, how to install it, key scopes and the safety rules.
+- [awaitstep](https://docs.awaitstep.dev/skills/awaitstep/SKILL.md): start here; setup, API key scopes, read-before-write, routing.
+- [awaitstep-workflows](https://docs.awaitstep.dev/skills/awaitstep-workflows/SKILL.md): build and change durable workflows, their IR, nodes, expressions, versions and deploys, and operate them: schedules, run control, rollback, take-down.
+- [awaitstep-functions](https://docs.awaitstep.dev/skills/awaitstep-functions/SKILL.md): build an HTTP-only Function (kind script), its entry and response.
+- [awaitstep-modules](https://docs.awaitstep.dev/skills/awaitstep-modules/SKILL.md): create, publish and import a Library module as #modules/<slug>.
+- [awaitstep-custom-nodes](https://docs.awaitstep.dev/skills/awaitstep-custom-nodes/SKILL.md): create, publish and place a custom node in the palette.
+- [awaitstep-canvas](https://docs.awaitstep.dev/skills/awaitstep-canvas/SKILL.md): work on the graph in Canvas mode, including layout, arm labels and conflicts.
+- [awaitstep-ide](https://docs.awaitstep.dev/skills/awaitstep-ide/SKILL.md): work in Code mode: handlers, package.json, #app imports, step sources and checks.
+- [skills/manifest.json](https://docs.awaitstep.dev/skills/manifest.json): the pack index, version and API contract.
+
+## Documentation
+
+- [Introduction](https://docs.awaitstep.dev/): what AwaitStep is and the Workflows vs Functions split.
+- [Quickstart](https://docs.awaitstep.dev/getting-started/quickstart): install and build a first workflow.
+- [Workflow IR](https://docs.awaitstep.dev/concepts/workflow-ir): the document the canvas edits.
+- [Canvas](https://docs.awaitstep.dev/concepts/canvas): nodes, expressions, validation and Code mode.
+- [Compilation](https://docs.awaitstep.dev/concepts/compilation): how the IR becomes TypeScript.
+- [Node Types](https://docs.awaitstep.dev/concepts/node-types): the built-in node catalog.
+- [Custom Nodes](https://docs.awaitstep.dev/nodes/custom-nodes): the node definition and template contract.
+- [REST API](https://docs.awaitstep.dev/api/rest): the endpoints and their permissions.
+- [Project Files](https://docs.awaitstep.dev/api/project-files): the file tree, imports, handlers and checks an agent uses.
+- [Triggers](https://docs.awaitstep.dev/api/triggers): starting a deployed workflow or calling a function.
+- [IR Schema](https://docs.awaitstep.dev/api/ir-schema): the full IR reference.
+
+## Optional
+
+- [Templates](https://docs.awaitstep.dev/templates/): complete workflow examples.
+- [Troubleshooting](https://docs.awaitstep.dev/troubleshooting/deploy-failures): deploy, run, timeout and token failures.
+- [Source](https://github.com/awaitstep/awaitstep): the repository and the canonical skills/ directory.

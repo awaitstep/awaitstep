@@ -636,6 +636,7 @@ export const testSessions = pgTable(
     lastUsedAt: timestamp('last_used_at', { mode: 'string' }).notNull().defaultNow(),
     stoppedAt: timestamp('stopped_at', { mode: 'string' }),
     files: text('files'),
+    sourceHash: text('source_hash'),
   },
   (table) => [
     index('idx_test_sessions_workflow_id').on(table.workflowId),

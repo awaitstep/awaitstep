@@ -43,6 +43,14 @@ Project-scoped routes take the project as `?projectId=<id>`, or as the slugs the
 
 A workspace can be named on any project-scoped route with `?workspaceId=<id>` or `?workspace=<slug>`. It must be the project's; otherwise `404`. A project-level key names which of its projects a request addresses with `?projectId=<id>` (or the slugs); when it reaches exactly one, naming none defaults to it, and when it reaches several, a request that names none is `400`. A project outside its set is `404`. A workspace-level key names one of its workspaces with `?workspaceId=<id>` (or defaults to it when it reaches one); a workspace outside its set is `404`. An empty parameter counts as none.
 
+### API keys on the wrong route
+
+These answers are for API keys; a session gets the router's own `404`.
+
+- A route keys may not use: `403` `{ "error": "This endpoint is not available to API keys" }`.
+- A path that exists only for other methods: `405`, with an `Allow` header and `{ "error": "Method not allowed. Use POST." }`.
+- A path no route answers: `404` `{ "error": "Not found" }`.
+
 ## Rate Limits
 
 | Scope                   | Limit               |
@@ -3332,7 +3340,10 @@ rather than pretending the route does not exist.
 
 Starts a session, or returns the one this user already has for the workflow
 (`reused: true`, status `200`) — a second click asks for the session you have,
-not an error about it.
+not an error about it. A live session is returned only while it runs what
+would be built now (the same version, project files, Library versions,
+variables and dependencies); otherwise it is stopped and a new one starts
+(`reused: false`, status `201`).
 
 **Permission:** `workflows:write`
 
@@ -3350,8 +3361,10 @@ started before manifests were stored. Compare it with the hashes from
 `GET /workflows/:workflowId/source` to tell whether files were saved, deleted
 or added since the session started.
 
-Refusals: `400` no saved version to run, `429` the user's concurrency cap or the
-project's quota, `502` the worker could not start (the message carries the
+Refusals: `400` no saved version to run, `409` the user already has a session
+running (stop it first; a key counts as the person who made it), another start
+overlapped (start again) or the session was stopped while starting, `429` the instance's capacity or the project's quota, `503`
+sessions switched off, `502` the worker could not start (the message carries the
 worker's own output), `504` the start took longer than the start timeout.
 
 ### `GET /workflows/:workflowId/test-sessions`

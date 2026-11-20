@@ -51,7 +51,7 @@ describe('hasTemplateExpressions', () => {
     expect(hasTemplateExpressions(nodes)).toBe(true)
   })
 
-  it('does not detect expressions nested in header objects', () => {
+  it('detects expressions nested in an HTTP node’s header object', () => {
     const nodes: WorkflowNode[] = [
       {
         id: 'h1',
@@ -67,8 +67,8 @@ describe('hasTemplateExpressions', () => {
         },
       },
     ]
-    // headers is a nested object, hasTemplateExpressions only scans top-level string values in data
-    expect(hasTemplateExpressions(nodes)).toBe(false)
+    // Codegen resolves header values (BUILTIN_TEXT_FIELDS), so the gate must see them.
+    expect(hasTemplateExpressions(nodes)).toBe(true)
   })
 
   it('detects expressions in custom node data', () => {

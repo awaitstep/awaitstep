@@ -24,6 +24,8 @@
     "deploy:cf": "pnpm build && pnpm --filter @awaitstep/api deploy:cf && pnpm --filter @awaitstep/web deploy:cf",
     "deploy:cf:api": "pnpm --filter @awaitstep/api deploy:cf",
     "deploy:cf:web": "pnpm --filter @awaitstep/web deploy:cf",
+    "skills:check": "node --test scripts/skills.test.mjs && node scripts/skills.mjs validate",
+    "skills:sync": "node scripts/skills.mjs sync-docs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

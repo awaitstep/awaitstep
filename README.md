@@ -16,6 +16,23 @@ No proprietary engines — just your code, ready for the runtime you choose.
 
 ---
 
+### Use with AI agents
+
+AwaitStep ships an [Agent Skills](https://docs.awaitstep.dev/agents/) pack that teaches Claude Code, Cursor, Codex and other coding agents to build workflows, Functions, Library modules and custom nodes through the API, and to work safely in Canvas or Code mode.
+
+```bash
+npx skills add awaitstep/awaitstep
+```
+
+Or install it in Claude Code from the plugin marketplace:
+
+```text
+/plugin marketplace add awaitstep/awaitstep
+/plugin install awaitstep@awaitstep
+```
+
+---
+
 ## Demo
 
 <!-- TODO: Replace with actual demo video URL -->

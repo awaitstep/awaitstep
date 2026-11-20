@@ -3,6 +3,8 @@ name: create-node
 description: Scaffold a complete AwaitStep registry or local custom node
 disable-model-invocation: true
 argument-hint: '[node_id]'
+metadata:
+  internal: true
 ---
 
 You are scaffolding a new AwaitStep custom node. Follow these steps exactly.

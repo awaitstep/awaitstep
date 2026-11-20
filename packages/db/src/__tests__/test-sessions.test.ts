@@ -158,6 +158,27 @@ describe('test sessions adapter', () => {
       expect(JSON.parse((stored as { files: string }).files)).toEqual(files)
     })
 
+    it('stores the source fingerprint in its own column', async () => {
+      // The INSERT is positional: a column out of order would land the hash in
+      // another field, and the in-memory mock the route tests use cannot see it.
+      const reserved = await db.adapter.reserveTestSession(
+        reservation({ files: { 'lib/a.ts': 'h1' }, sourceHash: 'f'.repeat(64) }),
+        limits(),
+      )
+      expect(reserved!.sourceHash).toBe('f'.repeat(64))
+      expect(JSON.parse(reserved!.files!)).toEqual({ 'lib/a.ts': 'h1' })
+      const stored = db.sqlite
+        .prepare('SELECT source_hash, files FROM test_sessions WHERE id = ?')
+        .get('s-1') as { source_hash: string; files: string }
+      expect(stored.source_hash).toBe('f'.repeat(64))
+    })
+
+    it('hashes a fingerprint input with SHA-256 when no key is configured', async () => {
+      expect(await db.adapter.fingerprint('abc')).toBe(
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
+      )
+    })
+
     it('leaves the manifest null when none is given', async () => {
       const reserved = await db.adapter.reserveTestSession(reservation(), limits())
       expect(reserved!.files).toBeNull()

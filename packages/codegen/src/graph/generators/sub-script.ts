@@ -1,6 +1,7 @@
 import type { WorkflowNode } from '@awaitstep/ir'
 import { stepLabel, type GenerateMode, type GenerationContext } from '../internal.js'
 import { generateStepConfig } from './config.js'
+import { FieldExpression } from './custom.js'
 import { DEFAULT_STEP_CONFIG, resolveStepConfig } from './step.js'
 
 /**
@@ -17,7 +18,10 @@ export function generateSubScript(
   const varName = ctx.varName(node.id)
   const script = String(node.data.scriptId ?? node.data.workerName ?? '').trim()
   const method = String(node.data.method ?? 'POST')
-  const url = String(node.data.url ?? 'https://invoke/')
+  const url =
+    node.data.url instanceof FieldExpression
+      ? node.data.url
+      : String(node.data.url ?? 'https://invoke/')
   const headers = recordOf(node.data.headers)
   const body = typeof node.data.body === 'string' ? node.data.body.trim() : ''
   const params = recordOf(node.data.params)
@@ -25,8 +29,8 @@ export function generateSubScript(
   const options = callOptions([
     ['script', JSON.stringify(script)],
     ['method', JSON.stringify(method)],
-    ['url', JSON.stringify(url)],
-    ['headers', headers && JSON.stringify(headers)],
+    ['url', textLiteral(url)],
+    ['headers', headers && headersLiteral(headers)],
     ['body', body.length > 0 ? body : undefined],
     ['params', params && JSON.stringify(params)],
   ])
@@ -50,4 +54,17 @@ function recordOf(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined
+}
+
+/** A string field as JS: a `{{…}}` value is already code; anything else is a plain literal. */
+function textLiteral(value: unknown): string {
+  return value instanceof FieldExpression ? value.code : JSON.stringify(value)
+}
+
+/** The headers object in `JSON.stringify`'s compact shape, with `{{…}}` values as code. */
+function headersLiteral(headers: Record<string, unknown>): string {
+  const entries = Object.entries(headers)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => `${JSON.stringify(k)}:${textLiteral(v)}`)
+  return `{${entries.join(',')}}`
 }
