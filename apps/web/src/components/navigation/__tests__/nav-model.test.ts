@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ORG_PAGES, ORG_SETTINGS_PAGES } from '../../../lib/dashboard-paths'
-import { pageTitle } from '../dashboard-page'
-import { breadcrumbs, panelModel, railModel, tabBarEntries } from '../nav-model'
+import { pageFeature, pageHead, pageTitle } from '../dashboard-page'
+import { breadcrumbs, isRailHref, panelModel, railModel, tabBarEntries } from '../nav-model'
 import { testExtension } from '../../../extensions/__tests__/fixtures/test-extension'
 
 const ORG = { org: 'acme' }
@@ -339,5 +339,167 @@ describe('extension slots', () => {
 
   it('titles an extension URL no page claims as not found', () => {
     expect(pageTitle(page)).toBe('Page not found · AwaitStep')
+  })
+})
+
+describe('switched-off features', () => {
+  const ALL = ['playground', 'connections.ui', 'connections.apiTokens'] as const
+
+  it('keeps every rail entry when nothing is switched off', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, { disabled: [] })
+    expect(rail.primary.map((entry) => entry.key)).toContain('connections')
+    expect(rail.secondary.map((entry) => entry.key)).toContain('playground')
+  })
+
+  it('drops Playground from the rail’s lower group with playground off', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      disabled: ['playground'],
+    })
+    expect(rail.secondary.map((entry) => entry.key)).toEqual(['whats-new', 'inbox', 'docs'])
+    expect(rail.primary.map((entry) => entry.key)).toContain('connections')
+  })
+
+  it('drops Connections from the rail and the project panel with connections.ui off', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      disabled: ['connections.ui'],
+    })
+    expect(rail.primary.map((entry) => entry.key)).toEqual([
+      'projects',
+      'resources',
+      'audit',
+      'api-keys',
+      'settings',
+    ])
+    const panel = panelModel({ kind: 'project', page: 'members' }, PROJECT, [], ['connections.ui'])
+    expect(panel.mode === 'project' && panel.items.map((item) => item.key)).toEqual([
+      'workspaces',
+      'scripts-nodes',
+      'shared',
+      'members',
+      'api-keys',
+      'variables',
+      'settings',
+    ])
+  })
+
+  it('leaves the rail alone with only connections.apiTokens off', () => {
+    const on = railModel('acme', { kind: 'org', page: 'projects' }, QUIET)
+    const off = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      disabled: ['connections.apiTokens'],
+    })
+    expect(off).toEqual(on)
+  })
+
+  it('keeps the phone tab bar whole with everything off', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, { disabled: ALL })
+    expect(tabBarEntries(rail).map((entry) => entry.key)).toEqual([
+      'projects',
+      'resources',
+      'audit',
+      'inbox',
+      'settings',
+    ])
+  })
+
+  it('names the feature each switchable page belongs to', () => {
+    expect(pageFeature({ kind: 'playground' })).toBe('playground')
+    expect(pageFeature({ kind: 'org', page: 'connections' })).toBe('connections.ui')
+    expect(pageFeature({ kind: 'project', page: 'connections' })).toBe('connections.ui')
+    expect(pageFeature({ kind: 'org', page: 'api-keys' })).toBeNull()
+    expect(pageFeature({ kind: 'project', page: 'members' })).toBeNull()
+  })
+
+  it('titles a switched-off page as not found, and the rest as before', () => {
+    expect(pageHead({ kind: 'playground' }, ['playground'])).toEqual({
+      meta: [{ title: 'Page not found · AwaitStep' }],
+    })
+    expect(pageHead({ kind: 'org', page: 'connections' }, ['playground'])).toEqual({
+      meta: [{ title: 'Connections · AwaitStep' }],
+    })
+    expect(pageHead({ kind: 'playground' })).toEqual({
+      meta: [{ title: 'API Playground · AwaitStep' }],
+    })
+  })
+})
+
+describe('rail.secondary slot', () => {
+  it('adds an enabled extension’s links after Inbox and Playground, before Docs', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      extensions: [testExtension],
+    })
+    expect(rail.secondary.map((entry) => entry.key)).toEqual([
+      'whats-new',
+      'inbox',
+      'playground',
+      'ext:test-ext#0',
+      'docs',
+    ])
+    const help = rail.secondary.find((entry) => entry.key === 'ext:test-ext#0')!
+    expect(help).toMatchObject({
+      href: 'https://help.example.test',
+      label: 'Help',
+      external: true,
+    })
+  })
+
+  it('puts the extension’s link where Playground was when it is switched off', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, {
+      disabled: ['playground'],
+      extensions: [testExtension],
+    })
+    expect(rail.secondary.map((entry) => entry.label)).toEqual([
+      'What’s new',
+      'Inbox',
+      'Help',
+      'Docs',
+    ])
+  })
+
+  it('adds nothing with no enabled extensions', () => {
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET)
+    expect(rail.secondary.map((entry) => entry.key)).toEqual([
+      'whats-new',
+      'inbox',
+      'playground',
+      'docs',
+    ])
+  })
+
+  it('draws only https URLs and app paths, dropping anything else an extension names', () => {
+    expect(isRailHref('https://help.example.test', true)).toBe(true)
+    expect(isRailHref('/acme/projects', undefined)).toBe(true)
+    for (const [href, external] of [
+      ['javascript:alert(1)', true],
+      ['javascript:alert(1)', false],
+      ['http://help.example.test', true],
+      ['//evil.test', false],
+      ['/\\evil.test', false],
+      ['help', false],
+      ['not a url', true],
+    ] as const) {
+      expect(isRailHref(href, external)).toBe(false)
+    }
+    const bad = {
+      ...testExtension,
+      slots: {
+        'rail.secondary': [
+          {
+            href: 'javascript:alert(1)',
+            label: 'Bad',
+            icon: testExtension.slots!['rail.secondary']![0]!.icon,
+            external: true,
+          },
+          ...testExtension.slots!['rail.secondary']!,
+        ],
+      },
+    }
+    const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, { extensions: [bad] })
+    expect(rail.secondary.map((entry) => entry.label)).toEqual([
+      'What’s new',
+      'Inbox',
+      'Playground',
+      'Help',
+      'Docs',
+    ])
   })
 })

@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { disabledIn } from '../../lib/feature-switches'
 import { pageHead, type DashboardPage } from '../../components/navigation/dashboard-page'
 import { useOAuthResultToast } from '../../components/org-settings/use-oauth-result-toast'
 import { OrgConnectionsPage } from '../../components/org-settings/org-connections-page'
@@ -8,7 +9,7 @@ const page: DashboardPage = { kind: 'org', page: 'connections' }
 
 export const Route = createFileRoute('/_authed/$org/connections')({
   staticData: { dashboardPage: page },
-  head: () => pageHead(page),
+  head: ({ matches }) => pageHead(page, disabledIn(matches)),
   component: OrgConnectionsRoute,
 })
 

@@ -8,6 +8,7 @@ import { releaseFeed } from '../../lib/release-feed'
 import { mockServer } from '../../mocks/dashboard/server'
 import type { InboxList, ReleaseFeed } from '../../types/dashboard/inbox'
 import { inboxCounts } from '../../components/inbox/inbox-filter'
+import { useDisabledFeatures } from '../../lib/feature-switches'
 import { inboxNotification } from './inbox-links'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
@@ -24,12 +25,16 @@ export function useNotifications(org: string) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
+  const disabled = useDisabledFeatures()
   return useQuery({
     queryKey: key(dashKeys.notifications(org)),
     queryFn: async (): Promise<InboxList> => {
       if (source === 'api') {
         const page = await dashboardApi.listNotifications(org)
-        return { list: page.data.map((n) => inboxNotification(org, n)), counts: page.counts }
+        return {
+          list: page.data.map((n) => inboxNotification(org, n, disabled)),
+          counts: page.counts,
+        }
       }
       const list = await mockServer.inbox.listNotifications(ctx, org)
       return { list, counts: inboxCounts(list) }
@@ -132,11 +137,12 @@ export function useReleases(org: string) {
   const source = useDataSource()
   const ctx = useMockContext()
   const key = useDashKey()
+  const disabled = useDisabledFeatures()
   return useQuery({
     queryKey: key(dashKeys.releases(org)),
     queryFn: async (): Promise<ReleaseFeed> => {
       if (source === 'mock') return mockServer.inbox.listReleases(ctx, org)
-      return releaseFeed(org, RELEASE_NOTES, await dashboardApi.getReleaseVisit())
+      return releaseFeed(org, RELEASE_NOTES, await dashboardApi.getReleaseVisit(), disabled)
     },
     // The visit changes only when this person closes What's new (or another
     // device does); opening and closing it again reuses the answer.
@@ -150,6 +156,7 @@ function useMarkReleasesSeen(org: string) {
   const ctx = useMockContext()
   const client = useQueryClient()
   const key = useDashKey()
+  const disabled = useDisabledFeatures()
   return useMutation({
     // Recorded when What's new closes, not clicked (D-AT-2).
     meta: { toast: 'silent' },
@@ -162,7 +169,10 @@ function useMarkReleasesSeen(org: string) {
     // instead of fetching it back. The rail's dot clears in the same render.
     onSuccess: (visit) => {
       if (source === 'api' && visit) {
-        client.setQueryData(key(dashKeys.releases(org)), releaseFeed(org, RELEASE_NOTES, visit))
+        client.setQueryData(
+          key(dashKeys.releases(org)),
+          releaseFeed(org, RELEASE_NOTES, visit, disabled),
+        )
         return
       }
       invalidateAll(client, [dashKeys.inAnyOrg('releases')])

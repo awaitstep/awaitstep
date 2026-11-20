@@ -67,6 +67,20 @@ export interface ExtensionNavLink extends ExtensionLink {
   icon: LucideIcon
 }
 
+/**
+ * An entry in the rail's lower group. Extensions have no org-level pages, so
+ * it is an outside URL (`external`) or a path to a page the dashboard already
+ * has; the rail never marks it as the current page.
+ */
+export interface ExtensionRailLink {
+  /** An `https:` URL with `external`, else an app path (`/…`). Any other href is not drawn. */
+  href: string
+  label: string
+  icon: LucideIcon
+  /** Opens in a new tab, as Docs does. */
+  external?: boolean
+}
+
 /** What an editor's top bar hands its extension controls. */
 export interface EditorSlotProps {
   workflowId: string
@@ -82,6 +96,8 @@ export interface EditorSlotProps {
 export interface WebExtensionSlots {
   /** Workspace side panel, after the built-in pages: links to `workspace` pages. */
   'workspace.nav'?: ExtensionNavLink[]
+  /** The rail's lower group, after Inbox (where the Playground is) and before Docs. */
+  'rail.secondary'?: ExtensionRailLink[]
   /** Org Settings tabs, after the built-in ones: links to `org-settings` pages. */
   'org.settings.tabs'?: ExtensionLink[]
   /** The canvas editor's top bar, left of Save. It owns whatever it opens. */

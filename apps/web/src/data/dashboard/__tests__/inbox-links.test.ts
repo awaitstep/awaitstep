@@ -60,4 +60,24 @@ describe('inboxNotification', () => {
   it('leaves a notification without a link without one', () => {
     expect(inboxNotification('acme', base)).toEqual(base)
   })
+
+  it('drops a link to a Connections page on an instance that switches them off', () => {
+    const toOrg = { label: 'Reconnect', to: { kind: 'org-settings', page: 'connections' } } as const
+    const toProject = {
+      label: 'Replace token',
+      to: { kind: 'project-connections', project: 'project-101' },
+    } as const
+    expect(inboxNotification('acme', { ...base, link: toOrg }, ['connections.ui'])).toEqual(base)
+    expect(inboxNotification('acme', { ...base, link: toProject }, ['connections.ui'])).toEqual(
+      base,
+    )
+    // Other links stay, and nothing switched off keeps this one.
+    const members = { label: 'See members', to: { kind: 'org-settings', page: 'members' } } as const
+    expect(
+      inboxNotification('acme', { ...base, link: members }, ['connections.ui']).link?.href,
+    ).toBe('/acme/settings/members')
+    expect(inboxNotification('acme', { ...base, link: toOrg }, ['playground']).link?.href).toBe(
+      '/acme/connections',
+    )
+  })
 })

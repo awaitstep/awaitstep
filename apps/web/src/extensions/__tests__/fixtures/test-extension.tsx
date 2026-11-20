@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react'
+import { LifeBuoy, Sparkles } from 'lucide-react'
 import type { EditorSlotProps, ExtensionPageProps, WebExtension } from '../../types'
 
 function ToolbarButton({ workflowId, org, project, workspace, ids, canEdit }: EditorSlotProps) {
@@ -32,6 +32,9 @@ export const testExtension: WebExtension = {
   slots: {
     'workspace.nav': [{ path: 'history', label: 'Assistant history', icon: Sparkles }],
     'org.settings.tabs': [{ path: 'usage', label: 'Usage' }],
+    'rail.secondary': [
+      { href: 'https://help.example.test', label: 'Help', icon: LifeBuoy, external: true },
+    ],
     'canvas.toolbar': ToolbarButton,
     'ide.toolbar': ToolbarButton,
   },

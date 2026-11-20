@@ -30,7 +30,8 @@ export interface Release {
   date: string
   title: string
   body: string
-  link: { label: string; href: string }
+  /** Absent when it points at a page the instance switches off. */
+  link?: { label: string; href: string }
   /** Shipped since the viewer last opened What's new. */
   fresh: boolean
 }

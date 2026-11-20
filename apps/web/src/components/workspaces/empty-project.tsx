@@ -8,6 +8,7 @@ import {
   withNewDialog,
   type WorkspaceSlugs,
 } from '../../lib/dashboard-paths'
+import { useFeatureOn } from '../../lib/feature-switches'
 import { isNew } from '../../lib/time'
 import { cn } from '../../lib/utils'
 import type { Project } from '../../types/dashboard/projects'
@@ -91,14 +92,22 @@ export function EmptyProject({
   }
 
   const others = project.people.length - 1
+  // An instance without the Connections pages has no step to send people to.
+  const connectStep = useFeatureOn('connections.ui')
   const steps: SetupStep[] = setup.data
     ? [
-        {
-          label: setup.data.cloudflareConnected ? 'Cloudflare connected' : 'Connect Cloudflare',
-          done: setup.data.cloudflareConnected,
-          // The project's own Connections page: its admins add or connect an account there (23c).
-          href: withNewDialog(projectPagePath(slugs, 'connections'), 'connection'),
-        },
+        ...(connectStep
+          ? [
+              {
+                label: setup.data.cloudflareConnected
+                  ? 'Cloudflare connected'
+                  : 'Connect Cloudflare',
+                done: setup.data.cloudflareConnected,
+                // The project's own Connections page: its admins add or connect an account there (23c).
+                href: withNewDialog(projectPagePath(slugs, 'connections'), 'connection'),
+              },
+            ]
+          : []),
         {
           label: 'Add project variables',
           done: setup.data.projectVariables > 0,

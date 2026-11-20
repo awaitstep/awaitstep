@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RailAccountButton } from '../../shell/rail-item'
+import { useInstanceStore } from '../../../stores/instance-store'
 import { DashboardAccountMenu } from '../account-menu-container'
 
 const reset = vi.hoisted(() => vi.fn(() => Promise.resolve()))
@@ -14,6 +15,14 @@ vi.mock('../../../data/dashboard/reset', () => ({
 vi.mock('../../../lib/auth-client', () => ({
   handleSignOut: signOut,
 }))
+
+// The package a wrapping workspace would install; shown only once the instance lists it.
+vi.mock('virtual:awaitstep/extensions', async () => {
+  const { testExtension } = await import('../../../extensions/__tests__/fixtures/test-extension')
+  return { default: [testExtension] }
+})
+
+beforeEach(() => useInstanceStore.setState({ features: [], disabled: [] }))
 
 const AMA = { name: 'Ama Mensah', email: 'ama@acme.test', image: null }
 
@@ -123,5 +132,30 @@ describe('DashboardAccountMenu', () => {
     renderMenu('rail', { showReset: false })
     await openMenu()
     expect(screen.queryByRole('menuitem', { name: 'Reset dummy data' })).not.toBeInTheDocument()
+  })
+
+  it('leaves API off the phone menu when the instance switches the Playground off', async () => {
+    useInstanceStore.setState({ disabled: ['playground'] })
+    renderMenu('phone')
+    await openMenu()
+    expect(screen.queryByRole('menuitem', { name: 'API' })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Docs' })).toBeVisible()
+  })
+
+  it('carries an enabled extension’s rail links on a phone, not on the desktop menu', async () => {
+    useInstanceStore.setState({ features: ['test-ext'] })
+    renderMenu('phone')
+    await openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Help' })).toHaveAttribute(
+      'href',
+      'https://help.example.test',
+    )
+  })
+
+  it('keeps extension rail links off the desktop menu: the rail has them', async () => {
+    useInstanceStore.setState({ features: ['test-ext'] })
+    renderMenu('rail')
+    await openMenu()
+    expect(screen.queryByRole('menuitem', { name: 'Help' })).not.toBeInTheDocument()
   })
 })

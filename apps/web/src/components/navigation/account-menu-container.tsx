@@ -17,8 +17,10 @@ import { accountPath } from '../../lib/dashboard-paths'
 import type { Theme } from '../../lib/theme'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { AccountMenu, type AccountMenuItem } from '../shell/account-menu'
+import { useFeatureOn } from '../../lib/feature-switches'
 import { mockSourceAllowed } from './dashboard-providers'
-import { DOCS_URL } from './nav-model'
+import { useEnabledExtensions } from '../../extensions/registry'
+import { DOCS_URL, railExtensionEntries } from './nav-model'
 
 interface DashboardAccountMenuProps {
   /** The rail's or the phone header's avatar. */
@@ -57,10 +59,19 @@ function phoneItems(
   whatsNewHref: string,
   theme: Theme,
   onToggleTheme: () => void,
+  playground: boolean,
+  extensionLinks: AccountMenuItem[],
 ): AccountMenuItem[] {
+  const api: AccountMenuItem = {
+    key: 'api',
+    label: 'API',
+    href: '/api-playground',
+    icon: SquareTerminal,
+  }
   return [
     { key: 'whats-new', label: 'What’s new', href: whatsNewHref, icon: Sparkles },
-    { key: 'api', label: 'API', href: '/api-playground', icon: SquareTerminal },
+    ...(playground ? [api] : []),
+    ...extensionLinks,
     { key: 'docs', label: 'Docs', href: DOCS_URL, icon: BookOpen, external: true },
     {
       key: 'theme',
@@ -82,6 +93,8 @@ export function DashboardAccountMenu({
   showReset = mockSourceAllowed(import.meta.env.MODE),
 }: DashboardAccountMenuProps) {
   const resetMockData = useResetMockData()
+  const playground = useFeatureOn('playground')
+  const extensions = useEnabledExtensions()
   const [confirmReset, setConfirmReset] = useState(false)
 
   function handleAskReset() {
@@ -98,7 +111,13 @@ export function DashboardAccountMenu({
   }
 
   const groups: AccountMenuItem[][] = [accountItems()]
-  if (placement === 'phone') groups.push(phoneItems(whatsNewHref, theme, onToggleTheme))
+  if (placement === 'phone') {
+    // The rail's extension links, as the rail draws them: the phone has no rail.
+    const extensionLinks = railExtensionEntries(extensions).map(
+      ({ key, href, icon, label, external }) => ({ key, href, icon, label, external }),
+    )
+    groups.push(phoneItems(whatsNewHref, theme, onToggleTheme, playground, extensionLinks))
+  }
   if (showReset) {
     groups.push([
       { key: 'reset', label: 'Reset dummy data', icon: RotateCcw, onSelect: handleAskReset },

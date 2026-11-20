@@ -1,9 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ScopeLookup, ScopeSlugs } from '../../../types/dashboard/scope'
 import { DataSourceProvider, type DataSource } from '../../../data/dashboard/source'
 import type { DashboardPage } from '../dashboard-page'
+import { useInstanceStore } from '../../../stores/instance-store'
 import { DashboardShell } from '../dashboard-shell'
 import type * as ReactQuery from '@tanstack/react-query'
 
@@ -26,6 +27,12 @@ const state = vi.hoisted(() => ({
     { name: string; kind?: 'workflow' | 'script'; workspaceId?: string } | undefined,
   workflowAsked: [] as boolean[],
 }))
+
+// The package a wrapping workspace would install; shown only once the instance lists it.
+vi.mock('virtual:awaitstep/extensions', async () => {
+  const { testExtension } = await import('../../../extensions/__tests__/fixtures/test-extension')
+  return { default: [testExtension] }
+})
 
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => state.params,
@@ -176,6 +183,9 @@ afterEach(() => {
   state.workflow = undefined
   state.workflowAsked.length = 0
 })
+
+// Before, not after: a store change re-renders a shell still mounted from the last test.
+beforeEach(() => useInstanceStore.setState({ features: [], disabled: [] }))
 
 describe('DashboardShell', () => {
   describe('around the editor', () => {
@@ -495,5 +505,76 @@ describe('DashboardShell', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Close inbox' }))
     // Not a replace: that would leave two identical entries, and Back would stand still.
     expect(state.navigate).toHaveBeenCalledWith({ href: '/acme/resources' })
+  })
+
+  describe('on an instance that switches features off', () => {
+    const ALL = ['playground', 'connections.ui', 'connections.apiTokens'] as const
+
+    it('answers page-not-found on an org’s Connections page, without rendering the page', () => {
+      useInstanceStore.setState({ disabled: ALL })
+      state.params = { org: 'acme' }
+      state.pathname = '/acme/connections'
+      state.page = { kind: 'org', page: 'connections' }
+      settle(found('org'))
+      renderShell()
+      expect(screen.queryByText('Page content')).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/page/i)
+      expect(screen.getByText('/acme/connections')).toBeVisible()
+      expect(within(rail()).queryByRole('link', { name: 'Connections' })).not.toBeInTheDocument()
+      expect(within(rail()).queryByRole('link', { name: 'Playground' })).not.toBeInTheDocument()
+    })
+
+    it('answers page-not-found on a project’s Connections page, without rendering the page', () => {
+      useInstanceStore.setState({ disabled: ['connections.ui'] })
+      state.params = { org: 'acme', project: 'project-101' }
+      state.pathname = '/acme/project-101/connections'
+      state.page = { kind: 'project', page: 'connections' }
+      settle(found('project'))
+      renderShell()
+      expect(screen.queryByText('Page content')).not.toBeInTheDocument()
+      expect(screen.getByText('/acme/project-101/connections')).toBeVisible()
+    })
+
+    it('shows the other pages and the rail as before', () => {
+      useInstanceStore.setState({ disabled: ALL })
+      state.params = { org: 'acme' }
+      state.page = { kind: 'org', page: 'audit' }
+      settle(found('org'))
+      renderShell()
+      expect(screen.getByText('Page content')).toBeVisible()
+      expect(within(rail()).getByRole('link', { name: 'Audit log' })).toBeVisible()
+    })
+
+    it('shows the Connections page and rail entries when nothing is switched off', () => {
+      state.params = { org: 'acme' }
+      state.page = { kind: 'org', page: 'connections' }
+      settle(found('org'))
+      renderShell()
+      expect(screen.getByText('Page content')).toBeVisible()
+      expect(within(rail()).getByRole('link', { name: 'Connections' })).toBeVisible()
+      expect(within(rail()).getByRole('link', { name: 'Playground' })).toBeVisible()
+    })
+  })
+
+  describe('rail.secondary slot', () => {
+    it('renders an enabled extension’s link in the rail’s lower group', () => {
+      useInstanceStore.setState({ features: ['test-ext'], disabled: ['playground'] })
+      state.params = { org: 'acme' }
+      state.page = { kind: 'org', page: 'audit' }
+      settle(found('org'))
+      renderShell()
+      expect(within(rail()).getByRole('link', { name: /Help/ })).toHaveAttribute(
+        'href',
+        'https://help.example.test',
+      )
+    })
+
+    it('renders nothing for an extension the instance does not list', () => {
+      state.params = { org: 'acme' }
+      state.page = { kind: 'org', page: 'audit' }
+      settle(found('org'))
+      renderShell()
+      expect(within(rail()).queryByRole('link', { name: /Help/ })).not.toBeInTheDocument()
+    })
   })
 })

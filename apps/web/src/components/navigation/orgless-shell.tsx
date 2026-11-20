@@ -7,7 +7,9 @@ import { useThemeStore } from '../../stores/theme-store'
 import type { Organization } from '../../stores/org-store'
 import { DashboardOverlays } from '../inbox/dashboard-overlays'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
-import { countFresh, useDashboardPage } from './dashboard-shell'
+import { useDisabledFeatures } from '../../lib/feature-switches'
+import { pageSwitchedOff } from './dashboard-page'
+import { countFresh, PageNotFoundIn, useDashboardPage } from './dashboard-shell'
 import type { DashboardSearch } from './dashboard-providers'
 import { useBorrowedOrg } from './current-org'
 import type { RailOverlays } from './nav-model'
@@ -41,6 +43,9 @@ export function OrgLessShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const notifications = useNotificationCount(org.slug)
   const releases = useReleases(org.slug)
+  const disabled = useDisabledFeatures()
+  // A page the instance switches off is not there: it never mounts, so it fetches nothing.
+  const switchedOff = declaredPage !== null && pageSwitchedOff(declaredPage, disabled)
 
   // A new history entry, as opening one is: Back reopens it rather than standing still.
   function handleCloseOverlay() {
@@ -60,13 +65,13 @@ export function OrgLessShell({ children }: { children: ReactNode }) {
   return (
     <DashboardFrame
       scope={orgLessScope(org)}
-      page={declaredPage}
+      page={switchedOff ? null : declaredPage}
       viewer={viewer.data ?? null}
       overlays={overlays}
       theme={theme}
       onToggleTheme={handleToggleTheme}
     >
-      {children}
+      {switchedOff ? <PageNotFoundIn org={org.slug} /> : children}
       <DashboardOverlays org={org.slug} open={search.open} onClose={handleCloseOverlay} />
     </DashboardFrame>
   )

@@ -1,5 +1,6 @@
 import { Download, FolderPlus, Plug, Plus, Users } from 'lucide-react'
 import { orgPath, orgSettingsPath, withNewDialog } from '../../lib/dashboard-paths'
+import { useFeatureOn } from '../../lib/feature-switches'
 import { ActionCard } from '../ui/action-card'
 import { buttonVariants } from '../ui/button'
 import { ProgressMeter } from '../ui/progress-meter'
@@ -53,6 +54,8 @@ function ScopeSketch({ org }: EmptyOrgProps) {
  */
 export function EmptyOrg({ org }: EmptyOrgProps) {
   const newProject = withNewDialog(orgPath(org.slug), 'project')
+  // An instance without the Connections pages has no step to send people to.
+  const connectStep = useFeatureOn('connections.ui')
   return (
     <PageBody>
       <section className="flex flex-wrap items-center gap-10 rounded border border-primary/20 bg-primary/5 p-8 md:p-10">
@@ -93,7 +96,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
           <h2 id="get-ready" className="text-sm font-semibold">
             Get {org.name} ready
           </h2>
-          <ProgressMeter done={0} total={3} label={`Get ${org.name} ready`} />
+          <ProgressMeter done={0} total={connectStep ? 3 : 2} label={`Get ${org.name} ready`} />
         </div>
         <ul className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
           <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
@@ -107,16 +110,18 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
               highlighted
             />
           </li>
-          <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
-            <ActionCard
-              href={withNewDialog(orgPath(org.slug, 'connections'), 'connection')}
-              icon={Plug}
-              tone="warn"
-              title="Connect Cloudflare"
-              description="Required to deploy. You can build without it."
-              corner="Step 2"
-            />
-          </li>
+          {connectStep && (
+            <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
+              <ActionCard
+                href={withNewDialog(orgPath(org.slug, 'connections'), 'connection')}
+                icon={Plug}
+                tone="warn"
+                title="Connect Cloudflare"
+                description="Required to deploy. You can build without it."
+                corner="Step 2"
+              />
+            </li>
+          )}
           <li className="flex min-w-0 [&>a]:min-w-0 [&>a]:flex-1">
             <ActionCard
               href={withNewDialog(orgSettingsPath(org.slug, 'members'), 'invite')}

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Cable, XCircle } from 'lucide-react'
 import type { DeploymentConfigUiSchema } from '@awaitstep/codegen'
 import { projectPagePath } from '../../lib/dashboard-paths'
+import { useFeatureOn } from '../../lib/feature-switches'
 import { useItemSlugs } from '../../contexts/editor-scope-context'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { useDeployStream } from '../../hooks/use-deploy-stream'
@@ -58,7 +59,10 @@ export function DeployPage({
   // chosen: the API refuses a deploy with any other (23a).
   const targets = useQuery({ ...queries.connections.forDeploy(workflowId), enabled: ready })
   const slugs = useItemSlugs()
-  const connectionsHref = projectPagePath(slugs, 'connections')
+  // The account card stays where the instance switches the Connections pages off; its link goes.
+  const connectionsHref = useFeatureOn('connections.ui')
+    ? projectPagePath(slugs, 'connections')
+    : null
   const links = useWorkflowLinks(workflowId)
   const accounts = targets.data?.connections
   const [picked, setPicked] = useState<string | null>(null)
@@ -154,7 +158,11 @@ export function DeployPage({
       <EmptyState
         icon={Cable}
         title="No account connected yet"
-        description="Deploy stays disabled until this project can reach a Cloudflare account. Add one on the project’s Connections page."
+        description={
+          connectionsHref
+            ? 'Deploy stays disabled until this project can reach a Cloudflare account. Add one on the project’s Connections page.'
+            : 'Deploy stays disabled until this project can reach a Cloudflare account.'
+        }
         action={
           connectionsHref ? (
             <a

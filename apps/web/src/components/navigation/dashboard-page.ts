@@ -6,6 +6,7 @@ import type {
   ProjectPage,
   WorkspacePage,
 } from '../../lib/dashboard-paths'
+import type { OssFeature } from '@awaitstep/ir'
 import type { ItemKind } from '../../types/dashboard/items'
 import type { ExtensionPageKey, ExtensionPageScope } from '../../extensions/types'
 
@@ -132,7 +133,26 @@ export function pageTitle(page: DashboardPage): string {
   return `${pageLabel(page)} · AwaitStep`
 }
 
-/** `head` for a dashboard route. */
-export function pageHead(page: DashboardPage) {
-  return { meta: [{ title: pageTitle(page) }] }
+/** The open-source feature a page belongs to, which an instance can switch off; null for the rest. */
+export function pageFeature(page: DashboardPage): OssFeature | null {
+  if (page.kind === 'playground') return 'playground'
+  if ((page.kind === 'org' || page.kind === 'project') && page.page === 'connections') {
+    return 'connections.ui'
+  }
+  return null
+}
+
+/** Whether the instance switches the page off: it answers page-not-found. */
+export function pageSwitchedOff(page: DashboardPage, disabled: readonly OssFeature[]): boolean {
+  const feature = pageFeature(page)
+  return feature !== null && disabled.includes(feature)
+}
+
+/**
+ * `head` for a dashboard route. `disabled` (`disabledIn(matches)`) is what
+ * the instance switches off: a page it switches off is titled as not found.
+ */
+export function pageHead(page: DashboardPage, disabled: readonly OssFeature[] = []) {
+  const title = pageSwitchedOff(page, disabled) ? 'Page not found · AwaitStep' : pageTitle(page)
+  return { meta: [{ title }] }
 }
