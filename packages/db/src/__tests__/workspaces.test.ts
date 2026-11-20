@@ -338,6 +338,23 @@ describe.each([
   })
 
   describe('workspaces', () => {
+    it('gives each recent run its end time on the Overview', async () => {
+      await h.db.insert(h.schema.workflowRuns).values({
+        id: 'r-41s',
+        workflowId: 'wf-enrich',
+        versionId: null,
+        connectionId: null,
+        instanceId: 'r-41s',
+        status: 'complete',
+        createdAt: '2026-10-28T09:00:00.000Z',
+        updatedAt: '2026-10-28T09:00:41.000Z',
+      })
+      const overview = await h.adapter.workspacePageOverview('ws-sales', NOW)
+      const run = overview!.recent.find((r) => r.id === 'r-41s')!
+      // Read as instants: Postgres writes the JSON timestamp in its own form.
+      expect(Date.parse(run.updatedAt) - Date.parse(run.createdAt)).toBe(41_000)
+    })
+
     it('lists a project’s workspaces oldest first with counts and people', async () => {
       const list = await h.adapter.listWorkspacesByProject('p-101', 'u-ama')
       expect(list.map((w) => w.slug)).toEqual(['sales', 'ops'])

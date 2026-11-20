@@ -105,6 +105,23 @@ describe('page summaries', () => {
     expect(keys(body.shared)).toEqual(['in', 'out'])
   })
 
+  it('sends each recent run its end time, so Recent runs can say how long it took', async () => {
+    await h.db.insert(h.schema.workflowRuns).values({
+      id: 'r-41s',
+      workflowId: 'wf-sales',
+      versionId: null,
+      connectionId: null,
+      instanceId: 'r-41s',
+      status: 'complete',
+      createdAt: '2026-11-17T23:13:47.000Z',
+      updatedAt: '2026-11-17T23:14:28.000Z',
+    })
+    const res = await h.app.request('/api/workspaces/ws-sales/overview', h.as('u-ama'))
+    const run = (await res.json()).recent.find((r: { id: string }) => r.id === 'r-41s')
+    expect(keys(run)).toContain('updatedAt')
+    expect(Date.parse(run.updatedAt) - Date.parse(run.createdAt)).toBe(41_000)
+  })
+
   it('answers a workspace settings tab pill count', async () => {
     const res = await h.app.request('/api/workspaces/ws-sales/settings-counts', h.as('u-ama'))
     expect(res.status).toBe(200)

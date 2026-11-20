@@ -1200,6 +1200,8 @@ export interface WorkspaceRecentRun {
   kind: 'workflow' | 'script'
   status: string
   createdAt: string
+  /** Its last update: for a finished run, when it finished (its duration's end). */
+  updatedAt: string
 }
 
 /** What a workspace's Overview shows, built in one statement. */

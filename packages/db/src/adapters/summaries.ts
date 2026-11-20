@@ -346,7 +346,7 @@ export class SummaryAdapter {
       sql`x.run_created_at desc, x.run_id desc`,
     )
 
-    const recentInner = sql`select t.run_id, t.run_workflow_id, t.run_workflow_name, t.run_kind, t.run_status, t.run_created_at from (select ${r.id} as run_id, ${r.workflowId} as run_workflow_id, ${wf.name} as run_workflow_name, ${wf.kind} as run_kind, ${r.status} as run_status, ${r.createdAt} as run_created_at, row_number() over (partition by ${r.workflowId} order by ${r.createdAt} desc, ${r.id} desc) as rn from ${aliasedFrom(r)} inner join ${aliasedFrom(wf)} on ${wf.id} = ${r.workflowId} where ${wf.workspaceId} = ${w.id} and ${r.status} in ('complete', 'errored', 'terminated')) t where t.rn = 1 order by t.run_created_at desc, t.run_id desc limit 4`
+    const recentInner = sql`select t.run_id, t.run_workflow_id, t.run_workflow_name, t.run_kind, t.run_status, t.run_created_at, t.run_updated_at from (select ${r.id} as run_id, ${r.workflowId} as run_workflow_id, ${wf.name} as run_workflow_name, ${wf.kind} as run_kind, ${r.status} as run_status, ${r.createdAt} as run_created_at, ${r.updatedAt} as run_updated_at, row_number() over (partition by ${r.workflowId} order by ${r.createdAt} desc, ${r.id} desc) as rn from ${aliasedFrom(r)} inner join ${aliasedFrom(wf)} on ${wf.id} = ${r.workflowId} where ${wf.workspaceId} = ${w.id} and ${r.status} in ('complete', 'errored', 'terminated')) t where t.rn = 1 order by t.run_created_at desc, t.run_id desc limit 4`
     const recent = this.jsonList(
       [
         ['id', sql`x.run_id`],
@@ -355,6 +355,7 @@ export class SummaryAdapter {
         ['kind', sql`x.run_kind`],
         ['status', sql`x.run_status`],
         ['createdAt', sql`x.run_created_at`],
+        ['updatedAt', sql`x.run_updated_at`],
       ],
       recentInner,
       sql`x.run_created_at desc, x.run_id desc`,

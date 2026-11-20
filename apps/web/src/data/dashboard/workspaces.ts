@@ -14,7 +14,7 @@ import type {
 } from '../../types/dashboard/workspaces'
 import { toWorkspacePerson } from './api/access'
 import { toScopeLookup, toWorkspace, workspaceFromRow } from './api/records'
-import { toWorkspaceRun } from './api/runs'
+import { toWorkspaceOverview } from './api/workspace-overview'
 import { dashKeys, invalidateAll } from './keys'
 import { useMockContext } from './scenario-context'
 import { useDashKey, useDataSource } from './source'
@@ -120,65 +120,7 @@ export function useWorkspaceOverview(
       if (source === 'api') {
         if (!workspaceId) throw new Error('The workspace has not loaded yet')
         const overview = await dashboardApi.getWorkspaceOverview(workspaceId)
-        return {
-          counts: overview.counts,
-          needsAttention: overview.needsAttention.map((entry) => ({
-            item: entry.item,
-            run: entry.run
-              ? toWorkspaceRun(
-                  {
-                    id: entry.run.id,
-                    workflowId: entry.run.workflowId,
-                    versionId: null,
-                    versionNumber: null,
-                    connectionId: null,
-                    instanceId: '',
-                    status: entry.run.status,
-                    output: null,
-                    error: entry.run.error,
-                    createdAt: entry.run.createdAt,
-                    updatedAt: entry.run.createdAt,
-                  },
-                  entry.item,
-                )
-              : null,
-            failures: entry.failures,
-            total: entry.total,
-          })),
-          recent: overview.recent.map((run) =>
-            toWorkspaceRun(
-              {
-                id: run.id,
-                workflowId: run.workflowId,
-                versionId: null,
-                versionNumber: null,
-                connectionId: null,
-                instanceId: '',
-                status: run.status,
-                output: null,
-                error: null,
-                createdAt: run.createdAt,
-                updatedAt: run.createdAt,
-              },
-              { name: run.workflowName, kind: run.kind },
-            ),
-          ),
-          shared: {
-            out: overview.shared.out,
-            in: overview.shared.in.map((item) => ({
-              id: item.id,
-              name: item.name,
-              kind: item.kind,
-              version: null,
-              from: { ...item.from },
-              usedBy: [],
-              canOpen: false,
-              unshare: { allowed: false },
-              sharedAt: '',
-              sharedBy: { id: '', name: '' },
-            })),
-          },
-        }
+        return toWorkspaceOverview(overview)
       }
       const workspace = (
         await mockServer.workspaces.listWorkspaces(ctx, slugs.org, slugs.project)
