@@ -16,14 +16,14 @@ describe('ProjectCard', () => {
   it('marks the current project, with a primary border', () => {
     render(<ProjectCard project={PROJECT_101} href="/p" current />)
     expect(screen.getByText('Current')).toBeVisible()
-    expect(screen.getByRole('link')).toHaveClass('border-primary')
+    expect(screen.getByRole('link')).toHaveClass('border-primary-ink')
   })
 
   it('tints its header with its first workspace’s colour', () => {
     render(<ProjectCard project={MARKETING_SITE} href="/p" />)
     const header = screen.getByText('Marketing Site').closest('span.border-b')
     expect(header).toHaveClass('bg-workspace-amber/15')
-    expect(screen.getByRole('link')).not.toHaveClass('border-primary')
+    expect(screen.getByRole('link')).not.toHaveClass('border-primary-ink')
   })
 
   it('shows every workspace as a chip and the people as one image', () => {

@@ -65,7 +65,7 @@ export function StepRail({ layout, entry, container, ghost = false }: StepRailPr
           ghost
             ? 'border-dashed border-primary/70 bg-primary/10'
             : entry
-              ? 'border-primary bg-primary'
+              ? 'border-primary-ink bg-primary-ink'
               : container
                 ? 'border-primary/60'
                 : DOT,

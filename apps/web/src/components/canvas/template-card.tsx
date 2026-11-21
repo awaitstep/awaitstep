@@ -24,7 +24,7 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
       <span className="flex items-center gap-2.5">
         <Tile
           size="sm"
-          className="bg-primary/10 text-primary transition-colors group-hover:bg-primary/20"
+          className="bg-primary/10 text-primary-ink transition-colors group-hover:bg-primary/20"
         >
           <Icon />
         </Tile>

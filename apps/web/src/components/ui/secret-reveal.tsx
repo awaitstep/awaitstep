@@ -56,7 +56,7 @@ export function SecretReveal({ label, value, warning, onCopied, children }: Secr
             type="button"
             variant={copied ? 'outline' : 'default'}
             onClick={handleCopy}
-            className={cn('h-11', copied && 'border-primary/40 text-primary')}
+            className={cn('h-11', copied && 'border-primary/40 text-primary-ink')}
           >
             {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
             {copied ? 'Copied' : 'Copy'}

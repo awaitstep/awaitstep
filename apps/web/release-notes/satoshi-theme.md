@@ -6,4 +6,4 @@ link: settings/general
 linkLabel: Open settings
 ---
 
-The dashboard has a new look: Satoshi type with a greener accent, a crisp white light mode and a deep navy dark mode. The marketing site uses the same type.
+The dashboard has a new look: Satoshi type with a lime accent, a crisp white light mode and a near-black dark mode. The marketing site uses the same type.

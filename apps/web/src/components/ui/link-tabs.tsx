@@ -31,7 +31,7 @@ export function LinkTabs({ label, tabs, activeKey }: LinkTabsProps) {
               // As the kit's underline tabs, at the board's 14px.
               '-mb-px flex h-10 shrink-0 items-center gap-[7px] border-b-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               active
-                ? 'border-primary text-foreground'
+                ? 'border-primary-ink text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
             )}
           >

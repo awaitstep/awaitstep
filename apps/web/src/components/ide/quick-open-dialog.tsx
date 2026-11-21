@@ -110,7 +110,7 @@ function Highlighted({ segments }: { segments: { text: string; hit: boolean }[] 
     <>
       {segments.map((segment, index) =>
         segment.hit ? (
-          <span key={index} className="font-semibold text-primary">
+          <span key={index} className="font-semibold text-primary-ink">
             {segment.text}
           </span>
         ) : (

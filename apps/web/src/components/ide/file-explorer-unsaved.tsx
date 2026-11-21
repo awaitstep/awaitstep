@@ -24,7 +24,7 @@ export function UnsavedSection({ paths, onReview }: UnsavedSectionProps) {
         <button
           type="button"
           onClick={handleReviewAll}
-          className="ml-auto rounded px-1.5 py-0.5 text-2xs font-medium normal-case tracking-normal text-primary hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="ml-auto rounded px-1.5 py-0.5 text-2xs font-medium normal-case tracking-normal text-primary-ink hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Review
         </button>

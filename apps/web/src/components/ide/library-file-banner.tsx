@@ -23,7 +23,7 @@ export function LibraryFileBanner({ path, module }: LibraryFileBannerProps) {
         scope && (
           <ShellLink
             href={libraryItemHref(scope, module, file)}
-            className="text-xs font-medium text-primary "
+            className="text-xs font-medium text-primary-ink "
           >
             Open in Scripts & nodes
           </ShellLink>

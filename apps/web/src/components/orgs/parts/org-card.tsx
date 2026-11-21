@@ -41,7 +41,7 @@ export function OrgCard({ org, lastUsed, onOpen }: OrgCardProps) {
       aria-describedby={detailId}
       className={cn(
         'flex flex-col gap-4 rounded border bg-card p-5 shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        lastUsed ? 'border-primary' : 'border-border hover:border-foreground/20',
+        lastUsed ? 'border-primary-ink' : 'border-border hover:border-foreground/20',
       )}
     >
       <span className="flex items-center gap-3.5">

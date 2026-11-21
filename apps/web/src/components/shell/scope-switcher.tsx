@@ -226,7 +226,7 @@ function SwitcherRow({ item, current, currentLabel, onChoose }: SwitcherRowProps
         )}
       </span>
       {current && (
-        <Check className="size-4 shrink-0 text-primary" role="img" aria-label={currentLabel} />
+        <Check className="size-4 shrink-0 text-primary-ink" role="img" aria-label={currentLabel} />
       )}
     </Command.Item>
   )
@@ -250,7 +250,7 @@ function SwitcherAction({ action, onRun }: SwitcherActionProps) {
       onClick={handleClick}
       className={cn(
         'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-xs transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none',
-        action.tone === 'primary' ? 'text-primary' : 'text-foreground/80',
+        action.tone === 'primary' ? 'text-primary-ink' : 'text-foreground/80',
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden="true" />

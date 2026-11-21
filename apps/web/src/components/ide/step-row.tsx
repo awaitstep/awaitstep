@@ -96,7 +96,7 @@ export function StepRowItem({
       onClick={handleClick}
       onFocus={handleFocus}
       className={cn(
-        'group flex min-h-8 w-full cursor-pointer items-center gap-1.5 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary',
+        'group flex min-h-8 w-full cursor-pointer items-center gap-1.5 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
         selected
           ? 'bg-primary/10 text-foreground shadow-[inset_2px_0_0_var(--color-primary)]'
           : active
@@ -130,7 +130,7 @@ export function StepRowItem({
           )}
           {name}
           {entry && (
-            <span className="ml-1.5 rounded bg-primary/10 px-1 py-px text-2xs text-primary">
+            <span className="ml-1.5 rounded bg-primary/10 px-1 py-px text-2xs text-primary-ink">
               Entry
             </span>
           )}

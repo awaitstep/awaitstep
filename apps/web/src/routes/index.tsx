@@ -83,14 +83,14 @@ function HomePage() {
           workflows{' '}
           <span className="relative inline-block">
             <span
-              className="text-primary"
+              className="text-primary-ink"
               style={{ fontFamily: "'Caveat', cursive", fontSize: '1.3em', lineHeight: 1 }}
             >
               visually
             </span>
             {/* Hand-drawn underline */}
             <svg
-              className="absolute -bottom-1 left-0 w-full text-primary/50"
+              className="absolute -bottom-1 left-0 w-full text-primary-ink/50"
               viewBox="0 0 200 12"
               fill="none"
               preserveAspectRatio="none"
@@ -109,7 +109,7 @@ function HomePage() {
               />
             </svg>
           </span>
-          <span className="text-primary" style={{ fontFamily: "'Caveat', cursive" }}>
+          <span className="text-primary-ink" style={{ fontFamily: "'Caveat', cursive" }}>
             .
           </span>
         </h1>

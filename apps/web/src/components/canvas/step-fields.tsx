@@ -102,7 +102,7 @@ export function StepFields({
           </Label>
           <div className="overflow-hidden rounded-lg border border-input">
             <div className="flex h-7 items-center gap-2 border-b border-border/60 bg-muted/30 px-2.5 text-2xs font-medium text-muted-foreground">
-              <span className="text-primary">TS</span>
+              <span className="text-primary-ink">TS</span>
               <span className="truncate font-mono">{stepSourcePath(node.id)}</span>
               <span className="flex-1" />
               <button

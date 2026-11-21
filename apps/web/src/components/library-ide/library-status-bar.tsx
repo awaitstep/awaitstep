@@ -22,7 +22,7 @@ export function LibraryStatusBar({ problems }: { problems: Problem[] }) {
   return (
     <footer className="flex h-7 shrink-0 items-center gap-2.5 border-t border-border bg-card px-4 text-2xs text-muted-foreground">
       {clean ? (
-        <span className="flex items-center gap-1.5 text-primary">
+        <span className="flex items-center gap-1.5 text-primary-ink">
           <Check className="size-3" strokeWidth={3} aria-hidden="true" />
           No problems
         </span>

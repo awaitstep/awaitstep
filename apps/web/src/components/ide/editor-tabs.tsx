@@ -219,7 +219,7 @@ function EditorTab({
           <X className="h-3 w-3" />
         )}
       </button>
-      {active && <span className="absolute inset-x-0 top-0 h-px bg-primary" />}
+      {active && <span className="absolute inset-x-0 top-0 h-px bg-primary-ink" />}
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         {/* The tab is the anchor; it opens on right-click or ⇧F10, never on a plain click. */}
         <DropdownMenuTrigger asChild>

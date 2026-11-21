@@ -145,7 +145,7 @@ export function StepFlowFast({
         type="button"
         variant="link"
         onClick={onOpenMap}
-        className="h-auto justify-start gap-1.5 p-0 text-2xs text-primary"
+        className="h-auto justify-start gap-1.5 p-0 text-2xs text-primary-ink"
       >
         <CornerDownRight className="h-3 w-3" />
         Into a branch? Pick on the map

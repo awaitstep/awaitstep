@@ -16,7 +16,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        '-mb-px flex h-10 shrink-0 items-center gap-1.5 border-b-2 border-transparent text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-foreground',
+        '-mb-px flex h-10 shrink-0 items-center gap-1.5 border-b-2 border-transparent text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary-ink data-[state=active]:text-foreground',
         className,
       )}
       {...props}

@@ -13,7 +13,7 @@ export function ConnectNewAccount({ link }: ConnectNewAccountProps) {
         <>
           <ShellLink
             href={link.href}
-            className="w-fit text-sm font-medium text-primary hover:underline"
+            className="w-fit text-sm font-medium text-primary-ink hover:underline"
           >
             Connect a new account
           </ShellLink>

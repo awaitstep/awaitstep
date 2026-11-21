@@ -186,7 +186,7 @@ function AcceptInviteDemo({ initiallyDeclined = false }: { initiallyDeclined?: b
             label: 'Signed in as',
             value: 'daniel@acme.test',
             trailing: (
-              <ShellLink href="/sign-in" className="text-xs text-primary ">
+              <ShellLink href="/sign-in" className="text-xs text-primary-ink ">
                 Not you?
               </ShellLink>
             ),

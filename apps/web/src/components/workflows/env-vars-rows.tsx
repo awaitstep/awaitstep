@@ -90,7 +90,7 @@ export function EnvRowFields({
       />
       {global !== null ? (
         <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-muted/30 px-2.5 text-xs text-muted-foreground">
-          <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-2xs font-medium text-primary">
+          <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-2xs font-medium text-primary-ink">
             <Globe className="h-3 w-3" />
             Global
           </span>
@@ -118,7 +118,7 @@ export function EnvRowFields({
           />
           {isSecret && (
             <span className="absolute right-1.5 flex items-center gap-1">
-              <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-2xs font-medium text-primary">
+              <span className="inline-flex h-5 items-center gap-1 rounded bg-primary/10 px-1.5 text-2xs font-medium text-primary-ink">
                 <Lock className="h-3 w-3" />
                 Encrypted
               </span>
@@ -154,7 +154,7 @@ export function EnvRowFields({
             }
             className={cn(
               'flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground',
-              global !== null && 'text-primary',
+              global !== null && 'text-primary-ink',
             )}
           >
             <Link2 className="h-4 w-4" />

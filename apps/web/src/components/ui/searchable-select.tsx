@@ -144,7 +144,7 @@ function SearchableRow<T extends string>({ option, selected, onChoose }: Searcha
       className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-foreground data-[selected=true]:bg-accent"
     >
       {selected ? (
-        <Check className="size-3.5 shrink-0 text-primary" role="img" aria-label="Selected" />
+        <Check className="size-3.5 shrink-0 text-primary-ink" role="img" aria-label="Selected" />
       ) : (
         <span className="size-3.5 shrink-0" aria-hidden="true" />
       )}

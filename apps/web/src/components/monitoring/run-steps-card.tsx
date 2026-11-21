@@ -78,7 +78,7 @@ export function RunStepsCard({
         <button
           type="button"
           onClick={handleJump}
-          className="text-xs font-medium text-primary  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-xs font-medium text-primary-ink  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {runStatus === 'errored' ? 'Jump to failure' : 'Jump to current'}
         </button>

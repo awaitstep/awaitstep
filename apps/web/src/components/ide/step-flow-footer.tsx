@@ -35,12 +35,12 @@ export function StepFlowFooter({
         <p className="min-w-0 truncate text-xs text-muted-foreground">
           <span className="font-mono text-foreground">{name.trim() || 'new_step'}</span>
           {' → '}
-          <span className="text-primary">
+          <span className="text-primary-ink">
             {fastChoiceName !== null ? `${side} ${fastChoiceName}` : 'choose a step'}
           </span>
         </p>
       ) : (
-        <p className="min-w-0 truncate text-xs text-primary">{mapSummary}</p>
+        <p className="min-w-0 truncate text-xs text-primary-ink">{mapSummary}</p>
       )}
       <div className="flex shrink-0 items-center gap-2">
         {mode === 'fast' && (
