@@ -173,6 +173,10 @@ export type DeployedConnection = Connection & {
   deployedName: string | null
   /** The workflow's stored deploy settings for that account (JSON), or null. */
   deploymentConfig: string | null
+  /** The URL its newest successful deploy there answers at; null when it recorded none. */
+  serviceUrl: string | null
+  /** The settings that deploy went out with (JSON), the URL is judged against; null on old rows. */
+  deploySettings: string | null
 }
 
 /** One run's sync row with its account, read together; `connection` only when it is the organization's. */
@@ -261,6 +265,8 @@ export interface LiveService {
   provider: string
   /** Null when the deploy gave no URL. */
   serviceUrl: string | null
+  /** The settings that deploy went out with (JSON), the URL is judged against; null on old rows. */
+  deploySettings: string | null
   /** The version live there: its id (null once deleted) and number. */
   versionId: string | null
   versionNumber: number | null

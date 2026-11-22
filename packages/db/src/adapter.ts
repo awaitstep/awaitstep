@@ -823,6 +823,8 @@ export interface DatabaseAdapter {
 
   // Workflow Runs
   createRun(data: CreateRunData): Promise<WorkflowRun>
+  /** The run, or null when that workflow already has one on that instance and account (nothing written). */
+  createRunForInstance(data: CreateRunData): Promise<WorkflowRun | null>
   /** One run's sync row with its account (only the organization's), read together. */
   getRunForSyncWithAccount(
     runId: string,

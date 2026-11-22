@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { pgTable, integer, text, index } from 'drizzle-orm/pg-core'
+import { pgTable, integer, text, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { isoTimestamp } from './iso-timestamp.js'
 import { workflows } from './workflows.js'
 import { workflowVersions } from './versions.js'
@@ -42,5 +42,14 @@ export const workflowRuns = pgTable(
       .default(sql`now()`),
   },
   // One workflow's runs, newest first or since a time; also serves workflow-only lookups.
-  (table) => [index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt)],
+  (table) => [
+    index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt),
+    // One run per instance of a workflow on an account: two requests that start
+    // the same instance at once record it once.
+    uniqueIndex('uq_workflow_runs_instance').on(
+      table.workflowId,
+      table.connectionId,
+      table.instanceId,
+    ),
+  ],
 )

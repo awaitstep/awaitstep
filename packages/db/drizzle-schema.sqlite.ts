@@ -411,7 +411,14 @@ export const workflowRuns = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt)],
+  (table) => [
+    index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt),
+    uniqueIndex('uq_workflow_runs_instance').on(
+      table.workflowId,
+      table.connectionId,
+      table.instanceId,
+    ),
+  ],
 )
 
 export const workflowRunSteps = sqliteTable(
