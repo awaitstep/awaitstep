@@ -327,6 +327,54 @@ describe('nodeReaders', () => {
     expect(nodeReaders(ir, 'p')).toEqual([])
   })
 
+  it('lists reads of every name an inline step declares, as reads that break', () => {
+    const inline = node('g', 'Get Customer', 'step', {
+      inline: true,
+      code: "import { getFakeUser } from '#modules/faker'\nconst user = getFakeUser()",
+    })
+    const ir = graph(
+      [
+        inline,
+        node('s', 'Sync Contact', 'step', {
+          code: 'export default async function Sync_Contact({ inputs }) {\n  return inputs.user\n}\n',
+        }),
+        node('i', 'Again', 'step', { inline: true, code: 'console.log(user.email)' }),
+        node('own', 'Own', 'step', { inline: true, code: 'let other = 2\nconsole.log(other)' }),
+        node('before', 'Before', 'step', { inline: true, code: 'console.log(user)' }),
+      ],
+      [
+        { id: 'e0', source: 'before', target: 'g' },
+        { id: 'e1', source: 'g', target: 's' },
+        { id: 'e2', source: 's', target: 'i' },
+        { id: 'e3', source: 'i', target: 'own' },
+      ],
+      'before',
+    )
+    expect(nodeReaders(ir, 'g').map((r) => [r.nodeId, r.text, r.byName])).toEqual([
+      ['s', 'inputs.user', false],
+      ['i', 'user', false],
+    ])
+  })
+
+  it('does not list a read of an inline name another step declares nearer', () => {
+    const ir = graph(
+      [
+        node('g', 'Get', 'step', { inline: true, code: 'const user = 1' }),
+        node('h', 'Again', 'step', { inline: true, code: 'if (x) { console.log(1) }' }),
+        node('s', 'Use', 'step', {
+          code: 'export default async function Use({ inputs }) {\n  return inputs.user\n}\n',
+        }),
+      ],
+      [
+        { id: 'e0', source: 'g', target: 'h' },
+        { id: 'e1', source: 'h', target: 's' },
+      ],
+    )
+    ir.nodes[1]!.data.code = 'const user = 2'
+    expect(nodeReaders(ir, 'g')).toEqual([])
+    expect(nodeReaders(ir, 'h').map((r) => r.nodeId)).toEqual(['s'])
+  })
+
   it('does not list a module that reads inputs whole', () => {
     const code = `export default async function x({ inputs }) {\n  return { ...inputs }\n}\n`
     const ir = graph([producer, node('s', 'X', 'step', { code })], [])
