@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/web/release-notes/*.md",
+        "$TURBO_ROOT$/registry/index.json",
+        "$TURBO_ROOT$/registry/nodes/*/icon.svg"
+      ]
+    }
+  }
+}

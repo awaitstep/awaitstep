@@ -63,3 +63,6 @@ packages/provider-cloudflare/src/runtime/cloudflare-source.ts
 
 # pnpm workspace-local store (created by this environment)
 .pnpm-store/
+
+# Hallmark design runs: screenshots and logs, local only
+apps/www/.hallmark/

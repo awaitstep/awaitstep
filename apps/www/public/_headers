@@ -1,0 +1,26 @@
+# Cloudflare Pages / Workers static assets: caching and security headers for the marketing site.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  # HTTPS only, for a year. Subdomains are left to their own headers.
+  Strict-Transport-Security: max-age=31536000
+
+# Build output with a content hash in its name never changes: cache it for a year.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+  # Registry icons live here as SVG files. Opened directly, a file here is a sandboxed document
+  # that can run nothing; loaded by a page as a script, stylesheet, font or image it is unaffected.
+  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox
+
+# Fixed names (video, share cards, icons): cache a day, then check for a new copy.
+/video/*
+  Cache-Control: public, max-age=86400, must-revalidate
+/og/*
+  Cache-Control: public, max-age=86400, must-revalidate
+/favicon.svg
+  Cache-Control: public, max-age=86400, must-revalidate
+/logo.svg
+  Cache-Control: public, max-age=86400, must-revalidate

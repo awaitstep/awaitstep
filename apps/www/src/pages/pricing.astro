@@ -1,0 +1,114 @@
+---
+import Base from '../layouts/Base.astro'
+import '../styles/pages.css'
+import { COMPARISON, PLANS, pricingFaq, PRICING_PAGE as PAGE } from '../content/pricing'
+
+const faq = pricingFaq()
+const { compareTitle, compareLine, faqTitle } = PAGE
+const [cloud, selfHost] = PLANS
+---
+
+<Base title={PAGE.title} description={PAGE.description} crumb="Pricing" image="pricing">
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="container">
+      <h1 id="page-title">{PAGE.heading}</h1>
+      <p class="lead">{PAGE.line}</p>
+    </div>
+  </section>
+
+  <section class="section plans" aria-label="Editions">
+    <div class="container editions__grid">
+      {
+        PLANS.map((p) => (
+          <div class:list={['edition', p.primary && 'edition--primary']}>
+            <h2 class="plan__name">{p.name}</h2>
+            <p class="plan__price">
+              <strong>{p.price}</strong>
+              <span>{p.priceNote}</span>
+            </p>
+            <p class="edition__line">{p.line}</p>
+            <ul class="ticks">
+              {p.points.map((pt) => (
+                <li>{pt}</li>
+              ))}
+            </ul>
+            <a class:list={['btn', !p.primary && 'btn--quiet']} href={p.action.href}>
+              {p.action.label}
+            </a>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section compare" aria-labelledby="compare-title">
+    <div class="container">
+      <div class="head">
+        <h2 id="compare-title">{compareTitle}</h2>
+        <p class="lead">{compareLine}</p>
+      </div>
+        <table class="compare__table">
+          <thead>
+            <tr>
+              <td></td>
+              <th scope="col"><span class="compare__plan">{cloud.name}</span></th>
+              <th scope="col"><span class="compare__plan">{selfHost.name}</span></th>
+            </tr>
+          </thead>
+          {
+            COMPARISON.map((group) => (
+              <tbody>
+                <tr class="compare__group">
+                  <th scope="rowgroup" colspan="3">
+                    {group.title}
+                  </th>
+                </tr>
+                {group.rows.map((row) => (
+                  <tr>
+                    <th scope="row">{row.feature}</th>
+                    {[row.cloud, row.selfHost].map((cell) => (
+                      <td>
+                        {cell === true ? (
+                          <>
+                            <svg class="compare__check" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                              <path d="M3 8.5l3 3 7-7" />
+                            </svg>
+                            <span class="visually-hidden">Included</span>
+                          </>
+                        ) : cell === false ? (
+                          <>
+                            <svg class="compare__none" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                              <path d="M4 8h8" />
+                            </svg>
+                            <span class="visually-hidden">Not included</span>
+                          </>
+                        ) : (
+                          cell
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            ))
+          }
+        </table>
+    </div>
+  </section>
+
+  <section class="section faq" aria-labelledby="faq-title">
+    <div class="container faq__grid">
+      <h2 id="faq-title">{faqTitle}</h2>
+      <div class="faq__list">
+        {
+          faq.map((f) => (
+            <details>
+              <summary>{f.q}</summary>
+              <p>{f.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</Base>
