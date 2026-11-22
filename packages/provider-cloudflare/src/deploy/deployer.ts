@@ -11,9 +11,18 @@ export function validateSecretKey(key: string): boolean {
   return SECRET_KEY_PATTERN.test(key)
 }
 
-/** Redact long alphanumeric strings that may be tokens or credentials. */
+/**
+ * Deploy output fit to show or log: long alphanumeric runs (tokens, account
+ * ids) redacted, and email addresses (wrangler names the signed-in account's)
+ * kept to their first letter and domain. Every pattern is bounded.
+ */
 export function redactSensitive(text: string): string {
-  return text.replace(/[A-Za-z0-9_-]{30,}/g, '[REDACTED]')
+  return text
+    .replace(/[A-Za-z0-9_-]{30,}/g, '[REDACTED]')
+    .replace(
+      /(?<![A-Za-z0-9._%+-])([A-Za-z0-9])[A-Za-z0-9._%+-]{0,63}@([A-Za-z0-9-]{1,63}(?:\.[A-Za-z0-9-]{1,63}){0,8}\.[A-Za-z]{2,24})\b/g,
+      (_match, first: string, domain: string) => `${first}…@${domain}`,
+    )
 }
 
 /** Ensure a filename has no path traversal components. */

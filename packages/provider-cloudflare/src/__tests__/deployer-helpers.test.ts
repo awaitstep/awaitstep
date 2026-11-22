@@ -31,6 +31,16 @@ describe('redactSensitive', () => {
   it('leaves short strings untouched', () => {
     expect(redactSensitive('abc xyz')).toBe('abc xyz')
   })
+
+  it('stays fast on a long run of dots, which a looser email pattern rescans', () => {
+    const started = performance.now()
+    redactSensitive('a.'.repeat(32_000))
+    expect(performance.now() - started).toBeLessThan(200)
+  })
+
+  it('masks an email address, keeping its first letter and domain', () => {
+    expect(redactSensitive('logged in as ama.mensah@acme.test')).toBe('logged in as a…@acme.test')
+  })
 })
 
 describe('safeFilename', () => {
