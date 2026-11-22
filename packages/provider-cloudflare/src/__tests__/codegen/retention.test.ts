@@ -54,7 +54,9 @@ describe('generated retention wiring', () => {
     expect(code).toContain(
       'const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };',
     )
-    expect(code).toContain('env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })')
+    expect(code).toContain(
+      'env.WORKFLOW.create({ ...(id !== undefined && { id }), params, retention: AWAITSTEP_RETENTION })',
+    )
   })
 
   it('bakes a configured retention into the const', () => {

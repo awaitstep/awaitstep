@@ -140,7 +140,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
       onContextMenu={handleContextMenu}
       onFocus={handleFocus}
       className={cn(
-        'group flex w-full cursor-pointer items-center gap-1 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary',
+        'group flex w-full cursor-pointer items-center gap-1 pr-1 outline-none transition-colors focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring',
         isSection
           ? 'h-6 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground'
           : 'h-6 text-xs',
@@ -575,7 +575,7 @@ export function ProjectEmptyState({
       {canEdit && (
         <>
           {' '}
-          <button type="button" onClick={onCreate} className="text-primary">
+          <button type="button" onClick={onCreate} className="text-primary-ink">
             Create one
           </button>{' '}
           and import it anywhere as <code className="font-mono">#app/…</code>.

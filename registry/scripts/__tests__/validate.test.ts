@@ -176,11 +176,26 @@ describe('validateNode', () => {
   it('requires a template for every provider and an icon', () => {
     const input = clone()
     input.versions[0].templates = {}
-    input.iconExists = false
+    input.icon = undefined
     const messages = errors(input).map((issue) => issue.message)
     expect(messages).toContain('missing template for provider "cloudflare"')
     expect(messages).toContain('no templates found')
     expect(messages).toContain('missing icon.svg')
+  })
+
+  it('refuses an icon that could run script where it is served', () => {
+    for (const icon of [
+      '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
+      '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"></svg>',
+      '<html><body>not an svg</body></html>',
+    ]) {
+      const input = clone()
+      input.icon = icon
+      expect(
+        errors(input).some((issue) => issue.message.startsWith('icon.svg must')),
+        icon,
+      ).toBe(true)
+    }
   })
 
   it('checks output schema property and item shapes when present', () => {

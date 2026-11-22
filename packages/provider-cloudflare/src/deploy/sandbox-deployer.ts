@@ -15,6 +15,7 @@ import {
 } from './package-manifest.js'
 import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, sanitizedWorkflowName, workflowClassName } from '../naming.js'
+import { deployedWorkerUrl } from './worker-url.js'
 
 // The Sandbox instance is injected from the Worker entry point via a factory
 // function. We use `any` to avoid importing @cloudflare/sandbox directly so
@@ -201,15 +202,13 @@ export class SandboxWranglerDeployer implements WranglerDeployer {
         return { success: false, workerName: name, error: redactSensitive(deployResult.stderr) }
       }
 
-      // 6. Extract URL
-      const urlMatch = deployResult.stdout.match(/https:\/\/[^\s)]+\.workers\.dev/)
-      const routeUrl = options.routes?.[0]
-        ? `https://${options.routes[0].pattern.replace(/\/\*$/, '')}`
-        : undefined
-
-      // The workers.dev address first: it is the one a function is called at
-      // from the server (a route's host is whatever pattern was typed).
-      return { success: true, workerName: name, workerUrl: urlMatch?.[0] ?? routeUrl }
+      // 6. The URL AwaitStep calls it at
+      const workerUrl = deployedWorkerUrl({
+        stdout: deployResult.stdout,
+        routes: options.routes,
+        customDomains: options.customDomains,
+      })
+      return { success: true, workerName: name, workerUrl }
     } catch (err) {
       // A step cut short by the cancel's destroy fails; that is the cancel.
       if (signal?.aborted) return cancelled

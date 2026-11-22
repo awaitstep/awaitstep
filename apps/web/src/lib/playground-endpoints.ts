@@ -760,14 +760,15 @@ export const endpoints: EndpointDef[] = [
     group: 'Deployments',
     method: 'POST',
     path: '/api/run/:workflowId',
-    label: 'Run a workflow or call a function',
+    label: 'Run a workflow, send it an event, or call a function',
     permission: 'workflows:run',
     params: [
       { name: 'workflowId', in: 'path', required: true },
       { name: 'account', in: 'query', required: false },
     ],
     hasBody: true,
-    bodyExample: JSON.stringify({}, null, 2),
+    // `instanceId` names the run's instance; `{ action: "send-event", instanceId, type, payload }` resumes a waiting one.
+    bodyExample: JSON.stringify({ instanceId: 'order-42' }, null, 2),
   },
   {
     id: 'takedown-workflow',

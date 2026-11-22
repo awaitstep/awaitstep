@@ -5,9 +5,9 @@ import { hasContent } from '../ui/has-content'
 import { ShellLink } from '../ui/shell-link'
 
 const rowClass =
-  'relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-xs font-medium transition-colors'
+  'relative flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset'
 const inactiveRowClass =
-  'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+  'text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
 const activeRowClass = 'bg-sidebar-accent text-sidebar-foreground'
 
 /** Row classes shared by panel links and panel buttons, so both read the same. */
@@ -103,7 +103,7 @@ export function PanelSection({ title, children }: PanelSectionProps) {
       {title && (
         <p
           aria-hidden="true"
-          className="px-2.5 pb-1.5 pt-3.5 text-xs font-medium text-muted-foreground"
+          className="px-2.5 pb-1.5 pt-3.5 text-xs font-medium text-sidebar-muted"
         >
           {title}
         </p>

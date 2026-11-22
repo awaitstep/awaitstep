@@ -38,7 +38,7 @@ export function MarketplaceDialog({ org, onClose }: MarketplaceDialogProps) {
       <DialogContent layout="sectioned" size="2xl" className="h-[90vh]">
         <OverlayHeader
           leading={
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary-ink">
               <Store className="size-4" aria-hidden="true" />
             </span>
           }

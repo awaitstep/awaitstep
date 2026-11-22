@@ -77,6 +77,7 @@ describe('CloudflareConnect', () => {
       'Account · Workers Scripts · Admin',
       'Account · Workers KV Storage · Read',
       'Account · Workers KV Storage · Write',
+      'Zone · Workers Routes · Write',
     ])
     expect(screen.getByRole('link', { name: /Open Cloudflare API tokens/ })).toHaveAttribute(
       'href',

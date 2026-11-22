@@ -201,3 +201,16 @@ export function deepestBracket(code: string): { offset: number; depth: number } 
   }
   return deepest
 }
+
+/**
+ * Whether `text` has `name` as a whole identifier: not inside a longer one.
+ * An identifier may hold `$`, which `\\b` does not bound and which a pattern
+ * would read as an anchor, so this scans instead of matching a pattern.
+ */
+export function mentionsIdentifier(text: string, name: string): boolean {
+  if (name === '') return false
+  for (let at = text.indexOf(name); at !== -1; at = text.indexOf(name, at + 1)) {
+    if (!isWordChar(text[at - 1]) && !isWordChar(text[at + name.length])) return true
+  }
+  return false
+}

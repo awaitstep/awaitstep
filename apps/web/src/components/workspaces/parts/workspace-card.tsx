@@ -56,7 +56,7 @@ export function WorkspaceCard({
       aria-describedby={detailId}
       className={cn(
         'flex flex-col overflow-hidden rounded border bg-card shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        current ? 'border-primary' : 'border-border hover:border-foreground/20',
+        current ? 'border-primary-ink' : 'border-border hover:border-foreground/20',
       )}
     >
       <span

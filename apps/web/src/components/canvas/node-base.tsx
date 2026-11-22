@@ -111,10 +111,10 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         type="target"
         position={Position.Top}
         className={cn(
-          '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
+          '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary-ink',
           hasIncoming
             ? '!bg-muted-foreground'
-            : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
+            : '!bg-transparent !border-transparent group-hover:!bg-primary-ink group-hover:!border-card',
         )}
       />
 
@@ -135,10 +135,10 @@ export function NodeBase({ label, icon, accent, selected, warning, children }: N
         type="source"
         position={Position.Bottom}
         className={cn(
-          '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary',
+          '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary-ink',
           hasOutgoing
             ? '!bg-muted-foreground'
-            : '!bg-transparent !border-transparent group-hover:!bg-primary group-hover:!border-card',
+            : '!bg-transparent !border-transparent group-hover:!bg-primary-ink group-hover:!border-card',
         )}
       />
     </div>

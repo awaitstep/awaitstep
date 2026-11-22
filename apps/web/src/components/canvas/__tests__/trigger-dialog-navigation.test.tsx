@@ -66,6 +66,23 @@ describe('TriggerDialog (WorkflowTrigger)', () => {
 })
 
 describe('TriggerDialog after a trigger', () => {
+  it('closes without opening a run when the payload sent an event', async () => {
+    calls.trigger.mockResolvedValue({ ok: true })
+    renderDialog()
+    await userEvent.click(screen.getByRole('button', { name: 'Trigger' }))
+    await waitFor(() => expect(calls.trigger).toHaveBeenCalled())
+    expect(calls.goTo).not.toHaveBeenCalled()
+  })
+
+  it('opens the call its handler answered with, when no run started', async () => {
+    calls.trigger.mockResolvedValue({ id: 'run_8', instanceId: 'call_abc', status: 'errored' })
+    renderDialog()
+    await userEvent.click(screen.getByRole('button', { name: 'Trigger' }))
+    await waitFor(() =>
+      expect(calls.goTo).toHaveBeenCalledWith('/acme/core/sales/workflows/wf_1/runs/run_8'),
+    )
+  })
+
   it('opens the run it just started, in the workspace', async () => {
     calls.trigger.mockResolvedValue({ id: 'run_7', instanceId: 'i', status: 'queued' })
     renderDialog()

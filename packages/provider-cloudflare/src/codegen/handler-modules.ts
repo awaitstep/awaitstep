@@ -90,19 +90,21 @@ export function handlerWiring(modules: ProjectHandlerModules): HandlerWiring {
  */
 export function handlerDelegates(
   wiring: HandlerWiring,
-  options: { sendEvent?: boolean } = {},
+  options: { sendEvent?: boolean; requestEnv?: boolean } = {},
 ): string[] {
   const blocks: string[] = []
   if (wiring.fetch) {
+    // \`awaitstepRequestEnv\` (when the entry has it) carries the request's named instance id.
+    const env = options.requestEnv ? 'env: awaitstepRequestEnv(request, env)' : 'env'
     if (options.sendEvent) {
       blocks.push(`  fetch: async (request: Request, env: Env, ctx: ExecutionContext) => {
     const sent = await awaitstepSendEvent(request, env);
     if (sent) return sent;
-    return ${wiring.fetch}({ request, env, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } });
+    return ${wiring.fetch}({ request, ${env}, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } });
   },`)
     } else {
       blocks.push(`  fetch: (request: Request, env: Env, ctx: ExecutionContext) =>
-    ${wiring.fetch}({ request, env, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } }),`)
+    ${wiring.fetch}({ request, ${env}, execution: { waitUntil: (promise) => ctx.waitUntil(promise) } }),`)
     }
   }
   if (wiring.queues.length > 0) {

@@ -1,0 +1,161 @@
+/* Landing tokens, shared by apps/www and the apps/web landing route.
+   Scoped to `.landing` so the dashboard's own Tailwind tokens (--color-accent and kin) never
+   collide. Colours are the dashboard's dark theme (apps/web/src/styles.css): change them there
+   and here together. The marketing site is dark only, so there is no light theme here. */
+@import './theme.css';
+
+.landing {
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5625rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 2.441rem;
+  --text-display-s: clamp(2.25rem, 4vw + 0.5rem, 3.75rem);
+  --text-display: clamp(2.5rem, 3.4vw + 1rem, 4.25rem);
+  --text-section: clamp(2rem, 2.5vw + 1rem, 3.25rem);
+  --text-title: clamp(1.25rem, 0.75vw + 0.875rem, 1.625rem);
+  --text-lead: clamp(1.125rem, 0.35vw + 1rem, 1.3125rem);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+  --container: 1360px;
+  --gutter: 64px;
+  --gap-columns: 32px;
+  --section-gap-s: 120px;
+  --section-gap: 144px;
+  --section-gap-l: 176px;
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-stage: 20px;
+  --radius-pill: 999px;
+  --rule-hair: 1px;
+  --tracking-display: -0.035em;
+  --display-weight: 600;
+
+  --font-display: var(--app-font-sans);
+  --font-body: var(--app-font-sans);
+  --font-mono: var(--app-font-mono);
+  --font-outlier: var(--font-mono);
+
+  /* The dashboard's dark theme (apps/web/src/styles.css). */
+  --color-paper: oklch(0.145 0 0);
+  --color-paper-2: oklch(0.18 0 0);
+  --color-paper-3: oklch(0.22 0 0);
+  --color-ink: oklch(0.97 0 0);
+  --color-ink-2: oklch(0.87 0 0);
+  --color-muted: oklch(0.72 0 0);
+  --color-rule: oklch(0.26 0 0);
+  --color-accent: #e1ff41;
+  --color-accent-hover: #ecff75;
+  --color-accent-ink: #0a0a0a;
+  --color-accent-text: #e1ff41;
+  --color-focus: #e1ff41;
+  --color-code: oklch(0.13 0 0);
+  --color-code-ink: oklch(0.93 0 0);
+  --color-code-muted: oklch(0.72 0 0);
+  --color-error: oklch(0.68 0.17 22);
+  --color-success: oklch(0.72 0.14 155);
+
+  /* The hero canvas, painted like the dashboard canvas: --card nodes with a --border edge, the
+     dot grid in --muted-foreground at 30% (solid here: the scene reads opaque colours), edges
+     in --primary-ink. */
+  --scene-stage: var(--color-paper);
+  --scene-dot: oklch(0.32 0 0);
+  --scene-card: oklch(0.18 0 0);
+  --scene-card-side: oklch(0.12 0 0);
+  --scene-card-edge: oklch(0.27 0 0);
+  --scene-ink: oklch(0.97 0 0);
+  --scene-muted: oklch(0.72 0 0);
+  --scene-edge: #e1ff41;
+  --scene-shadow: oklch(0.06 0 0);
+
+  /* Node kinds: --node-* (code, timing, flow, parallel, network, event, error-handling, race). */
+  --kind-step: oklch(0.7 0.12 250);
+  --kind-sleep: oklch(0.78 0.14 75);
+  --kind-branch: oklch(0.7 0.15 300);
+  --kind-parallel: oklch(0.72 0.12 185);
+  --kind-http: oklch(0.72 0.14 155);
+  --kind-event: oklch(0.7 0.15 15);
+  --kind-try: oklch(0.75 0.14 55);
+  --kind-race: oklch(0.8 0.14 90);
+
+  /* Run states: --status-info, -success, -error, -warning; waits take --node-flow, sleeps --node-timing. */
+  --run-running: oklch(0.7 0.1 230);
+  --run-waiting: oklch(0.7 0.15 300);
+  --run-sleeping: oklch(0.78 0.14 75);
+  --run-failed: oklch(0.68 0.17 22);
+  --run-retrying: oklch(0.78 0.12 75);
+  --run-done: oklch(0.72 0.14 155);
+
+  color-scheme: dark;
+  scrollbar-color: var(--color-muted) var(--color-paper);
+  caret-color: var(--color-accent);
+}
+.landing ::selection {
+  background: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  color: var(--color-ink);
+}
+
+/* The hero's static poster, painted from the scene tokens. */
+.landing .scene-poster {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.landing .pst-card {
+  fill: var(--scene-card);
+  stroke: var(--scene-card-edge);
+  stroke-width: 1;
+}
+.landing .pst-card-side {
+  fill: var(--scene-card-side);
+}
+.landing .pst-tile {
+  fill: color-mix(in oklab, var(--kind) 18%, transparent);
+}
+.landing .pst-icon {
+  fill: none;
+  stroke: var(--kind);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.landing .pst-name {
+  fill: var(--scene-ink);
+  font: 600 17px var(--font-body);
+}
+.landing .pst-detail {
+  fill: var(--scene-muted);
+  font: 500 13px var(--font-body);
+}
+.landing .pst-rule {
+  stroke: var(--scene-card-edge);
+}
+.landing .pst-edge {
+  fill: none;
+  stroke: var(--scene-edge);
+  stroke-width: 2;
+}

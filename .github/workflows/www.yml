@@ -4,8 +4,23 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # The site is built from more than apps/www: its pages read the node registry (integrations
+    # and icons), the dashboard's release notes (changelog), the workflow templates (use cases),
+    # the IR's built-in nodes and the shared theme. A change to any of them redeploys it.
     paths:
       - 'apps/www/**'
+      - 'apps/web/release-notes/**'
+      - 'registry/index.json'
+      - 'registry/nodes/*/icon.svg'
+      - 'packages/ir/**'
+      - 'packages/templates/**'
+      - 'packages/theme/**'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/www.yml'
+
+# The build reads the repo's star count with GITHUB_TOKEN; it needs no more than read access.
+permissions:
+  contents: read
 
 concurrency:
   group: www-deploy
@@ -15,13 +30,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      # Actions are pinned to commits (the tag they were at in the comment): a moved tag cannot
+      # change what runs with the Cloudflare token.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # Nothing later pushes; don't leave the token in .git/config for the build to read.
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           run_install: false
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           check-latest: true
@@ -29,9 +49,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm --filter @awaitstep/www build
+      # Through turbo, so the workspace packages the site imports (@awaitstep/ir, @awaitstep/templates)
+      # are built first. The token lifts GitHub's limit for the nav's star count; runners share IPs,
+      # so anonymous requests are often refused.
+      - run: pnpm exec turbo run build --filter=@awaitstep/www...
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: cloudflare/wrangler-action@v3
+      - uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

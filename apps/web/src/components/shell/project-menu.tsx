@@ -53,7 +53,7 @@ function ProjectRowContent({ project }: { project: { name: string; tile: ScopeTi
         <span className="text-2xs text-muted-foreground">Project</span>
         <span className="truncate text-sm font-semibold text-foreground">{project.name}</span>
       </span>
-      <span className="text-xs font-medium text-primary">Switch</span>
+      <span className="text-xs font-medium text-primary-ink">Switch</span>
     </>
   )
 }
@@ -94,7 +94,7 @@ function WorkspaceTile({
       aria-current={workspace.current ? 'true' : undefined}
       className={cn(
         'flex min-h-11 items-center gap-2.5 rounded border px-3 py-2.5',
-        workspace.current ? 'border-primary/60 bg-sidebar-accent' : 'border-border',
+        workspace.current ? 'border-primary/60 bg-muted' : 'border-border',
       )}
     >
       <span

@@ -12,16 +12,29 @@ import {
   TEST_USER_ID,
   TEST_WORKSPACE_ID,
 } from './helpers.js'
+import { settingsFor } from './fixtures/deploy-settings.js'
 
 // POST /api/run/:workflowId (D-1): how other systems run a workflow or call a
 // function, with an API key. The provider is real except for what would leave
 // the machine: Cloudflare's trigger and the function's own HTTP answer.
 
 const provider = vi.hoisted(() => ({
-  triggered: [] as Array<{ params: unknown; account: string }>,
+  triggered: [] as Array<{ params: unknown; account: string; instanceId?: string }>,
   triggerFails: false,
-  calls: [] as Array<{ url: string; body: string; contentType: string | null }>,
+  calls: [] as Array<{
+    url: string
+    body: string
+    contentType: string | null
+    instanceId?: string
+  }>,
   fail: false,
+  /** Instances Cloudflare has; a trigger or a worker that starts a run adds one. */
+  instances: new Set<string>(),
+  /** What the worker's handler does with the instance id it is handed. */
+  workerStarts: false,
+  /** Each call to the worker waits until this many have arrived: requests that overlap. */
+  holdUntil: 0,
+  events: [] as Array<{ instanceId: string; type: string; payload: unknown }>,
   reply: {
     status: 200,
     body: '{"city":"Paris"}' as string | Uint8Array | null,
@@ -33,6 +46,7 @@ const provider = vi.hoisted(() => ({
 vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
   const actual = await importOriginal<typeof ProviderResolver>()
   const { callFunction } = await import('@awaitstep/provider-cloudflare')
+  const { InstanceExistsError, RunGoneError } = await import('@awaitstep/codegen')
   return {
     ...actual,
     resolveProvider: (...args: Parameters<typeof actual.resolveProvider>) => {
@@ -44,6 +58,7 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
               _id: string,
               params: unknown,
               config: { credentials: { accountId: string } },
+              options?: { instanceId?: string },
             ) => {
               if (provider.triggerFails) {
                 return Promise.reject(
@@ -52,15 +67,47 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
                   }),
                 )
               }
-              provider.triggered.push({ params, account: config.credentials.accountId })
-              return Promise.resolve({ instanceId: 'inst-1' })
+              const named = options?.instanceId
+              if (named && provider.instances.has(named)) {
+                return Promise.reject(new InstanceExistsError(named))
+              }
+              provider.triggered.push({
+                params,
+                account: config.credentials.accountId,
+                ...(named && { instanceId: named }),
+              })
+              const instanceId = named ?? 'inst-1'
+              provider.instances.add(instanceId)
+              return Promise.resolve({ instanceId })
+            }
+          }
+          if (property === 'hasInstance') {
+            return (instanceId: string) => Promise.resolve(provider.instances.has(instanceId))
+          }
+          if (property === 'sendEvent') {
+            return (input: { instanceId: string; type: string; payload: unknown }) => {
+              if (!provider.instances.has(input.instanceId)) {
+                return Promise.reject(new RunGoneError('instance'))
+              }
+              provider.events.push({
+                instanceId: input.instanceId,
+                type: input.type,
+                payload: input.payload,
+              })
+              return Promise.resolve()
             }
           }
           if (property === 'callFunction') {
-            return (request: { url: string; body: string | Uint8Array; contentType?: string }) =>
+            return (request: {
+              url: string
+              body: string | Uint8Array
+              contentType?: string
+              headers?: Record<string, string>
+            }) =>
               callFunction(request, (async (url: string, init: RequestInit) => {
                 if (provider.fail) throw new TypeError('fetch failed')
                 const headers = init.headers as Record<string, string>
+                const instanceId = headers['X-AwaitStep-Instance-Id']
                 provider.calls.push({
                   url,
                   body:
@@ -68,7 +115,13 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
                       ? new TextDecoder().decode(init.body)
                       : String(init.body),
                   contentType: headers['content-type'] ?? null,
+                  ...(instanceId && { instanceId }),
                 })
+                while (provider.calls.length < provider.holdUntil) {
+                  await new Promise((resolve) => setTimeout(resolve, 1))
+                }
+                // The generated entry hands the id to the handler's startWorkflow.
+                if (provider.workerStarts && instanceId) provider.instances.add(instanceId)
                 return new Response(provider.reply.body as BodyInit | null, {
                   status: provider.reply.status,
                   headers: {
@@ -147,6 +200,7 @@ async function deployed(
     connectionId,
     serviceName: 'svc',
     serviceUrl,
+    configSnapshot: settingsFor(serviceUrl),
     status,
   })
   // The fake stamps now; the account choice orders by when each deploy was made.
@@ -165,6 +219,15 @@ function run(
   return app.request(`/api/run/${path}`, { method: 'POST', headers, body: init.body ?? '' })
 }
 
+/** The dashboard's Run again on a run of wf-1 on conn-a, with a session. */
+function runAgainOn(app: ReturnType<typeof createTestApp>, runId: string) {
+  return app.request(`/api/workflows/wf-1/runs/${runId}/run-again?projectId=${TEST_PROJECT_ID}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ connectionId: 'conn-a' }),
+  })
+}
+
 describe('POST /api/run/:workflowId', () => {
   let app: ReturnType<typeof createTestApp>
 
@@ -174,6 +237,10 @@ describe('POST /api/run/:workflowId', () => {
     provider.triggerFails = false
     provider.calls = []
     provider.fail = false
+    provider.instances = new Set()
+    provider.workerStarts = false
+    provider.holdUntil = 0
+    provider.events = []
     provider.reply = {
       status: 200,
       body: '{"city":"Paris"}',
@@ -260,6 +327,301 @@ describe('POST /api/run/:workflowId', () => {
       expect(res.status).toBe(400)
       expect(((await res.json()) as { error: string }).error).toBe('The body must be under 100 KB')
       expect(provider.triggered).toEqual([])
+    })
+  })
+
+  describe('a workflow without a URL of its own (direct)', () => {
+    beforeEach(async () => {
+      await deployed('wf-1', 'conn-a', '2026-11-01T00:00:00.000Z')
+    })
+
+    it('starts the instance the body names, keeping instanceId in the params', async () => {
+      const res = await run(app, 'wf-1', {
+        key: PROJECT_KEY,
+        body: '{"instanceId":"order-42","orderId":42}',
+      })
+      expect(res.status).toBe(201)
+      expect(await res.json()).toEqual({
+        runId: expect.any(String),
+        instanceId: 'order-42',
+        status: 'queued',
+      })
+      expect(provider.triggered).toEqual([
+        {
+          params: { instanceId: 'order-42', orderId: 42 },
+          account: 'acct-a',
+          instanceId: 'order-42',
+        },
+      ])
+    })
+
+    it('answers 409 for an id already in use, and records no second run', async () => {
+      const body = '{"instanceId":"order-42"}'
+      await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      const again = await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      expect(again.status).toBe(409)
+      expect(await again.json()).toEqual({
+        error: 'An instance with id "order-42" already exists.',
+      })
+      expect((await mockDb.listRunsByWorkflow('wf-1')).data).toHaveLength(1)
+    })
+
+    it('answers 400 for an instanceId that can’t be one, starting nothing', async () => {
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body: '{"instanceId":"a.b"}' })
+      expect(res.status).toBe(400)
+      expect(provider.triggered).toEqual([])
+    })
+
+    it('sends the built-in send-event body to the instance, recording nothing', async () => {
+      provider.instances.add('order-42')
+      const res = await run(app, 'wf-1', {
+        key: PROJECT_KEY,
+        body: '{"action":"send-event","instanceId":"order-42","type":"sunny","payload":{"hello":1}}',
+      })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ ok: true })
+      expect(provider.events).toEqual([
+        { instanceId: 'order-42', type: 'sunny', payload: { hello: 1 } },
+      ])
+      expect(provider.triggered).toEqual([])
+      expect((await mockDb.listRunsByWorkflow('wf-1')).data).toEqual([])
+    })
+
+    it('takes the query form of the send-event request, the body as its payload', async () => {
+      provider.instances.add('order-42')
+      const res = await run(app, 'wf-1?action=send-event&instanceId=order-42&type=sunny', {
+        key: PROJECT_KEY,
+        body: '{"temp":24}',
+      })
+      expect(res.status).toBe(200)
+      expect(provider.events).toEqual([
+        { instanceId: 'order-42', type: 'sunny', payload: { temp: 24 } },
+      ])
+    })
+
+    it.each([
+      [
+        'an unknown instance',
+        '{"action":"send-event","instanceId":"nope","type":"sunny"}',
+        404,
+        'Instance not found',
+      ],
+      ['no type', '{"action":"send-event","instanceId":"order-42"}', 400, 'type is required'],
+      ['no instanceId', '{"action":"send-event","type":"sunny"}', 400, 'instanceId is required'],
+      [
+        'a type a wait can’t have',
+        '{"action":"send-event","instanceId":"order-42","type":"a.b"}',
+        400,
+        'type must be up to 100 letters, digits, - or _',
+      ],
+    ])('answers %s with %i', async (_, body, status, error) => {
+      provider.instances.add('order-42')
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      expect(res.status).toBe(status)
+      expect(await res.json()).toEqual({ error })
+      expect(provider.events).toEqual([])
+    })
+  })
+
+  describe('a workflow with a URL of its own (through its handler)', () => {
+    const ROUTE = 'https://wf.acme.com/v1/'
+
+    beforeEach(async () => {
+      await deployed('wf-1', 'conn-a', '2026-11-01T00:00:00.000Z', ROUTE)
+    })
+
+    it('passes the request on with a new instance id, and records the run the handler started', async () => {
+      provider.workerStarts = true
+      provider.reply = {
+        status: 200,
+        body: '{"started":true}',
+        contentType: 'application/json',
+        headers: {},
+      }
+      const res = await run(app, 'wf-1?account=conn-a&source=crm', {
+        key: PROJECT_KEY,
+        body: '{"a":1}',
+      })
+      expect(res.status).toBe(200)
+      expect(await res.text()).toBe('{"started":true}')
+      const [call] = provider.calls
+      expect(call).toMatchObject({ url: `${ROUTE}?source=crm`, body: '{"a":1}' })
+      expect(call!.instanceId).toMatch(/^[0-9a-f-]{36}$/)
+      expect(res.headers.get('X-AwaitStep-Instance-Id')).toBe(call!.instanceId)
+      expect(provider.triggered).toEqual([])
+
+      const [recorded] = (await mockDb.listRunsByWorkflow('wf-1')).data
+      expect(recorded).toMatchObject({
+        id: res.headers.get('X-AwaitStep-Run-Id'),
+        instanceId: call!.instanceId,
+        params: '{"a":1}',
+        status: 'queued',
+        trigger: 'api',
+      })
+    })
+
+    it('hands on the body’s instanceId', async () => {
+      provider.workerStarts = true
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body: '{"instanceId":"order-42"}' })
+      expect(provider.calls[0]!.instanceId).toBe('order-42')
+      expect(res.headers.get('X-AwaitStep-Instance-Id')).toBe('order-42')
+      expect((await mockDb.listRunsByWorkflow('wf-1')).data[0]?.instanceId).toBe('order-42')
+    })
+
+    it('records a handler’s refusal as a call with its status, and answers it', async () => {
+      provider.reply = {
+        status: 403,
+        body: '{"message":"no"}',
+        contentType: 'application/json',
+        headers: {},
+      }
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body: '{"a":1}' })
+      expect(res.status).toBe(403)
+      expect(await res.json()).toEqual({ message: 'no' })
+      expect(res.headers.get('X-AwaitStep-Instance-Id')).toBeNull()
+      const [recorded] = (await mockDb.listRunsByWorkflow('wf-1')).data
+      expect(recorded).toMatchObject({
+        id: res.headers.get('X-AwaitStep-Run-Id'),
+        instanceId: expect.stringMatching(/^call_/),
+        status: 'errored',
+        responseStatus: 403,
+      })
+    })
+
+    it('records no second run for an id that already ran', async () => {
+      provider.workerStarts = true
+      const body = '{"instanceId":"order-42"}'
+      await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      provider.reply = {
+        status: 500,
+        body: '{"message":"exists"}',
+        contentType: 'application/json',
+        headers: {},
+      }
+      const again = await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      expect(again.status).toBe(500)
+      const runs = (await mockDb.listRunsByWorkflow('wf-1')).data
+      expect(runs.filter((r) => r.instanceId === 'order-42')).toHaveLength(1)
+      expect(runs.find((r) => r.instanceId.startsWith('call_'))).toMatchObject({
+        responseStatus: 500,
+      })
+    })
+
+    it('gives a send-event body to the handler, recording no run on the waiting instance', async () => {
+      provider.instances.add('order-42')
+      provider.reply = {
+        status: 200,
+        body: '{"ok":true}',
+        contentType: 'application/json',
+        headers: {},
+      }
+      const body = '{"action":"send-event","instanceId":"order-42","type":"sunny"}'
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      expect(res.status).toBe(200)
+      expect(provider.calls[0]).toMatchObject({ body, instanceId: 'order-42' })
+      expect(provider.events).toEqual([])
+      const runs = (await mockDb.listRunsByWorkflow('wf-1')).data
+      expect(runs.map((r) => r.instanceId)).toEqual([expect.stringMatching(/^call_/)])
+    })
+
+    it('refuses a Content-Type that isn’t a media type, calling nothing', async () => {
+      for (const contentType of ['not a type', `text/plain; x=${'y'.repeat(300)}`]) {
+        const res = await run(app, 'wf-1', { key: PROJECT_KEY, body: '{}', contentType })
+        expect(res.status, contentType).toBe(400)
+      }
+      expect(provider.calls).toEqual([])
+    })
+
+    it('passes a body that isn’t JSON on, as sent', async () => {
+      const res = await run(app, 'wf-1', {
+        key: PROJECT_KEY,
+        body: 'a=1',
+        contentType: 'application/x-www-form-urlencoded',
+      })
+      expect(res.status).toBe(200)
+      expect(provider.calls[0]).toMatchObject({
+        body: 'a=1',
+        contentType: 'application/x-www-form-urlencoded',
+      })
+    })
+
+    it('records one run when two requests start the same instance at once', async () => {
+      provider.workerStarts = true
+      provider.holdUntil = 2
+      const body = '{"instanceId":"order-42"}'
+      const answers = await Promise.all([
+        run(app, 'wf-1', { key: PROJECT_KEY, body }),
+        run(app, 'wf-1', { key: PROJECT_KEY, body }),
+      ])
+      const runs = (await mockDb.listRunsByWorkflow('wf-1')).data
+      expect(runs.filter((r) => r.instanceId === 'order-42')).toHaveLength(1)
+      expect(runs.filter((r) => r.instanceId.startsWith('call_'))).toHaveLength(1)
+      expect(answers.map((a) => a.headers.get('X-AwaitStep-Instance-Id')).sort()).toEqual([
+        null,
+        'order-42',
+      ])
+    })
+
+    it('runs a send-event call again for the same instance', async () => {
+      provider.instances.add('order-42')
+      const body = '{"action":"send-event","instanceId":"order-42","type":"sunny"}'
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body })
+      const again = await runAgainOn(app, res.headers.get('X-AwaitStep-Run-Id')!)
+      expect(again.status).toBe(201)
+      expect(provider.calls[1]).toMatchObject({ body, instanceId: 'order-42' })
+    })
+
+    it('runs a body kept with its own type again with that type, under a new instance', async () => {
+      provider.workerStarts = true
+      const res = await run(app, 'wf-1', {
+        key: PROJECT_KEY,
+        body: '{"instanceId":"order-42","n":1}',
+        contentType: 'text/plain',
+      })
+      const again = await runAgainOn(app, res.headers.get('X-AwaitStep-Run-Id')!)
+      expect(again.status).toBe(201)
+      const second = provider.calls[1]!
+      expect(second.contentType).toBe('text/plain')
+      expect(second.instanceId).not.toBe('order-42')
+      expect(JSON.parse(second.body)).toEqual({ instanceId: second.instanceId, n: 1 })
+    })
+
+    it('corrects a route URL an older deploy recorded without its trailing slash', async () => {
+      await mockDb.createDeployment({
+        id: 'dep-old',
+        workflowId: 'wf-1',
+        versionId: 'v-1',
+        versionNumber: 1,
+        connectionId: 'conn-b',
+        serviceName: 'svc',
+        serviceUrl: 'https://wf.acme.com/v1',
+        configSnapshot: JSON.stringify({
+          routes: [{ pattern: 'wf.acme.com/v1/*', zoneName: 'acme.com' }],
+        }),
+        status: 'success',
+      })
+      await run(app, 'wf-1?account=conn-b', { key: PROJECT_KEY, body: '{}' })
+      expect(provider.calls[0]?.url).toBe('https://wf.acme.com/v1/')
+    })
+
+    it('runs directly when an older deploy recorded a wildcard route whole', async () => {
+      await mockDb.createDeployment({
+        id: 'dep-wild',
+        workflowId: 'wf-1',
+        versionId: 'v-1',
+        versionNumber: 1,
+        connectionId: 'conn-b',
+        serviceName: 'svc',
+        serviceUrl: 'https://*.acme.com',
+        configSnapshot: JSON.stringify({
+          routes: [{ pattern: '*.acme.com/*', zoneName: 'acme.com' }],
+        }),
+        status: 'success',
+      })
+      const res = await run(app, 'wf-1?account=conn-b', { key: PROJECT_KEY, body: '{}' })
+      expect(res.status).toBe(201)
+      expect(provider.calls).toEqual([])
+      expect(provider.triggered).toHaveLength(1)
     })
   })
 
@@ -469,9 +831,16 @@ describe('POST /api/run/:workflowId', () => {
       expect(provider.calls.at(-1)?.url).toBe('https://fn-b.acme.workers.dev')
     })
 
-    it('refuses a deploy whose only URL is a route, and records nothing', async () => {
-      await deployed('fn-1', 'conn-b', '2026-11-02T00:00:00.000Z', 'https://api.acme.com')
-      const res = await run(app, 'fn-1', { key: PROJECT_KEY, body: '{}' })
+    it('calls a deploy whose URL is a route: the function’s own address there', async () => {
+      await deployed('fn-1', 'conn-b', '2026-11-02T00:00:00.000Z', 'https://api.acme.com/v1/')
+      const res = await run(app, 'fn-1?account=conn-b', { key: PROJECT_KEY, body: '{}' })
+      expect(res.status).toBe(200)
+      expect(provider.calls.map((c) => c.url)).toEqual(['https://api.acme.com/v1/'])
+    })
+
+    it('refuses a deploy whose URL names an IP address, and records nothing', async () => {
+      await deployed('fn-1', 'conn-b', '2026-11-02T00:00:00.000Z', 'https://10.0.0.5/')
+      const res = await run(app, 'fn-1?account=conn-b', { key: PROJECT_KEY, body: '{}' })
       expect(res.status).toBe(400)
       expect(provider.calls).toEqual([])
       expect((await mockDb.listRunsByWorkflow('fn-1')).data).toEqual([])

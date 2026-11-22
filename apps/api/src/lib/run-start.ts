@@ -1,12 +1,39 @@
-import type { Context } from 'hono'
-import { nanoid } from 'nanoid'
-import type { FunctionCallResult } from '@awaitstep/codegen'
-import type { DatabaseAdapter, RunTrigger, Workflow, WorkflowRun } from '@awaitstep/db'
-import type { AppEmails, AppEnv } from '../types.js'
-import type { AppNodeRegistry } from './node-registry.js'
+import {
+  InstanceExistsError,
+  RunGoneError,
+  namedInstanceId,
+  sendEventBody,
+  type ProviderConfig,
+  type WorkflowProvider,
+} from '@awaitstep/codegen'
+import type { DeployedConnection, Workflow, WorkflowRun } from '@awaitstep/db'
 import { resolveProvider } from './provider-resolver.js'
-import { tellRunFailed } from './run-failure.js'
 import { createLogger } from './logger.js'
+import {
+  asParams,
+  recordCall,
+  recordRun,
+  type CallAnswer,
+  type CallBody,
+  type LiveWorkflow,
+  type RunPayload,
+  type RunStartDeps,
+  type RunStartOutcome,
+  type RunStartRefusal,
+} from './run-record.js'
+import { startThroughUrl } from './run-through-url.js'
+
+export {
+  MAX_RUN_PAYLOAD_BYTES,
+  callBody,
+  runStartDeps,
+  type CallAnswer,
+  type CallBody,
+  type RunPayload,
+  type RunStartDeps,
+  type RunStartOutcome,
+  type RunStartRefusal,
+} from './run-record.js'
 
 const log = createLogger('run-start')
 
@@ -14,37 +41,6 @@ const log = createLogger('run-start')
 // dashboard's trigger, call and Run again, and the API's `POST /run/:id`. The
 // routes read the request and shape the answer; what is started, on which
 // account, and how it is recorded is decided here.
-
-/** The most a run's payload, or a call's body, may carry. */
-export const MAX_RUN_PAYLOAD_BYTES = 102_400 // 100 KB
-
-/** What starting a run needs of the request it came in on. */
-export interface RunStartDeps {
-  db: DatabaseAdapter
-  organizationId: string
-  /** How it was started: a key's call is `api`, a person's `dashboard`. */
-  trigger: RunTrigger
-  nodeRegistry?: AppNodeRegistry
-  emails?: AppEmails
-}
-
-export function runStartDeps(c: Context<AppEnv>): RunStartDeps {
-  return {
-    db: c.get('db'),
-    organizationId: c.get('organizationId'),
-    trigger: c.get('apiKey') ? 'api' : 'dashboard',
-    nodeRegistry: c.get('nodeRegistry'),
-    emails: c.get('emails'),
-  }
-}
-
-/** Why nothing was started; nothing was recorded either. */
-export interface RunStartRefusal {
-  ok: false
-  /** 502: the provider wouldn't start it. */
-  status: 400 | 404 | 502
-  error: string
-}
 
 export interface RunTarget {
   workflow: Workflow
@@ -57,17 +53,21 @@ export const NOT_LIVE_ANYWHERE = 'This workflow isn’t live on any account'
 export const FUNCTION_NOT_LIVE = 'This function isn’t live on that account'
 export const FUNCTION_NOT_LIVE_ANYWHERE = 'This function isn’t live on any account'
 export const RUN_NOT_FOUND = 'Run not found'
+export const NOT_JSON = 'The body must be JSON: it is the run’s params'
+export const INSTANCE_NOT_FOUND = 'Instance not found'
 
 /**
- * Starts one run of a workflow and records it, with how it was started and its
- * payload. `readPayload` runs alongside the account reads; null from it means
- * the run to repeat isn't there.
+ * Starts one run of a workflow, or sends the built-in send-event body to one,
+ * and records what happened. Through the workflow's own URL when its deploy
+ * has one (the user's fetch handler decides), else directly through the
+ * provider's API. `readPayload` runs alongside the account reads; null from
+ * it means the run to repeat isn't there.
  */
 export async function startWorkflowRun(
   deps: RunStartDeps,
   target: RunTarget,
-  readPayload: () => Promise<{ params: unknown } | null>,
-): Promise<{ ok: true; run: WorkflowRun } | RunStartRefusal> {
+  readPayload: () => Promise<RunPayload | null>,
+): Promise<RunStartOutcome> {
   const { db, organizationId } = deps
   const { workflow } = target
 
@@ -93,8 +93,16 @@ export async function startWorkflowRun(
       error: target.connectionId === null ? NOT_LIVE_ANYWHERE : NOT_LIVE,
     }
   }
-  const connectionId = connection.id
 
+  const live = liveWorkflow(deps, workflow, connection)
+  return live.runUrl ? startThroughUrl(live, live.runUrl, payload) : startDirectly(live, payload)
+}
+
+function liveWorkflow(
+  deps: RunStartDeps,
+  workflow: Workflow,
+  connection: DeployedConnection,
+): LiveWorkflow {
   const adapter = resolveProvider(connection.provider, {
     templateResolver: deps.nodeRegistry?.templateResolver,
   })
@@ -114,51 +122,83 @@ export async function startWorkflowRun(
   }
   // The name it was deployed under there, so a rename since doesn't lose it.
   const deployedName = connection.deployedName ?? workflow.name
-  const triggerCreds = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
-  const config = {
+  const credentials = JSON.parse(connection.credentials) as { accountId: string; apiToken: string }
+  const config: ProviderConfig = {
     provider: connection.provider,
-    credentials: triggerCreds,
+    credentials,
     options: {
       workflowName: deployedName,
       ...(deploymentConfig !== undefined && { deploymentConfig }),
     },
   }
-
-  let instanceId: string
-  try {
-    ;({ instanceId } = await adapter.trigger(workflow.id, payload.params, config))
-  } catch (err) {
-    // Its text names the account and paths: the log keeps it, the caller gets the gist.
-    log.error(`Provider refused to start a run (workflow ${workflow.id})`, err)
-    return {
-      ok: false,
-      status: 502,
-      error: triggerFailure(adapter.capabilities?.label ?? adapter.name, err),
-    }
-  }
-
-  const run = await db.createRun({
-    id: nanoid(),
-    workflowId: workflow.id,
-    // What that account runs, not the latest save.
-    versionId: connection.deployedVersionId,
-    versionNumber: connection.deployedVersionNumber,
-    connectionId,
-    instanceId,
-    // Found again under this name, whatever is deployed or renamed later.
-    deployedName,
-    trigger: deps.trigger,
-    // Kept so the run page can show it and start the run again (already capped at 100 KB).
-    params: payload.params === undefined ? null : JSON.stringify(payload.params),
-    status: 'queued',
-  })
-  return { ok: true, run }
+  // Through the URL only when the provider can call it and tell afterwards
+  // whether a run started there.
+  const canRunThrough = Boolean(adapter.callFunction && adapter.hasInstance)
+  const runUrl = canRunThrough
+    ? urlToCall(adapter, connection.serviceUrl, connection.deploySettings)
+    : null
+  return { deps, workflow, connection, adapter, deployedName, config, runUrl }
 }
 
-/** What a call sends: its body, as text or the bytes a caller sent, and its type (JSON when left out). */
-export interface CallBody {
-  body: string | Uint8Array
-  contentType?: string
+/** No URL of its own: the body is read as the built-in route reads it, and the provider's API does the rest. */
+async function startDirectly(live: LiveWorkflow, payload: RunPayload): Promise<RunStartOutcome> {
+  const { adapter, workflow } = live
+  if (payload.notJson) return { ok: false, status: 400, error: NOT_JSON }
+  const label = adapter.capabilities?.label ?? adapter.name
+
+  // Read as the worker's own route reads it: the body, or `?action=send-event`.
+  const event = sendEventBody(
+    payload.params,
+    payload.query ? new URLSearchParams(payload.query) : undefined,
+  )
+  if (event) {
+    if (!event.ok) return { ok: false, status: 400, error: event.error }
+    if (!adapter.sendEvent) {
+      return { ok: false, status: 400, error: `Sending events isn’t available for ${label}` }
+    }
+    try {
+      await adapter.sendEvent({ ...event, config: live.config })
+    } catch (err) {
+      if (err instanceof RunGoneError) return { ok: false, status: 404, error: INSTANCE_NOT_FOUND }
+      log.error(`Provider refused an event (workflow ${workflow.id})`, err)
+      return { ok: false, status: 502, error: eventFailure(label, err) }
+    }
+    return { ok: true, outcome: 'event-sent' }
+  }
+
+  const named = namedInstanceId(payload.params)
+  if (!named.ok) return { ok: false, status: 400, error: named.error }
+  let instanceId: string
+  try {
+    ;({ instanceId } = await adapter.trigger(workflow.id, payload.params, live.config, {
+      ...(named.instanceId && { instanceId: named.instanceId }),
+    }))
+  } catch (err) {
+    if (err instanceof InstanceExistsError) return { ok: false, status: 409, error: err.message }
+    // Its text names the account and paths: the log keeps it, the caller gets the gist.
+    log.error(`Provider refused to start a run (workflow ${workflow.id})`, err)
+    return { ok: false, status: 502, error: triggerFailure(label, err) }
+  }
+  return { ok: true, outcome: 'started', run: await recordRun(live, instanceId, payload) }
+}
+
+export const STALE_URL =
+  'This deployment’s URL isn’t one its settings give: deploy it again to call it'
+
+/** The deploy's URL as the provider judges it against the settings it went out with; null for none to call. */
+function urlToCall(
+  adapter: WorkflowProvider,
+  recorded: string | null,
+  deploySettings: string | null,
+): string | null {
+  if (!adapter.runUrl) return recorded && adapter.canCallUrl?.(recorded) ? recorded : null
+  let settings: unknown
+  try {
+    settings = deploySettings ? (JSON.parse(deploySettings) as unknown) : undefined
+  } catch {
+    settings = undefined
+  }
+  return adapter.runUrl(recorded, settings)
 }
 
 /** Why the provider didn't start the run, without its own text: "Cloudflare refused it (HTTP 404)". */
@@ -169,8 +209,13 @@ function triggerFailure(provider: string, err: unknown): string {
     : `Couldn’t reach ${provider} to start the run. Nothing was recorded.`
 }
 
-/** The function's answer, or why none came; a URL the provider won't call is a refusal instead. */
-export type CallAnswer = Exclude<FunctionCallResult, { kind: 'refused' }>
+/** Why the provider didn't take the event, without its own text. */
+function eventFailure(provider: string, err: unknown): string {
+  const status = (err as { status?: unknown } | null)?.status
+  return typeof status === 'number'
+    ? `${provider} refused the event (HTTP ${status}).`
+    : `Couldn’t reach ${provider} to send the event.`
+}
 
 /**
  * Calls a deployed function (24i): POSTs the body to the URL it is live at on
@@ -211,111 +256,36 @@ export async function callFunctionRun(
   if (!adapter.callFunction) {
     return { ok: false, status: 400, error: 'Calling a function isn’t available for this provider' }
   }
+  // A URL the provider won't call at all is its refusal to give (below).
+  const url =
+    adapter.canCallUrl?.(live.serviceUrl) === false
+      ? live.serviceUrl
+      : urlToCall(adapter, live.serviceUrl, live.deploySettings)
+  if (!url) return { ok: false, status: 400, error: STALE_URL }
   const startedAt = Date.now()
-  const result = await adapter.callFunction({
-    url: live.serviceUrl,
-    body,
-    ...(contentType && { contentType }),
-  })
+  const result = await adapter.callFunction(
+    { url, body, ...(contentType && { contentType }) },
+    deps.publicFetch,
+  )
   if (!result.ok && result.kind === 'refused')
     return { ok: false, status: 400, error: result.reason }
 
-  const durationMs = result.ok ? result.durationMs : Date.now() - startedAt
-  const run = await db.createRun({
-    id: nanoid(),
-    workflowId: workflow.id,
-    versionId: live.versionId,
-    versionNumber: live.versionNumber,
-    connectionId: live.connectionId,
-    // A call has no provider instance: our own id stands in.
-    instanceId: `call_${nanoid(12)}`,
-    trigger: deps.trigger,
-    // Kept as text: bytes that aren't UTF-8 read back with replacement characters.
-    params: asParams(typeof body === 'string' ? body : new TextDecoder().decode(body)),
-    // Kept so Run again sends it the same way; null is JSON (the dashboard sends JSON).
-    contentType: contentType ?? null,
-    ...callOutcome(result),
-    durationMs,
-    createdAt: new Date(startedAt).toISOString(),
-    updatedAt: new Date(startedAt + durationMs).toISOString(),
-  })
-
-  if (run.status === 'errored') await tellCallFailed(deps, workflow, run)
-  return { ok: true, run, answer: result }
-}
-
-/** Only on a failure: where the function lives, for the Inbox and the email. */
-async function tellCallFailed(
-  deps: RunStartDeps,
-  workflow: Workflow,
-  run: WorkflowRun,
-): Promise<void> {
-  const target = await deps.db.getRunForSyncWithAccount(run.id, workflow.id, deps.organizationId)
-  if (!target) return
-  await tellRunFailed(
-    deps.db,
+  const run = await recordCall(
+    deps,
     {
-      place: target.entry.place,
-      workflowId: workflow.id,
-      workflowName: workflow.name,
-      call: { errorMessage: failureMessage(run.error) },
+      workflow,
+      versionId: live.versionId,
+      versionNumber: live.versionNumber,
+      connectionId: live.connectionId,
     },
-    null,
-    deps.emails,
-  ).catch((error: unknown) => {
-    log.error('Couldn’t tell watchers of a failed call', {
-      runId: run.id,
-      error: error instanceof Error ? error.message : String(error),
-    })
-  })
-}
-
-/** The reply is kept up to this many characters, as a step's output is. */
-const CALL_OUTPUT_LIMIT = 64 * 1024
-
-/** How the call went, as the run records it. */
-function callOutcome(result: CallAnswer) {
-  if (!result.ok) {
-    return {
-      status: 'errored' as const,
-      responseStatus: null,
-      output: null,
-      error: JSON.stringify({ name: 'CallFailed', message: result.reason }),
-    }
-  }
-  const ok = result.status >= 200 && result.status < 300
-  const answered = `Answered ${result.status}${result.statusText ? ` ${result.statusText}` : ''}`
-  return {
-    status: ok ? 'complete' : 'errored',
-    responseStatus: result.status,
-    output: result.body === '' ? null : result.body.slice(0, CALL_OUTPUT_LIMIT),
-    error: ok ? null : JSON.stringify({ name: 'HttpStatus', message: answered }),
-  }
-}
-
-/** The recorded error's message, for the notice: "Answered 500", or why no answer came. */
-function failureMessage(error: string | null): string {
-  try {
-    return (JSON.parse(error ?? '') as { message?: string }).message ?? 'The call failed'
-  } catch {
-    return 'The call failed'
-  }
-}
-
-/** The body as the run's payload: JSON as sent, any other text kept as a JSON string. */
-function asParams(body: string): string | null {
-  if (body.trim() === '') return null
-  try {
-    JSON.parse(body)
-    return body
-  } catch {
-    return JSON.stringify(body)
-  }
-}
-
-/** A call's kept payload as the body to send again: JSON text as kept, a kept string as itself. */
-export function callBody(params: string | null): string {
-  if (params === null) return ''
-  const value = JSON.parse(params) as unknown
-  return typeof value === 'string' ? value : params
+    {
+      // Kept as text: bytes that aren't UTF-8 read back with replacement characters.
+      params: asParams(typeof body === 'string' ? body : new TextDecoder().decode(body)),
+      // Kept so Run again sends it the same way; null is JSON (the dashboard sends JSON).
+      contentType: contentType ?? null,
+    },
+    result,
+    startedAt,
+  )
+  return { ok: true, run, answer: result }
 }

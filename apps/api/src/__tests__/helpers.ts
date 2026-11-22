@@ -1163,6 +1163,8 @@ const mockDb: DatabaseAdapter = {
           deployedVersionId: newest.versionId,
           deployedVersionNumber: newest.versionNumber,
           deployedName: newest.deployedName ?? null,
+          serviceUrl: newest.serviceUrl ?? null,
+          deploySettings: newest.configSnapshot ?? null,
           deploymentConfig: store.deploymentConfigs.get(`${workflowId}|${id}`)?.config ?? null,
         }
       : null
@@ -1185,6 +1187,7 @@ const mockDb: DatabaseAdapter = {
           connectionId: id,
           provider: connection.provider,
           serviceUrl: newest.serviceUrl ?? null,
+          deploySettings: newest.configSnapshot ?? null,
           versionId: newest.versionId,
           versionNumber: newest.versionNumber,
         }
@@ -1319,6 +1322,15 @@ const mockDb: DatabaseAdapter = {
   },
 
   // Runs
+  async createRunForInstance(data) {
+    const taken = [...store.runs.values()].some(
+      (r) =>
+        r.workflowId === data.workflowId &&
+        r.connectionId === data.connectionId &&
+        r.instanceId === data.instanceId,
+    )
+    return taken ? null : mockDb.createRun(data)
+  },
   async createRun(data) {
     const r: WorkflowRun = {
       ...data,

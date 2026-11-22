@@ -2288,19 +2288,71 @@ run answers `502` `{ "error": "Cloudflare refused to start the run (HTTP 404). N
 The body is capped at 100 KB (`400`). Calls share the per-user write limit
 (30 a minute, `429` past it).
 
-**A workflow:** the JSON body is the run's params (an empty body runs with none;
-a body that isn't JSON is `400`). Answers `201`:
+**A workflow** goes one of two ways, chosen by its deploy on that account:
+
+- **Its deploy has a URL of its own** (a custom domain, a route with an exact
+  host such as `wf.acme.com/v1/*` → `https://wf.acme.com/v1/`, else its
+  `workers.dev` address when that is on): the request goes
+  to the workflow's own `handlers/fetch.ts` there, as a function's call does —
+  the body bytes, `Content-Type` and query string (without `account`) as sent,
+  with `X-AwaitStep-Instance-Id` naming the run's instance (the body's
+  `instanceId`, else a new id). The first instance the handler creates without
+  an id of its own takes it, through `startWorkflow(env, params)` or
+  `env.WORKFLOW.create()` (`params.instanceId` first; an explicit
+  `startWorkflow(env, params, { instanceId })` wins). A deploy URL recorded by
+  an older deploy is used only when the settings that deploy went out with
+  give it; otherwise the run goes the second way. The answer **is the
+  handler's own**, with the run in `X-AwaitStep-Run-Id`; when a run started,
+  `X-AwaitStep-Instance-Id` names its instance and the run is recorded on it.
+  When the handler started nothing (it refused, sent an event, or answered
+  otherwise), the request is recorded as a call, with the handler's status and
+  body. No answer within 30 s is `504`, as for a function.
+- **It has none** (no route, custom domain or `workers.dev` address; `workers.dev`
+  is off by default for workflows): the run starts
+  through Cloudflare's API and the handler is skipped. The JSON body is the
+  run's params (an empty body runs with none; a body that isn't JSON is
+  `400`). A body `instanceId` names the instance and stays in the params; an id
+  already in use is `409` `{ "error": "An instance with id \"order-42\" already exists." }`,
+  and one that isn't up to 100 letters, digits, `-` or `_` is `400`. Answers `201`:
 
 ```bash
 curl -X POST https://app.awaitstep.dev/api/run/wf_1 \
   -H "Authorization: Bearer ask_..." \
   -H "content-type: application/json" \
-  -d '{"email":"ama@example.com"}'
+  -d '{"instanceId":"order-42","email":"ama@example.com"}'
 ```
 
 ```json
-{ "runId": "run_7", "instanceId": "a1b2c3", "status": "queued" }
+{ "runId": "run_7", "instanceId": "order-42", "status": "queued" }
 ```
+
+**Sending an event** to a waiting run uses the same endpoint, with the body the
+worker's built-in send-event route reads:
+
+```bash
+curl -X POST https://app.awaitstep.dev/api/run/wf_1 \
+  -H "Authorization: Bearer ask_..." \
+  -H "content-type: application/json" \
+  -d '{"action":"send-event","instanceId":"order-42","type":"approval","payload":{"approved":true}}'
+```
+
+Without a URL of its own, AwaitStep sends it through Cloudflare's API and
+answers `200` `{ "ok": true }`; an unknown instance is `404`
+`{ "error": "Instance not found" }`, and a missing `instanceId` or `type` (or a
+`type` that isn't up to 100 letters, digits, `-` or `_`) is `400`. No run is
+recorded. With a URL of its own, the body goes to the handler like any other:
+the worker's built-in route answers `{ "ok": true }`, unless `handlers/fetch.ts`
+— or a project module it imports — takes `sendEvent` or `getInstance` from
+`#awaitstep/workflow`, in which case the handler owns the request. The query
+form `?action=send-event&instanceId=…&type=…` (the body as the payload) is
+read the same way. Two requests that start the same instance at once record
+one run; the other is recorded as a call.
+
+The worker's own URL is public: anyone who can reach it can call the handler,
+send the built-in send-event body, or name an instance id, as they could before.
+An instance id you choose (`order-42`) is not a secret, so a wait that must only
+be resumed by you needs a check of its own in `handlers/fetch.ts` (and the
+built-in route left out by handling send-event there).
 
 **A function:** the body is sent on as is — bytes, with its `Content-Type`
 (JSON when none is given) — and the answer **is the function's own**: its
@@ -2311,8 +2363,11 @@ as `X-AwaitStep-Function-Location`, never `Location`: answered from the API's
 own origin, a followed redirect would carry your key to wherever it points.
 The answer carries `Content-Security-Policy: default-src 'none'; sandbox`.
 Other response headers are not passed on. The run keeps the body as text and its `Content-Type`, so
-Run again sends it the same way. A deploy with no `workers.dev` address (only a
-route) can't be called: `400`. A function that
+Run again sends it the same way. The function is called at its deploy's custom
+domain, else its route's URL, else its `workers.dev` address; a deploy with none
+of these, or whose URL isn't https on a public host name, can't be called:
+`400`. On a self-hosted server, a host that resolves to a private address is
+refused when it connects. A function that
 answers `500` answers `500` here, and the run is `errored` with its watchers
 told. No answer within 30 s, or none at all, is `504`:
 
@@ -2321,7 +2376,7 @@ told. No answer within 30 s, or none at all, is `504`:
 ```
 
 The worker's own URL is not part of any API answer. A route or custom domain
-set on a deployment is public, and calls there are not recorded.
+set on a deployment is public, and calls made there directly are not recorded.
 
 ### `POST /workflows/:workflowId/trigger`
 
@@ -2346,6 +2401,14 @@ with; any other answers `404`
   "params": {}
 }
 ```
+
+The run starts the way `POST /run/:workflowId` starts one: through the
+workflow's own URL when its deploy has one, else through Cloudflare's API. The
+answer is `201` with the run — or, when its handler started nothing, the call it
+was recorded as (its `instanceId` starts with `call_`). A send-event `params`
+body without a URL of its own answers `200` `{ "ok": true }`. Run again sends
+the run's payload again; a payload `instanceId` is replaced with a new id, so
+the new run doesn't collide with the one it repeats.
 
 Created instances use the **instance retention** settings from the workflow's stored deployment config for that connection (`retention.successRetention` / `retention.errorRetention`, a duration like `"7 days"` or milliseconds). When unset, AwaitStep applies a 7-day default for both instead of the Cloudflare account maximum — retained instance state bills at $0.20/GB-month past the included 1 GB. Cloudflare caps retention at the plan maximum (3 days Free, 30 days Paid).
 

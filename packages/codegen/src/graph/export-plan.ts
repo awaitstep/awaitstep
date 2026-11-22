@@ -9,6 +9,7 @@ import {
   topologicalSort,
   type ArmBlock,
 } from './internal.js'
+import { inlineStepNames } from '../inline-declarations.js'
 
 /** Kinds that emit no value of their own, whatever their data says. */
 const VALUELESS_TYPES = new Set(['branch', 'try_catch', 'sleep', 'sleep_until', 'break'])
@@ -45,23 +46,26 @@ export function nodeYieldsValue(
 }
 
 /**
- * The var names a call site can bind: nodes whose variable holds a value, and
- * an inline step that declares its own variable in the surrounding scope.
+ * The names each node binds in the generated body, for a call site to pass
+ * on: a node whose variable holds a value binds that variable; an inline
+ * step binds every name its code declares at its own top level
+ * (`inlineStepNames`), its own variable name only when it declares it.
+ * Nodes that bind nothing are left out.
  */
 export function boundVarNames(
   ir: Pick<WorkflowIR, 'nodes' | 'edges' | 'entryNodeId'>,
   names: Map<string, string>,
-): Map<string, string> {
+): Map<string, string[]> {
   const arms = containerArms(ir as WorkflowIR)
-  const bound = new Map<string, string>()
+  const bound = new Map<string, string[]>()
   for (const node of ir.nodes) {
+    if (node.type === 'step' && node.data.inline === true) {
+      const declared = inlineStepNames(node)
+      if (declared.length > 0) bound.set(node.id, declared)
+      continue
+    }
     const name = names.get(node.id)
-    if (!name) continue
-    const declaresItself =
-      node.type === 'step' &&
-      node.data.inline === true &&
-      new RegExp(`\\b(?:const|let|var)\\s+${name}\\b`).test(String(node.data.code ?? ''))
-    if (declaresItself || nodeYieldsValue(ir, node, arms)) bound.set(node.id, name)
+    if (name && nodeYieldsValue(ir, node, arms)) bound.set(node.id, [name])
   }
   return bound
 }

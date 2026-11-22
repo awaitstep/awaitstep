@@ -57,11 +57,30 @@ interface ErrorBody {
    * path, or the `field` a route names itself ("token", "emails").
    */
   field?: string
+  /** What a prepare found while failing (a 422 from `/source`), each with the node it is about. */
+  diagnostics: ApiDiagnostic[]
+}
+
+/** One finding the API sent with an error: where it came from, what it says, which node. */
+export interface ApiDiagnostic {
+  source: string
+  message: string
+  nodeId?: string
+}
+
+function readDiagnostics(value: unknown): ApiDiagnostic[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item): ApiDiagnostic[] => {
+    const entry = item as Record<string, unknown> | null
+    if (typeof entry?.source !== 'string' || typeof entry.message !== 'string') return []
+    const nodeId = typeof entry.nodeId === 'string' ? entry.nodeId : undefined
+    return [{ source: entry.source, message: entry.message, ...(nodeId && { nodeId }) }]
+  })
 }
 
 /** The human-readable error an API response carries, or a plain status line when it has none. */
 async function readErrorBody(res: Response): Promise<ErrorBody> {
-  const bare = { message: `Request failed (${res.status})`, hasReason: false }
+  const bare = { message: `Request failed (${res.status})`, hasReason: false, diagnostics: [] }
   const text = await res.text().catch(() => '')
   try {
     const json = JSON.parse(text) as {
@@ -69,11 +88,17 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
       message?: string
       field?: string
       details?: { path?: string; message?: string }[]
+      diagnostics?: unknown
     }
     const issue = json.details?.[0]
     const reason = issue?.message ?? json.error ?? json.message
     if (typeof reason !== 'string' || !reason.trim()) return bare
-    return { message: reason, hasReason: true, field: issue?.path || json.field || undefined }
+    return {
+      message: reason,
+      hasReason: true,
+      field: issue?.path || json.field || undefined,
+      diagnostics: readDiagnostics(json.diagnostics),
+    }
   } catch {
     return bare
   }
@@ -87,17 +112,25 @@ export class ApiError extends Error {
   readonly field: string | undefined
   /** False when the response carried no reason (a proxy's page, an empty body): show a general line. */
   readonly hasReason: boolean
+  /** The findings the response listed with the error; empty when it listed none. */
+  readonly diagnostics: readonly ApiDiagnostic[]
 
   constructor(
     message: string,
     readonly status: number,
-    extra: { requestId?: string; field?: string; hasReason?: boolean } = {},
+    extra: {
+      requestId?: string
+      field?: string
+      hasReason?: boolean
+      diagnostics?: readonly ApiDiagnostic[]
+    } = {},
   ) {
     super(message)
     this.name = 'ApiError'
     this.requestId = extra.requestId
     this.field = extra.field
     this.hasReason = extra.hasReason ?? true
+    this.diagnostics = extra.diagnostics ?? []
   }
 }
 
@@ -112,11 +145,12 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   })
 
   if (!res.ok) {
-    const { message, field, hasReason } = await readErrorBody(res)
+    const { message, field, hasReason, diagnostics } = await readErrorBody(res)
     throw new ApiError(message, res.status, {
       requestId: res.headers.get('x-request-id') ?? undefined,
       field,
       hasReason,
+      diagnostics,
     })
   }
 
@@ -461,11 +495,12 @@ async function versionRequest<T>(path: string, options: RequestInit): Promise<T>
     )
   }
   if (!res.ok) {
-    const { message, field, hasReason } = await readErrorBody(res)
+    const { message, field, hasReason, diagnostics } = await readErrorBody(res)
     throw new ApiError(message, res.status, {
       requestId: res.headers.get('x-request-id') ?? undefined,
       field,
       hasReason,
+      diagnostics,
     })
   }
   return res.json()
@@ -972,7 +1007,7 @@ export function createApiClient(scope: () => ApiScope) {
       workflowId: string,
       runId: string,
       connectionId: string,
-    ): Promise<RunSummary | FunctionCallResponse> {
+    ): Promise<RunSummary | FunctionCallResponse | { ok: true }> {
       return request(
         withProject(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/run-again`),
         { method: 'POST', body: JSON.stringify({ connectionId }) },
@@ -1024,10 +1059,14 @@ export function createApiClient(scope: () => ApiScope) {
       })
     },
 
+    /**
+     * Starts a run: the run, or a call when the workflow's own handler started
+     * none. The built-in send-event body sends its event instead: `{ ok: true }`.
+     */
     triggerWorkflow(
       workflowId: string,
       data: { connectionId: string; params?: unknown },
-    ): Promise<{ id: string; instanceId: string; status: string }> {
+    ): Promise<{ id: string; instanceId: string; status: string } | { ok: true }> {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/trigger`), {
         method: 'POST',
         body: JSON.stringify(data),

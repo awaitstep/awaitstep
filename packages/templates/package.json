@@ -1,0 +1,29 @@
+{
+  "name": "@awaitstep/templates",
+  "version": "1.4.14",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@awaitstep/ir": "workspace:*"
+  },
+  "devDependencies": {
+    "@awaitstep/tsconfig": "workspace:*",
+    "tsup": "9.0.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^5.0.5"
+  }
+}

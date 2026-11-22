@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `uq_workflow_runs_instance` ON `workflow_runs` (`workflow_id`,`connection_id`,`instance_id`);

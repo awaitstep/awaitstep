@@ -568,6 +568,7 @@ describe.each([
           connectionId: 'c-1',
           serviceName: 'svc',
           serviceUrl: 'https://fn.acme.workers.dev',
+          configSnapshot: '{"workersDev":true}',
           status: 'success',
           createdAt: '2026-10-30T00:00:00.000Z',
         },
@@ -586,6 +587,8 @@ describe.each([
         connectionId: 'c-1',
         provider: 'cloudflare',
         serviceUrl: 'https://fn.acme.workers.dev',
+        // The settings that deploy went out with: its URL is judged against them.
+        deploySettings: '{"workersDev":true}',
         // The newest deploy's version, so a call records what answered it.
         versionId: 'v-enrich-2',
         versionNumber: 2,

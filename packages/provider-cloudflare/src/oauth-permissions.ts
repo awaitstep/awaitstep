@@ -7,12 +7,14 @@
  * Cloudflare puts creating a Worker under product-level Admin
  * (`workers-scripts.admin`); Editor may only deploy one that already exists.
  * KV Read and Write are separate: the Resources UI lists keys and writes them.
+ * Workers Routes is a zone permission: deploys attach a Worker's custom routes.
  */
 export const CLOUDFLARE_PERMISSIONS = [
   { scope: 'account-settings.read', label: 'Account · Account Settings · Read' },
   { scope: 'workers-scripts.admin', label: 'Account · Workers Scripts · Admin' },
   { scope: 'workers-kv-storage.read', label: 'Account · Workers KV Storage · Read' },
   { scope: 'workers-kv-storage.write', label: 'Account · Workers KV Storage · Write' },
+  { scope: 'workers-routes.write', label: 'Zone · Workers Routes · Write' },
 ] as const
 
 /** The OAuth scopes requested when `CLOUDFLARE_OAUTH_SCOPES` doesn't name others. */

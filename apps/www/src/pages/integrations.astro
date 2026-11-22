@@ -1,0 +1,110 @@
+---
+import Base from '../layouts/Base.astro'
+import { REGISTRY_ICONS } from '../lib/registry-icons'
+import '../styles/pages.css'
+import {
+  BUILTIN_NODES,
+  INTEGRATION_CATEGORIES,
+  INTEGRATIONS,
+  INTEGRATIONS_PAGE as PAGE,
+} from '../content/integrations'
+import { DOCS_URL } from '../content/site'
+
+const icons = REGISTRY_ICONS
+const { builtinTitle, integrationsTitle: fromRegistry } = PAGE
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'AwaitStep integrations',
+    numberOfItems: INTEGRATIONS.length,
+    itemListElement: INTEGRATIONS.map((n, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: n.name,
+      description: n.description,
+      url: n.href,
+    })),
+  },
+]
+---
+
+<Base title={PAGE.title} description={PAGE.description} jsonLd={jsonLd} crumb="Integrations" image="integrations">
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="container">
+      <h1 id="page-title">{PAGE.heading}</h1>
+      <p class="lead">{PAGE.line}</p>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="builtin-title">
+    <div class="container">
+      <div class="head">
+        <h2 id="builtin-title">{builtinTitle}</h2>
+        <p class="lead">{PAGE.builtinLine}</p>
+      </div>
+      <ul class="tiles" role="list">
+        {
+          BUILTIN_NODES.map((n) => (
+            <li class="tile">
+              <h3 class="tile__name">{n.name}</h3>
+              <p class="tile__line">{n.description}</p>
+              <p class="tile__meta">{n.category}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="registry-title" data-filterable>
+    <div class="container">
+      <div class="head">
+        <h2 id="registry-title">{fromRegistry}</h2>
+        <p class="lead">
+          {PAGE.integrationsLine} <a class="text-link" href={`${DOCS_URL}/nodes/custom-nodes`}>{PAGE.ownLine}</a>
+        </p>
+      </div>
+
+      <div class="filter" data-filter hidden>
+        <label class="filter__search">
+          <span class="visually-hidden">Search integrations</span>
+          <input type="search" placeholder="Search integrations" autocomplete="off" data-filter-query />
+        </label>
+        <div class="filter__chips" role="group" aria-label="Category">
+          <button class="chip" type="button" aria-pressed="true" data-filter-category="">All</button>
+          {
+            INTEGRATION_CATEGORIES.map((c) => (
+              <button class="chip" type="button" aria-pressed="false" data-filter-category={c}>
+                {c}
+              </button>
+            ))
+          }
+        </div>
+        <p class="filter__count" aria-live="polite" data-filter-count></p>
+      </div>
+
+      <ul class="tiles" role="list" data-filter-list>
+        {
+          INTEGRATIONS.map((n) => (
+            <li class="tile tile--link" data-category={n.category} data-keywords={n.keywords}>
+              <img class="tile__icon" src={icons.get(n.id)} alt="" width="40" height="40" loading="lazy" decoding="async" />
+              <h3 class="tile__name">
+                <a href={n.href}>{n.name}</a>
+              </h3>
+              <p class="tile__line">{n.description}</p>
+              <p class="tile__meta">{n.category}</p>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="filter__empty" data-filter-empty hidden>No integration matches. Try another word, or show all categories.</p>
+    </div>
+  </section>
+
+</Base>
+
+<script>
+  import { initFilter } from '../scripts/filter'
+  initFilter()
+</script>

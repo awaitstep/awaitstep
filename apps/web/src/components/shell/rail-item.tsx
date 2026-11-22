@@ -8,14 +8,14 @@ import { ActiveBar } from './panel-item'
 import { ShellLink } from '../ui/shell-link'
 
 const railItemBase =
-  'relative flex w-[60px] flex-col items-center gap-1 rounded-md py-2 text-center text-2xs font-medium transition-colors'
+  'relative flex w-[68px] flex-col items-center gap-1 rounded-md py-2 text-center text-2xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 function railItemClass(active: boolean): string {
   return cn(
     railItemBase,
     active
       ? 'bg-sidebar-accent text-sidebar-foreground'
-      : 'text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
+      : 'text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground',
   )
 }
 

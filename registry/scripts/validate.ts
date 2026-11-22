@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   loadNodeSources,
@@ -26,12 +26,11 @@ async function loadSchema(): Promise<DefinitionSchema> {
   }
 }
 
-async function exists(path: string): Promise<boolean> {
+async function readIfExists(path: string): Promise<string | undefined> {
   try {
-    await access(path)
-    return true
+    return await readFile(path, 'utf8')
   } catch {
-    return false
+    return undefined
   }
 }
 
@@ -71,7 +70,7 @@ async function main() {
           id: source.id,
           base: source.base,
           versions,
-          iconExists: await exists(join(source.dir, 'icon.svg')),
+          icon: await readIfExists(join(source.dir, 'icon.svg')),
         },
         schema,
       ),

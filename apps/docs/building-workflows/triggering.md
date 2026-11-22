@@ -56,7 +56,9 @@ See [Triggers API](../api/triggers.md) for full details.
 
 ## HTTP trigger (Worker URL)
 
-Every deployed workflow automatically gets a public Cloudflare Worker URL. The generated Worker includes a `fetch` handler that accepts HTTP requests and creates workflow instances — no extra configuration needed.
+A deployed workflow's Worker has a `fetch` handler that accepts HTTP requests and creates workflow instances. It is reached at a URL of its own once you give it one: a [custom route or domain](./custom-routes.md), or `workers.dev` turned on in the deployment settings (off by default for workflows).
+
+Runs started from AwaitStep (Trigger, Run again and `POST /api/run/:workflowId`) go through that handler when the deploy has such a URL, so your own checks run first. AwaitStep names the run's instance in an `X-AwaitStep-Instance-Id` header, and the first instance the request creates takes it — through `startWorkflow` or `env.WORKFLOW.create` — so the run shows up in Runs. Without a URL, AwaitStep starts runs through Cloudflare's API and the handler is skipped.
 
 You can also serve workflows from your own domain using [Custom Routes](./custom-routes.md).
 
@@ -64,23 +66,39 @@ You can also serve workflows from your own domain using [Custom Routes](./custom
 
 The generated Worker's `fetch` handler:
 
+A new workflow's `handlers/fetch.ts`:
+
 ```typescript
-const url = new URL(request.url)
+import { startWorkflow, workflowStatus } from '#awaitstep/workflow'
+import type { FetchContext } from '#awaitstep/runtime'
 
-if (request.method === 'POST') {
-  const params = await request.json().catch(() => undefined)
-  const instance = await env.WORKFLOW.create({ params })
-  return Response.json({ instanceId: instance.id })
+// HTTP entry: POST starts a workflow instance, GET ?instanceId= reports its status.
+export default async function ({ request, env }: FetchContext<Env>): Promise<Response> {
+  try {
+    const url = new URL(request.url)
+
+    if (request.method === 'POST') {
+      const params = await request.json().catch(() => undefined)
+      return Response.json(await startWorkflow(env, params))
+    }
+
+    const instanceId = url.searchParams.get('instanceId')
+    if (instanceId) {
+      const status = await workflowStatus(env, instanceId)
+      if (!status) {
+        return Response.json({ message: 'Instance not found' }, { status: 404 })
+      }
+      return Response.json(status)
+    }
+
+    return new Response(null, { status: 200 })
+  } catch (error) {
+    return Response.json({ message: error.message }, { status: 500 })
+  }
 }
-
-const instanceId = url.searchParams.get('instanceId')
-if (instanceId) {
-  const instance = await env.WORKFLOW.get(instanceId)
-  return Response.json(await instance.status())
-}
-
-return new Response(null, { status: 200 })
 ```
+
+A body `instanceId` names the instance (`startWorkflow` takes `params.instanceId`, or `{ instanceId }` as its third argument).
 
 You can customise this code in `handlers/fetch.ts`: click **Code** in the canvas toolbar and create the file under **Project** (the New file dialog accepts the path). It is a plain module whose default export receives `request`, `env`, and `ctx`; ⌘S saves it, and the next deploy wires it into the Worker. Queue consumers live in `handlers/queue/<queue>.ts` and the cron handler in `handlers/scheduled.ts`; the schedules themselves stay on the workflow's trigger and the deployment config.
 

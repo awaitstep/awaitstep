@@ -9,6 +9,7 @@ import {
   TEST_PROJECT_ID,
   TEST_USER_ID,
 } from './helpers.js'
+import { settingsFor } from './fixtures/deploy-settings.js'
 
 // Calling a deployed function (24i). The provider is real except for the
 // outbound HTTP call, which these tests stand in for.
@@ -67,6 +68,7 @@ async function deployed(id: string, serviceUrl: string | null, status = 'success
     connectionId: 'conn-1',
     serviceName: 'svc',
     serviceUrl: serviceUrl ?? undefined,
+    configSnapshot: settingsFor(serviceUrl),
     status,
   })
 }
@@ -200,11 +202,15 @@ describe('POST /workflows/:id/call', () => {
     expect((await mockDb.listRunsByWorkflow('fn-1')).data).toHaveLength(2)
   })
 
-  it('refuses a URL a user set (a route or custom domain), without calling it', async () => {
-    await deployed('fn-1', 'https://api.example.com')
-    const res = await call(app, 'fn-1', { connectionId: 'conn-1', body: '{}' })
-    expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe('Only a workers.dev URL can be called from here.')
+  it('refuses a URL that names an IP address or a local host, without calling it', async () => {
+    for (const url of ['https://10.0.0.5/', 'https://localhost/', 'http://api.example.com/']) {
+      await deployed('fn-1', url)
+      const res = await call(app, 'fn-1', { connectionId: 'conn-1', body: '{}' })
+      expect(res.status, url).toBe(400)
+      expect((await res.json()).error).toBe(
+        'Only an https URL on a public host name can be called from here.',
+      )
+    }
     expect(fetched.calls).toEqual([])
   })
 

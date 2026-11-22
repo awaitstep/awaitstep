@@ -1,0 +1,84 @@
+---
+import Base from '../layouts/Base.astro'
+import { REGISTRY_ICONS } from '../lib/registry-icons'
+import FlowDiagram from '../components/site/FlowDiagram.astro'
+import '../styles/pages.css'
+import { USE_CASES, USE_CASES_PAGE as PAGE } from '../content/use-cases'
+import { APP_URL } from '../content/site'
+
+const icons = REGISTRY_ICONS
+const { pointsTitle, startLabel, moreLabel } = PAGE
+const jsonLd = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'AwaitStep use cases',
+    itemListElement: USE_CASES.map((u, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: u.name,
+      description: u.problem,
+      url: new URL(`/use-cases#${u.categoryId}`, Astro.site).toString(),
+    })),
+  },
+]
+---
+
+<Base title={PAGE.title} description={PAGE.description} jsonLd={jsonLd} crumb="Use cases" image="use-cases">
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="container">
+      <h1 id="page-title">{PAGE.heading}</h1>
+      <p class="lead">{PAGE.line}</p>
+      <nav class="case-index" aria-label="Use cases on this page">
+        {USE_CASES.map((u) => <a href={`#${u.categoryId}`}>{u.categoryName}</a>)}
+      </nav>
+    </div>
+  </section>
+
+  {
+    USE_CASES.map((u, i) => (
+      <section class:list={['section case', i % 2 === 1 && 'case--flip']} id={u.categoryId} aria-labelledby={`case-${u.categoryId}`}>
+        <div class="container case__grid">
+          <div class="case__text">
+            <p class="case__category">{u.categoryName}</p>
+            <h2 id={`case-${u.categoryId}`}>{u.name}</h2>
+            <p class="case__problem">{u.problem}</p>
+            <h3 class="case__points-title">{pointsTitle}</h3>
+            <dl class="case__points">
+              {u.points.map((p) => (
+                <div>
+                  <dt>{p.title}</dt>
+                  <dd>
+                    {p.segments.map((s) => (s.step ? <span class="step-ref">{s.text}</span> : s.text))}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <div class="actions">
+              <a class="btn" href={APP_URL}>
+                {startLabel}
+              </a>
+            </div>
+            {u.more.length > 0 && (
+              <p class="case__more">
+                {moreLabel}: {u.more.join(', ')}.
+              </p>
+            )}
+          </div>
+          <figure class="case__figure">
+            {/* On a phone the drawing keeps a readable size and scrolls sideways in its own frame. */}
+            <div class="case__scroll" tabindex="0" role="region" aria-label={`${u.name}: the template's steps`}>
+              <FlowDiagram layout={u.flow} icons={icons} label={`The ${u.name} template's steps and paths.`} />
+            </div>
+            <figcaption>{u.trigger}</figcaption>
+          </figure>
+        </div>
+      </section>
+    ))
+  }
+</Base>
+
+<script>
+  import { initCaseFrames } from '../scripts/case-frames'
+  initCaseFrames()
+</script>

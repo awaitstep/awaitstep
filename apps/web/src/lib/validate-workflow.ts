@@ -495,7 +495,12 @@ export function validateWorkflowForPublish(
       ...(edge.label ? { label: String(edge.label) } : {}),
     }))
     const entryNodeId = findEntryNodeId(irNodes, irEdges)
-    for (const problem of generatedNameProblems({ nodes: irNodes, edges: irEdges, entryNodeId })) {
+    for (const problem of generatedNameProblems({
+      nodes: irNodes,
+      edges: irEdges,
+      entryNodeId,
+      kind,
+    })) {
       const node = problem.nodeId ? nodeById.get(problem.nodeId) : undefined
       add('error', problem.nodeId ?? null, node?.data.irNode.name ?? null, problem.message)
     }

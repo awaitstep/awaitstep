@@ -107,7 +107,7 @@ export class CloudflareAPI {
 
     const body: Record<string, unknown> = {}
     if (params !== undefined) body.params = params
-    if (instanceId) body.id = instanceId
+    if (instanceId) body.instance_id = instanceId
     if (retention?.successRetention !== undefined || retention?.errorRetention !== undefined) {
       // REST body uses snake_case: instance_retention.{success,error}_retention
       const instanceRetention: Record<string, unknown> = {}
@@ -151,6 +151,24 @@ export class CloudflareAPI {
       step_count: result.step_count,
       steps: result.steps,
     }
+  }
+
+  /** Sends an event to an instance: its body is the event's payload. */
+  async sendEvent(
+    workflowName: string,
+    instanceId: string,
+    type: string,
+    payload?: unknown,
+  ): Promise<void> {
+    validatePathSegment(workflowName, 'workflowName')
+    validatePathSegment(instanceId, 'instanceId')
+    validatePathSegment(type, 'type')
+    await this.request(
+      'POST',
+      `/accounts/${this.config.accountId}/workflows/${workflowName}/instances/${instanceId}/events/${type}`,
+      payload ?? null,
+      { sendNull: true },
+    )
   }
 
   async pauseInstance(workflowName: string, instanceId: string): Promise<void> {
@@ -232,6 +250,7 @@ export class CloudflareAPI {
     method: string,
     path: string,
     body?: unknown,
+    options: { sendNull?: boolean } = {},
   ): Promise<{ result: unknown; success: boolean }> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
@@ -243,7 +262,7 @@ export class CloudflareAPI {
           Authorization: `Bearer ${this.config.apiToken}`,
           'Content-Type': 'application/json',
         },
-        body: body ? JSON.stringify(body) : undefined,
+        body: body || (options.sendNull && body !== undefined) ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       })
 

@@ -55,7 +55,7 @@ export function ActionCard({
     variant === 'dashed'
       ? 'min-h-[200px] items-center justify-center border-dashed bg-transparent text-center'
       : 'bg-card',
-    highlighted ? 'border-primary shadow-lg' : 'border-border hover:border-foreground/20',
+    highlighted ? 'border-primary-ink shadow-lg' : 'border-border hover:border-foreground/20',
   )
   const content = (
     <>

@@ -31,8 +31,10 @@
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
+    "@awaitstep/landing-scenes": "workspace:*",
     "@awaitstep/provider-cloudflare": "workspace:*",
     "@awaitstep/storage": "workspace:*",
+    "@awaitstep/templates": "workspace:*",
     "@awaitstep/theme": "workspace:*",
     "@fontsource-variable/jetbrains-mono": "5.3.0",
     "@hookform/resolvers": "5.9.2",

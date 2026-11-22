@@ -91,6 +91,9 @@ describe('CORS policy', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('*')
     expect(res.headers.get('Access-Control-Allow-Credentials')).toBeNull()
     expect(res.headers.get('Access-Control-Expose-Headers')).toContain('X-Request-Id')
+    // A page calling POST /api/run/:id can read which run it was, and its instance.
+    expect(res.headers.get('Access-Control-Expose-Headers')).toContain('X-AwaitStep-Run-Id')
+    expect(res.headers.get('Access-Control-Expose-Headers')).toContain('X-AwaitStep-Instance-Id')
   })
 
   it('still keeps a key out of a session-only route from another origin', async () => {

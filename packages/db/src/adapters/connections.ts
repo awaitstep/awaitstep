@@ -356,6 +356,9 @@ export class ConnectionsAdapter {
         deployedVersionNumber: sql<number | null>`(${newestDeploy(live.versionNumber)})`,
         // What the provider calls it there: a trigger starts its runs under that name.
         deployedName: sql<string | null>`(${newestDeploy(live.deployedName)})`,
+        // Where that deploy answers: a run goes through it when it has one.
+        serviceUrl: sql<string | null>`(${newestDeploy(live.serviceUrl)})`,
+        deploySettings: sql<string | null>`(${newestDeploy(live.configSnapshot)})`,
         // The workflow's stored deploy settings there (retention for the runs it starts).
         deploymentConfig: sql<
           string | null
@@ -452,6 +455,7 @@ export class ConnectionsAdapter {
         connectionId: this.table.id,
         provider: this.table.provider,
         serviceUrl: newest<string | null>(live.serviceUrl),
+        deploySettings: newest<string | null>(live.configSnapshot),
         versionId: newest<string | null>(live.versionId),
         versionNumber: newest<number | null>(live.versionNumber),
         deployed: sql<unknown>`exists (select 1 from ${aliasedFrom(live)} where ${where})`,
@@ -464,6 +468,7 @@ export class ConnectionsAdapter {
           connectionId: string
           provider: string
           serviceUrl: string | null
+          deploySettings: string | null
           versionId: string | null
           versionNumber: number | string | null
           deployed: unknown
@@ -474,6 +479,7 @@ export class ConnectionsAdapter {
       connectionId: row.connectionId,
       provider: row.provider,
       serviceUrl: row.serviceUrl ?? null,
+      deploySettings: row.deploySettings ?? null,
       versionId: row.versionId ?? null,
       versionNumber: row.versionNumber === null ? null : Number(row.versionNumber),
     }

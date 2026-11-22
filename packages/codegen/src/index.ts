@@ -66,13 +66,15 @@ export {
   upstreamVarNames,
   upstreamVarNamesOf,
   upstreamScopeOf,
+  bindersAcrossMerges,
+  MAX_MERGE_SCOPE_PASSES,
   containerArms,
   blockChain,
   collectChain,
   computeInDegree,
   CONTAINER_TYPES,
 } from './dag.js'
-export type { ArmBlock } from './dag.js'
+export type { ArmBlock, NodeBindings } from './dag.js'
 export {
   sanitizeIdentifier,
   deduplicateStepNames,
@@ -97,7 +99,15 @@ export {
   bundleDeployFiles,
   bundlePackageManifest,
 } from './bundle.js'
-export { GenerateInputError, RunGoneError } from './errors.js'
+export { GenerateInputError, InstanceExistsError, RunGoneError } from './errors.js'
+export {
+  BAD_EVENT_TYPE,
+  BAD_INSTANCE_ID,
+  INSTANCE_ID_HEADER,
+  namedInstanceId,
+  sendEventBody,
+  type SendEventBody,
+} from './run-contract.js'
 export { escName } from './var-names.js'
 export { computeVarNames, createGenerationContext, childContext } from './context.js'
 export type { GenerationContext, GenerationContextOptions } from './context.js'
@@ -122,6 +132,7 @@ export {
   workflowRuntimeImport,
 } from './runtime.js'
 export {
+  callsPlatform,
   checkRequirements,
   collectProviderImports,
   collectRuntimeRequirements,
@@ -143,7 +154,8 @@ export type {
 } from './requirements.js'
 export { GENERATED_GRAPH_MODULES } from './runtime.js'
 export { extractImports, importBindings, importOrigin, mergeImports } from './imports.js'
-export { generatedNameProblems, topLevelDeclarations } from './generated-name-problems.js'
+export { generatedNameProblems } from './generated-name-problems.js'
+export { inlineStepNames, topLevelDeclarations } from './inline-declarations.js'
 export {
   expressionDiagnostics,
   expressionScopes,
@@ -193,7 +205,7 @@ export {
   loopBindings,
   blockBindingsOf,
 } from './block-bindings.js'
-export { deepestBracket, maskNonCode } from './code-text.js'
+export { deepestBracket, maskNonCode, mentionsIdentifier } from './code-text.js'
 
 // ── Provider-neutral graph emission ──
 // The per-node emitters and their shared helpers. Provider packages compose

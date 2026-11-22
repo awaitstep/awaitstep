@@ -9,6 +9,7 @@ import {
   type GenerationContext,
 } from '../internal.js'
 import { withoutComments } from '../../requirements.js'
+import { mentionsIdentifier } from '../../code-text.js'
 import { generateStepConfig } from './config.js'
 import { DEFAULT_STEP_CONFIG } from './step.js'
 
@@ -534,7 +535,7 @@ export function generateCustomNodeModule(
   const varName = ctx.varName(node.id)
 
   const fieldEntries = customParamsEntries(node)
-  const reads = (name: string) => new RegExp(`\\b${name}\\b`).test(fieldEntries)
+  const reads = (name: string) => mentionsIdentifier(fieldEntries, name)
   const entries = new Map<string, string>()
   for (const name of ctx.upstreamVars(node.id)) if (reads(name)) entries.set(name, name)
   // `{{event.payload…}}` in a field: the call site has `event`, the module does not.

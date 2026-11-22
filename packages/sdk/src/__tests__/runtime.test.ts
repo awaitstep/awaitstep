@@ -8,6 +8,8 @@ import {
   httpRequest,
   HttpError,
   HTTP_ERROR_BODY_LIMIT,
+  InstanceNotFoundError,
+  sendInstanceEvent,
   defineWorkflow,
   durableStep,
   isWorkflowTimeoutError,
@@ -48,6 +50,18 @@ function recordingHost(): RecordingHost {
     workflowStatus(instanceId, options) {
       calls.push(`status:${instanceId}:${options.workflow}`)
       return Promise.resolve({ status: 'complete', output: { ok: true } })
+    },
+    getInstance(instanceId, options) {
+      calls.push(`get:${instanceId}:${options.workflow}`)
+      if (instanceId === 'missing') return Promise.resolve(null)
+      return Promise.resolve({
+        instanceId,
+        status: () => Promise.resolve({ status: 'waiting' }),
+        sendEvent(type: string, payload?: unknown) {
+          calls.push(`send:${instanceId}:${type}:${JSON.stringify(payload)}`)
+          return Promise.resolve()
+        },
+      })
     },
     callScript(options) {
       calls.push(`call:${options.script}:${options.method}`)
@@ -306,18 +320,23 @@ describe('createInlineHost platform calls', () => {
     await expect(host.callScript({ script: 'pricing' })).rejects.toThrow(
       'callScript is not available in a function',
     )
+    await expect(host.getInstance('run-1', { workflow: 'child' })).rejects.toThrow(
+      'getInstance is not available in a function',
+    )
   })
 
   it('delegates to the supplied platform', async () => {
     const host = createInlineHost({
       startWorkflow: () => Promise.resolve({ instanceId: 'child-1' }),
       workflowStatus: () => Promise.resolve({ status: 'complete', output: 'ok' }),
+      getInstance: () => Promise.resolve(null),
       callScript: () => Promise.resolve({ price: 1 }),
     })
     await expect(host.startWorkflow({ workflow: 'child' })).resolves.toEqual({
       instanceId: 'child-1',
     })
     await expect(host.callScript({ script: 'pricing' })).resolves.toEqual({ price: 1 })
+    await expect(host.getInstance('run-1', { workflow: 'child' })).resolves.toBeNull()
   })
 })
 
@@ -666,5 +685,43 @@ describe('httpRequest', () => {
       host: recordingHost().host,
     })
     await expect(flow.http({ url: 'https://api.test' })).resolves.toEqual({ ok: 1 })
+  })
+})
+
+describe('getInstance and sendEvent', () => {
+  it('looks an instance up through the host, null when there is none', async () => {
+    const { host, calls } = recordingHost()
+    const flow = createWorkflowContext({ env, event, host })
+    const found = await flow.getInstance('run-1', { workflow: 'orders' })
+    expect(found?.instanceId).toBe('run-1')
+    await expect(found!.status()).resolves.toEqual({ status: 'waiting' })
+    await expect(flow.getInstance('missing', { workflow: 'orders' })).resolves.toBeNull()
+    expect(calls).toEqual(['get:run-1:orders', 'get:missing:orders'])
+  })
+
+  it('sends an event by looking the instance up, then calling its sendEvent', async () => {
+    const { host, calls } = recordingHost()
+    const flow = createWorkflowContext({ env, event, host })
+    await flow.sendEvent('run-1', { type: 'sunny', payload: { temp: 24 } }, { workflow: 'orders' })
+    expect(calls).toEqual(['get:run-1:orders', 'send:run-1:sunny:{"temp":24}'])
+  })
+
+  it('throws InstanceNotFoundError for an id with no instance, without sending', async () => {
+    const { host, calls } = recordingHost()
+    const flow = createWorkflowContext({ env, event, host })
+    const sent = flow.sendEvent('missing', { type: 'sunny' }, { workflow: 'orders' })
+    await expect(sent).rejects.toBeInstanceOf(InstanceNotFoundError)
+    await expect(sent).rejects.toMatchObject({
+      name: 'InstanceNotFoundError',
+      instanceId: 'missing',
+    })
+    expect(calls).toEqual(['get:missing:orders'])
+  })
+
+  it('refuses an empty id or type before asking the platform anything', async () => {
+    const lookup = vi.fn()
+    await expect(sendInstanceEvent(lookup, '', 'sunny')).rejects.toThrow(TypeError)
+    await expect(sendInstanceEvent(lookup, 'run-1', ' ')).rejects.toThrow('An event needs a type')
+    expect(lookup).not.toHaveBeenCalled()
   })
 })

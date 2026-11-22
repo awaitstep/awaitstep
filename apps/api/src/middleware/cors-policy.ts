@@ -5,6 +5,20 @@ import type { AppEnv } from '../types.js'
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
 /**
+ * Response headers a page may read: the request id to quote in a report, how
+ * long a rate limit lasts, and what `POST /api/run/:id` answers with besides
+ * the handler's own answer (the run, its instance, a cut body, a redirect's target).
+ */
+const EXPOSED = [
+  'X-Request-Id',
+  'Retry-After',
+  'X-AwaitStep-Run-Id',
+  'X-AwaitStep-Instance-Id',
+  'X-AwaitStep-Body-Truncated',
+  'X-AwaitStep-Function-Location',
+]
+
+/**
  * Paths that answer without checking a key, so a `Bearer` header proves
  * nothing there: sign-in belongs to the dashboard alone, and uploaded images
  * are shown with `<img>` (no CORS needed) and kept to the app's site by their
@@ -35,13 +49,13 @@ export function corsPolicy(allowedOrigins: readonly string[]) {
     allowHeaders: ['Content-Type', 'Authorization'],
     allowMethods: METHODS,
     credentials: true,
+    exposeHeaders: EXPOSED,
   })
   const global = cors({
     origin: '*',
     allowHeaders: ['Content-Type', 'Authorization'],
     allowMethods: METHODS,
-    // The request id to quote in a report, and how long a rate limit lasts.
-    exposeHeaders: ['X-Request-Id', 'Retry-After'],
+    exposeHeaders: EXPOSED,
   })
 
   return createMiddleware<AppEnv>(async (c, next) => {

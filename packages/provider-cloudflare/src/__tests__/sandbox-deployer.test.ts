@@ -107,21 +107,22 @@ describe('SandboxWranglerDeployer', () => {
     expect(lastSandbox!.execCalls.some((c) => c.command.includes('secret bulk'))).toBe(false)
   })
 
-  it('records the workers.dev address over a route, and the route when there is no other', async () => {
-    const deployWith = (stdout: string) =>
+  it('records the route over the workers.dev address, and workers.dev when there is no route', async () => {
+    const deployWith = (stdout: string, routes?: Array<{ pattern: string; zone_name: string }>) =>
       new SandboxWranglerDeployer(() =>
         makeFakeSandbox((cmd) =>
           cmd.includes('wrangler deploy') ? { success: true, stdout } : { success: true },
         ),
-      ).deploy(bundle, {
-        ...baseOptions,
-        routes: [{ pattern: 'api.acme.com/*', zone_name: 'acme.com' }],
-      })
-    // A function is called from the server at its workers.dev address, never a typed route.
+      ).deploy(bundle, { ...baseOptions, ...(routes && { routes }) })
+    const route = [{ pattern: 'api.acme.com/v1/*', zone_name: 'acme.com' }]
+    // The user's own URL first: their handler is what callers reach there.
+    expect((await deployWith('https://my-worker.example.workers.dev', route)).workerUrl).toBe(
+      'https://api.acme.com/v1/',
+    )
     expect((await deployWith('https://my-worker.example.workers.dev')).workerUrl).toBe(
       'https://my-worker.example.workers.dev',
     )
-    expect((await deployWith('deployed')).workerUrl).toBe('https://api.acme.com')
+    expect((await deployWith('deployed')).workerUrl).toBeUndefined()
   })
 
   it('keeps the worker’s workers.dev URL out of the progress it streams', async () => {

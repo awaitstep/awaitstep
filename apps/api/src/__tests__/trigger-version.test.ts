@@ -12,7 +12,12 @@ import {
 // A run records the version deployed on the account it went to. The provider is
 // real except for the call that would reach Cloudflare.
 
-const triggeredUnder = vi.hoisted(() => ({ names: [] as string[], params: [] as unknown[] }))
+const triggeredUnder = vi.hoisted(() => ({
+  names: [] as string[],
+  params: [] as unknown[],
+  instanceIds: [] as Array<string | undefined>,
+  events: [] as unknown[],
+}))
 
 vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
   const actual = await importOriginal<typeof ProviderResolver>()
@@ -27,10 +32,18 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
               _id: string,
               params: unknown,
               config: { options?: Record<string, unknown> },
+              options?: { instanceId?: string },
             ) => {
               triggeredUnder.names.push(String(config.options?.['workflowName']))
               triggeredUnder.params.push(params)
-              return Promise.resolve({ instanceId: 'inst-1' })
+              triggeredUnder.instanceIds.push(options?.instanceId)
+              return Promise.resolve({ instanceId: options?.instanceId ?? 'inst-1' })
+            }
+          }
+          if (property === 'sendEvent') {
+            return (input: { instanceId: string; type: string; payload: unknown }) => {
+              triggeredUnder.events.push(input)
+              return Promise.resolve()
             }
           }
           const value = Reflect.get(target, property, receiver)
@@ -84,6 +97,8 @@ describe('POST /workflows/:id/trigger records the deployed version', () => {
     resetStore()
     triggeredUnder.names = []
     triggeredUnder.params = []
+    triggeredUnder.instanceIds = []
+    triggeredUnder.events = []
     app = createTestApp()
     await mockDb.createWorkflow({
       id: 'wf-1',
@@ -159,6 +174,8 @@ describe('a run keeps how it was started and its payload', () => {
     resetStore()
     triggeredUnder.names = []
     triggeredUnder.params = []
+    triggeredUnder.instanceIds = []
+    triggeredUnder.events = []
     app = createTestApp()
     await mockDb.createWorkflow({
       id: 'wf-1',
@@ -207,6 +224,36 @@ describe('a run keeps how it was started and its payload', () => {
     expect(again.id).not.toBe(first.id)
     expect(again.connectionId).toBe('conn-a')
     expect(triggeredUnder.params).toEqual([{ n: 1 }, { n: 1 }])
+  })
+
+  it('runs again under a new instance when the payload named one', async () => {
+    const first = (await (
+      await trigger(app, 'conn-a', { instanceId: 'order-42', n: 1 })
+    ).json()) as {
+      id: string
+      instanceId: string
+    }
+    expect(first.instanceId).toBe('order-42')
+    const res = await post(app, `/runs/${first.id}/run-again`, { connectionId: 'conn-a' })
+    expect(res.status).toBe(201)
+    const again = (await res.json()) as { instanceId: string }
+    expect(again.instanceId).not.toBe('order-42')
+    expect(triggeredUnder.params[1]).toEqual({ instanceId: again.instanceId, n: 1 })
+  })
+
+  it('sends a send-event payload to its instance instead of starting a run', async () => {
+    const res = await trigger(app, 'conn-a', {
+      action: 'send-event',
+      instanceId: 'order-42',
+      type: 'sunny',
+      payload: { hello: 1 },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+    expect(triggeredUnder.events).toEqual([
+      expect.objectContaining({ instanceId: 'order-42', type: 'sunny', payload: { hello: 1 } }),
+    ])
+    expect(triggeredUnder.params).toEqual([])
   })
 
   it('refuses to run again on an account the run wasn’t started on', async () => {

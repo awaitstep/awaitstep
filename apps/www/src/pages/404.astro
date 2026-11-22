@@ -1,0 +1,19 @@
+---
+/**
+ * The page any unknown address gets. Cloudflare Pages serves `404.html` with a 404 status; without
+ * it the deploy is treated as a single-page app and every typo returns the home page with a 200.
+ */
+import Base from '../layouts/Base.astro'
+import '../styles/pages.css'
+import { NOT_FOUND_PAGE as PAGE } from '../content/site'
+---
+
+<Base title={PAGE.title} description={PAGE.description} noindex>
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="container">
+      <h1 id="page-title">{PAGE.heading}</h1>
+      <p class="lead">{PAGE.line}</p>
+      <p><a class="text-link" href="/">{PAGE.homeLabel}</a></p>
+    </div>
+  </section>
+</Base>

@@ -135,8 +135,9 @@ describe('CloudflareWorkflowsAdapter', () => {
     it('uses default trigger code when no triggerCode provided', () => {
       const bundle = adapter.generate(simpleIR)
       expect(providerEntrySource(bundle)).toContain('const params = await request.json()')
+      // Started through the module's startWorkflow, so the request's instance id is used.
       expect(providerEntrySource(bundle)).toContain(
-        'env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })',
+        'return Response.json(await awaitstepStartWorkflow(env, params));',
       )
     })
 

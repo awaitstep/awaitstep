@@ -10,14 +10,17 @@ export function isTerminalRunStatus(runStatus: string): boolean {
 }
 
 function isInFlight(step: RunStep): boolean {
-  return (step.status === 'running' || step.status === 'waiting') && !step.endedAt
+  return step.status === 'running' || step.status === 'waiting'
 }
 
 /**
- * A step still marked in-flight after its run ended was interrupted (the
- * instance errored or was terminated mid-step) — the provider never writes
- * an end for it, and the sync loop stops revisiting terminal runs. Such a
- * step must not keep animating or growing.
+ * A step still marked running or waiting after its run ended was
+ * interrupted (the instance errored or was terminated mid-step): the
+ * provider reports a step finished once it ends, and the sync loop stops
+ * revisiting terminal runs, so the mark is final. Its end time does not
+ * matter: a sleep is reported with the time it would wake, which a run
+ * terminated mid-sleep never reached. Such a step must not keep animating
+ * or growing.
  */
 export function isInterruptedStep(step: RunStep, runStatus: string): boolean {
   return isTerminalRunStatus(runStatus) && isInFlight(step)
@@ -138,11 +141,10 @@ function waitArm(status: StepStatus | undefined): string | null {
  * Marks done the nodes that report no step of their own (the entry, inline
  * steps, containers) but certainly ran — from evidence, never a guess:
  * - a node on every path to a node that reported (it dominates it) ran;
- * - a node whose only way in is the arm a wait took (or a plain edge from a
- *   node that ran), with something after it reported, or a run that
- *   completed, ran;
- * - in a run that completed, its entry ran, and a node whose only way in is a
- *   plain edge from a node that ran inherits it.
+ * - a node with a way in the run took — the arm a wait took, or a plain edge
+ *   from a node that ran — with something after it reported, or a run that
+ *   completed, ran; a merge needs only one of its ways in taken;
+ * - in a run that completed, its entry ran.
  * A branch's arms are never inferred: nothing says which one ran.
  */
 function inferStepless(
@@ -198,14 +200,15 @@ function inferStepless(
       if (completed) byNode.set(id, 'complete')
       continue
     }
-    if (ins.length !== 1) continue
-    const { source, label } = ins[0]!
-    const parent = byNode.get(source)
-    if (!parent || !DONE.has(parent)) continue
-    const taken =
-      shape.types.get(source) === 'wait_for_event' && label !== undefined
+    // Any way in the run took will do: a merge (both arms of a wait joining,
+    // a join after a branch) ran once one of its ways in was taken.
+    const taken = ins.some(({ source, label }) => {
+      const parent = byNode.get(source)
+      if (!parent || !DONE.has(parent)) return false
+      return shape.types.get(source) === 'wait_for_event' && label !== undefined
         ? label === waitArm(parent)
         : label === undefined
+    })
     if (!taken) continue
     if (completed || reachedAfter.get(id)) byNode.set(id, 'complete')
   }
@@ -346,7 +349,6 @@ export function buildRunTimeline(
   now: Date = new Date(),
 ): RunTimeline {
   const nowMs = now.getTime()
-  const terminal = isTerminalRunStatus(run.status)
   const runEndMs = run.endedAt ? new Date(run.endedAt).getTime() : nowMs
   const starts = steps.flatMap((s) => (s.startedAt ? [new Date(s.startedAt).getTime()] : []))
   const origin = starts.length > 0 ? Math.min(...starts) : nowMs
@@ -356,8 +358,12 @@ export function buildRunTimeline(
     const start = step.startedAt ? new Date(step.startedAt).getTime() : origin
     let stop = start
     if (step.startedAt) {
-      if (step.endedAt) stop = new Date(step.endedAt).getTime()
-      else if (isInFlight(step)) stop = terminal ? Math.max(start, runEndMs) : nowMs
+      // Interrupted: it stopped with the run, at the latest — not at the
+      // wake time a sleep was given.
+      const reported = step.endedAt ? new Date(step.endedAt).getTime() : runEndMs
+      if (interrupted) stop = Math.max(start, Math.min(reported, runEndMs))
+      else if (step.endedAt) stop = reported
+      else if (isInFlight(step)) stop = nowMs
     }
     end = Math.max(end, stop)
     return {

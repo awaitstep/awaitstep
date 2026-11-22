@@ -62,7 +62,7 @@ export function ScopedSection({
         </Badge>
         {hasContent(hint) && <span className="flex-1 text-xs text-muted-foreground">{hint}</span>}
         {manage && (
-          <ShellLink href={manage.href} className="ml-auto text-xs font-medium text-primary">
+          <ShellLink href={manage.href} className="ml-auto text-xs font-medium text-primary-ink">
             {manage.label}
           </ShellLink>
         )}

@@ -62,7 +62,7 @@ const SCOPE_BUTTON_VARIANT = {
   },
   card: {
     button:
-      'mx-2.5 mb-3 mt-3 rounded-lg border border-border bg-card px-2.5 py-2 hover:bg-sidebar-accent',
+      'mx-2.5 mb-3 mt-3 rounded-lg border border-sidebar-border bg-sidebar-accent px-2.5 py-2 hover:bg-sidebar-accent/80',
     tile: 'size-[22px] text-2xs',
     name: 'font-medium',
   },
@@ -86,7 +86,7 @@ export function PanelScopeButton({
       type="button"
       aria-label={`${scope}: ${name}. Switch ${scope.toLowerCase()}`}
       className={cn(
-        'flex cursor-pointer items-center gap-2.5 text-left transition-colors',
+        'flex cursor-pointer items-center gap-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         classes.button,
         className,
       )}
@@ -103,10 +103,10 @@ export function PanelScopeButton({
         {tile.initial}
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-2xs text-muted-foreground">{scope}</span>
+        <span className="text-2xs text-sidebar-muted">{scope}</span>
         <span className={cn('truncate text-sm text-sidebar-foreground', classes.name)}>{name}</span>
       </span>
-      <ChevronsUpDown size={14} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+      <ChevronsUpDown size={14} aria-hidden="true" className="shrink-0 text-sidebar-muted" />
     </button>
   )
 }
@@ -128,7 +128,7 @@ export function PanelOrgHeader({ name, initial, logo }: PanelOrgHeaderProps) {
         <OrgMark initial={initial} logo={logo} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="text-2xs text-muted-foreground">Organization</span>
+        <span className="text-2xs text-sidebar-muted">Organization</span>
         <span className="truncate text-sm font-semibold text-sidebar-foreground">{name}</span>
       </span>
     </div>
@@ -160,7 +160,7 @@ interface PanelEmptyProps {
 /** Panel body when there is nothing to navigate yet, e.g. an org with no project. */
 export function PanelEmpty({ message, action }: PanelEmptyProps) {
   return (
-    <div className="flex flex-col gap-2.5 px-4 py-4.5 text-xs text-muted-foreground">
+    <div className="flex flex-col gap-2.5 px-4 py-4.5 text-xs text-sidebar-muted">
       <p>{message}</p>
       <ShellLink href={action.href} className="text-primary ">
         {action.label}

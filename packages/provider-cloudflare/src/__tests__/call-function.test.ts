@@ -1,25 +1,47 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CALL_MAX_BYTES, NOT_CALLABLE, callFunction, isCallableUrl } from '../call-function.js'
 
-// Calling a deployed function from the server (24i): only its own
-// workers.dev address, never followed through a redirect, time- and
-// size-bounded.
+// Calling a deployment's URL from the server (24i): https on a host name,
+// never followed through a redirect, time- and size-bounded. Whether the
+// name resolves to a private address is the injected fetch's to refuse.
 
 describe('isCallableUrl', () => {
-  it('takes a function’s workers.dev address', () => {
+  it('takes a workers.dev address, a route’s URL and a custom domain', () => {
     expect(isCallableUrl('https://awaitstep-abc.acme.workers.dev')).toBe(true)
     expect(isCallableUrl('https://awaitstep-abc.acme.workers.dev/path?x=1')).toBe(true)
+    expect(isCallableUrl('https://wf.99listed.com/v1/2026/amce/')).toBe(true)
+    expect(isCallableUrl('https://api.acme.com/')).toBe(true)
+  })
+
+  it('passes the headers it is given along with the content type', async () => {
+    const fetcher = vi.fn(async () => new Response('{}', { status: 200 }))
+    await callFunction(
+      { url: 'https://wf.acme.com/', body: '{}', headers: { 'x-awaitstep-instance-id': 'run-1' } },
+      fetcher as unknown as typeof fetch,
+    )
+    const [, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+    expect(init.headers).toEqual({
+      'x-awaitstep-instance-id': 'run-1',
+      'content-type': 'application/json',
+    })
   })
 
   it('refuses anything a user could point at another host', () => {
     for (const url of [
       'http://awaitstep-abc.acme.workers.dev',
-      'https://api.example.com',
       'https://169.254.169.254/latest',
-      'https://workers.dev.evil.com',
-      'https://evil.com/x.workers.dev',
+      'https://10.0.0.1/',
+      'https://[::1]/',
+      'https://localhost/',
+      'https://intranet/',
+      'https://api.localhost/',
+      'https://db.internal/',
+      'https://printer.local/',
       'https://user:pw@a.workers.dev',
       'https://a.workers.dev:8443',
+      'https://wf.acme.com.:443/',
+      'https://*.acme.com',
+      'https://wf.acme.com/v1/*/x',
       'not a url',
     ]) {
       expect(isCallableUrl(url), url).toBe(false)
@@ -69,7 +91,7 @@ describe('callFunction', () => {
     const fetcher = vi.fn()
     expect(
       await callFunction(
-        { url: 'https://internal.example', body: '{}' },
+        { url: 'https://10.0.0.5/run', body: '{}' },
         fetcher as unknown as typeof fetch,
       ),
     ).toEqual({ ok: false, kind: 'refused', reason: NOT_CALLABLE })

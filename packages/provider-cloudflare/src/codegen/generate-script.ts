@@ -12,6 +12,7 @@ import { builtinGenerators } from './generator-registry.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
 import {
   CORE_RUNTIME_IMPORT,
+  callsPlatform,
   computeVarNames,
   contentHash,
   FUNCTION_MODULE_PATH,
@@ -198,9 +199,9 @@ function generateScriptInternal(
     : {}
   const { templateResolver, envVarNames, preview, triggerCode, retention } = opts
   const generators = opts.generators ?? builtinGenerators
-  const hasSubCalls = ir.nodes.some(
-    (node) => node.type === 'sub_workflow' || node.type === 'sub_script',
-  )
+  // A Call Workflow / Call Function node, or code calling another artifact
+  // through `flow`: either way the context needs the platform adapter.
+  const hasSubCalls = callsPlatform(ir.nodes)
 
   // Every step's code in module form, whatever shape was stored.
   ir = normalizeStepModules(ir)
@@ -452,9 +453,12 @@ function generateScriptInternal(
   // The context is needed when a step runs here — a module, a container
   // child's inline `flow.step`, or a hand-written `step.do` — never for a
   // comment or an inline body's own `step` identifier.
+  // A platform call anywhere in the graph's code needs the context (and its
+  // PlatformHost import), even from a node the graph doesn't reach yet.
   const usesFlow =
+    hasSubCalls ||
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|getInstance|sendEvent|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   // A function's invocation is a run of its own: the context's event carries
@@ -463,7 +467,7 @@ function generateScriptInternal(
   // another artifact. A context that only makes HTTP calls goes without.
   const needsHost =
     hasSubCalls ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   const contextLines = usesFlow

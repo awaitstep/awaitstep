@@ -165,9 +165,11 @@ export type CloudflareDeploymentConfig = z.infer<typeof cloudflareDeploymentConf
 
 /**
  * A workflow's worker serves no URL by default (D-9): its generated `fetch`
- * starts instances and reads their status for anyone who can reach it, and
- * AwaitStep triggers it through the Cloudflare API. Preview URLs are served on
- * workers.dev too. A function keeps both: it is called at its workers.dev URL.
+ * starts instances and reads their status for anyone who can reach it. Until
+ * it has one (a route, custom domain, or workers.dev turned on), AwaitStep
+ * starts its runs through the Cloudflare API; then it runs them through that
+ * URL, so the workflow's own handler runs. Preview URLs are served on
+ * workers.dev too. A function keeps both: it is called at its own URL.
  */
 export const WORKFLOW_DEFAULT_ACCESS = { workersDev: false, previewUrls: false } as const
 

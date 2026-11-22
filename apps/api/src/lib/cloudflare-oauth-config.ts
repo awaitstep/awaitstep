@@ -23,14 +23,14 @@ export interface CloudflareOAuthRuntime extends CloudflareOAuthClientConfig {
 /**
  * What the connection needs to do its job: list the account, deploy, update
  * and take down Workers (and drive the Workflow instances the API owns), and
- * read/write KV for the Resources UI. Cloudflare's Workers scopes are
+ * read/write KV for the Resources UI, and attach Workers routes. Cloudflare's Workers scopes are
  * role-named: `workers-scripts.admin` (Admin) is required because AwaitStep
  * creates a Worker on first deploy, and Editor (`workers-scripts.edit`) may
  * only deploy one that already exists. `workers-scripts.write` is retired.
  *
  * Other products keep their own names. Add only what a feature uses:
  * `workers-r2.read`/`.write` and `workers-r2-bucket-item.read`/`.write`,
- * `d1.read`/`.write`, `queues.read`/`.write`, `workers-routes.read`/`.write`,
+ * `d1.read`/`.write`, `queues.read`/`.write`, `workers-routes.read`,
  * `workers-observability.read`, `workers-tail.read`, `secrets-store.write`,
  * `browser-rendering.read`/`.write`.
  *

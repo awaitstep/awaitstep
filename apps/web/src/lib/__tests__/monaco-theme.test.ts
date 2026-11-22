@@ -173,16 +173,18 @@ describe('code font', () => {
 })
 
 describe('IDE text contrast (WCAG AA 4.5:1)', () => {
-  const surfaces = ['--card', '--sidebar', '--background', '--editor']
+  // The sidebar is always dark, so it uses its own text tokens rather than the
+  // content surfaces' foreground/muted pair.
+  const surfaces = ['--card', '--background', '--editor']
   const cases: Array<[string, string[]]> = [
     ['--foreground', surfaces],
-    ['--muted-foreground', [...surfaces, '--muted', '--sidebar-accent']],
+    ['--muted-foreground', [...surfaces, '--muted']],
     ['--status-warning', surfaces],
     ['--status-error', surfaces],
     ['--status-success', surfaces],
     ['--status-info', surfaces],
     ['--destructive', surfaces],
-    ['--primary', surfaces],
+    ['--primary-ink', surfaces],
   ]
   for (const theme of ['dark', 'light'] as const) {
     for (const [fg, bgs] of cases) {
@@ -192,7 +194,20 @@ describe('IDE text contrast (WCAG AA 4.5:1)', () => {
         })
       }
     }
+    for (const fg of ['--sidebar-foreground', '--sidebar-muted', '--primary']) {
+      for (const bg of ['--sidebar', '--sidebar-accent']) {
+        it(`${theme}: ${fg} on ${bg}`, () => {
+          expect(contrastRatio(color(theme, fg), color(theme, bg))).toBeGreaterThanOrEqual(4.5)
+        })
+      }
+    }
   }
+
+  it.each(['dark', 'light'] as const)('keeps the %s brand button readable', (theme) => {
+    expect(
+      contrastRatio(color(theme, '--primary-foreground'), color(theme, '--primary')),
+    ).toBeGreaterThanOrEqual(4.5)
+  })
 })
 
 describe('readThemeTokens', () => {

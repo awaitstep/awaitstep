@@ -1,0 +1,86 @@
+/* The landing is dark only, but it renders inside the dashboard, whose tokens follow the visitor's
+   saved theme (html.light). Kit components on it (Button) read those dashboard tokens, so inside
+   .landing they are pointed at the landing's own dark tokens. */
+.landing {
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --primary: var(--color-accent);
+  --primary-foreground: var(--color-accent-ink);
+  --primary-ink: var(--color-accent-text);
+  --secondary: var(--color-paper-2);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-paper-2);
+  --muted-foreground: var(--color-muted);
+  --accent: var(--color-paper-2);
+  --accent-foreground: var(--color-ink);
+  --border: var(--color-rule);
+  --input: var(--color-rule);
+  --ring: var(--color-focus);
+}
+
+/* The app's landing hero: the 3D scene as a faint background behind the text. Colours come from
+   the landing tokens (@awaitstep/theme/landing.css), scoped to `.landing`. */
+.landing .hero-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.landing .hero-scene .scene__stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.5;
+}
+.landing .hero-scene::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    var(--color-paper) 0%,
+    var(--color-paper) 28%,
+    color-mix(in oklab, var(--color-paper) 70%, transparent) 46%,
+    transparent 68%
+  );
+}
+/* The poster covers the hero the way the live scene does: full height, centred, sides cropped. */
+.landing .hero-scene .scene-poster {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  transform: translateX(-50%);
+  transition: opacity 420ms ease-out;
+}
+.landing .hero-scene .scene-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 420ms ease-out;
+}
+.landing .hero-scene .scene__stage.is-live .scene-canvas {
+  opacity: 1;
+}
+.landing .hero-scene .scene__stage.is-live .scene-poster {
+  opacity: 0;
+}
+/* One poster per stage shape (see hero-scene.tsx); the hidden one is out of the accessibility tree. */
+.landing .hero-scene .scene-poster--narrow {
+  display: none;
+}
+@media (max-width: 60rem) {
+  .landing .hero-scene .scene-poster--wide {
+    display: none;
+  }
+  .landing .hero-scene .scene-poster--narrow {
+    display: block;
+  }
+  .landing .hero-scene::after {
+    background: color-mix(in oklab, var(--color-paper) 62%, transparent);
+  }
+}

@@ -20,7 +20,7 @@ export function FileIcon({ role, className }: { role: GeneratedFileRole; classNa
   const classes = cn('h-3.5 w-3.5 shrink-0', className)
   switch (role) {
     case 'entry':
-      return <FileCode2 className={cn(classes, 'text-primary')} />
+      return <FileCode2 className={cn(classes, 'text-primary-ink')} />
     case 'module':
       return <FileCode2 className={cn(classes, 'text-muted-foreground')} />
     case 'handlers':

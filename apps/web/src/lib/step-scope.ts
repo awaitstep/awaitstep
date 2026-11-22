@@ -1,6 +1,7 @@
 import type { WorkflowIR } from '@awaitstep/ir'
 import {
   GenerateInputError,
+  LOOP_COUNTER_VAR,
   blockBindingsOf,
   computeVarNames,
   containerArms,
@@ -8,14 +9,22 @@ import {
   sanitizeIdentifier,
   upstreamVarNamesOf,
 } from '@awaitstep/codegen'
-import { exportPlan, nodeYieldsValue } from '@awaitstep/codegen'
+import { boundVarNames, exportPlan } from '@awaitstep/codegen'
 
 export interface StepScope {
   /** The node's variable name in generated code: how later steps and the response name it. */
   varName: string
-  /** The earlier steps this body can read as `inputs.<name>`, in run order. */
+  /**
+   * The names this body can read from earlier steps, in run order: as
+   * `inputs.<name>` in a step module, bare in an inline step. An earlier
+   * inline step contributes every name it declares at its top level.
+   */
   upstream: string[]
-  /** What the containers around the step bind for it (`item`, `index`, `error`), as `inputs` keys. */
+  /**
+   * What the containers around the step bind for it: the `inputs` keys
+   * (`item`, `index`, `error`) for a step module, the names in scope for an
+   * inline step.
+   */
   bindings: string[]
   /** `cycle`: the graph loops back, so nothing about scope can be said; `error`: the scope could not be read. */
   status: 'ok' | 'cycle' | 'error'
@@ -53,19 +62,24 @@ export function stepScope(
     const plan = kind === 'script' ? exportPlan(graph) : new Map()
     const planned = plan.get(nodeId)
     const arms = containerArms(graph)
-    // Only a variable that holds a value is worth naming: a branch or a
-    // step without a `return` binds nothing a body could read.
-    const byName = new Map(ir.nodes.map((n) => [names.get(n.id), n]))
-    const upstream = upstreamVarNamesOf(graph, names, (n) => plan.has(n.id), nodeId).filter(
-      (name) => {
-        const source = byName.get(name)
-        return source !== undefined && nodeYieldsValue(graph, source, arms)
-      },
+    // Only what codegen binds is worth naming: a branch or a step without a
+    // `return` binds nothing a body could read.
+    const upstream = upstreamVarNamesOf(
+      graph,
+      boundVarNames(graph, names),
+      (n) => plan.has(n.id),
+      nodeId,
     )
+    const bindings = blockBindingsOf(graph, arms)(nodeId)
+    const inline = node?.type === 'step' && node.data.inline === true
     return {
       varName,
       upstream,
-      bindings: Object.keys(blockBindingsOf(graph, arms)(nodeId)),
+      // Inline code reads the lexical names; the loop counter is only
+      // declared when something needs it, so it is not promised there.
+      bindings: inline
+        ? Object.values(bindings).filter((name) => name !== LOOP_COUNTER_VAR)
+        : Object.keys(bindings),
       status: 'ok',
       returned: planned !== undefined,
       exportKey: planned?.key ?? fallback,

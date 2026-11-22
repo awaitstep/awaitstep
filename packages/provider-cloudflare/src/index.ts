@@ -77,8 +77,12 @@ export {
   killTrackedGroups,
   runToEnd,
   throwIfCancelled,
+  deployedWorkerUrl,
+  routeUrl,
 } from './deploy/index.js'
+export { sendsEventsItself } from './codegen/generate-workflow.js'
 export type {
+  WorkerAddresses,
   DeployControl,
   WranglerDeployer,
   DeployOptions as WranglerDeployOptions,

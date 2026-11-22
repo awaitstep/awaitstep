@@ -314,6 +314,8 @@ export interface FunctionCallRequest {
   body: string | Uint8Array
   /** The body's `content-type`; `application/json` when left out. */
   contentType?: string
+  /** Sent along with it (a run's `X-AwaitStep-Instance-Id`). */
+  headers?: Record<string, string>
 }
 
 /**

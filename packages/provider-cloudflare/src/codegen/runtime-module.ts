@@ -81,19 +81,38 @@ function cfBinding(options: { exportName?: string; workflow?: string; script?: s
 
 export function createAwaitstepPlatform(env: Env): PlatformHost {
   const bindings = env as unknown as Record<string, any>;
+  // Another workflow is bound only when the graph has a Call Workflow node for it.
+  const workflowBinding = (options: { workflow: string; exportName?: string; params?: Record<string, unknown> }) => {
+    const name = cfBinding(options);
+    const binding = bindings[name];
+    if (!binding) {
+      throw new Error(\`Workflow "\${options.workflow}" is not bound here (no \${name} binding): add a Call Workflow node for it and pass its exportName\`);
+    }
+    return binding;
+  };
   return {
     async startWorkflow(options) {
       const cf = cfParams(options);
       const retention = cf.retention ?? ${retention};
-      const instance = await bindings[cfBinding(options)].create({
+      const instance = await workflowBinding(options).create({
         id: crypto.randomUUID(),
         ...(options.input !== undefined && { params: options.input }),
         ...(retention !== undefined && { retention }),
       });
       return { instanceId: instance.id };
     },
+    async getInstance(instanceId, options) {
+      const instance = await workflowBinding(options).get(instanceId).catch(() => null);
+      if (!instance) return null;
+      return {
+        instanceId,
+        status: () => instance.status(),
+        sendEvent: (type: string, payload?: unknown) => instance.sendEvent({ type, payload }),
+      };
+    },
     async workflowStatus(instanceId, options) {
-      const status = await bindings[cfBinding(options)].get(instanceId).status();
+      const instance = await workflowBinding(options).get(instanceId);
+      const status = await instance.status();
       if (status.status === "errored") {
         throw new NonRetryableError(status.error?.message ?? "Sub-workflow failed");
       }
@@ -157,6 +176,7 @@ export function platformModuleFile(retention: string, envModule = '#awaitstep/en
   return {
     path: PLATFORM_MODULE_PATH,
     source: `// Generated from @awaitstep/provider-cloudflare — do not edit.
+import { NonRetryableError } from "cloudflare:workflows";
 import type { PlatformHost } from "${CORE_RUNTIME_IMPORT}";
 import type { Env } from "${envModule}";
 

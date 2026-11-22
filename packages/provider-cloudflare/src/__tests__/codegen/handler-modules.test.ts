@@ -125,7 +125,10 @@ describe('generated entries with handler modules', () => {
     )
     const worker = providerEntrySource(bundle)
     expect(worker).toContain('import $$fetchHandler from "../handlers/fetch.js";')
-    expect(worker).toContain('$$fetchHandler({ request, env, execution')
+    // The handler's env carries the instance id the request names.
+    expect(worker).toContain(
+      '$$fetchHandler({ request, env: awaitstepRequestEnv(request, env), execution',
+    )
     expect(worker).toContain('case "orders":')
     expect(worker).toContain(
       'scheduled: (controller: ScheduledController, env: Env, ctx: ExecutionContext) =>',
@@ -144,11 +147,13 @@ describe('generated entries with handler modules', () => {
     )
   })
 
-  it('imports the retention into a workflow worker only when its inline default fetch creates instances', () => {
+  it('imports startWorkflow into a workflow worker only when its inline default fetch starts instances', () => {
     const inline = generateWorkflowBundle(baseIr)
     const worker = providerEntrySource(inline)
-    expect(worker).toContain('import workflow, { AWAITSTEP_RETENTION } from "#awaitstep/workflow";')
-    expect(worker).toContain('retention: AWAITSTEP_RETENTION')
+    expect(worker).toContain(
+      'import workflow, { startWorkflow as awaitstepStartWorkflow } from "#awaitstep/workflow";',
+    )
+    expect(worker).toContain('await awaitstepStartWorkflow(env, params)')
     expect(worker).not.toMatch(/^export \{/m)
   })
 
@@ -159,7 +164,7 @@ describe('generated entries with handler modules', () => {
     })
     const worker = providerEntrySource(bundle)
     expect(worker).toContain('async fetch(request, env, ctx): Promise<Response>')
-    expect(worker).toContain('env.WORKFLOW.create')
+    expect(worker).toContain('await awaitstepStartWorkflow(env, params)')
     expect(worker).toContain('case "orders":')
     expect(worker).not.toContain('scheduled')
   })

@@ -30,7 +30,7 @@ function TabLink({
       aria-label={shownBadge ? `${label}, ${shownBadge.description}` : undefined}
       className={cn(
         'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 pb-2 pt-2.5 text-2xs font-medium transition-colors',
-        active ? 'text-sidebar-foreground' : 'text-muted-foreground',
+        active ? 'text-sidebar-foreground' : 'text-sidebar-muted',
       )}
     >
       {active && (
@@ -82,7 +82,7 @@ export function MobileHeader({ back, scope, org, account }: MobileHeaderProps) {
         <ShellLink
           href={back.href}
           aria-label={back.label}
-          className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+          className="flex size-11 shrink-0 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
         >
           <ChevronLeft size={20} aria-hidden="true" />
         </ShellLink>
@@ -131,14 +131,14 @@ export function MobileScopeButton({
         {tile.initial}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-2xs text-muted-foreground">
+        <span className="truncate text-2xs text-sidebar-muted">
           {workspace ? project : 'Project'}
         </span>
         <span className="truncate text-sm font-semibold text-sidebar-foreground">
           {workspace ?? project}
         </span>
       </span>
-      <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+      <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-sidebar-muted" />
     </button>
   )
 }
@@ -174,7 +174,7 @@ export function MobileOrgButton({
         <OrgMark initial={initial} logo={logo} />
       </span>
       <span className="truncate text-sm font-semibold text-sidebar-foreground">{name}</span>
-      <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+      <ChevronDown size={16} aria-hidden="true" className="shrink-0 text-sidebar-muted" />
     </button>
   )
 }

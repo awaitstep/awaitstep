@@ -71,6 +71,12 @@ export interface AppDeps {
    * one when there is no mail service, as they do for magic links.
    */
   emails?: AppEmails
+  /**
+   * The fetch the server calls a deployment's own URL with (a route or
+   * custom domain a user typed). The Node entries pass one that refuses
+   * private addresses; absent, the runtime's own `fetch` is used.
+   */
+  publicFetch?: typeof fetch
   /** Which ways in the instance turns on (`accountProvidersOf` the auth options). */
   accountProviders?: AccountProviders
   /**
@@ -224,6 +230,7 @@ export function createApp(deps: AppDeps) {
     if (deps.testSessionRunner) c.set('testSessionRunner', deps.testSessionRunner)
     c.set('testSessionLimits', resolvedTestSessionLimits)
     c.set('emails', deps.emails)
+    if (deps.publicFetch) c.set('publicFetch', deps.publicFetch)
     c.set('imageStore', imageStore)
     await next()
   })

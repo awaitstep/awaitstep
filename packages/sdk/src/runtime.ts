@@ -193,6 +193,52 @@ function isJsonType(contentType: string | null): boolean {
 export interface WorkflowInstance {
   readonly instanceId: string
 }
+
+/**
+ * A workflow instance looked up by id ({@link PlatformHost.getInstance}): its
+ * status, and a way to send it an event. Provider-neutral — no platform type
+ * reaches the code holding it.
+ */
+export interface WorkflowInstanceHandle {
+  readonly instanceId: string
+  status(): Promise<WorkflowStatus>
+  /**
+   * Sends an event to the instance. A wait for an event of this `type` takes
+   * its `onEvent` path; its value is the event, with `payload` as sent.
+   */
+  sendEvent(type: string, payload?: unknown): Promise<void>
+}
+
+/** No workflow instance by that id: {@link sendInstanceEvent} found nothing to send to. */
+export class InstanceNotFoundError extends Error {
+  override readonly name = 'InstanceNotFoundError'
+  constructor(readonly instanceId: string) {
+    super(`No workflow instance "${instanceId}"`)
+  }
+}
+
+/**
+ * Sends an event to an instance: looks it up with `getInstance`, then calls
+ * its {@link WorkflowInstanceHandle.sendEvent}. Throws
+ * {@link InstanceNotFoundError} when there is none, and a `TypeError` for an
+ * empty id or type before anything is asked of the platform.
+ */
+export async function sendInstanceEvent(
+  getInstance: (instanceId: string) => Promise<WorkflowInstanceHandle | null>,
+  instanceId: string,
+  type: string,
+  payload?: unknown,
+): Promise<void> {
+  if (typeof instanceId !== 'string' || instanceId.trim() === '') {
+    throw new TypeError('An event needs the id of the instance to send it to')
+  }
+  if (typeof type !== 'string' || type.trim() === '') {
+    throw new TypeError('An event needs a type: the event type its wait is for')
+  }
+  const instance = await getInstance(instanceId)
+  if (!instance) throw new InstanceNotFoundError(instanceId)
+  await instance.sendEvent(type, payload)
+}
 /** One provider status reading for a workflow instance. */
 export interface WorkflowStatus {
   /** Provider status word (`running`, `complete`, `errored`, …). */
@@ -210,6 +256,11 @@ export interface WorkflowStatus {
 export interface PlatformHost {
   startWorkflow(options: WorkflowCallOptions): Promise<WorkflowInstance>
   workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus>
+  /** The instance of `options.workflow` by that id, or null when there is none. */
+  getInstance(
+    instanceId: string,
+    options: WorkflowCallOptions,
+  ): Promise<WorkflowInstanceHandle | null>
   callScript(options: ScriptCallOptions): Promise<unknown>
 }
 
@@ -220,8 +271,9 @@ export interface PlatformHost {
  * - `step` is the only durable unit: state written inside it is persisted and
  *   the callback is retried according to its config.
  * - `sleep`, `sleepUntil` and `waitForEvent` are durable waits, not timers.
- * - `startWorkflow`, `workflowStatus` and `callScript` are provider calls to
- *   other deployed artifacts; the provider adapter supplies them.
+ * - `startWorkflow`, `workflowStatus`, `getInstance`, `sendEvent` and
+ *   `callScript` are provider calls to other deployed artifacts; the provider
+ *   adapter supplies them.
  */
 export interface WorkflowContext<Env = Record<string, unknown>, Payload = unknown> {
   readonly env: Env
@@ -234,6 +286,27 @@ export interface WorkflowContext<Env = Record<string, unknown>, Payload = unknow
   http<T = unknown>(options: HttpRequestOptions): Promise<T>
   startWorkflow(options: WorkflowCallOptions): Promise<WorkflowInstance>
   workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus>
+  /**
+   * An instance of another workflow by id, or null when there is none. The
+   * workflow must be bound where this runs: on Cloudflare, a Call Workflow
+   * node to it binds it, and `options` must name it as that node does —
+   * `exportName` set to the node's workflow class name (or
+   * `params.cf.binding`). Inline code runs again on every replay, so wrap a
+   * call that changes something (`sendEvent`) in `step`.
+   */
+  getInstance(
+    instanceId: string,
+    options: WorkflowCallOptions,
+  ): Promise<WorkflowInstanceHandle | null>
+  /**
+   * Sends an event to an instance of another workflow: {@link getInstance},
+   * then its `sendEvent`. Throws {@link InstanceNotFoundError} when there is none.
+   */
+  sendEvent(
+    instanceId: string,
+    event: { type: string; payload?: unknown },
+    options: WorkflowCallOptions,
+  ): Promise<void>
   callScript(options: ScriptCallOptions): Promise<unknown>
 }
 
@@ -313,6 +386,15 @@ export function createWorkflowContext<Env, Payload>(
       requireHost('startWorkflow', options.workflow).startWorkflow(options),
     workflowStatus: (instanceId, options) =>
       requireHost('workflowStatus', options.workflow).workflowStatus(instanceId, options),
+    getInstance: (instanceId, options) =>
+      requireHost('getInstance', options.workflow).getInstance(instanceId, options),
+    sendEvent: (instanceId, { type, payload }, options) =>
+      sendInstanceEvent(
+        (id) => requireHost('sendEvent', options.workflow).getInstance(id, options),
+        instanceId,
+        type,
+        payload,
+      ),
     callScript: (options) => requireHost('callScript', options.script).callScript(options),
   }
 }
@@ -434,6 +516,13 @@ export function createInlineHost(platform?: PlatformHost): WorkflowHost {
     workflowStatus(instanceId: string, options: WorkflowCallOptions): Promise<WorkflowStatus> {
       if (platform) return platform.workflowStatus(instanceId, options)
       return Promise.reject(notInFunction('workflowStatus', options.workflow))
+    },
+    getInstance(
+      instanceId: string,
+      options: WorkflowCallOptions,
+    ): Promise<WorkflowInstanceHandle | null> {
+      if (platform) return platform.getInstance(instanceId, options)
+      return Promise.reject(notInFunction('getInstance', options.workflow))
     },
     callScript(options: ScriptCallOptions): Promise<unknown> {
       if (platform) return platform.callScript(options)

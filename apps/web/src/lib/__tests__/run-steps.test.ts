@@ -195,6 +195,103 @@ describe('the canvas overlay of a run', () => {
     expect(statuses.sunny).toBeUndefined()
   })
 
+  it('colours a merge the taken arm of a wait leads into, and what runs after it', () => {
+    // The run in the report: a wait whose onTimeout edge goes straight to the
+    // merge ("Say Hello", inline), then an inline "Exit". Neither reports a step.
+    const graph = {
+      nodes: ['entry', 'sleep', 'wait', 'sunny', 'say_hello', 'exit'].map((id) =>
+        node(id, id === 'wait' ? 'wait_for_event' : id === 'sleep' ? 'sleep' : 'step'),
+      ),
+      edges: [
+        { id: 'a', source: 'entry', target: 'sleep' },
+        { id: 'b', source: 'sleep', target: 'wait' },
+        { id: 'c', source: 'wait', target: 'sunny', label: 'onEvent' },
+        { id: 'd', source: 'wait', target: 'say_hello', label: 'onTimeout' },
+        { id: 'e', source: 'sunny', target: 'say_hello' },
+        { id: 'f', source: 'say_hello', target: 'exit' },
+      ],
+    }
+    const statuses = mapRunStepsToNodeStatuses(
+      graph.nodes.map((n: { id: string }) => n.id),
+      [
+        step({ stepName: 'sleep-1', kind: 'sleep' }),
+        step({
+          stepName: 'wait-1',
+          kind: 'waitForEvent',
+          status: 'errored',
+          error: 'WorkflowTimeoutError: Execution timed out after 30000ms',
+        }),
+      ],
+      {},
+      'complete',
+      graphShapeOf(graph),
+    )
+    expect(statuses).toMatchObject({
+      entry: 'complete',
+      wait: 'timed_out',
+      say_hello: 'complete',
+      exit: 'complete',
+    })
+    expect(statuses.sunny).toBeUndefined()
+  })
+
+  it('leaves a merge alone while the run is still going and nothing after it reported', () => {
+    const graph = {
+      nodes: ['wait', 'sunny', 'merge'].map((id) =>
+        node(id, id === 'wait' ? 'wait_for_event' : 'step'),
+      ),
+      edges: [
+        { id: 'c', source: 'wait', target: 'sunny', label: 'onEvent' },
+        { id: 'd', source: 'wait', target: 'merge', label: 'onTimeout' },
+        { id: 'e', source: 'sunny', target: 'merge' },
+      ],
+    }
+    const statuses = mapRunStepsToNodeStatuses(
+      ['wait', 'sunny', 'merge'],
+      [
+        step({
+          stepName: 'wait-1',
+          kind: 'waitForEvent',
+          status: 'errored',
+          error: 'WorkflowTimeoutError: Execution timed out after 30000ms',
+        }),
+      ],
+      {},
+      'running',
+      graphShapeOf(graph),
+    )
+    expect(statuses.merge).toBe('pending')
+  })
+
+  it('leaves a branch join unstyled when nothing says which arm ran', () => {
+    const graph = {
+      nodes: [
+        node('entry', 'step'),
+        node('br', 'branch'),
+        node('a', 'step'),
+        node('b', 'step'),
+        node('j', 'step'),
+      ],
+      edges: [
+        { id: '1', source: 'entry', target: 'br' },
+        { id: '2', source: 'br', target: 'a', label: 'yes' },
+        { id: '3', source: 'br', target: 'b', label: 'no' },
+        { id: '4', source: 'a', target: 'j' },
+        { id: '5', source: 'b', target: 'j' },
+      ],
+    }
+    const statuses = mapRunStepsToNodeStatuses(
+      ['entry', 'br', 'a', 'b', 'j'],
+      [],
+      {},
+      'complete',
+      graphShapeOf(graph),
+    )
+    expect(statuses.a).toBeUndefined()
+    expect(statuses.b).toBeUndefined()
+    expect(statuses.j).toBeUndefined()
+  })
+
   it('never infers which arm of a branch ran', () => {
     const statuses = mapRunStepsToNodeStatuses(
       ids,
@@ -361,5 +458,44 @@ describe('buildRunTimeline', () => {
       durationMs: 0,
     })
     expect(timeline.spanMs).toBe(1000)
+  })
+})
+
+describe('a sleep the run never woke from', () => {
+  // The provider reports a sleep with the time it would wake; the run was
+  // terminated 3 s in, before that, and the step stayed `waiting`.
+  const sleep = step({
+    stepName: 'nap (nap)-1',
+    nodeId: 'nap',
+    kind: 'sleep',
+    status: 'waiting',
+    startedAt: '2026-11-22T06:00:10.660Z',
+    endedAt: '2026-11-22T06:00:20.660Z',
+  })
+  const runEnd = '2026-11-22T06:00:13.929Z'
+
+  it('reads as interrupted, whatever end it was given', () => {
+    expect(isInterruptedStep(sleep, 'terminated')).toBe(true)
+    expect(mapRunStepsToNodeStatuses(['nap'], [sleep], {}, 'terminated')).toEqual({
+      nap: 'pending',
+    })
+  })
+
+  it('stops its bar at the run’s end, not at the wake time', () => {
+    const { rows } = buildRunTimeline([sleep], { status: 'terminated', endedAt: runEnd })
+    expect(rows[0]!.interrupted).toBe(true)
+    expect(rows[0]!.durationMs).toBe(3_269)
+  })
+
+  it('stops it at its own end when that came first, the run’s last update being later', () => {
+    // The app stamps the run's end when it notices it, which can be well after.
+    const late = '2026-11-22T06:01:00.000Z'
+    const { rows } = buildRunTimeline([sleep], { status: 'terminated', endedAt: late })
+    expect(rows[0]!.interrupted).toBe(true)
+    expect(rows[0]!.durationMs).toBe(10_000)
+  })
+
+  it('is not interrupted while the run is going', () => {
+    expect(isInterruptedStep(sleep, 'running')).toBe(false)
   })
 })

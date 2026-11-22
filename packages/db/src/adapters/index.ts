@@ -1420,6 +1420,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   createRun(data: CreateRunData): Promise<WorkflowRun> {
     return this._runs.create(data)
   }
+  createRunForInstance(data: CreateRunData): Promise<WorkflowRun | null> {
+    return this._runs.createForInstance(data)
+  }
   async getRunForSyncWithAccount(
     runId: string,
     workflowId: string,

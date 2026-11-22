@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { useIdeLayoutStore } from '../../../stores/ide-layout-store'
 import { useIdeStore } from '../../../stores/ide-store'
@@ -8,6 +8,7 @@ import { useIdeExplorerStore } from '../../../stores/ide-explorer-store'
 import { useIdeSearchStore } from '../../../stores/ide-search-store'
 import { useQuickTestStore } from '../../../stores/quick-test-store'
 import { useWorkflowStore } from '../../../stores/workflow-store'
+import { useOrgStore } from '../../../stores/org-store'
 import {
   createWorkspaceClient,
   seedWorkspaceQueries,
@@ -24,6 +25,7 @@ const blocker = vi.hoisted(() => ({
 const cleanups = vi.hoisted(() => ({ log: [] as string[] }))
 const width = vi.hoisted(() => ({ wide: true }))
 const conversion = vi.hoisted(() => ({ preview: vi.fn() }))
+const routing = vi.hoisted(() => ({ navigate: vi.fn() }))
 
 vi.mock('@tanstack/react-router', () => ({
   useBlocker: () => ({
@@ -34,7 +36,7 @@ vi.mock('@tanstack/react-router', () => ({
     reset: blocker.reset,
   }),
   useRouter: () => ({ history: { back: vi.fn() } }),
-  useNavigate: () => vi.fn(),
+  useNavigate: () => routing.navigate,
 }))
 vi.mock('../../../hooks/use-min-width', () => ({ useMinWidth: () => width.wide }))
 vi.mock('../../../hooks/use-workspace-problems', () => ({ useWorkspaceProblems: () => [] }))
@@ -129,6 +131,36 @@ vi.mock('../step-sync-context', () => ({
 }))
 vi.mock('../canvas-preview', () => ({ CanvasPreview: () => null }))
 
+/** A graph whose one node is a library node this project can't reach. */
+const WITH_UNREACHABLE_NODE = {
+  metadata: { name: 'Orders', version: 1, createdAt: '', updatedAt: '' },
+  nodes: [
+    {
+      id: 'say_hello',
+      type: 'custom:DlCLYH8m7inqK9ZYDUjRM',
+      name: 'Say Hello',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data: {},
+    },
+  ],
+  edges: [],
+  entryNodeId: 'say_hello',
+}
+
+/** The source read answers 422 with these findings, as the API does for a graph it can't build. */
+function failSource(diagnostics: { source: string; message: string; nodeId?: string }[]) {
+  useOrgStore.setState({ appReady: true, activeOrganizationId: 'org_1', activeProjectId: 'prj_1' })
+  // A fresh response per call: a body can be read once.
+  vi.spyOn(globalThis, 'fetch').mockImplementation(
+    async () =>
+      new Response(JSON.stringify({ error: 'Bundle validation failed', diagnostics }), {
+        status: 422,
+      }),
+  )
+}
+
 function mount(client = createWorkspaceClient(), id = WORKFLOW_ID) {
   const ui = (workflowId: string) => (
     <QueryClientProvider client={client}>
@@ -143,6 +175,7 @@ function mount(client = createWorkspaceClient(), id = WORKFLOW_ID) {
 
 beforeEach(() => {
   cleanups.log = []
+  routing.navigate.mockReset()
   conversion.preview.mockReset()
   useIdeLayoutStore.setState({ explorerOpen: true, dockOpen: true, previewOpen: true })
   blocker.status = 'idle'
@@ -154,7 +187,11 @@ beforeEach(() => {
     removeEventListener: () => {},
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => useIdeStore.getState().resetSession())
+afterEach(() => {
+  useIdeStore.getState().resetSession()
+  useOrgStore.getState().clear()
+  vi.restoreAllMocks()
+})
 
 describe('IdeWorkspace', () => {
   it('shows the unsaved-workflow notice for a workflow that does not exist yet', () => {
@@ -182,6 +219,54 @@ describe('IdeWorkspace', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(screen.queryByRole('alertdialog')).toBeNull()
     expect(screen.queryByText(/wider window/)).toBeNull()
+  })
+
+  it('switches to the canvas with the node selected when a node it cannot reach keeps the code from building', async () => {
+    failSource([{ source: 'library', message: 'Unknown custom node', nodeId: 'say_hello' }])
+    const client = createWorkspaceClient()
+    seedWorkspaceQueries(client, { ir: WITH_UNREACHABLE_NODE })
+    client.removeQueries({ queryKey: ['workflow-source', WORKFLOW_ID, undefined] })
+    mount(client)
+    await waitFor(() =>
+      expect(routing.navigate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          search: expect.objectContaining({ node: 'say_hello' }),
+          replace: true,
+        }),
+      ),
+    )
+    expect(routing.navigate).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('load-failure')).toBeNull()
+    expect(screen.getByTestId('skeleton')).toBeTruthy()
+  })
+
+  it('keeps the loaded workspace when a later source refetch fails over a missing node', async () => {
+    // Seeded data is fresh, so the mount reads none; only the refetch below asks the API.
+    failSource([{ source: 'library', message: 'Unknown custom node', nodeId: 'say_hello' }])
+    const client = createWorkspaceClient()
+    seedWorkspaceQueries(client, { ir: WITH_UNREACHABLE_NODE })
+    mount(client)
+    expect(screen.getByTestId('editor-group')).toBeTruthy()
+    await act(async () => {
+      await client
+        .refetchQueries({ queryKey: ['workflow-source', WORKFLOW_ID, undefined] })
+        .catch(() => {})
+      // React Query tells its observers on the next tick.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+    expect(client.getQueryState(['workflow-source', WORKFLOW_ID, undefined])?.status).toBe('error')
+    expect(screen.getByTestId('editor-group')).toBeTruthy()
+    expect(routing.navigate).not.toHaveBeenCalled()
+  })
+
+  it('still shows the failure page when the source fails for another reason', async () => {
+    failSource([{ source: 'provider', message: 'Graph contains a cycle' }])
+    const client = createWorkspaceClient()
+    seedWorkspaceQueries(client)
+    client.removeQueries({ queryKey: ['workflow-source', WORKFLOW_ID, undefined] })
+    mount(client)
+    await waitFor(() => expect(screen.getByTestId('load-failure')).toBeTruthy())
+    expect(routing.navigate).not.toHaveBeenCalled()
   })
 
   it('opens the workspace, not a notice, for a workflow without a version', () => {

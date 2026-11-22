@@ -71,7 +71,7 @@ describe('ActionCard', () => {
     const link = screen.getByRole('link', { name: 'Create a project' })
     expect(link).toHaveAttribute('href', '/acme/new-project')
     expect(link).toHaveAccessibleDescription('Where your workflows will live')
-    expect(link).toHaveClass('border-primary')
+    expect(link).toHaveClass('border-primary-ink')
   })
 
   it('is a filled card by default and an unfilled dashed one as `dashed`', () => {

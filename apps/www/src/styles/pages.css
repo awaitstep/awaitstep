@@ -1,0 +1,609 @@
+/* Hallmark · pages: use cases, integrations, pricing, changelog · the home page's system (global.css): its tokens, type, buttons and sections; these add the shapes the inner pages need */
+/* Hallmark · waive 79 · an inner page opens on a title band (title, one line, the dot grid), not a screen-filling hero · the space under it is the band's padding plus the first section's, the same rhythm every section keeps */
+/* Hallmark · waive 59 · on Pricing the edition cards continue the title band directly (105px), they are its answer, not a new section · every other seam on the inner pages is 218px or more */
+/* Hallmark · waive 77 · a changelog month with few notes is a short section by nature · the month index keeps every note under its month; padding a quiet month would invent content */
+/* Hallmark · waive 78 · the changelog h2s are index labels (a month) beside their lists, not section heads · each list's notes carry the page; a 52px label beside 16px rows would bury them */
+
+/* ---- the opening of an inner page: its title and one line, over the canvas's dot grid ---- */
+.page-head {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  margin-top: -68px;
+  padding-block: calc(68px + var(--space-3xl)) var(--space-xl);
+  border-bottom: 1px solid var(--color-rule);
+}
+.page-head .container {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--space-md);
+}
+/* A corner of the product's canvas behind the opening: its dot grid, fading out toward the title and the page below. */
+.page-head::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 38%;
+  z-index: 0;
+  pointer-events: none;
+  background-image: radial-gradient(var(--scene-dot) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, var(--color-ink) 35%),
+    linear-gradient(to bottom, var(--color-ink) 60%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, var(--color-ink) 35%),
+    linear-gradient(to bottom, var(--color-ink) 60%, transparent);
+  mask-composite: intersect;
+}
+@media (max-width: 60rem) {
+  .page-head::before {
+    inset: 0;
+    opacity: 0.5;
+  }
+}
+.page-head h1 {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* ---- tiles: a grid of small, equal items (nodes, integrations, use cases) ---- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: var(--gap-columns);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tile {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--space-xs);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-paper-2);
+}
+.tile[hidden] {
+  display: none;
+}
+.tile__icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: var(--space-xs);
+  padding: var(--space-2xs);
+  border-radius: var(--radius-control);
+  background: var(--color-ink);
+  object-fit: contain;
+}
+/* Brand marks come in every colour, many dark; a light square keeps each one legible. */
+.tile__name {
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+.tile__name a {
+  color: inherit;
+  text-decoration: none;
+}
+/* The whole tile is the link's target; the name stays the link a screen reader announces. */
+.tile__name a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.tile__line {
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+}
+.tile__meta {
+  margin-top: var(--space-xs);
+  color: var(--color-muted);
+  font-size: var(--text-xs);
+}
+.tile--link {
+  transition:
+    border-color var(--dur-short) var(--ease-out),
+    background-color var(--dur-short) var(--ease-out);
+}
+.tile--link:hover {
+  border-color: color-mix(in oklab, var(--color-accent) 45%, var(--color-rule));
+}
+.tile--link:has(a:focus-visible) {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.tile--link a:focus-visible {
+  outline: none;
+}
+
+/* ---- the filter over a tile list: a search box, category chips and the count ---- */
+.filter {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+.filter[hidden] {
+  display: none;
+}
+.filter__search input {
+  width: min(100%, 28rem);
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-muted);
+  border-radius: var(--radius-control);
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  font: inherit;
+  caret-color: var(--color-accent);
+}
+.filter__search input::placeholder {
+  color: var(--color-muted);
+}
+.filter__search input:hover {
+  border-color: color-mix(in oklab, var(--color-ink) 25%, var(--color-rule));
+}
+.filter__search input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.filter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+.chip {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-short) var(--ease-out),
+    color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out);
+}
+.chip:hover {
+  color: var(--color-ink);
+  background: var(--color-paper-2);
+}
+.chip:active {
+  transform: translateY(1px);
+}
+.chip:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.chip[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+.filter__count,
+.filter__empty {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+.filter__empty {
+  margin-top: var(--space-lg);
+}
+
+/* ---- a heading on one side, its actions on the other ---- */
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-xl);
+}
+.split > div:first-child {
+  display: grid;
+  gap: var(--space-md);
+}
+
+/* ---- use cases: one case per category, its story beside its template's flow ---- */
+.case-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+.case-index a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition:
+    color var(--dur-short) var(--ease-out),
+    border-color var(--dur-short) var(--ease-out);
+}
+.case-index a:hover {
+  color: var(--color-ink);
+  border-color: var(--color-muted);
+}
+.case__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: var(--space-2xl);
+  align-items: center;
+}
+.case--flip .case__text {
+  order: 2;
+}
+.case__text {
+  display: grid;
+  gap: var(--space-md);
+  align-content: start;
+}
+.case .case__text > * {
+  margin: 0;
+}
+.case .case__text > .case__points-title {
+  margin-top: var(--space-lg);
+}
+.case__category {
+  color: var(--color-accent-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.case__problem {
+  color: var(--color-ink-2);
+  font-size: var(--text-lead);
+  line-height: 1.5;
+  max-width: 46ch;
+}
+.case__points-title {
+  margin-top: var(--space-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.case__points {
+  display: grid;
+  margin: 0;
+  border-top: 1px solid var(--color-rule);
+}
+.case__points > div {
+  display: grid;
+  gap: var(--space-3xs);
+  padding-block: var(--space-sm);
+  border-bottom: 1px solid var(--color-rule);
+}
+.case__points dt {
+  font-weight: 600;
+}
+.step-ref {
+  padding: 0 var(--space-2xs);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  white-space: nowrap;
+}
+.case__points dd {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-size: var(--text-sm);
+  max-width: 52ch;
+}
+.case__more {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+/* The flow sits straight on the page: a patch of the canvas's dot grid that fades out at its edges. */
+.case__figure {
+  position: relative;
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding-block: var(--space-xl);
+}
+.case__figure::before {
+  content: '';
+  position: absolute;
+  inset: 0 -8%;
+  z-index: -1;
+  background-image: radial-gradient(var(--scene-dot) 1px, transparent 1.4px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(closest-side, var(--color-ink) 55%, transparent);
+  mask-image: radial-gradient(closest-side, var(--color-ink) 55%, transparent);
+}
+.case {
+  isolation: isolate;
+}
+.case__figure figcaption {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+@media (max-width: 60rem) {
+  .case__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .case--flip .case__text {
+    order: 0;
+  }
+}
+
+/* Under 40rem the drawing would shrink its text below 8px; it keeps 560px and scrolls instead. */
+.case__scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border-radius: var(--radius-control);
+}
+.case__scroll:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+/* On a phone a drawing keeps its text legible (560px for the narrowest) and scrolls sideways. */
+@media (max-width: 40rem) {
+  .case__scroll .flow {
+    min-width: calc(var(--flow-w, 640) * 0.875px);
+  }
+}
+
+/* On a phone the tiles drop to compact cards so a list of 13 or 45 stays scannable. */
+@media (max-width: 40rem) {
+  .tile {
+    padding: var(--space-md);
+    gap: var(--space-3xs);
+    grid-template-rows: none;
+  }
+  .tile__meta {
+    margin-top: var(--space-2xs);
+  }
+  .tile__icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* The flow drawing: nodes, connections and the labels on each path. */
+.flow {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.flow__edge {
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 1.5;
+}
+.flow__node > rect:first-child {
+  fill: var(--color-paper);
+  stroke: var(--color-rule);
+}
+.flow__node.is-entry > rect:first-child {
+  stroke: var(--color-accent);
+}
+.flow__chip {
+  fill: var(--color-ink);
+}
+.flow__name {
+  fill: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+}
+.flow__detail {
+  fill: var(--color-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+.flow__tag rect {
+  fill: var(--color-paper-2);
+  stroke: var(--color-rule);
+}
+.flow__tag text {
+  fill: var(--color-ink-2);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+/* ---- a plain text link inside copy ---- */
+.text-link {
+  color: var(--color-accent-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.text-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* ---- pricing: the two editions, their price line, and what every edition has ---- */
+.plans {
+  border-top: 0;
+  padding-top: var(--space-2xl);
+}
+.plans .edition {
+  grid-template-rows: auto auto auto 1fr auto;
+}
+.plan__name {
+  max-width: none;
+  font-size: var(--text-2xl);
+}
+.plan__price {
+  display: grid;
+  gap: var(--space-3xs);
+}
+.plan__price strong {
+  font: var(--display-weight) var(--text-xl)/1.1 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--color-ink);
+}
+.plan__price span {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+/* The comparison: a sticky header with each edition and its action, rows grouped by topic. */
+.compare__table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.compare__table th,
+.compare__table td {
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-rule);
+  text-align: left;
+  vertical-align: middle;
+}
+.compare__table thead th {
+  position: sticky;
+  top: 68px;
+  z-index: 1;
+  padding-block: var(--space-md);
+  background: var(--color-paper);
+  width: 30%;
+}
+.compare__table thead th:first-of-type {
+  border-top-left-radius: var(--radius-card);
+}
+.compare__table thead th + th {
+  border-top-right-radius: var(--radius-card);
+}
+.compare__plan {
+  display: block;
+  font: var(--display-weight) var(--text-xl)/1.15 var(--font-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--color-ink);
+}
+.compare__table tbody th[scope='row'] {
+  font-weight: 400;
+  color: var(--color-ink);
+}
+.compare__table tbody td {
+  color: var(--color-ink-2);
+}
+/* The Cloud column sits on a faint lime ground, the edition the page leads with. */
+.compare__table td:nth-child(2),
+.compare__table thead th:nth-child(2) {
+  background: color-mix(in oklab, var(--color-accent) 4%, var(--color-paper));
+}
+.compare__table tbody:first-of-type .compare__group th {
+  padding-top: var(--space-lg);
+}
+.compare__group th {
+  padding-top: var(--space-xl);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border-bottom-color: var(--color-rule);
+}
+.compare__none {
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.compare__check {
+  fill: none;
+  stroke: var(--color-accent-text);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- changelog: a month on the left, its notes down the right ---- */
+.log__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: var(--space-2xl);
+  align-items: start;
+}
+.log__month {
+  position: sticky;
+  top: calc(68px + var(--space-lg));
+  font-size: var(--text-2xl);
+}
+.log__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--color-rule);
+}
+.log__item {
+  display: grid;
+  gap: var(--space-xs);
+  padding-block: var(--space-lg);
+  border-bottom: 1px solid var(--color-rule);
+}
+.log__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.log__tag {
+  padding: var(--space-3xs) var(--space-xs);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
+  font-size: var(--text-xs);
+  color: var(--color-ink-2);
+}
+.log__tag--new {
+  border-color: color-mix(in oklab, var(--color-accent) 50%, var(--color-rule));
+  color: var(--color-accent-text);
+}
+.log__title {
+  max-width: 52ch;
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+.log__body {
+  max-width: 46ch;
+  color: var(--color-ink-2);
+}
+@media (max-width: 40rem) {
+  .compare__table th,
+  .compare__table td {
+    padding: var(--space-xs);
+    font-size: var(--text-sm);
+  }
+  .compare__plan {
+    font-size: var(--text-md);
+  }
+  .compare__table thead th {
+    width: 32%;
+  }
+}
+@media (max-width: 60rem) {
+  .log__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-lg);
+  }
+  .log__month {
+    position: static;
+  }
+}
+/* The site's "space after a section heading" rule doesn't apply inside these layouts. */
+.plans .edition > *,
+.log__grid h2 + * {
+  margin-top: 0;
+}

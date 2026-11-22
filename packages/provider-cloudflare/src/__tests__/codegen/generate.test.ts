@@ -26,24 +26,61 @@ describe('generateWorkflow', () => {
   it('generates a simple sequential workflow', () => {
     const code = workflowSource(generateWorkflowBundle(simpleWorkflow as unknown as WorkflowIR))
     expect(code).toMatchInlineSnapshot(`
-      "import { defineWorkflow, durableStep, stepArgs } from "#awaitstep/runtime";
+      "import { defineWorkflow, durableStep, stepArgs, sendInstanceEvent as awaitstepSendInstanceEvent, type WorkflowInstanceHandle as AwaitstepInstanceHandle } from "#awaitstep/runtime";
       import type { Env } from "#awaitstep/env";
       import $Fetch_data from "#app/steps/step-1.js";
       import $Process_data from "#app/steps/step-2.js";
 
       export const AWAITSTEP_RETENTION = { successRetention: "7 days", errorRetention: "7 days" };
 
-      /** Starts an instance of this workflow with \`params\` as its event payload. */
-      export async function startWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
-        const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
+      // Declared under awaitstep names and exported under the public ones: inline
+      // code's imports are hoisted into this module, and a step importing its own
+      // \`startWorkflow\`, \`workflowStatus\`, \`getInstance\` or \`sendEvent\` must keep it.
+      /**
+       * Starts an instance of this workflow with \`params\` as its event payload.
+       * \`options.instanceId\` names it, else \`params.instanceId\`; without either, the
+       * first start in a request AwaitStep sent takes the id it named, else
+       * Cloudflare picks one.
+       */
+      async function awaitstepStartWorkflow(env: Env, params: unknown, options?: { instanceId?: string }): Promise<{ instanceId: string }> {
+        const named = (params as { instanceId?: unknown } | null | undefined)?.instanceId;
+        const id = options?.instanceId ?? (typeof named === "string" && named.length > 0 ? named : undefined);
+        const instance = await env.WORKFLOW.create({ ...(id !== undefined && { id }), params, retention: AWAITSTEP_RETENTION });
         return { instanceId: instance.id };
       }
 
-      /** The status of an instance, or null when there is none by that id. */
-      export async function workflowStatus(env: Env, instanceId: string) {
+      /** An instance of this workflow by id — its status and a way to send it an event — or null when there is none. */
+      async function awaitstepGetInstance(env: Env, instanceId: string): Promise<AwaitstepInstanceHandle | null> {
         const instance = await env.WORKFLOW.get(instanceId).catch(() => null);
+        if (!instance) return null;
+        return {
+          instanceId,
+          status: () => instance.status(),
+          sendEvent: (type: string, payload?: unknown) => instance.sendEvent({ type, payload }),
+        };
+      }
+
+      /**
+       * Sends an event to an instance of this workflow: \`getInstance\`, then its \`sendEvent\`.
+       * A wait for an event of this \`type\` takes its onEvent path; its value is the event, with \`payload\` as sent.
+       * Throws InstanceNotFoundError when there is no instance by that id.
+       */
+      function awaitstepSendWorkflowEvent(env: Env, instanceId: string, type: string, payload?: unknown): Promise<void> {
+        return awaitstepSendInstanceEvent((id) => awaitstepGetInstance(env, id), instanceId, type, payload);
+      }
+
+      /** The status of an instance, or null when there is none by that id. */
+      async function awaitstepWorkflowStatus(env: Env, instanceId: string) {
+        const instance = await awaitstepGetInstance(env, instanceId);
         return instance ? instance.status() : null;
       }
+
+      export {
+        awaitstepStartWorkflow as startWorkflow,
+        awaitstepWorkflowStatus as workflowStatus,
+        awaitstepGetInstance as getInstance,
+        awaitstepSendWorkflowEvent as sendEvent,
+      };
 
       export default defineWorkflow<Env>({
         id: "simple_workflow",
@@ -89,14 +126,19 @@ describe('generateWorkflow', () => {
         },
       ],
     } as WorkflowIR
-    const waiting = programOf(withWait)
-    expect(waiting).toContain('async function awaitstepSendEvent')
-    expect(waiting).toContain('action !== "send-event"')
-    expect(waiting).toContain('if (!instance)')
-    expect(waiting).toContain(
+    const bundle = generateWorkflowBundle(withWait)
+    const entry = bundle.files.find((file) => file.path === 'awaitstep/entry.ts')!.source
+    expect(entry).toContain('async function awaitstepSendEvent')
+    expect(entry).toContain('action !== "send-event"')
+    expect(entry).toContain(
       'const payload = body?.params ?? body?.payload ?? (queryAction ? body : undefined)',
     )
-    expect(waiting).toContain('await instance.sendEvent({ type, payload })')
+    // The route sends through the workflow module's own sendEvent, and a run
+    // that isn't there is a 404.
+    expect(entry).toContain('sendEvent as awaitstepWorkflowEvent } from "#awaitstep/workflow"')
+    expect(entry).toContain('InstanceNotFoundError as AwaitstepInstanceNotFound')
+    expect(entry).toContain('await awaitstepWorkflowEvent(env, instanceId, type, payload)')
+    expect(entry).toContain('if (error instanceof AwaitstepInstanceNotFound)')
 
     expect(programOf(simpleWorkflow as unknown as WorkflowIR)).not.toContain('awaitstepSendEvent')
   })
@@ -347,7 +389,8 @@ describe('generateWorkflow', () => {
     // Default scaffolding uses @fetch annotation form with user-supplied params.
     expect(code).toContain('async fetch(request, env, ctx)')
     expect(code).toContain('request.method === "POST"')
-    expect(code).toContain('env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })')
+    expect(code).toContain('env = awaitstepRequestEnv(request, env);')
+    expect(code).toContain('return Response.json(await awaitstepStartWorkflow(env, params));')
     expect(code).toContain('env.WORKFLOW.get(instanceId)')
     expect(code).toContain('instance.status()')
   })
@@ -717,5 +760,33 @@ function shared(x) { return x }
     const triggerCode = `@fetch function handler(req, env) { return new Response("ok") }`
     const code = generateWorkflow(ir, { triggerCode })
     expect(code).not.toContain('async scheduled(')
+  })
+})
+
+describe('generateWorkflowBundle: inline step bindings', () => {
+  it('hands an inline step’s top-level const to a later step that reads it', () => {
+    const step = (id: string, name: string, data: Record<string, unknown>): WorkflowNode => ({
+      id,
+      name,
+      type: 'step',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data,
+    })
+    const ir = {
+      metadata: { name: 'inline bindings', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        step('get', 'Get Customer', { inline: true, code: 'const user = { email: "a@b.c" }' }),
+        step('sync', 'Sync Contact', {
+          code: 'export default async function Sync_Contact({ inputs }) {\n  return inputs.user\n}\n',
+        }),
+      ],
+      edges: [{ id: 'e1', source: 'get', target: 'sync' }],
+      entryNodeId: 'get',
+    } as unknown as WorkflowIR
+    const code = programOf(ir)
+    expect(code).toContain('const user = { email: "a@b.c" }')
+    expect(code).toContain('$Sync_Contact(stepArgs({ env, event, inputs: { user }, step, ctx }))')
   })
 })

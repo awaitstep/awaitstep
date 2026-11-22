@@ -41,6 +41,40 @@ export default async function ({ request, env }: FetchContext<Env>): Promise<Res
 }
 ```
 
+To resume a run waiting for an event, look it up with `getInstance` and call
+its `sendEvent`, or call `sendEvent`, which does that lookup itself and throws
+`InstanceNotFoundError` (from `#awaitstep/runtime`) when there is no such run.
+`type` is the wait node's event type; the wait's value is the event, and
+its `payload` is what you sent (read it as `<wait>.payload`).
+
+```ts
+import { getInstance, sendEvent } from '#awaitstep/workflow'
+
+const instance = await getInstance(env, instanceId) // null when there is none
+if (!instance) return Response.json({ message: 'Instance not found' }, { status: 404 })
+await instance.sendEvent('approval', { approved: true })
+// or, in one call:
+await sendEvent(env, instanceId, 'approval', { approved: true })
+```
+
+Runs from AwaitStep (`POST /api/run/:id`, Trigger, Run again) reach this
+handler when the workflow's deploy has a URL of its own: a route, a custom
+domain, or `workers.dev` turned on. AwaitStep names the run's instance in
+`X-AwaitStep-Instance-Id`, and the first instance the request creates without an
+id of its own takes it — through `startWorkflow(env, params)` or
+`env.WORKFLOW.create()` (`params.instanceId` first;
+`startWorkflow(env, params, { instanceId })` names one outright) — so AwaitStep
+records the run. A request that starts nothing is recorded as a call. Without
+such a URL, runs from AwaitStep skip the handler.
+
+The worker answers the built-in send-event body
+(`{ action: "send-event", instanceId, type, payload }`) before the handler runs,
+unless the handler, or a project module it imports, takes `sendEvent` or
+`getInstance` from `#awaitstep/workflow`: then the handler gets every request.
+The route answers anyone who can reach the worker's URL, and a chosen instance
+id (`order-42`) is guessable: to keep a wait from being resumed by others,
+handle send-event in the handler with a check of your own.
+
 A Function's `handlers/fetch.ts`:
 
 ```ts
@@ -123,8 +157,8 @@ portable and is not exposed.
 - **Queue names** are lowercase letters, digits and inner hyphens, 1–63
   characters.
 - **The handler imports the graph module**, not `#app/worker`:
-  `#awaitstep/workflow` (`startWorkflow`, `workflowStatus`,
-  `AWAITSTEP_RETENTION`) or `#awaitstep/function` (`runGraph`, and
+  `#awaitstep/workflow` (`startWorkflow`, `workflowStatus`, `getInstance`,
+  `sendEvent`, `AWAITSTEP_RETENTION`) or `#awaitstep/function` (`runGraph`, and
   `AWAITSTEP_RETENTION` when the graph calls a sub-workflow). A cycle through `#app/worker` does not resolve.
 - **Legacy `handlers.ts` never coexists** with `handlers/`. While it exists, a
   first handler-module write is refused; convert first.

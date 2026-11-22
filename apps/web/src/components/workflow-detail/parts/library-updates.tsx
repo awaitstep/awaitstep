@@ -42,7 +42,7 @@ export function LibraryUpdates({ updates, redeployHref }: LibraryUpdatesProps) {
               {update.name} {update.latest} is published. {update.accountName} runs {update.runs}.
             </span>
             {href && (
-              <ShellLink href={href} className="shrink-0 text-xs font-medium text-primary">
+              <ShellLink href={href} className="shrink-0 text-xs font-medium text-primary-ink">
                 Redeploy
               </ShellLink>
             )}

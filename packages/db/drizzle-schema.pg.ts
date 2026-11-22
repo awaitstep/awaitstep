@@ -415,7 +415,14 @@ export const workflowRuns = pgTable(
     createdAt: timestamp('created_at', { mode: 'string' }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { mode: 'string' }).notNull().defaultNow(),
   },
-  (table) => [index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt)],
+  (table) => [
+    index('idx_workflow_runs_workflow_created').on(table.workflowId, table.createdAt),
+    uniqueIndex('uq_workflow_runs_instance').on(
+      table.workflowId,
+      table.connectionId,
+      table.instanceId,
+    ),
+  ],
 )
 
 export const workflowRunSteps = pgTable(

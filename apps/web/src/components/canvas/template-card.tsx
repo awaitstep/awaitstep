@@ -1,4 +1,8 @@
-import { templateRegistryNodes, type WorkflowTemplate } from '../../lib/workflow-templates'
+import {
+  TEMPLATE_ICONS,
+  templateRegistryNodes,
+  type WorkflowTemplate,
+} from '../../lib/workflow-templates'
 import { Tile } from '../ui/tile'
 
 interface TemplateCardProps {
@@ -8,7 +12,7 @@ interface TemplateCardProps {
 
 /** One template in the picker: icon, name, node count, what it's for and the nodes to install. */
 export function TemplateCard({ template, onSelect }: TemplateCardProps) {
-  const Icon = template.icon
+  const Icon = TEMPLATE_ICONS[template.icon]
   const uses = templateRegistryNodes(template)
 
   function handleClick() {
@@ -24,7 +28,7 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
       <span className="flex items-center gap-2.5">
         <Tile
           size="sm"
-          className="bg-primary/10 text-primary transition-colors group-hover:bg-primary/20"
+          className="bg-primary/10 text-primary-ink transition-colors group-hover:bg-primary/20"
         >
           <Icon />
         </Tile>

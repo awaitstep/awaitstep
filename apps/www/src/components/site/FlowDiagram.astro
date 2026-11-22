@@ -1,0 +1,85 @@
+---
+/**
+ * A template's graph as the canvas draws it: a node per step with its name and what it does,
+ * the connections between them, and the label on each path out of a wait, a branch or a block.
+ * The figure's caption names the template; the steps are listed as text beside it.
+ */
+import { FLOW_NODE_W, type FlowLayout } from '../../content/flow'
+
+interface Props {
+  layout: FlowLayout
+  /** Icon URLs by registry integration id. */
+  icons: ReadonlyMap<string, string>
+  label: string
+}
+
+const { layout, icons, label } = Astro.props
+const WIDTH = layout.width
+const NODE_W = FLOW_NODE_W
+const NODE_H = 56
+const ROW_H = 116
+const height = layout.rows * ROW_H - (ROW_H - NODE_H) + 8
+const at = new Map(
+  layout.nodes.map((n) => [n.id, { x: n.x - NODE_W / 2, y: n.row * ROW_H + 4 }]),
+)
+const paths = layout.edges.map((e) => {
+  const a = at.get(e.from)!
+  const b = at.get(e.to)!
+  const from = { x: a.x + NODE_W / 2, y: a.y + NODE_H }
+  const to = { x: b.x + NODE_W / 2, y: b.y }
+  const mid = (from.y + to.y) / 2
+  return {
+    d: `M ${from.x} ${from.y} C ${from.x} ${mid}, ${to.x} ${mid}, ${to.x} ${to.y}`,
+    label: e.label,
+    lx: (from.x + to.x) / 2,
+    ly: mid,
+  }
+})
+const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
+---
+
+<svg
+  class="flow"
+  viewBox={`0 0 ${WIDTH} ${height}`}
+  style={`--flow-w: ${WIDTH}`}
+  role="img"
+  aria-label={label}
+>
+  {paths.map((p) => <path class="flow__edge" d={p.d} />)}
+  {
+    paths
+      .filter((p) => p.label)
+      .map((p) => (
+        <g class="flow__tag" transform={`translate(${p.lx} ${p.ly})`}>
+          <rect x={-(p.label!.length * 3.6 + 10)} y="-11" width={p.label!.length * 7.2 + 20} height="22" rx="6" />
+          <text text-anchor="middle" y="4">
+            {p.label}
+          </text>
+        </g>
+      ))
+  }
+  {
+    layout.nodes.map((n, i) => {
+      const { x, y } = at.get(n.id)!
+      const icon = n.integrationId ? icons.get(n.integrationId) : undefined
+      const textX = icon ? 46 : 16
+      return (
+        <g class:list={['flow__node', i === 0 && 'is-entry']} transform={`translate(${x} ${y})`}>
+          <rect width={NODE_W} height={NODE_H} rx="9" />
+          {icon && (
+            <>
+              <rect class="flow__chip" x="12" y="14" width="26" height="26" rx="6" />
+              <image href={icon} x="16" y="18" width="18" height="18" />
+            </>
+          )}
+          <text class="flow__name" x={textX} y="24">
+            {clip(n.label, icon ? 19 : 23)}
+          </text>
+          <text class="flow__detail" x={textX} y="42">
+            {clip(n.detail, icon ? 25 : 30)}
+          </text>
+        </g>
+      )
+    })
+  }
+</svg>

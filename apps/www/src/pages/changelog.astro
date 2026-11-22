@@ -1,0 +1,49 @@
+---
+import Base from '../layouts/Base.astro'
+import '../styles/pages.css'
+import { CHANGELOG_PAGE as PAGE, groupByMonth, loadChanges, TAG_LABELS } from '../content/changelog'
+
+const files = import.meta.glob<string>('../../../web/release-notes/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+})
+const changes = loadChanges(files)
+const months = groupByMonth(changes)
+const dateLabel = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+---
+
+<Base title={PAGE.title} description={PAGE.description} crumb="Changelog" image="changelog">
+  <section class="page-head" aria-labelledby="page-title">
+    <div class="container">
+      <h1 id="page-title">{PAGE.heading}</h1>
+      <p class="lead">{PAGE.line}</p>
+      <p><a class="text-link" href={PAGE.releasesUrl}>{PAGE.releasesLabel}</a></p>
+    </div>
+  </section>
+
+  {
+    months.map((month) => (
+      <section class="section log" aria-labelledby={`month-${month.key}`}>
+        <div class="container log__grid">
+          <h2 id={`month-${month.key}`} class="log__month">
+            {month.label}
+          </h2>
+          <ol class="log__list" role="list">
+            {month.changes.map((c) => (
+              <li class="log__item" id={c.id}>
+                <p class="log__meta">
+                  <time datetime={c.date}>{dateLabel(c.date)}</time>
+                  <span class={`log__tag log__tag--${c.tag}`}>{TAG_LABELS[c.tag]}</span>
+                </p>
+                <h3 class="log__title">{c.title}</h3>
+                <p class="log__body">{c.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    ))
+  }
+</Base>

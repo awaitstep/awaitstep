@@ -18,7 +18,7 @@ export function CustomNodeSourceLine({ source }: { source: CustomNodeSource }) {
           <span aria-hidden="true" className="text-muted-foreground/50">
             ·
           </span>
-          <ShellLink href={libraryItemHref(scope, source)} className="font-medium text-primary">
+          <ShellLink href={libraryItemHref(scope, source)} className="font-medium text-primary-ink">
             Open in Scripts & nodes
           </ShellLink>
         </>

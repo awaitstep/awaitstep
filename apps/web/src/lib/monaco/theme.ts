@@ -28,6 +28,7 @@ const TOKENS = [
   '--border',
   '--input',
   '--primary',
+  '--primary-ink',
   '--surface-overlay',
   '--sidebar-accent',
 ] as const
@@ -64,13 +65,14 @@ export function buildThemeColors(tokens: ThemeTokens): Record<string, string> {
   }
   const flat = solid
   const primary = solid('--primary')
+  const primaryInk = solid('--primary-ink')
   const entries: Array<[string, string | undefined]> = [
     ['editor.background', solid('--editor')],
     ['editor.foreground', solid('--foreground')],
     ['editor.lineHighlightBackground', solid('--muted')],
     ['editor.selectionBackground', primary && `${primary.slice(0, 7)}40`],
     ['editor.inactiveSelectionBackground', primary && `${primary.slice(0, 7)}22`],
-    ['editorCursor.foreground', primary],
+    ['editorCursor.foreground', primaryInk],
     ['editorLineNumber.foreground', solid('--muted-foreground')],
     ['editorLineNumber.activeForeground', solid('--foreground')],
     ['editorGutter.background', solid('--editor')],

@@ -73,6 +73,29 @@ export class RunsAdapter {
   }
 
   async create(data: CreateRunData): Promise<WorkflowRun> {
+    const row = this.rowOf(data)
+    await this.db.insert(this.table).values(row)
+    return row
+  }
+
+  /**
+   * The run, unless that workflow already has one on that instance and
+   * account: then null and nothing written — one statement, so two requests
+   * that started the same instance at once record it once.
+   */
+  async createForInstance(data: CreateRunData): Promise<WorkflowRun | null> {
+    const row = this.rowOf(data)
+    const written = await this.db
+      .insert(this.table)
+      .values(row)
+      .onConflictDoNothing({
+        target: [this.table.workflowId, this.table.connectionId, this.table.instanceId],
+      })
+      .returning({ id: this.table.id })
+    return written.length > 0 ? row : null
+  }
+
+  private rowOf(data: CreateRunData): WorkflowRun {
     const now = new Date().toISOString()
     const row: WorkflowRun = {
       id: data.id,
@@ -93,7 +116,6 @@ export class RunsAdapter {
       createdAt: data.createdAt ?? now,
       updatedAt: data.updatedAt ?? data.createdAt ?? now,
     }
-    await this.db.insert(this.table).values(row)
     return row
   }
 
