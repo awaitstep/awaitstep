@@ -1,5 +1,4 @@
-import { Send, Siren, UserCheck, Webhook } from 'lucide-react'
-import type { WorkflowTemplate } from './types'
+import type { WorkflowTemplate } from './types.js'
 import {
   branch,
   edge,
@@ -9,13 +8,13 @@ import {
   waitEdges,
   waitForEvent,
   workflow,
-} from './template-nodes'
+} from './template-nodes.js'
 
 const inboundWebhook: WorkflowTemplate = {
   id: 'inbound-webhook',
   name: 'Inbound webhook handler',
   description: 'Check a webhook’s signature, then route it by event type.',
-  icon: Webhook,
+  icon: 'webhook',
   category: 'integrations',
   ir: workflow(
     'Inbound webhook handler',
@@ -90,7 +89,7 @@ const outboundWebhook: WorkflowTemplate = {
   id: 'outbound-webhook',
   name: 'Outbound webhook delivery',
   description: 'Sign a payload and deliver it to a customer’s URL, retrying with backoff.',
-  icon: Send,
+  icon: 'send',
   category: 'integrations',
   ir: workflow(
     'Outbound webhook delivery',
@@ -161,7 +160,7 @@ const approval: WorkflowTemplate = {
   name: 'Approval',
   description:
     'Ask for approval in Slack, then go ahead, reject, or tell the requester it expired.',
-  icon: UserCheck,
+  icon: 'user-check',
   category: 'integrations',
   ir: workflow(
     'Approval',
@@ -223,7 +222,7 @@ const incidentEscalation: WorkflowTemplate = {
   id: 'incident-escalation',
   name: 'Incident escalation',
   description: 'Alert on-call in Slack, and escalate if nobody acknowledges within 15 minutes.',
-  icon: Siren,
+  icon: 'siren',
   category: 'integrations',
   ir: workflow(
     'Incident escalation',

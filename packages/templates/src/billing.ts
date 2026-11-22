@@ -1,5 +1,4 @@
-import { CreditCard, Gauge, Hourglass } from 'lucide-react'
-import type { WorkflowTemplate } from './types'
+import type { WorkflowTemplate } from './types.js'
 import {
   edge,
   http,
@@ -10,7 +9,7 @@ import {
   waitEdges,
   waitForEvent,
   workflow,
-} from './template-nodes'
+} from './template-nodes.js'
 
 const waitForPayment = waitForEvent('wait_for_payment', [300, 240], {
   eventType: 'payment-succeeded',
@@ -23,7 +22,7 @@ const failedPayment: WorkflowTemplate = {
   id: 'failed-payment-recovery',
   name: 'Failed payment recovery',
   description: 'Email the customer, then downgrade if they don’t pay in 3 days.',
-  icon: CreditCard,
+  icon: 'credit-card',
   category: 'billing',
   ir: workflow(
     'Failed payment recovery',
@@ -79,7 +78,7 @@ const trialEnding: WorkflowTemplate = {
   id: 'trial-ending',
   name: 'Trial ending',
   description: 'Remind the customer 3 days out, then end the trial if they don’t subscribe.',
-  icon: Hourglass,
+  icon: 'hourglass',
   category: 'billing',
   ir: workflow(
     'Trial ending',
@@ -126,7 +125,7 @@ const usageSync: WorkflowTemplate = {
   id: 'usage-sync',
   name: 'Usage sync to Stripe',
   description: 'Send each customer’s usage to Stripe meters. Run it from a cron trigger.',
-  icon: Gauge,
+  icon: 'gauge',
   category: 'billing',
   ir: workflow(
     'Usage sync to Stripe',

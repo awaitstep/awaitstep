@@ -1,12 +1,19 @@
-import { MessageSquare, ShoppingBag, ShoppingCart } from 'lucide-react'
-import type { WorkflowTemplate } from './types'
-import { edge, sendEmail, sleep, step, waitEdges, waitForEvent, workflow } from './template-nodes'
+import type { WorkflowTemplate } from './types.js'
+import {
+  edge,
+  sendEmail,
+  sleep,
+  step,
+  waitEdges,
+  waitForEvent,
+  workflow,
+} from './template-nodes.js'
 
 const orderFulfillment: WorkflowTemplate = {
   id: 'order-fulfillment',
   name: 'Order fulfillment',
   description: 'Create a shipment for a paid order, then email the tracking number.',
-  icon: ShoppingCart,
+  icon: 'shopping-cart',
   category: 'commerce',
   ir: workflow(
     'Order fulfillment',
@@ -48,7 +55,7 @@ const abandonedCart: WorkflowTemplate = {
   id: 'abandoned-cart',
   name: 'Abandoned cart',
   description: 'Email a reminder if a cart isn’t bought within 2 hours.',
-  icon: ShoppingBag,
+  icon: 'shopping-bag',
   category: 'commerce',
   ir: workflow(
     'Abandoned cart',
@@ -87,7 +94,7 @@ const postPurchaseSurvey: WorkflowTemplate = {
   id: 'post-purchase-survey',
   name: 'Post-purchase survey',
   description: 'Ask for feedback a few days after delivery, and record the answer.',
-  icon: MessageSquare,
+  icon: 'message-square',
   category: 'commerce',
   ir: workflow(
     'Post-purchase survey',

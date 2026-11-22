@@ -1,5 +1,4 @@
-import { HeartHandshake, MailPlus, UserPlus } from 'lucide-react'
-import type { WorkflowTemplate } from './types'
+import type { WorkflowTemplate } from './types.js'
 import {
   branch,
   edge,
@@ -10,13 +9,13 @@ import {
   waitEdges,
   waitForEvent,
   workflow,
-} from './template-nodes'
+} from './template-nodes.js'
 
 const newUser: WorkflowTemplate = {
   id: 'new-user-onboarding',
   name: 'New user onboarding',
   description: 'Welcome a new user, then send tips or a nudge depending on whether they’re set up.',
-  icon: UserPlus,
+  icon: 'user-plus',
   category: 'onboarding',
   ir: workflow(
     'New user onboarding',
@@ -74,7 +73,7 @@ const inviteReminder: WorkflowTemplate = {
   id: 'team-invite-reminder',
   name: 'Team invite reminder',
   description: 'Remind an invited teammate if they haven’t joined after 2 days.',
-  icon: MailPlus,
+  icon: 'mail-plus',
   category: 'onboarding',
   ir: workflow(
     'Team invite reminder',
@@ -107,7 +106,7 @@ const winBack: WorkflowTemplate = {
   id: 'win-back',
   name: 'Win back inactive users',
   description: 'Email an inactive user, then flag them to your team if they don’t come back.',
-  icon: HeartHandshake,
+  icon: 'heart-handshake',
   category: 'onboarding',
   ir: workflow(
     'Win back inactive users',

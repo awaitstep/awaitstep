@@ -1,12 +1,11 @@
-import { Building2, Download, UserX } from 'lucide-react'
-import type { WorkflowTemplate } from './types'
-import { edge, parallel, sendEmail, sleep, step, tryCatch, workflow } from './template-nodes'
+import type { WorkflowTemplate } from './types.js'
+import { edge, parallel, sendEmail, sleep, step, tryCatch, workflow } from './template-nodes.js'
 
 const accountDeletion: WorkflowTemplate = {
   id: 'account-deletion',
   name: 'Account deletion',
   description: 'Delete a user’s data from each service at once, then confirm by email.',
-  icon: UserX,
+  icon: 'user-x',
   category: 'accounts',
   ir: workflow(
     'Account deletion',
@@ -54,7 +53,7 @@ const dataExport: WorkflowTemplate = {
   id: 'data-export',
   name: 'Data export',
   description: 'Build an export, email the download link, then delete the file after 7 days.',
-  icon: Download,
+  icon: 'download',
   category: 'accounts',
   ir: workflow(
     'Data export',
@@ -95,7 +94,7 @@ const tenantProvisioning: WorkflowTemplate = {
   id: 'tenant-provisioning',
   name: 'Tenant provisioning',
   description: 'Set up a new workspace, and undo it if any step fails.',
-  icon: Building2,
+  icon: 'building-2',
   category: 'accounts',
   ir: workflow(
     'Tenant provisioning',

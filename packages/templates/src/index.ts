@@ -1,13 +1,18 @@
-import { accountTemplates } from './accounts'
-import { billingTemplates } from './billing'
-import { commerceTemplates } from './commerce'
-import { integrationTemplates } from './integrations'
-import { onboardingTemplates } from './onboarding'
-import { REGISTRY_NODES } from './template-nodes'
-import type { TemplateCategory, WorkflowTemplate } from './types'
+import { accountTemplates } from './accounts.js'
+import { billingTemplates } from './billing.js'
+import { commerceTemplates } from './commerce.js'
+import { integrationTemplates } from './integrations.js'
+import { onboardingTemplates } from './onboarding.js'
+import { REGISTRY_NODES } from './template-nodes.js'
+import type { TemplateCategory, WorkflowTemplate } from './types.js'
 
-export type { TemplateCategory, TemplateCategoryId, WorkflowTemplate } from './types'
-export { REGISTRY_NODES } from './template-nodes'
+export type {
+  TemplateCategory,
+  TemplateCategoryId,
+  TemplateIconName,
+  WorkflowTemplate,
+} from './types.js'
+export { REGISTRY_NODES } from './template-nodes.js'
 
 export const templateCategories: TemplateCategory[] = [
   { id: 'billing', name: 'Billing', description: 'Payments, trials and usage.' },
