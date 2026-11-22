@@ -1,3 +1,4 @@
+import { libraryIconError } from '@awaitstep/ir'
 import { transform } from 'sucrase'
 import { compareVersions, mergeDefinition, semverProblem } from './definition.js'
 
@@ -29,7 +30,8 @@ export interface NodeInput {
   id: string
   base?: Record<string, unknown>
   versions: VersionInput[]
-  iconExists: boolean
+  /** The node's icon.svg, or undefined when it has none. */
+  icon?: string
 }
 
 const OVERRIDE_KEYS = new Set([
@@ -232,7 +234,13 @@ export function validateNode(input: NodeInput, schema: DefinitionSchema): Valida
   if (base.id !== input.id) {
     issues.push(error(`${input.id}/base.json`, `id "${String(base.id)}" does not match directory`))
   }
-  if (!input.iconExists) issues.push(error(input.id, 'missing icon.svg'))
+  if (input.icon === undefined) issues.push(error(input.id, 'missing icon.svg'))
+  else {
+    // The marketing site serves each icon as a file on its own origin: one that could run script
+    // there is refused here, by the same rule the Library applies to uploaded icons.
+    const iconProblem = libraryIconError(input.icon)
+    if (iconProblem) issues.push(error(input.id, iconProblem))
+  }
   if (input.versions.length === 0) issues.push(error(input.id, 'no version directories'))
 
   const sorted = [...input.versions].sort((left, right) =>
