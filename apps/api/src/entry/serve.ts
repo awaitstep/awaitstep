@@ -37,6 +37,7 @@ import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { cloudflareOAuthFromEnv } from '../lib/cloudflare-oauth-config.js'
 import { createConnectionRefresh } from '../lib/connection-refresh.js'
+import { publicFetch } from './public-fetch.js'
 
 const __appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
@@ -238,6 +239,7 @@ async function start() {
     testSessionRunner: testSessionRunner,
     testSessionLimits: testSessionLimits,
     emails,
+    publicFetch,
     imageStore,
 
     connectionAddress: (c) => getConnInfo(c).remote.address,

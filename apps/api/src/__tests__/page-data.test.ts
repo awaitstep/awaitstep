@@ -201,7 +201,7 @@ describe('the worker’s URL', () => {
       ((await offered.json()) as { deployedWith: { callable: boolean }[] }).deployedWith,
     ).toEqual([expect.objectContaining({ id: 'c-acme', callable: true })])
 
-    // A route's address is not one the server calls: not callable, and still not sent.
+    // A route's address is called too (a function's handler is there), and still not sent.
     await h.db
       .update(h.schema.deployments)
       .set({ serviceUrl: 'https://api.acme.com' })
@@ -213,7 +213,7 @@ describe('the worker’s URL', () => {
     const text = await routed.text()
     expect(text).not.toContain('api.acme.com')
     expect((JSON.parse(text) as { deployedWith: { callable: boolean }[] }).deployedWith).toEqual([
-      expect.objectContaining({ callable: false }),
+      expect.objectContaining({ callable: true }),
     ])
   })
 

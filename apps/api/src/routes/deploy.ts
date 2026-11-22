@@ -16,7 +16,9 @@ import {
   MAX_RUN_PAYLOAD_BYTES,
   runStartDeps,
   startWorkflowRun,
+  type RunPayload,
 } from '../lib/run-start.js'
+import { withFreshInstanceId } from '../lib/run-request.js'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import { prepareDeploy, isDeployError, CONNECTION_NOT_SERVING } from '../lib/deploy-prepare.js'
 import { runDeploy } from '../lib/deploy-run.js'
@@ -367,20 +369,45 @@ deploy.post(
     return startRun(c, workflow, connectionId, async () => {
       const row = await db.getRunParams(runId, workflow.id, connectionId)
       if (!row) return null
-      return { params: row.params === null ? undefined : (JSON.parse(row.params) as unknown) }
+      // Kept with its type (it wasn't sent as JSON): it goes again with that type.
+      if (row.contentType) return againAsSent(callBody(row.params), row.contentType)
+      const params = row.params === null ? undefined : (JSON.parse(row.params) as unknown)
+      // A new instance, so the run doesn't collide with the one it repeats.
+      return { params: withFreshInstanceId(params) }
     })
   },
 )
 
-/** Starts a run of `workflow` on `connectionId` and answers it as the dashboard reads it. */
+/**
+ * A kept body sent again with its own type. Text that is JSON is read as the
+ * run's params too (a named instance replaced, as for any Run again); other
+ * text goes on as it is, for the workflow's own handler.
+ */
+function againAsSent(body: string, contentType: string): RunPayload {
+  let params: unknown
+  try {
+    params = JSON.parse(body) as unknown
+  } catch {
+    return { params: undefined, notJson: true, body, contentType }
+  }
+  const fresh = withFreshInstanceId(params)
+  return { params: fresh, body: fresh === params ? body : JSON.stringify(fresh), contentType }
+}
+
+/**
+ * Starts a run of `workflow` on `connectionId` and answers it as the dashboard
+ * reads it: the run (a call, when the workflow's own handler started nothing),
+ * or `{ ok: true }` for the built-in send-event body.
+ */
 async function startRun(
   c: Context<AppEnv>,
   workflow: Workflow,
   connectionId: string,
-  readPayload: () => Promise<{ params: unknown } | null>,
+  readPayload: () => Promise<RunPayload | null>,
 ) {
   const started = await startWorkflowRun(runStartDeps(c), { workflow, connectionId }, readPayload)
   if (!started.ok) return c.json({ error: started.error }, started.status)
+  if (started.outcome === 'event-sent') return c.json({ ok: true as const })
   return c.json(runDetailRecord(started.run), 201)
 }
 

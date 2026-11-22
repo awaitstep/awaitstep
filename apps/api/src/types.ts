@@ -165,6 +165,8 @@ export interface AppEnv {
     testSessionRunner: TestSessionRunner | undefined
     testSessionLimits: TestSessionLimits
     emails: AppEmails | undefined
+    /** The fetch for a deployment's own URL (the entry's; it refuses private addresses). */
+    publicFetch: typeof fetch | undefined
     /** Where uploaded photos' and logos' bytes live, as the entry point chose. */
     imageStore: ImageStore
     /** The caller's invitation-email budget (set on the invitation routes). */

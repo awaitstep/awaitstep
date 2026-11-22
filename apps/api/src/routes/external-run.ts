@@ -1,6 +1,7 @@
 import { Hono, type Context } from 'hono'
 import type { ContentfulStatusCode, ContentlessStatusCode } from 'hono/utils/http-status'
 import type { AppEnv } from '../types.js'
+import { INSTANCE_ID_HEADER } from '@awaitstep/codegen'
 import {
   callFunctionRun,
   MAX_RUN_PAYLOAD_BYTES,
@@ -9,7 +10,7 @@ import {
   type CallAnswer,
 } from '../lib/run-start.js'
 
-/** The header that names the run a function call was recorded as. */
+/** The header that names the run a call, or a run through the workflow's own URL, was recorded as. */
 export const RUN_ID_HEADER = 'X-AwaitStep-Run-Id'
 /** Set when the function's answer was longer than is read back: the body is its start. */
 export const TRUNCATED_HEADER = 'X-AwaitStep-Body-Truncated'
@@ -28,9 +29,15 @@ export const externalRun = new Hono<AppEnv>()
  * How other systems run a workflow or call a function (D-1): an API key with
  * `workflows:run`, the body as the run's payload. `?account=` names the
  * account to run on; without it, the one its newest live deploy went out on.
- * A workflow answers `201 { runId, instanceId, status }`; a function answers
- * with its own status, `Content-Type` and body bytes, the run in a header (a
- * redirect's target too, never as `Location`).
+ *
+ * A function, and a workflow whose deploy has a URL of its own (a route or
+ * custom domain), get the request as sent and answer with their own status,
+ * `Content-Type` and body bytes, the run in `X-AwaitStep-Run-Id` (a
+ * redirect's target too, never as `Location`); a workflow run that started
+ * also names its instance in `X-AwaitStep-Instance-Id`. A workflow without a
+ * URL starts through the provider's API and answers
+ * `201 { runId, instanceId, status }`, or `{ ok: true }` for the built-in
+ * send-event body. The body's `instanceId` names the run's instance.
  */
 externalRun.post('/:workflowId', async (c) => {
   const workflow = c.get('workflow')
@@ -40,9 +47,10 @@ externalRun.post('/:workflowId', async (c) => {
   const raw = new Uint8Array(await c.req.arrayBuffer())
   if (raw.byteLength > MAX_RUN_PAYLOAD_BYTES) return c.json({ error: TOO_LARGE }, 400)
   const deps = runStartDeps(c)
+  const contentType = mediaType(c.req.header('content-type'))
+  if (contentType === null) return c.json({ error: BAD_CONTENT_TYPE }, 400)
 
   if (workflow.kind === 'script') {
-    const contentType = c.req.header('content-type')
     const called = await callFunctionRun(deps, { workflow, connectionId }, async () => ({
       body: raw,
       ...(contentType && { contentType }),
@@ -51,22 +59,53 @@ externalRun.post('/:workflowId', async (c) => {
     return functionAnswer(c, called.answer, called.run.id)
   }
 
-  const body = new TextDecoder().decode(raw)
-  let params: unknown
-  if (body.trim() !== '') {
-    try {
-      params = JSON.parse(body) as unknown
-    } catch {
-      return c.json({ error: 'The body must be JSON: it is the run’s params' }, 400)
-    }
-  }
   const started = await startWorkflowRun(deps, { workflow, connectionId }, async () => ({
-    params,
+    ...readParams(raw),
+    body: raw,
+    ...(contentType && { contentType }),
+    query: queryWithoutAccount(c.req.url),
   }))
   if (!started.ok) return c.json({ error: started.error }, started.status)
-  const { run } = started
+  if (started.outcome === 'event-sent') return c.json({ ok: true })
+  const { run, answer } = started
+  // Through the workflow's own URL: its handler's answer, the run in headers.
+  if (answer) {
+    if (started.outcome === 'started') c.header(INSTANCE_ID_HEADER, run.instanceId)
+    return functionAnswer(c, answer, run.id)
+  }
   return c.json({ runId: run.id, instanceId: run.instanceId, status: run.status }, 201)
 })
+
+const BAD_CONTENT_TYPE = 'Content-Type must be a media type, under 256 characters'
+/** `type/subtype` with optional `; name=value` parameters. */
+const MEDIA_TYPE =
+  /^[\w!#$&^.+-]+\/[\w!#$&^.+-]+(?:\s*;\s*[\w!#$&^.+-]+=(?:[\w!#$&^.+-]+|"[^"\\\r\n]*"))*$/
+
+/** The caller's Content-Type as it is passed on and kept; undefined for none, null for one that isn't a media type. */
+function mediaType(header: string | undefined): string | undefined | null {
+  const value = header?.trim()
+  if (!value) return undefined
+  return value.length < 256 && MEDIA_TYPE.test(value) ? value : null
+}
+
+/** The body as a run's params: JSON as sent, nothing for none, and a flag for a body that isn't JSON. */
+function readParams(raw: Uint8Array): { params: unknown; notJson?: true } {
+  const text = new TextDecoder().decode(raw)
+  if (text.trim() === '') return { params: undefined }
+  try {
+    return { params: JSON.parse(text) as unknown }
+  } catch {
+    return { params: undefined, notJson: true }
+  }
+}
+
+/** The caller's query string, without `account` (AwaitStep's own: which account to run on). */
+function queryWithoutAccount(url: string): string | undefined {
+  const search = new URL(url).searchParams
+  search.delete('account')
+  const query = search.toString()
+  return query === '' ? undefined : query
+}
 
 /** Statuses whose response carries no body. */
 const NO_BODY = new Set([101, 103, 204, 205, 304])

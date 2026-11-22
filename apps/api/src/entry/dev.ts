@@ -30,6 +30,7 @@ import { resolveTestSessionLimits } from '../lib/test-session-policy.js'
 import { releaseClaimedPorts } from '@awaitstep/provider-cloudflare'
 import { cloudflareOAuthFromEnv } from '../lib/cloudflare-oauth-config.js'
 import { createConnectionRefresh } from '../lib/connection-refresh.js'
+import { publicFetch } from './public-fetch.js'
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
@@ -187,6 +188,7 @@ async function start() {
     testSessionRunner,
     testSessionLimits,
     emails,
+    publicFetch,
     imageStore,
     extensions,
     disabledFeatures: disabled,
