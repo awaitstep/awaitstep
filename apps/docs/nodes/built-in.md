@@ -252,6 +252,11 @@ await sendEvent(env, instanceId, 'user-approval', { approved: true })
 handle has the same `sendEvent(type, payload)`. `sendEvent` throws `InstanceNotFoundError`
 (from `#awaitstep/runtime`) for an unknown id.
 
+From outside, send it through AwaitStep's `POST /api/run/:workflowId` with
+`{ "action": "send-event", "instanceId": "…", "type": "user-approval", "payload": { … } }`.
+The worker's built-in route answers that body, unless `handlers/fetch.ts`
+imports `sendEvent` or `getInstance`: then your handler receives it.
+
 **Config:**
 
 | Field       | Type     | Required | Description                                                                                                                                                              |

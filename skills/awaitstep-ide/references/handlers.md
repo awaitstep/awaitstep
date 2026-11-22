@@ -57,6 +57,24 @@ await instance.sendEvent('approval', { approved: true })
 await sendEvent(env, instanceId, 'approval', { approved: true })
 ```
 
+Runs from AwaitStep (`POST /api/run/:id`, Trigger, Run again) reach this
+handler when the workflow's deploy has a URL of its own: a route, a custom
+domain, or `workers.dev` turned on. AwaitStep names the run's instance in
+`X-AwaitStep-Instance-Id`, and the first instance the request creates without an
+id of its own takes it — through `startWorkflow(env, params)` or
+`env.WORKFLOW.create()` (`params.instanceId` first;
+`startWorkflow(env, params, { instanceId })` names one outright) — so AwaitStep
+records the run. A request that starts nothing is recorded as a call. Without
+such a URL, runs from AwaitStep skip the handler.
+
+The worker answers the built-in send-event body
+(`{ action: "send-event", instanceId, type, payload }`) before the handler runs,
+unless the handler, or a project module it imports, takes `sendEvent` or
+`getInstance` from `#awaitstep/workflow`: then the handler gets every request.
+The route answers anyone who can reach the worker's URL, and a chosen instance
+id (`order-42`) is guessable: to keep a wait from being resumed by others,
+handle send-event in the handler with a check of your own.
+
 A Function's `handlers/fetch.ts`:
 
 ```ts
