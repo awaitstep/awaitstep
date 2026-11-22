@@ -63,6 +63,26 @@ describe('stepScope', () => {
     expect(stepScope(ir, 'fallback', 'workflow').bindings).toEqual(['error'])
   })
 
+  it('gives an inline step the names it reads bare, without the loop counter', () => {
+    const ir = {
+      nodes: [
+        node('each', 'loop', { loopType: 'forEach', itemVar: 'row', collection: 'rows' }),
+        node('body', 'step', { inline: true, code: 'const total = row.n' }),
+        node('after'),
+      ],
+      edges: [
+        { id: 'e1', source: 'each', target: 'body', label: 'body' },
+        { id: 'e2', source: 'body', target: 'after' },
+      ],
+      entryNodeId: 'each',
+    }
+    expect(stepScope(ir, 'body', 'workflow').bindings).toEqual(['row'])
+    expect(stepScope(ir, 'after', 'workflow')).toMatchObject({
+      upstream: ['total'],
+      bindings: ['row', 'index'],
+    })
+  })
+
   it('names only variables that hold a value: not a branch, not a step without a return', () => {
     const ir = {
       nodes: [

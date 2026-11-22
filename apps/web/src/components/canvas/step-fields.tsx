@@ -128,26 +128,7 @@ export function StepFields({
               readOnly={readOnly}
             />
           </div>
-          <p className="text-xs text-muted-foreground/60">
-            {scope.status === 'cycle' ? (
-              'The graph has a cycle, so nothing can be listed as in scope.'
-            ) : scope.status === 'error' ? (
-              'What is in scope could not be read.'
-            ) : (
-              <>
-                {scope.upstream.length === 0 && 'No earlier steps. '}
-                In scope:{' '}
-                {[...scope.bindings, ...scope.upstream].map((name) => (
-                  <span key={name}>
-                    <code className="font-mono text-foreground/70">inputs.{name}</code>,{' '}
-                  </span>
-                ))}
-                <code className="font-mono text-foreground/70">event.payload</code>,{' '}
-                <code className="font-mono text-foreground/70">ctx.attempt</code>.{' '}
-                <code className="font-mono text-foreground/70">return</code> sets this step’s value.
-              </>
-            )}
-          </p>
+          <ScopeHint scope={scope} inline={node.data.inline === true} />
           {moduleProblem && <p className="text-xs text-destructive">{moduleProblem}</p>}
         </div>
       )}
@@ -342,5 +323,54 @@ export function StepEnlargedEditor({
         />
       </div>
     </div>
+  )
+}
+
+function Code({ children }: { children: string }) {
+  return <code className="font-mono text-foreground/70">{children}</code>
+}
+
+/**
+ * What the code can read. A step module reads earlier steps as
+ * `inputs.<name>` and returns its value; an inline step runs in the body
+ * itself, so it reads them bare, has no attempt, and passes its own
+ * top-level names on instead of returning.
+ */
+function ScopeHint({ scope, inline }: { scope: StepScope; inline: boolean }) {
+  if (scope.status !== 'ok') {
+    return (
+      <p className="text-xs text-muted-foreground/60">
+        {scope.status === 'cycle'
+          ? 'The graph has a cycle, so nothing can be listed as in scope.'
+          : 'What is in scope could not be read.'}
+      </p>
+    )
+  }
+  const names = [...scope.bindings, ...scope.upstream].map((name) =>
+    inline ? name : `inputs.${name}`,
+  )
+  const always = inline ? ['event.payload'] : ['event.payload', 'ctx.attempt']
+  const listed = [...names, ...always]
+  return (
+    <p className="text-xs text-muted-foreground/60">
+      {scope.upstream.length === 0 && 'No earlier steps. '}
+      In scope:{' '}
+      {listed.map((name, index) => (
+        <span key={`${index}:${name}`}>
+          <Code>{name}</Code>
+          {index < listed.length - 1 ? ', ' : '. '}
+        </span>
+      ))}
+      {inline ? (
+        <>
+          Later steps can read its top-level names; a module reads them as{' '}
+          <Code>inputs.&lt;name&gt;</Code>.
+        </>
+      ) : (
+        <>
+          <Code>return</Code> sets this step’s value.
+        </>
+      )}
+    </p>
   )
 }

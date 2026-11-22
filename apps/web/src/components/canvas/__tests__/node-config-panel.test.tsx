@@ -330,6 +330,32 @@ describe('NodeConfigPanel: returning a value from a function', () => {
     )
   })
 
+  it('lists the names an earlier inline step declares as inputs', () => {
+    selectTwo('script')
+    useWorkflowStore.setState((s) => ({
+      nodes: s.nodes.map((n) => {
+        if (n.id !== 'first') return n
+        const irNode = (n.data as { irNode: ReturnType<typeof step> }).irNode
+        return {
+          ...n,
+          data: { irNode: { ...irNode, data: { inline: true, code: 'const user = 1' } } },
+        }
+      }),
+    }))
+    render(<NodeConfigPanel />)
+    expect(screen.getByText(/In scope:/)).toHaveTextContent(
+      'In scope: inputs.user, event.payload, ctx.attempt. return sets this step’s value.',
+    )
+  })
+
+  it('tells an inline step what it reads bare and how its names travel, with no return', () => {
+    selectTwo('workflow', { inline: true, code: 'const user = fetch_user' })
+    render(<NodeConfigPanel />)
+    expect(screen.getByText(/In scope:/)).toHaveTextContent(
+      'In scope: fetch_user, event.payload. Later steps can read its top-level names; a module reads them as inputs.<name>.',
+    )
+  })
+
   it('says when there are no earlier steps, and when the graph has a cycle', () => {
     select(step())
     const { unmount } = render(<NodeConfigPanel />)
