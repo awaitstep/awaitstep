@@ -12,6 +12,7 @@ import { Select } from '../ui/select'
 import { Textarea } from '../ui/textarea'
 import { Tile } from '../ui/tile'
 import { runAction, failureLine } from '../../lib/action-toast'
+import { isCallRun } from '../../lib/run-call'
 import { runCurl } from '../../lib/workflows/run-endpoint'
 import { useApi, useQueries } from '../../contexts/api-client-context'
 
@@ -85,10 +86,15 @@ export function TriggerDialog({
       const run = await runAction(
         api.triggerWorkflow(selectedWorkflowId, { connectionId, params }),
         {
-          success: 'Workflow triggered',
+          success: triggeredLine,
           error: 'Couldn’t trigger the workflow',
         },
       )
+      // An event resumes a run that is already there: nothing new to open.
+      if ('ok' in run) {
+        onClose()
+        return
+      }
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', selectedWorkflowId] })
       // The workflow page's run counts (its tab and the day's card).
       queryClient.invalidateQueries({ queryKey: ['dash', 'workflow-run-counts'] })
@@ -206,4 +212,10 @@ export function TriggerDialog({
       </div>
     </ModalDialog>
   )
+}
+
+/** What a trigger came to: an event sent, a run, or the handler's answer with no run behind it. */
+function triggeredLine(answer: { instanceId: string } | { ok: true }): string {
+  if ('ok' in answer) return 'Event sent'
+  return isCallRun(answer) ? 'The handler answered without starting a run' : 'Workflow triggered'
 }

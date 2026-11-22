@@ -7,6 +7,8 @@ import { runPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { useApi } from '../../contexts/api-client-context'
 import { useGoTo } from '../navigation/router-shell-link'
 import { Button } from '../ui/button'
+import { CopyIconButton } from '../ui/copy-icon-button'
+import { isCallRun } from '../../lib/run-call'
 import { RunActions } from './run-actions'
 import { RunStatusBadge } from './run-status-badge'
 
@@ -36,6 +38,8 @@ export function RunHead({ slugs, workflowId, run, call = false }: RunHeadProps) 
     mutationFn: () => api.runWorkflowAgain(workflowId, run.id, connectionId ?? ''),
     onSuccess: (next) => {
       void queryClient.invalidateQueries({ queryKey: ['workflow-runs', workflowId] })
+      // A send-event payload sent again without the handler resumes a run: nothing new to open.
+      if ('ok' in next && !('runId' in next)) return
       goTo(runPath(slugs, { id: workflowId }, 'runId' in next ? next.runId : next.id))
     },
   })
@@ -45,20 +49,31 @@ export function RunHead({ slugs, workflowId, run, call = false }: RunHeadProps) 
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <h2 className="truncate text-2xl font-semibold tracking-tight">
-        {call ? 'Call' : 'Run'} <span className="font-mono">{shortRunId(run.instanceId)}</span>
-      </h2>
-      <RunStatusBadge status={run.status} />
-      <span className="flex-1" />
-      {!isTerminalRunStatus(run.status) && (
-        <RunActions workflowId={workflowId} runId={run.id} status={run.status} />
-      )}
-      {(call || RETRYABLE.has(run.status)) && connectionId && (
-        <Button size="sm" className="gap-1.5" disabled={again.isPending} onClick={handleRunAgain}>
-          <Play aria-hidden="true" className="size-3.5" />
-          {call ? 'Call again' : 'Run again'}
-        </Button>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="truncate text-2xl font-semibold tracking-tight">
+          {call ? 'Call' : 'Run'} <span className="font-mono">{shortRunId(run.instanceId)}</span>
+        </h2>
+        <RunStatusBadge status={run.status} />
+        <span className="flex-1" />
+        {!isTerminalRunStatus(run.status) && (
+          <RunActions workflowId={workflowId} runId={run.id} status={run.status} />
+        )}
+        {(call || RETRYABLE.has(run.status)) && connectionId && (
+          <Button size="sm" className="gap-1.5" disabled={again.isPending} onClick={handleRunAgain}>
+            <Play aria-hidden="true" className="size-3.5" />
+            {call ? 'Call again' : 'Run again'}
+          </Button>
+        )}
+      </div>
+      {/* The id an event is sent to (`instanceId`); a call has none of its own. */}
+      {!isCallRun(run) && (
+        <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="min-w-0 truncate font-mono text-foreground" title={run.instanceId}>
+            {run.instanceId}
+          </span>
+          <CopyIconButton value={run.instanceId} label="Instance ID" />
+        </p>
       )}
     </div>
   )

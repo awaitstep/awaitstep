@@ -15,6 +15,7 @@ import { RunStepPanel } from './run-step-panel'
 import { RunStepsCard } from './run-steps-card'
 import { RunResult } from './run-result'
 import { CallView } from './call-view'
+import { isCallRun } from '../../lib/run-call'
 
 interface RunDetailProps {
   slugs: WorkspaceSlugs
@@ -59,7 +60,10 @@ export function RunDetail({ slugs, runId, workflowId, kind = 'workflow' }: RunDe
   if (!run) {
     return <div className="mt-12 text-center text-sm text-muted-foreground">Run not found</div>
   }
-  if (kind === 'script') return <CallView slugs={slugs} workflowId={workflowId} run={run} />
+  // A function's run is a call; so is a workflow request its own handler answered without starting one.
+  if (kind === 'script' || isCallRun(run)) {
+    return <CallView slugs={slugs} workflowId={workflowId} run={run} />
+  }
   // Keyed by run: Run again opens another, which starts with its own selection.
   return <RunView key={run.id} slugs={slugs} workflowId={workflowId} run={run} />
 }

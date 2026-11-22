@@ -12,6 +12,7 @@ import type { useWorkspaceActions } from '../../hooks/use-workspace-actions'
 import type { WorkspaceData } from '../../hooks/use-workspace-data'
 import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
 import { scheduleMissing } from '../../lib/ide/schedule-gap'
+import { fetchHandlerSkipped } from '../../lib/ide/fetch-skipped'
 import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
 import type { useWorkspaceSession } from '../../hooks/use-workspace-session'
@@ -173,6 +174,8 @@ export function WorkspaceLayout({
     if (event.key === 'Escape') useIdeStore.getState().editorHandle?.focus()
   }
 
+  const fetchSkipped = fetchHandlerSkipped(fullData.workflow.kind, fullData.liveDeployments ?? [])
+
   const scheduleGap = scheduleMissing({
     hasScheduledModule: files.has(HANDLER_SCHEDULED_PATH),
     deployConfig: fullData.workflow.deployConfig,
@@ -282,6 +285,7 @@ export function WorkspaceLayout({
                   onConvertHandlers={handleConvertRequest}
                   onOpenCanvas={handleOpenCanvas}
                   scheduleMissing={scheduleGap}
+                  fetchSkipped={fetchSkipped}
                   run={{
                     label: runAction.intent.label,
                     busy: runAction.intent.kind === 'busy',

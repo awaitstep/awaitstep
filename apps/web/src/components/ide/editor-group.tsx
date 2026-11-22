@@ -17,8 +17,8 @@ import { CompareView } from './compare-view'
 import { EditorFileBanner } from './editor-file-banner'
 import { LibraryFileBanner } from './library-file-banner'
 import type { BundledLibraryModule } from '../../lib/api-client'
-import { EmptyFileHint, ScheduleBanner } from './new-file-notices'
-import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
+import { EmptyFileHint, FetchSkippedBanner, ScheduleBanner } from './new-file-notices'
+import { HANDLER_FETCH_PATH, HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
 import { importSpecifier } from '../../lib/ide/project'
 import { FileStateBanner } from './file-state-banner'
 import { GraphConflictBanner } from './graph-conflict-banner'
@@ -50,6 +50,8 @@ interface EditorGroupProps {
   onOpenCanvas: () => void
   /** `handlers/scheduled.ts` is open with no schedule behind it. */
   scheduleMissing: boolean
+  /** Runs from AwaitStep don't reach `handlers/fetch.ts`: no deploy has a URL of its own. */
+  fetchSkipped?: boolean
   run: RunButtonProps
   /** The Unsaved changes and Compare tabs, and the banners about outside changes. */
   review: ReviewBindings
@@ -70,6 +72,7 @@ export function EditorGroup({
   onConvertHandlers,
   onOpenCanvas,
   scheduleMissing,
+  fetchSkipped = false,
   run,
   review,
 }: EditorGroupProps) {
@@ -242,6 +245,9 @@ export function EditorGroup({
         activeFile.path === HANDLER_SCHEDULED_PATH && (
           <ScheduleBanner onOpenCanvas={onOpenCanvas} />
         )}
+      {activeFile && fetchSkipped && activeFile.path === HANDLER_FETCH_PATH && (
+        <FetchSkippedBanner />
+      )}
       {activeFile && <FileStateBanner path={activeFile.path} bindings={review} />}
       <div className="relative min-h-0 flex-1">
         {activeKind === 'file' &&

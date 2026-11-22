@@ -26,7 +26,7 @@ const RUN = {
   versionId: null,
   versionNumber: 12,
   connectionId: 'con_1',
-  instanceId: '16906129',
+  instanceId: '16906129-77aa-4bcd-9e0f-1234567890ab',
   status: 'errored',
   output: null,
   error: '{"name":"Error","message":"crm down"}',
@@ -151,6 +151,14 @@ describe('the run page (26b)', () => {
     expect(within(band).getByText('v12')).toBeVisible()
   })
 
+  it('shows the whole instance id, the one an event is sent to, with Copy', async () => {
+    serve()
+    renderPage()
+    await screen.findByRole('heading', { name: 'Run 16906129' })
+    expect(screen.getByText(RUN.instanceId)).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Copy the instance id' })).toBeVisible()
+  })
+
   it('opens on the failed step with its tries, and shows another step’s output when picked', async () => {
     serve()
     renderPage()
@@ -219,6 +227,13 @@ describe('a function’s run is a call (D-5)', () => {
       </QueryClientProvider>,
     )
   }
+
+  it('names no instance: a call has none of its own', async () => {
+    serve((url) => (url.includes('/runs/run_1?') ? Response.json(CALL) : undefined))
+    renderCall()
+    await screen.findByRole('heading', { name: /^Call / })
+    expect(screen.queryByRole('button', { name: 'Copy the instance id' })).not.toBeInTheDocument()
+  })
 
   it('shows what came back and how long it took, without a graph or steps', async () => {
     const fetchSpy = serve((url) =>

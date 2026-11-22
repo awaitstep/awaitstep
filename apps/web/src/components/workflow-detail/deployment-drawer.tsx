@@ -4,7 +4,7 @@ import type { DeploymentSummary } from '../../lib/api-client'
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { SidePanel } from '../ui/side-panel'
-import { useCopyStatus } from '../ui/use-copy-status'
+import { CopyValueButton } from '../ui/copy-value-button'
 import { DeployLink } from './parts/deploy-link'
 import type { DeploymentState, RollBack } from './deployment-rollback'
 
@@ -35,8 +35,6 @@ const STATE_BADGE: Record<
 
 // A row that never went out says when it was started, not "Deployed".
 const NOT_DEPLOYED: ReadonlySet<DeploymentState> = new Set(['deploying', 'cancelling', 'cancelled'])
-
-const COPY_LABEL = { idle: 'Copy', copied: 'Copied', failed: 'Couldn’t copy' } as const
 
 const ROLL_BACK_LABEL = { rollback: 'Roll back to this', redeploy: 'Redeploy this' } as const
 
@@ -160,29 +158,8 @@ function Detail({
         >
           {children}
         </span>
-        {copy && <CopyButton value={copy} label={label} />}
+        {copy && <CopyValueButton value={copy} label={label} />}
       </dd>
     </div>
-  )
-}
-
-function CopyButton({ value, label }: { value: string; label: string }) {
-  const copy = useCopyStatus(value)
-
-  function handleCopy() {
-    void copy.copy()
-  }
-
-  return (
-    <Button
-      type="button"
-      variant="link"
-      size="sm"
-      className="h-auto shrink-0 p-0 text-xs"
-      aria-label={`Copy the ${label.toLowerCase()}`}
-      onClick={handleCopy}
-    >
-      {COPY_LABEL[copy.status]}
-    </Button>
   )
 }

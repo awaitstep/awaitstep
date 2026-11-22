@@ -19,6 +19,16 @@ export function ScheduleBanner({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   )
 }
 
+/** `handlers/fetch.ts` on a workflow whose deploys have no URL of their own AwaitStep can reach. */
+export function FetchSkippedBanner() {
+  return (
+    <EditorBanner tone="info">
+      Runs from AwaitStep skip this handler until the workflow has a URL of its own: a route, custom
+      domain or workers.dev.
+    </EditorBanner>
+  )
+}
+
 /** One line over an empty module, so a new file is not a blank page. */
 export function EmptyFileHint({ path }: { path: string }) {
   const specifier = importSpecifier(path)

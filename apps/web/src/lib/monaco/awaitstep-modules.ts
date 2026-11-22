@@ -31,8 +31,16 @@ declare module '#awaitstep/function' {
 
 declare module '#awaitstep/workflow' {
   export const AWAITSTEP_RETENTION: { successRetention?: string | number; errorRetention?: string | number }
-  /** Starts an instance of this workflow with \`params\` as its event payload. */
-  export function startWorkflow(env: unknown, params: unknown): Promise<{ instanceId: string }>
+  /**
+   * Starts an instance of this workflow with \`params\` as its event payload.
+   * \`options.instanceId\` names it; without one, \`params.instanceId\` or the
+   * id AwaitStep named for the run does, else one is picked.
+   */
+  export function startWorkflow(
+    env: unknown,
+    params: unknown,
+    options?: { instanceId?: string },
+  ): Promise<{ instanceId: string }>
   /** The status of an instance, or null when there is none by that id. */
   export function workflowStatus(env: unknown, instanceId: string): Promise<unknown>
   /** An instance of this workflow by id — its status and a way to send it an event — or null when there is none. */

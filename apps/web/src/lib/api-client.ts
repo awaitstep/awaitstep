@@ -1007,7 +1007,7 @@ export function createApiClient(scope: () => ApiScope) {
       workflowId: string,
       runId: string,
       connectionId: string,
-    ): Promise<RunSummary | FunctionCallResponse> {
+    ): Promise<RunSummary | FunctionCallResponse | { ok: true }> {
       return request(
         withProject(`/workflows/${pathSegment(workflowId)}/runs/${pathSegment(runId)}/run-again`),
         { method: 'POST', body: JSON.stringify({ connectionId }) },
@@ -1059,10 +1059,14 @@ export function createApiClient(scope: () => ApiScope) {
       })
     },
 
+    /**
+     * Starts a run: the run, or a call when the workflow's own handler started
+     * none. The built-in send-event body sends its event instead: `{ ok: true }`.
+     */
     triggerWorkflow(
       workflowId: string,
       data: { connectionId: string; params?: unknown },
-    ): Promise<{ id: string; instanceId: string; status: string }> {
+    ): Promise<{ id: string; instanceId: string; status: string } | { ok: true }> {
       return request(withProject(`/workflows/${pathSegment(workflowId)}/trigger`), {
         method: 'POST',
         body: JSON.stringify(data),
