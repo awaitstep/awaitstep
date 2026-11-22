@@ -46,3 +46,11 @@ export class RunGoneError extends Error {
     this.name = 'RunGoneError'
   }
 }
+
+/** A run was asked for under an instance id the provider already has. */
+export class InstanceExistsError extends Error {
+  constructor(readonly instanceId: string) {
+    super(`An instance with id "${instanceId}" already exists.`)
+    this.name = 'InstanceExistsError'
+  }
+}

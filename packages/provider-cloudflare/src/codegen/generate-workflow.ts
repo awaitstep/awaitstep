@@ -1,5 +1,5 @@
 import type { WorkflowIR } from '@awaitstep/ir'
-import { hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
+import { PROJECT_IMPORT_PREFIX, hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
 import type {
   GeneratedBundle,
   GeneratedFile,
@@ -21,6 +21,7 @@ import {
   projectBundleFiles,
   validateBundle,
   withoutComments,
+  INSTANCE_ID_HEADER,
 } from '@awaitstep/codegen'
 import { builtinGenerators } from './generator-registry.js'
 import { getSubWorkflowBindings } from './generators/sub-workflow.js'
@@ -45,9 +46,10 @@ import { retentionLiteral, type CloudflareRetention } from './retention.js'
  * showing how to add `@queue function NAME(...)` handlers.
  *
  * Top-level code outside annotated functions becomes module scope (imports,
- * shared helpers). The @fetch handler creates and inspects workflow instances
- * via `env.WORKFLOW`. Users can replace this code via the workflow's
- * `triggerCode` field.
+ * shared helpers). The @fetch handler starts instances through the workflow
+ * module's `startWorkflow` (so the id AwaitStep names for a run is used) and
+ * inspects them via `env.WORKFLOW`. Users can replace this code via the
+ * workflow's `triggerCode` field.
  */
 export const DEFAULT_TRIGGER_CODE = `
 @fetch function handler(request, env, ctx) {
@@ -56,8 +58,7 @@ export const DEFAULT_TRIGGER_CODE = `
 
     if (request.method === "POST") {
       const params = await request.json().catch(() => undefined);
-      const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
-      return Response.json({ instanceId: instance.id });
+      return Response.json(await awaitstepStartWorkflow(env, params));
     }
 
     const instanceId = url.searchParams.get("instanceId");
@@ -78,6 +79,88 @@ export const DEFAULT_TRIGGER_CODE = `
 // Add queue handlers below using:
 // @queue function NAME(batch, env, ctx) { ... }
 `
+
+/** The names a fetch handler's first two parameters were declared under (`request`, `env`). */
+function parameterNames(params: string): [string | undefined, string | undefined] {
+  const names = params.split(',').map((part) => /^\s*([A-Za-z_$][\w$]*)/.exec(part)?.[1])
+  return [names[0], names[1]]
+}
+
+const IMPORT_FROM = /\b(?:import|export)\s+(?:type\s+)?([^;'"]*?)\s*from\s*["']([^"']+)["']/g
+const WORKFLOW_MODULE = '#awaitstep/workflow'
+const EVENT_NAMES = ['sendEvent', 'getInstance']
+
+/** The project file a specifier names (relative, or `#app/`), or undefined for any other module. */
+function projectImport(
+  from: string,
+  specifier: string,
+  sources: ReadonlyMap<string, string>,
+): string | undefined {
+  let base: string
+  if (specifier.startsWith(PROJECT_IMPORT_PREFIX)) {
+    base = specifier.slice(PROJECT_IMPORT_PREFIX.length)
+  } else if (specifier.startsWith('.')) {
+    base = new URL(specifier, `file:///${from}`).pathname.slice(1)
+  } else {
+    return undefined
+  }
+  const stem = base.replace(/\.[cm]?js$/, '')
+  return [base, `${stem}.ts`, `${stem}.mts`, `${stem}.js`, `${stem}/index.ts`].find((path) =>
+    sources.has(path),
+  )
+}
+
+/** Whether an import clause from `#awaitstep/workflow` brings in a way to send events. */
+function clauseSendsEvents(clause: string, source: string): boolean {
+  const namespace = /\*\s+as\s+([A-Za-z_$][\w$]*)/.exec(clause)?.[1]
+  if (namespace) {
+    const escaped = namespace.replace(/\$/g, '\\$')
+    return EVENT_NAMES.some((name) =>
+      new RegExp(`(?<![\\w$])${escaped}\\??\\.${name}\\b`).test(source),
+    )
+  }
+  const named = /\{([^}]*)\}/.exec(clause)?.[1] ?? ''
+  return named
+    .split(',')
+    .map(
+      (name) =>
+        name
+          .trim()
+          .replace(/^type\s+/, '')
+          .split(/\s+as\s+/)[0]!,
+    )
+    .some((name) => EVENT_NAMES.includes(name))
+}
+
+/**
+ * Whether a fetch handler sends events itself: it, or a project module it
+ * imports (directly or through others), takes `sendEvent` or `getInstance`
+ * from `#awaitstep/workflow`. Then the built-in send-event route steps aside
+ * and the handler gets every request.
+ */
+export function sendsEventsItself(
+  entryPath: string,
+  files: ReadonlyArray<{ path: string; source: string }>,
+): boolean {
+  const sources = new Map(files.map((file) => [file.path, file.source]))
+  const seen = new Set<string>()
+  const queue = [entryPath]
+  while (queue.length > 0) {
+    const path = queue.shift()!
+    if (seen.has(path)) continue
+    seen.add(path)
+    const source = withoutComments(sources.get(path) ?? '')
+    for (const [, clause, specifier] of source.matchAll(IMPORT_FROM)) {
+      if (specifier === WORKFLOW_MODULE) {
+        if (clauseSendsEvents(clause!, source)) return true
+        continue
+      }
+      const next = projectImport(path, specifier!, sources)
+      if (next) queue.push(next)
+    }
+  }
+  return false
+}
 
 export interface GenerateOptions {
   templateResolver?: TemplateResolver
@@ -215,6 +298,10 @@ function generateWorkflowInternal(
   // scaffold only supplies the fetch entry when no module does.
   const hasWaitForEvent = ir.nodes.some((node) => node.type === 'wait_for_event')
   const modules = projectHandlerModules(ir.runtime?.files)
+  // The built-in send-event route answers unless the project's own fetch
+  // handler sends events itself: then that handler owns every request.
+  const builtInSendEvent =
+    hasWaitForEvent && !(modules.fetch && sendsEventsItself(modules.fetch, ir.runtime?.files ?? []))
   const wiring = hasHandlerModules(modules) ? handlerWiring(modules) : null
   const rawTriggerCode = wiring ? DEFAULT_TRIGGER_CODE : (triggerCode ?? DEFAULT_TRIGGER_CODE)
   const parsed = parseAnnotations(rawTriggerCode)
@@ -279,18 +366,31 @@ function generateWorkflowInternal(
     if (wiring.fetch) fetchHandlerEmission = null
   }
 
+  // Whether the entry has the send-event route: an inline fetch always takes it.
+  const routesEvents = fetchHandlerEmission ? hasWaitForEvent : builtInSendEvent
   const handlerBlocks: string[] = []
   if (fetchHandlerEmission) {
-    const sendEvent = hasWaitForEvent
-      ? `    const sent = await awaitstepSendEvent(request, env);
+    // The request's instance id reaches `startWorkflow` through its `env`.
+    const [requestName, envName] = parameterNames(fetchHandlerEmission.params)
+    const scope =
+      requestName && envName
+        ? `    ${envName} = awaitstepRequestEnv(${requestName}, ${envName});
+`
+        : ''
+    const sendEvent =
+      hasWaitForEvent && requestName && envName
+        ? `    const sent = await awaitstepSendEvent(${requestName}, ${envName});
     if (sent) return sent;
 `
-      : ''
+        : ''
     handlerBlocks.push(`  async fetch(${fetchHandlerEmission.params}): Promise<Response> {
-${sendEvent}${indent(fetchHandlerEmission.body, 4)}
+${scope}${sendEvent}${indent(fetchHandlerEmission.body, 4)}
   },`)
   }
-  if (wiring) handlerBlocks.push(...handlerDelegates(wiring, { sendEvent: hasWaitForEvent }))
+  if (wiring)
+    handlerBlocks.push(
+      ...handlerDelegates(wiring, { sendEvent: builtInSendEvent, requestEnv: true }),
+    )
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
       .map((queueHandler) => {
@@ -334,9 +434,16 @@ ${handlerBlocks.join('\n')}
   const workflowHelpers = `// Declared under awaitstep names and exported under the public ones: inline
 // code's imports are hoisted into this module, and a step importing its own
 // \`startWorkflow\`, \`workflowStatus\`, \`getInstance\` or \`sendEvent\` must keep it.
-/** Starts an instance of this workflow with \`params\` as its event payload. */
-async function awaitstepStartWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
-  const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
+/**
+ * Starts an instance of this workflow with \`params\` as its event payload.
+ * \`options.instanceId\` names it, else \`params.instanceId\`; without either, the
+ * first start in a request AwaitStep sent takes the id it named, else
+ * Cloudflare picks one.
+ */
+async function awaitstepStartWorkflow(env: Env, params: unknown, options?: { instanceId?: string }): Promise<{ instanceId: string }> {
+  const named = (params as { instanceId?: unknown } | null | undefined)?.instanceId;
+  const id = options?.instanceId ?? (typeof named === "string" && named.length > 0 ? named : undefined);
+  const instance = await env.WORKFLOW.create({ ...(id !== undefined && { id }), params, retention: AWAITSTEP_RETENTION });
   return { instanceId: instance.id };
 }
 
@@ -392,17 +499,19 @@ export {
   // code's imports. Nothing imports the worker, so it takes from the workflow
   // module only what its own code uses: the retention, when the inline
   // default fetch (or legacy trigger code) creates instances itself.
-  const usesRetention =
-    graphModuleNames(`${moduleCodeBlock}\n${exportDefault}`, ['AWAITSTEP_RETENTION']).length > 0
+  const entryCode = `${moduleCodeBlock}\n${exportDefault}`
+  const usesRetention = graphModuleNames(entryCode, ['AWAITSTEP_RETENTION']).length > 0
+  const usesStart = /\bawaitstepStartWorkflow\(/.test(entryCode)
   // The send-event route sends through the module's own `sendEvent`, under a
   // name the trigger code can't have taken.
   const graphNames = [
     ...(usesRetention ? ['AWAITSTEP_RETENTION'] : []),
-    ...(hasWaitForEvent ? ['sendEvent as awaitstepWorkflowEvent'] : []),
+    ...(usesStart ? ['startWorkflow as awaitstepStartWorkflow'] : []),
+    ...(routesEvents ? ['sendEvent as awaitstepWorkflowEvent'] : []),
   ]
   const entryGenerated = [
     'import { WorkflowEntrypoint } from "cloudflare:workers";',
-    `import { createWorkflowContext${hasWaitForEvent ? ', InstanceNotFoundError as AwaitstepInstanceNotFound' : ''}, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";`,
+    `import { createWorkflowContext${routesEvents ? ', InstanceNotFoundError as AwaitstepInstanceNotFound' : ''}, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";`,
     'import { createAwaitstepPlatform } from "#awaitstep/platform";',
     `import workflow${graphNames.length > 0 ? `, { ${graphNames.join(', ')} }` : ''} from "#awaitstep/workflow";`,
     'import type { Env } from "#awaitstep/env";',
@@ -412,7 +521,7 @@ export {
     ...entryImports.map((statement) => ({ statement, origin: 'The trigger code' })),
     ...wiringImports.map((statement) => ({ statement })),
   ]).join('\n')
-  const sendEventHelper = hasWaitForEvent
+  const sendEventHelper = routesEvents
     ? `async function awaitstepSendEvent(request: Request, env: Env): Promise<Response | null> {
   if (request.method !== "POST") return null;
   const body = await request.clone().json().catch(() => undefined) as Record<string, unknown> | undefined;
@@ -442,9 +551,32 @@ export {
 
 `
     : ''
+  const requestEnvHelper = `/**
+ * The request's \`env\`: the same bindings, with \`WORKFLOW\` handing the instance
+ * id the request names (\`${INSTANCE_ID_HEADER}\`, sent by AwaitStep) to the
+ * first instance the request creates without an id of its own — through
+ * \`startWorkflow\` or \`env.WORKFLOW.create\` alike.
+ */
+function awaitstepRequestEnv(request: Request, env: Env): Env {
+  let instanceId = request.headers.get("${INSTANCE_ID_HEADER}")?.trim() || undefined;
+  if (!instanceId) return env;
+  const binding = env.WORKFLOW;
+  const WORKFLOW = {
+    create(options?: { id?: string; params?: unknown; retention?: unknown }) {
+      const id = options?.id ?? instanceId;
+      instanceId = undefined;
+      return binding.create({ ...options, ...(id !== undefined && { id }) } as Parameters<typeof binding.create>[0]);
+    },
+    createBatch: (...args: Parameters<typeof binding.createBatch>) => binding.createBatch(...args),
+    get: (id: string) => binding.get(id),
+  };
+  return { ...env, WORKFLOW: WORKFLOW as unknown as Env["WORKFLOW"] };
+}
+
+`
   const entrySource = `${entryImportBlock}
 
-${sendEventHelper}${cloudflareHostHelper()}
+${requestEnvHelper}${sendEventHelper}${cloudflareHostHelper()}
 
 ${moduleCodeBlock.length > 0 ? moduleCodeBlock + '\n' : ''}
 export class ${className} extends WorkflowEntrypoint<Env> {

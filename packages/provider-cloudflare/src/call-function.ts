@@ -6,12 +6,14 @@ export const CALL_TIMEOUT_MS = 30_000
 /** How much of the answer is read back; the rest is cut. */
 export const CALL_MAX_BYTES = 100 * 1024
 
-export const NOT_CALLABLE = 'Only a workers.dev URL can be called from here.'
+export const NOT_CALLABLE = 'Only an https URL on a public host name can be called from here.'
 
 /**
- * Whether the server may POST to a deployed function's URL. Only its own
- * `https://<name>.workers.dev` address: a route or custom-domain URL comes
- * from a pattern a user typed, and could point the server at any host.
+ * Whether the server may POST to a deployment's recorded URL: https on the
+ * default port, no credentials, and a host name — never an IP address or
+ * `localhost`. The host comes from a route or domain a user typed, so the
+ * fetch the server calls with must also refuse a name that resolves to a
+ * private address (the Node entry's does; a Worker can't reach one).
  */
 export function isCallableUrl(raw: string): boolean {
   let url: URL
@@ -20,12 +22,22 @@ export function isCallableUrl(raw: string): boolean {
   } catch {
     return false
   }
+  const host = url.hostname.toLowerCase()
   return (
     url.protocol === 'https:' &&
     url.port === '' &&
     url.username === '' &&
     url.password === '' &&
-    url.hostname.endsWith('.workers.dev')
+    host.includes('.') &&
+    // A wildcard route recorded whole by an older deploy: no single host.
+    !raw.includes('*') &&
+    !host.endsWith('.') &&
+    !host.endsWith('.localhost') &&
+    !host.endsWith('.local') &&
+    !host.endsWith('.internal') &&
+    // An IPv4 literal ends in digits; an IPv6 one is bracketed.
+    !/^[\d.]+$/.test(host) &&
+    !host.startsWith('[')
   )
 }
 
@@ -61,13 +73,13 @@ async function readCapped(
 }
 
 /**
- * Calls a deployed function: POSTs the body to its workers.dev URL and reads
- * back its answer (status, time, body up to {@link CALL_MAX_BYTES}). A
- * redirect is answered as is, never followed — it could lead anywhere.
+ * Calls a deployment's URL: POSTs the body there and reads back its answer
+ * (status, time, body up to {@link CALL_MAX_BYTES}). A redirect is answered
+ * as is, never followed — it could lead anywhere. `headers` go with it.
  */
 export async function callFunction(
   request: FunctionCallRequest,
-  fetcher: typeof fetch = fetch,
+  fetcher: typeof fetch = globalThis.fetch,
   timeoutMs = CALL_TIMEOUT_MS,
 ): Promise<FunctionCallResult> {
   if (!isCallableUrl(request.url)) return { ok: false, kind: 'refused', reason: NOT_CALLABLE }
@@ -76,7 +88,10 @@ export async function callFunction(
   try {
     const response = await fetcher(request.url, {
       method: 'POST',
-      headers: { 'content-type': request.contentType ?? 'application/json' },
+      headers: {
+        ...request.headers,
+        'content-type': request.contentType ?? 'application/json',
+      },
       // A caller's bytes go on as they came.
       body: request.body as BodyInit,
       redirect: 'manual',

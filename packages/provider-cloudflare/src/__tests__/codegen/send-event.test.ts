@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { WorkflowIR } from '@awaitstep/ir'
-import { generateWorkflowBundle } from '../../codegen/generate-workflow.js'
+import { generateWorkflowBundle, sendsEventsItself } from '../../codegen/generate-workflow.js'
 import { generateScriptBundle } from '../../codegen/generate-script.js'
-import { generateUniversalFunctionBundle } from '@awaitstep/codegen'
+import { generateUniversalFunctionBundle, handlerModuleScaffold } from '@awaitstep/codegen'
 import type { ScriptIR } from '@awaitstep/ir'
 import { bundleTypeErrors } from './fixtures/type-check-bundle.js'
 import { loadBundleModule, NonRetryableError } from './fixtures/run-bundle.js'
@@ -186,8 +186,21 @@ function fakeInstance(status: Record<string, unknown> = { status: 'waiting' }): 
 
 type Fetch = (request: Request, env: unknown) => Promise<Response>
 
+/** The same workflow with the fetch handler a new workflow is seeded with: it sends no events itself. */
+const seeded: WorkflowIR = {
+  ...waiting,
+  runtime: {
+    files: [
+      {
+        path: 'handlers/fetch.ts',
+        source: handlerModuleScaffold({ kind: 'fetch', target: 'workflow' }),
+      },
+    ],
+  },
+}
+
 function builtInRoute(): Fetch {
-  const entry = loadBundleModule(generateWorkflowBundle(waiting), 'awaitstep/entry.ts')
+  const entry = loadBundleModule(generateWorkflowBundle(seeded), 'awaitstep/entry.ts')
   const handlers = entry.default as { fetch: Fetch }
   return (request, env) => handlers.fetch(request, env)
 }
@@ -244,6 +257,53 @@ describe('the built-in send-event route, run', () => {
       { WORKFLOW: fakeBinding({ 'run-1': run }) },
     )
     expect(response.status).toBe(500)
+  })
+})
+
+describe('a fetch handler that sends events itself', () => {
+  it('gets the send-event request: the built-in route steps aside', async () => {
+    const run = fakeInstance()
+    const env = { WORKFLOW: fakeBinding({ 'run-1': run }) }
+    const entry = loadBundleModule(generateWorkflowBundle(waiting), 'awaitstep/entry.ts')
+    const response = await (entry.default as { fetch: Fetch }).fetch(
+      sendEventRequest({ instanceId: 'run-1', type: 'sunny', payload: { hello: 1 } }),
+      env,
+    )
+    // HANDLER's own answer, not the route's { ok: true }.
+    expect(await response.json()).toEqual({ status: 'waiting', again: { status: 'waiting' } })
+    expect(run.sendEvent).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    ["import { sendEvent } from '#awaitstep/workflow'", true],
+    ['import { getInstance as find } from "#awaitstep/workflow"', true],
+    ["import workflow, { sendEvent } from '#awaitstep/workflow'", true],
+    ["import * as wf from '#awaitstep/workflow'\nwf.sendEvent(env, id, 't')", true],
+    ["import * as wf from '#awaitstep/workflow'\nwf.workflowStatus(env, id)", false],
+    ["import { startWorkflow, workflowStatus } from '#awaitstep/workflow'", false],
+    ["// import { sendEvent } from '#awaitstep/workflow'", false],
+    ["import { sendEvent } from '#lib/events'", false],
+  ])('%s → owns events: %s', (line, owns) => {
+    const files = [
+      { path: 'handlers/fetch.ts', source: `${line}\nexport default async function () {}` },
+    ]
+    expect(sendsEventsItself('handlers/fetch.ts', files)).toBe(owns)
+  })
+
+  it('sees sendEvent reached through the project’s own modules', () => {
+    const files = [
+      {
+        path: 'handlers/fetch.ts',
+        source: "import { resume } from './shared.js'\nexport default resume",
+      },
+      { path: 'handlers/shared.ts', source: "export { resume } from '#app/lib/events'" },
+      {
+        path: 'lib/events.ts',
+        source: "import { sendEvent } from '#awaitstep/workflow'\nexport const resume = sendEvent",
+      },
+    ]
+    expect(sendsEventsItself('handlers/fetch.ts', files)).toBe(true)
+    expect(sendsEventsItself('handlers/fetch.ts', files.slice(0, 2))).toBe(false)
   })
 })
 

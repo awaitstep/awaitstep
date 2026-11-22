@@ -18,6 +18,7 @@ import { generateWranglerConfig } from '../wrangler-config.js'
 import { workerName, workflowClassName, sanitizedWorkflowName } from '../naming.js'
 import { wranglerCommand, wranglerEnv } from '../wrangler-exec.js'
 import { prepareHostDeploy } from '../dev-workspace.js'
+import { deployedWorkerUrl } from './worker-url.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -153,14 +154,13 @@ export class NodeWranglerDeployer implements WranglerDeployer {
         },
       )
 
-      // 6. Extract URL
-      const urlMatch = stdout.match(/https:\/\/[^\s)]+\.workers\.dev/)
-      const routeUrl = options.routes?.[0]
-        ? `https://${options.routes[0].pattern.replace(/\/\*$/, '')}`
-        : undefined
-      // The workers.dev address first: it is the one a function is called at
-      // from the server (a route's host is whatever pattern was typed).
-      return { success: true, workerName: name, workerUrl: urlMatch?.[0] ?? routeUrl }
+      // 6. The URL AwaitStep calls it at
+      const workerUrl = deployedWorkerUrl({
+        stdout,
+        routes: options.routes,
+        customDomains: options.customDomains,
+      })
+      return { success: true, workerName: name, workerUrl }
     } catch (err) {
       if (err instanceof DeployCancelledError) {
         return { success: false, workerName: name, cancelled: true }

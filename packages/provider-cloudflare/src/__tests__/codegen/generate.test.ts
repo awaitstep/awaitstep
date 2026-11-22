@@ -36,9 +36,16 @@ describe('generateWorkflow', () => {
       // Declared under awaitstep names and exported under the public ones: inline
       // code's imports are hoisted into this module, and a step importing its own
       // \`startWorkflow\`, \`workflowStatus\`, \`getInstance\` or \`sendEvent\` must keep it.
-      /** Starts an instance of this workflow with \`params\` as its event payload. */
-      async function awaitstepStartWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
-        const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
+      /**
+       * Starts an instance of this workflow with \`params\` as its event payload.
+       * \`options.instanceId\` names it, else \`params.instanceId\`; without either, the
+       * first start in a request AwaitStep sent takes the id it named, else
+       * Cloudflare picks one.
+       */
+      async function awaitstepStartWorkflow(env: Env, params: unknown, options?: { instanceId?: string }): Promise<{ instanceId: string }> {
+        const named = (params as { instanceId?: unknown } | null | undefined)?.instanceId;
+        const id = options?.instanceId ?? (typeof named === "string" && named.length > 0 ? named : undefined);
+        const instance = await env.WORKFLOW.create({ ...(id !== undefined && { id }), params, retention: AWAITSTEP_RETENTION });
         return { instanceId: instance.id };
       }
 
@@ -382,7 +389,8 @@ describe('generateWorkflow', () => {
     // Default scaffolding uses @fetch annotation form with user-supplied params.
     expect(code).toContain('async fetch(request, env, ctx)')
     expect(code).toContain('request.method === "POST"')
-    expect(code).toContain('env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION })')
+    expect(code).toContain('env = awaitstepRequestEnv(request, env);')
+    expect(code).toContain('return Response.json(await awaitstepStartWorkflow(env, params));')
     expect(code).toContain('env.WORKFLOW.get(instanceId)')
     expect(code).toContain('instance.status()')
   })

@@ -89,7 +89,9 @@ describe('generateWorkflowBundle', () => {
   it('the string form is the worker entry: it imports the workflow module and the runtime', () => {
     const entry = generateWorkflow(ir)
     expect(entry).toBe(providerEntrySource(generateWorkflowBundle(ir)))
-    expect(entry).toContain('import workflow, { AWAITSTEP_RETENTION } from "#awaitstep/workflow";')
+    expect(entry).toContain(
+      'import workflow, { startWorkflow as awaitstepStartWorkflow } from "#awaitstep/workflow";',
+    )
     expect(entry).not.toContain('$Fetch_data')
   })
 })

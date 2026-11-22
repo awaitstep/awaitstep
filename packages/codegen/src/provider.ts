@@ -188,14 +188,26 @@ export interface WorkflowProvider {
   ): Promise<DeployResult>
 
   /**
-   * Calls a deployed function from the server: a POST of the body to its URL.
-   * The provider decides which URLs it will call (a URL a user can set must
-   * not point the server at an internal host). Absent = no calling from here.
+   * Calls a deployment's URL from the server: a POST of the body there, for a
+   * function's call or a workflow run through its own handler. The provider
+   * decides which URLs it will call (a URL a user can set must not point the
+   * server at an internal host); `fetcher` is the fetch the server may call
+   * hosts a user named with (the entry's, which refuses private addresses).
+   * Absent = no calling from here.
    */
-  callFunction?(request: FunctionCallRequest): Promise<FunctionCallResult>
+  callFunction?(request: FunctionCallRequest, fetcher?: typeof fetch): Promise<FunctionCallResult>
 
   /** Whether `callFunction` would call this URL: the server's answer, sent to a page as a flag. */
   canCallUrl?(url: string): boolean
+
+  /**
+   * The URL a run or call from AwaitStep goes to: the deploy's recorded URL,
+   * judged against the settings that deploy went out with (`deploySettings`,
+   * its snapshot). Null when it isn't one to call — none, or one an older
+   * deploy recorded that the settings don't give — and a workflow then runs
+   * through the provider's API. Absent = the recorded URL, if `canCallUrl`.
+   */
+  runUrl?(recordedUrl: string | null, deploySettings: unknown): string | null
 
   getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus>
 
@@ -216,11 +228,32 @@ export interface WorkflowProvider {
     input: { workflowName: string; instanceId: string; config: ProviderConfig },
   ): Promise<void>
 
+  /**
+   * Starts a run directly, through the provider's API. `options.instanceId`
+   * names its instance; one the provider already has throws
+   * `InstanceExistsError`.
+   */
   trigger(
     deploymentId: string,
     params: unknown,
     config: ProviderConfig,
+    options?: { instanceId?: string },
   ): Promise<{ instanceId: string }>
+
+  /**
+   * Sends an event to a run's instance through the provider's API: a wait for
+   * an event of that `type` takes its onEvent path. An unknown instance throws
+   * `RunGoneError`. Absent = events can only be sent from the worker.
+   */
+  sendEvent?(input: {
+    instanceId: string
+    type: string
+    payload: unknown
+    config: ProviderConfig
+  }): Promise<void>
+
+  /** Whether the provider has an instance by that id. Absent = it can't be asked. */
+  hasInstance?(instanceId: string, config: ProviderConfig): Promise<boolean>
 
   destroy(
     deploymentId: string,

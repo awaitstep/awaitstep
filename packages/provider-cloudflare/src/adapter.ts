@@ -23,7 +23,9 @@ import type {
   FunctionCallResult,
   HandlerConversionResult,
 } from '@awaitstep/codegen'
+import { InstanceExistsError } from '@awaitstep/codegen'
 import { callFunction, isCallableUrl } from './call-function.js'
+import { deployedWorkerUrl } from './deploy/worker-url.js'
 import { compileBundle } from './compile-bundle.js'
 import { generateScriptBundle, generateWorkflowBundle } from './codegen/generate.js'
 import {
@@ -64,7 +66,7 @@ import { workerName, sanitizedWorkflowName } from './naming.js'
 import { mapCFStatus } from './status-map.js'
 import { toRunDetail } from './run-detail.js'
 import { CloudflareAPI } from './api.js'
-import { goneFrom } from './api-error.js'
+import { CloudflareApiError, goneFrom } from './api-error.js'
 import { checkCloudflareToken } from './token-check.js'
 import { WRANGLER_BASE_CONFIG } from './wrangler-config.js'
 import {
@@ -269,6 +271,9 @@ function cloudflareBindingConflicts(ir: ArtifactIR): ValidationError[] {
   }
   return errors
 }
+
+/** Cloudflare's code for an instance id already in use (`workflows.api.error.instance.already_exists`). */
+const INSTANCE_EXISTS = 10405
 
 /** A refusal that says the Workflow or instance is gone, as `RunGoneError`; anything else as is. */
 function goneOr(err: unknown): unknown {
@@ -803,18 +808,37 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
   }
 
-  callFunction(request: FunctionCallRequest): Promise<FunctionCallResult> {
-    return callFunction(request)
+  callFunction(request: FunctionCallRequest, fetcher?: typeof fetch): Promise<FunctionCallResult> {
+    return callFunction(request, fetcher)
   }
 
   canCallUrl(url: string): boolean {
     return isCallableUrl(url)
   }
 
+  runUrl(recordedUrl: string | null, deploySettings: unknown): string | null {
+    if (!recordedUrl || !isCallableUrl(recordedUrl)) return null
+    // Wrangler printed it: the worker's own address, whatever its routes.
+    if (new URL(recordedUrl).hostname.endsWith('.workers.dev')) return recordedUrl
+    // A route or domain URL only when the deploy's own settings give it under
+    // today's rules. A deploy from before them recorded `https://host/v1` for
+    // `host/v1/*` (the trailing slash is put back), and `https://*.acme.com`
+    // for a wildcard route, which no request can reach.
+    const parsed = cloudflareDeploymentConfigSchema.safeParse(deploySettings)
+    if (!parsed.success) return null
+    const expected = deployedWorkerUrl({
+      stdout: '',
+      routes: parsed.data.routes,
+      customDomains: parsed.data.customDomains,
+    })
+    return expected === recordedUrl || expected === `${recordedUrl}/` ? expected : null
+  }
+
   async trigger(
     _: string,
     params: unknown,
     config: ProviderConfig,
+    options: { instanceId?: string } = {},
   ): Promise<{ instanceId: string }> {
     if (config.options?.['kind'] === 'script') {
       throw new Error(
@@ -828,8 +852,44 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     )
 
     const api = new CloudflareAPI({ accountId, apiToken })
-    const instance = await api.createInstance(workflowName, params, undefined, retention)
-    return { instanceId: instance.id }
+    try {
+      const instance = await api.createInstance(workflowName, params, options.instanceId, retention)
+      return { instanceId: instance.id }
+    } catch (err) {
+      if (options.instanceId && err instanceof CloudflareApiError && err.code === INSTANCE_EXISTS) {
+        throw new InstanceExistsError(options.instanceId)
+      }
+      throw err
+    }
+  }
+
+  async sendEvent(input: {
+    instanceId: string
+    type: string
+    payload: unknown
+    config: ProviderConfig
+  }): Promise<void> {
+    const { accountId, apiToken } = extractCredentials(input.config)
+    const workflowName = sanitizedWorkflowName(input.config.options?.['workflowName'] as string)
+    const api = new CloudflareAPI({ accountId, apiToken })
+    try {
+      await api.sendEvent(workflowName, input.instanceId, input.type, input.payload)
+    } catch (err) {
+      throw goneOr(err)
+    }
+  }
+
+  async hasInstance(instanceId: string, config: ProviderConfig): Promise<boolean> {
+    const { accountId, apiToken } = extractCredentials(config)
+    const workflowName = sanitizedWorkflowName(config.options?.['workflowName'] as string)
+    const api = new CloudflareAPI({ accountId, apiToken })
+    try {
+      await api.getInstanceStatus(workflowName, instanceId)
+      return true
+    } catch (err) {
+      if (goneFrom(err) === 'instance') return false
+      throw err
+    }
   }
 
   async getStatus(instanceId: string, config: ProviderConfig): Promise<WorkflowRunStatus> {
