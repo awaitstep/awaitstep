@@ -3,6 +3,7 @@ import {
   deepestBracket,
   defaultFunctionHeader,
   maskNonCode,
+  mentionsIdentifier,
   matchingBracket,
 } from '../code-text.js'
 
@@ -74,5 +75,18 @@ describe('deepestBracket', () => {
 
   it('does not let stray closers lower the depth below zero', () => {
     expect(deepestBracket(')))(((')).toEqual({ offset: 5, depth: 3 })
+  })
+})
+
+describe('mentionsIdentifier', () => {
+  it('finds a whole identifier, `$` names included', () => {
+    expect(mentionsIdentifier('{"to":"{{$user.email}}"}', '$user')).toBe(true)
+    expect(mentionsIdentifier('x = user + 1', 'user')).toBe(true)
+  })
+
+  it('does not find it inside a longer identifier', () => {
+    expect(mentionsIdentifier('$users + a$user + user_2', '$user')).toBe(false)
+    expect(mentionsIdentifier('username', 'user')).toBe(false)
+    expect(mentionsIdentifier('anything', '')).toBe(false)
   })
 })

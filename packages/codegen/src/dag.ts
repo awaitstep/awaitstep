@@ -275,10 +275,13 @@ export function blockChain(blocks: Map<string, ArmBlock>, nodeId: string): ArmBl
  * top level here too. One walk over the graph: each block's opening scope is
  * computed once, and a node's list is that plus its earlier siblings (with
  * the hoisted names under each).
+ *
+ * `names` gives each node the names it binds: one variable name, or several
+ * (an inline step binds every name it declares at its top level).
  */
 export function upstreamVarNames(
   ir: WorkflowIR,
-  names: Map<string, string>,
+  names: NodeBindings,
   hoisted: (node: WorkflowNode) => boolean,
 ): Map<string, string[]> {
   const scopes = scopeIndex(ir, names, hoisted)
@@ -291,33 +294,126 @@ export function upstreamVarNames(
  */
 export function upstreamScopeOf(
   ir: WorkflowIR,
-  names: Map<string, string>,
+  names: NodeBindings,
   hoisted: (node: WorkflowNode) => boolean,
 ): (nodeId: string) => string[] {
   const scopes = scopeIndex(ir, names, hoisted)
   return (nodeId) => scopes.of(nodeId)
 }
 
+/**
+ * At most this many extra scope passes, one per arm into a merge, are made
+ * for one question: past it, a merge is read through its first arm only.
+ */
+export const MAX_MERGE_SCOPE_PASSES = 256
+
+/**
+ * Which node's binding of a name is in scope at a node: the nearest one, in
+ * the graph as it is and — for a node at or after a branch's or a wait's
+ * merge — once per arm into that merge, since a merge chain is emitted
+ * inside every arm it joins (the emitter's `armContext` reads it the same
+ * way). Answers the `nodeIds` only; a merge with none of them after it is
+ * not recomputed. Lists one binder id per reading that finds one.
+ */
+export function bindersAcrossMerges(
+  ir: WorkflowIR,
+  names: NodeBindings,
+  hoisted: (node: WorkflowNode) => boolean,
+  nodeIds: Iterable<string>,
+): (nodeId: string, name: string) => string[] {
+  const wanted = new Set(nodeIds)
+  if (wanted.size === 0) return () => []
+  const readings = new Map<string, Array<(name: string) => string | undefined>>()
+  const main = scopeIndex(ir, names, hoisted)
+  for (const id of wanted) readings.set(id, [(name) => main.binderOf(id, name)])
+
+  const blocks = containerArms(ir)
+  const incoming = new Map<string, string[]>()
+  const outgoing = new Map<string, string[]>()
+  for (const edge of ir.edges) {
+    const sources = incoming.get(edge.target)
+    if (sources) sources.push(edge.source)
+    else incoming.set(edge.target, [edge.source])
+    const targets = outgoing.get(edge.source)
+    if (targets) targets.push(edge.target)
+    else outgoing.set(edge.source, [edge.target])
+  }
+  let passes = 0
+  for (const [join, sources] of incoming) {
+    // A join at the top level (a plain fan-in) is emitted once; only a merge
+    // inside a container's arms is emitted per arm.
+    if (sources.length < 2 || !blocks.has(join)) continue
+    const after = new Set<string>([join])
+    const queue = [join]
+    while (queue.length > 0) {
+      for (const next of outgoing.get(queue.pop()!) ?? []) {
+        if (after.has(next)) continue
+        after.add(next)
+        queue.push(next)
+      }
+    }
+    const hits = [...wanted].filter((id) => after.has(id))
+    if (hits.length === 0) continue
+    for (const source of new Set(sources)) {
+      if (passes >= MAX_MERGE_SCOPE_PASSES) break
+      passes += 1
+      const variant: WorkflowIR = {
+        ...ir,
+        edges: ir.edges.filter((edge) => edge.target !== join || edge.source === source),
+      }
+      const scope = scopeIndex(variant, names, hoisted)
+      for (const id of hits) readings.get(id)!.push((name) => scope.binderOf(id, name))
+    }
+  }
+  return (nodeId, name) => {
+    const binders = new Set<string>()
+    for (const read of readings.get(nodeId) ?? []) {
+      const binder = read(name)
+      if (binder !== undefined) binders.add(binder)
+    }
+    return [...binders]
+  }
+}
+
 /** `upstreamVarNames` for one node, without building every other node's list. */
 export function upstreamVarNamesOf(
   ir: WorkflowIR,
-  names: Map<string, string>,
+  names: NodeBindings,
   hoisted: (node: WorkflowNode) => boolean,
   nodeId: string,
 ): string[] {
   return scopeIndex(ir, names, hoisted).of(nodeId)
 }
 
-interface Entry {
-  index: number
+/** The names each node binds, by node id: one name or a list of them. */
+export type NodeBindings = ReadonlyMap<string, string | readonly string[]>
+
+function namesOf(names: NodeBindings, nodeId: string): readonly string[] {
+  const bound = names.get(nodeId)
+  if (bound === undefined || bound === '') return []
+  return typeof bound === 'string' ? [bound] : bound
+}
+
+/** A name in a node's scope, and the node that binds it. */
+interface ScopeBinding {
   name: string
+  nodeId: string
+}
+
+interface Entry extends ScopeBinding {
+  index: number
 }
 
 function scopeIndex(
   ir: WorkflowIR,
-  names: Map<string, string>,
+  names: NodeBindings,
   hoisted: (node: WorkflowNode) => boolean,
-): { sorted: WorkflowNode[]; of(nodeId: string): string[] } {
+): {
+  sorted: WorkflowNode[]
+  of(nodeId: string): string[]
+  binders(nodeId: string): ScopeBinding[]
+  binderOf(nodeId: string, name: string): string | undefined
+} {
   const sorted = topologicalSort(ir)
   const index = new Map(sorted.map((node, i) => [node.id, i]))
   const nodeById = new Map(sorted.map((node) => [node.id, node]))
@@ -334,13 +430,13 @@ function scopeIndex(
     const siblings = members.get(key)
     if (siblings) siblings.push(node)
     else members.set(key, [node])
-    const name = names.get(node.id)
-    if (name && hoisted(node)) {
+    const bound = namesOf(names, node.id)
+    if (bound.length > 0 && hoisted(node)) {
       for (const block of blockChain(blocks, node.id)) {
-        const entry = { index: index.get(node.id)!, name }
+        const entries = bound.map((name) => ({ index: index.get(node.id)!, name, nodeId: node.id }))
         const under = hoistedUnder.get(block.owner)
-        if (under) under.push(entry)
-        else hoistedUnder.set(block.owner, [entry])
+        if (under) under.push(...entries)
+        else hoistedUnder.set(block.owner, entries)
       }
     }
   }
@@ -358,8 +454,9 @@ function scopeIndex(
     // A wait's arms run after the wait bound its result, so they can read it;
     // no other container's arms see the container's own value.
     if (nodeById.get(owner)?.type === 'wait_for_event') {
-      const name = names.get(owner)
-      if (name) scope.push({ index: index.get(owner)!, name })
+      for (const name of namesOf(names, owner)) {
+        scope.push({ index: index.get(owner)!, name, nodeId: owner })
+      }
     }
     opening.set(key, scope)
     return scope
@@ -369,20 +466,50 @@ function scopeIndex(
     const entries = [...openingOf(block)]
     for (const sibling of members.get(blockKey(block)) ?? []) {
       if (sibling.id === nodeId) break
-      const name = names.get(sibling.id)
-      if (name) entries.push({ index: index.get(sibling.id)!, name })
+      for (const name of namesOf(names, sibling.id)) {
+        entries.push({ index: index.get(sibling.id)!, name, nodeId: sibling.id })
+      }
       entries.push(...(hoistedUnder.get(sibling.id) ?? []))
     }
     return entries
   }
 
+  // A name bound twice (an inline step shadowing an outer binding) is read
+  // from the nearest binding: the latest in run order.
+  const binders = (nodeId: string): ScopeBinding[] => {
+    if (!index.has(nodeId)) return []
+    const latest = new Map<string, Entry>()
+    for (const entry of scopeEntries(nodeId).sort((a, b) => a.index - b.index)) {
+      latest.delete(entry.name)
+      latest.set(entry.name, entry)
+    }
+    return [...latest.values()].map(({ name, nodeId: binder }) => ({ name, nodeId: binder }))
+  }
+
+  // The nearest binder of one name, by the same walk without building the
+  // whole list: a check asks this for a few names at many nodes.
+  const binderOf = (nodeId: string, name: string): string | undefined => {
+    if (!index.has(nodeId)) return undefined
+    let best: Entry | undefined
+    const consider = (entry: Entry) => {
+      if (entry.name === name && (!best || entry.index > best.index)) best = entry
+    }
+    const block = blocks.get(nodeId)
+    for (const entry of openingOf(block)) consider(entry)
+    for (const sibling of members.get(blockKey(block)) ?? []) {
+      if (sibling.id === nodeId) break
+      if (namesOf(names, sibling.id).includes(name)) {
+        consider({ index: index.get(sibling.id)!, name, nodeId: sibling.id })
+      }
+      for (const entry of hoistedUnder.get(sibling.id) ?? []) consider(entry)
+    }
+    return best?.nodeId
+  }
+
   return {
     sorted,
-    of(nodeId) {
-      if (!index.has(nodeId)) return []
-      return scopeEntries(nodeId)
-        .sort((a, b) => a.index - b.index)
-        .map((entry) => entry.name)
-    },
+    of: (nodeId) => binders(nodeId).map((entry) => entry.name),
+    binders,
+    binderOf,
   }
 }

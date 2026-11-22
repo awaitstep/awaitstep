@@ -2,6 +2,7 @@ import type { ValidationError, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { extractImports } from './imports.js'
 import { computeVarNames } from './context.js'
 import { containerArms, upstreamScopeOf } from './dag.js'
+import { inlineStepNames } from './inline-declarations.js'
 import { blockBindingsOf } from './block-bindings.js'
 import { isExportedNode } from './sanitize.js'
 import { indent } from './format.js'
@@ -100,7 +101,10 @@ export function normalizeStepModule(
     if (reads(lexical)) entries.push(key === lexical ? key : `${key}: ${lexical}`)
   }
   for (const name of upstreamNames) {
-    if (!taken.has(name) && reads(name)) entries.push(name)
+    if (taken.has(name) || !reads(name)) continue
+    // A name listed twice is destructured once: `{ user, user }` does not parse.
+    taken.add(name)
+    entries.push(name)
   }
   const destructure = entries.length > 0 ? `const { ${entries.join(', ')} } = inputs;\n` : ''
   const nests = [...declared].some((name) => PARAMS.has(name))
@@ -138,7 +142,7 @@ export function normalizeStepModules<
   )
   if (bodies.size === 0) return ir
   const names = computeVarNames(ir.nodes)
-  const upstream = upstreamOrEveryone(ir, names)
+  const upstream = upstreamOrEveryone(ir, readableNames(ir.nodes, names))
   const bindings = bindingsOrNone(ir)
   const nodes = ir.nodes.map((node) => {
     if (!bodies.has(node.id)) return node
@@ -154,6 +158,19 @@ export function normalizeStepModules<
 }
 
 /**
+ * Every name a body may read from another node: its variable name, and for
+ * an inline step each name its code declares at its top level.
+ */
+function readableNames(
+  nodes: readonly WorkflowNode[],
+  names: Map<string, string>,
+): Map<string, string[]> {
+  return new Map(
+    nodes.map((node) => [node.id, [...new Set([names.get(node.id)!, ...inlineStepNames(node)])]]),
+  )
+}
+
+/**
  * The names a body may have read bare: what the emitter binds at its call
  * site — the block-aware upstream, with a function's returned children
  * hoisted — or, for a graph the sort refuses, every other node's name. The
@@ -161,7 +178,7 @@ export function normalizeStepModules<
  */
 function upstreamOrEveryone(
   ir: { nodes: WorkflowNode[]; edges?: WorkflowIR['edges']; entryNodeId?: string; kind?: string },
-  names: Map<string, string>,
+  names: Map<string, string[]>,
 ): (nodeId: string) => string[] {
   if (ir.edges && ir.entryNodeId) {
     try {
@@ -173,7 +190,7 @@ function upstreamOrEveryone(
     }
   }
   return (nodeId) =>
-    ir.nodes.filter((other) => other.id !== nodeId).map((other) => names.get(other.id)!)
+    ir.nodes.filter((other) => other.id !== nodeId).flatMap((other) => names.get(other.id)!)
 }
 
 /** The container bindings around each node, or none when the graph cannot be read as blocks. */

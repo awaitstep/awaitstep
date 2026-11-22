@@ -719,3 +719,31 @@ function shared(x) { return x }
     expect(code).not.toContain('async scheduled(')
   })
 })
+
+describe('generateWorkflowBundle: inline step bindings', () => {
+  it('hands an inline step’s top-level const to a later step that reads it', () => {
+    const step = (id: string, name: string, data: Record<string, unknown>): WorkflowNode => ({
+      id,
+      name,
+      type: 'step',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      provider: 'cloudflare',
+      data,
+    })
+    const ir = {
+      metadata: { name: 'inline bindings', version: 1, createdAt: '', updatedAt: '' },
+      nodes: [
+        step('get', 'Get Customer', { inline: true, code: 'const user = { email: "a@b.c" }' }),
+        step('sync', 'Sync Contact', {
+          code: 'export default async function Sync_Contact({ inputs }) {\n  return inputs.user\n}\n',
+        }),
+      ],
+      edges: [{ id: 'e1', source: 'get', target: 'sync' }],
+      entryNodeId: 'get',
+    } as unknown as WorkflowIR
+    const code = programOf(ir)
+    expect(code).toContain('const user = { email: "a@b.c" }')
+    expect(code).toContain('$Sync_Contact(stepArgs({ env, event, inputs: { user }, step, ctx }))')
+  })
+})

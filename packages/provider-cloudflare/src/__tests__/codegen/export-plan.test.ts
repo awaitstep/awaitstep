@@ -73,6 +73,22 @@ describe('boundVarNames', () => {
     )
     expect([...boundVarNames(ir, computeVarNames(ir.nodes)).keys()]).toEqual(['a', 'c'])
   })
+
+  it('binds every name an inline step declares at its top level', () => {
+    const ir = graph(
+      [
+        node('a', 'step', {
+          code: "import { x } from 'y'\nconst user = x()\nconst { id, email } = user",
+          inline: true,
+        }),
+        node('b', 'step', { code: 'if (ok) { const hidden = 1 }', inline: true }),
+      ],
+      [{ id: 'e1', source: 'a', target: 'b' }],
+    )
+    expect([...boundVarNames(ir, computeVarNames(ir.nodes))]).toEqual([
+      ['a', ['user', 'id', 'email']],
+    ])
+  })
 })
 
 describe('exportPlan', () => {
