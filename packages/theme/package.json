@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./theme.css": "./src/theme.css",
-    "./fonts/*": "./src/fonts/*"
+    "./fonts/*": "./src/fonts/*",
+    "./landing.css": "./src/landing.css"
   }
 }

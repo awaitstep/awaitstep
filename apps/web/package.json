@@ -31,6 +31,7 @@
   "dependencies": {
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
+    "@awaitstep/landing-scenes": "workspace:*",
     "@awaitstep/provider-cloudflare": "workspace:*",
     "@awaitstep/storage": "workspace:*",
     "@awaitstep/templates": "workspace:*",

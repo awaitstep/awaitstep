@@ -1,0 +1,172 @@
+{
+  "metadata": {
+    "name": "refund-review",
+    "description": "Review a refund, ask for approval over 500, refund and notify, follow up after three days",
+    "version": 1,
+    "createdAt": "2026-11-21T00:00:00Z",
+    "updatedAt": "2026-11-21T00:00:00Z"
+  },
+  "entryNodeId": "fetch_order",
+  "nodes": [
+    {
+      "id": "fetch_order",
+      "type": "http_request",
+      "name": "Fetch order",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "url": "https://shop.example.com/api/orders/latest",
+        "method": "GET"
+      }
+    },
+    {
+      "id": "check_amount",
+      "type": "branch",
+      "name": "Over 500?",
+      "position": {
+        "x": 0,
+        "y": 100
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "branches": [
+          {
+            "label": "over 500",
+            "condition": "{{fetch_order.body.amount}} > 500"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wait_approval",
+      "type": "wait_for_event",
+      "name": "Wait for approval",
+      "position": {
+        "x": -150,
+        "y": 200
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "eventType": "refund-approved",
+        "timeout": "3 days"
+      }
+    },
+    {
+      "id": "refund_and_notify",
+      "type": "parallel",
+      "name": "Refund and notify",
+      "position": {
+        "x": 0,
+        "y": 300
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {}
+    },
+    {
+      "id": "issue_refund",
+      "type": "step",
+      "name": "Issue refund",
+      "position": {
+        "x": -100,
+        "y": 400
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "const res = await fetch('https://api.stripe.com/v1/refunds', {\n  method: 'POST',\n  headers: { Authorization: `Bearer ${env.STRIPE_KEY}` },\n  body: new URLSearchParams({ charge: event.payload.chargeId }),\n})\nif (!res.ok) throw new Error(`Stripe ${res.status}`)\nreturn { refundId: (await res.json()).id }"
+      }
+    },
+    {
+      "id": "notify_team",
+      "type": "step",
+      "name": "Notify the team",
+      "position": {
+        "x": 100,
+        "y": 400
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "await fetch(env.SLACK_WEBHOOK, {\n  method: 'POST',\n  body: JSON.stringify({ text: `Refund for ${event.payload.orderId}` }),\n})\nreturn { notified: true }"
+      }
+    },
+    {
+      "id": "wait_three_days",
+      "type": "sleep",
+      "name": "Wait 3 days",
+      "position": {
+        "x": 0,
+        "y": 500
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "duration": "3 days"
+      }
+    },
+    {
+      "id": "follow_up",
+      "type": "step",
+      "name": "Send follow-up",
+      "position": {
+        "x": 0,
+        "y": 600
+      },
+      "version": "1.0.0",
+      "provider": "cloudflare",
+      "data": {
+        "code": "await fetch('https://api.resend.com/emails', {\n  method: 'POST',\n  headers: { Authorization: `Bearer ${env.RESEND_KEY}` },\n  body: JSON.stringify({ to: event.payload.email, subject: 'Your refund' }),\n})\nreturn { sent: true }"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "fetch_order",
+      "target": "check_amount"
+    },
+    {
+      "id": "e2",
+      "source": "check_amount",
+      "target": "wait_approval",
+      "label": "over 500"
+    },
+    {
+      "id": "e4",
+      "source": "wait_approval",
+      "target": "refund_and_notify"
+    },
+    {
+      "id": "e5",
+      "source": "refund_and_notify",
+      "target": "issue_refund"
+    },
+    {
+      "id": "e6",
+      "source": "refund_and_notify",
+      "target": "notify_team"
+    },
+    {
+      "id": "e7",
+      "source": "issue_refund",
+      "target": "wait_three_days"
+    },
+    {
+      "id": "e8",
+      "source": "notify_team",
+      "target": "wait_three_days"
+    },
+    {
+      "id": "e9",
+      "source": "wait_three_days",
+      "target": "follow_up"
+    }
+  ]
+}
