@@ -19,6 +19,7 @@ import type { CloudflareOAuthRuntime } from './lib/cloudflare-oauth-config.js'
 import { createCloudflareOAuthStub } from './dev/cloudflare-oauth-stub.js'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import { createLogger } from './lib/logger.js'
+import { redactText } from './lib/log-redaction.js'
 import { createRouter } from './routes/index.js'
 import { corsPolicy } from './middleware/cors-policy.js'
 import { originCheck } from './middleware/origin-check.js'
@@ -148,7 +149,11 @@ export function createApp(deps: AppDeps) {
   })
 
   // Request logger — logs method, path, and status for every request
-  app.use('*', honoLogger())
+  // Its line is the URL with its query: a sign-in link's `?token=` is redacted like any log line.
+  app.use(
+    '*',
+    honoLogger((line) => console.log(redactText(line))),
+  )
 
   // A served image's own headers, set after secureHeaders' (see routes/images.ts).
   app.use('/api/images/*', imageResponseHeaders)

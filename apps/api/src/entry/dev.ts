@@ -167,6 +167,8 @@ async function start() {
     // The dev server is its own inbox.
     logLinks: isDev,
     log: (message) => logger.warn(message),
+    // A link the flag asks to see is the point of its line: it is logged as is.
+    logLink: (message) => logger.warnAsIs(message),
   })
 
   const app = createApp({
@@ -239,6 +241,18 @@ async function start() {
     process.exit(0)
   })
 }
+
+// A rejection nothing caught, or an exception nothing handled, still ends the
+// process as Node's default does — but logged through the redacting logger:
+// Node's own print would show its text (a database URL, an account id) raw.
+process.on('unhandledRejection', (reason: unknown) => {
+  createLogger('app').error('Unhandled rejection', reason)
+  process.exit(1)
+})
+process.on('uncaughtException', (err: Error) => {
+  createLogger('app').error('Uncaught exception', err)
+  process.exit(1)
+})
 
 start().catch((err: unknown) => {
   createLogger('app').error(`Startup failed: ${err instanceof Error ? err.message : String(err)}`)

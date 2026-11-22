@@ -133,11 +133,12 @@ async function start() {
     // link is a sign-in, and logs are not a private place: it is printed only
     // when LOG_EMAIL_LINKS asks for it (dev and QA stacks), else just the fact.
     sendMagicLink = async (data) => {
-      logger.warn(
-        logLinks
-          ? `Magic link for ${data.email}: ${data.url}`
-          : `Magic link for ${data.email} not sent: no email service (set LOG_EMAIL_LINKS=1 to log links)`,
-      )
+      if (logLinks) logger.warnAsIs(`Magic link for ${data.email}: ${data.url}`)
+      else {
+        logger.warn(
+          `Magic link for ${data.email} not sent: no email service (set LOG_EMAIL_LINKS=1 to log links)`,
+        )
+      }
     }
     logger.warn(
       logLinks
@@ -150,6 +151,8 @@ async function start() {
     service: emailService,
     logLinks,
     log: (message) => logger.warn(message),
+    // A link the flag asks to see is the point of its line: it is logged as is.
+    logLink: (message) => logger.warnAsIs(message),
   })
 
   const authOptions: AuthOptions = {
@@ -323,6 +326,18 @@ async function start() {
 // One readable line. Left unhandled, Node prints the throwing source line —
 // in the bundled build that is the whole minified file, and the message
 // itself scrolls out of `docker logs`.
+// A rejection nothing caught, or an exception nothing handled, still ends the
+// process as Node's default does — but logged through the redacting logger:
+// Node's own print would show its text (a database URL, an account id) raw.
+process.on('unhandledRejection', (reason: unknown) => {
+  createLogger('app').error('Unhandled rejection', reason)
+  process.exit(1)
+})
+process.on('uncaughtException', (err: Error) => {
+  createLogger('app').error('Uncaught exception', err)
+  process.exit(1)
+})
+
 start().catch((err: unknown) => {
   createLogger('app').error(`Startup failed: ${err instanceof Error ? err.message : String(err)}`)
   process.exit(1)

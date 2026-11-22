@@ -111,8 +111,12 @@ export function createAppEmails(options: {
   webUrl: string
   service: EmailService | null
   logLinks: boolean
+  /** A note logged like any line (redacted). */
   log: (message: string) => void
+  /** A line whose link `logLinks` asks to see, logged as is; `log` when absent. */
+  logLink?: (message: string) => void
 }): AppEmails {
+  const logLink = options.logLink ?? options.log
   const base = options.webUrl.replace(/\/$/, '')
   return {
     inviteUrl: (id) => `${base}/invite/${encodeURIComponent(id)}`,
@@ -122,19 +126,24 @@ export function createAppEmails(options: {
       `${base}/${[slugs.org, slugs.project, slugs.workspace].map(encodeURIComponent).join('/')}/runs`,
     async sendInvitation(data) {
       if (options.service) return options.service.sendInvitation(data)
-      options.log(
-        options.logLinks
-          ? `Invitation for ${data.to} to ${data.orgName}: ${data.url}`
-          : `Invitation for ${data.to} to ${data.orgName} not sent: no email service (set LOG_EMAIL_LINKS=1 to log links)`,
-      )
+      if (options.logLinks) logLink(`Invitation for ${data.to} to ${data.orgName}: ${data.url}`)
+      else {
+        options.log(
+          `Invitation for ${data.to} to ${data.orgName} not sent: no email service (set LOG_EMAIL_LINKS=1 to log links)`,
+        )
+      }
     },
     async sendInviteRequest(data) {
       if (options.service) return options.service.sendInviteRequest(data)
-      options.log(
-        options.logLinks
-          ? `${data.askerEmail} asked ${data.to} for a new invite to ${data.orgName}: ${data.url}`
-          : `${data.askerEmail} asked ${data.to} for a new invite to ${data.orgName}: not sent, no email service`,
-      )
+      if (options.logLinks) {
+        logLink(
+          `${data.askerEmail} asked ${data.to} for a new invite to ${data.orgName}: ${data.url}`,
+        )
+      } else {
+        options.log(
+          `${data.askerEmail} asked ${data.to} for a new invite to ${data.orgName}: not sent, no email service`,
+        )
+      }
     },
     // Neither carries a secret, so without a mail service the note is logged whole.
     async sendAccessRequest(data) {

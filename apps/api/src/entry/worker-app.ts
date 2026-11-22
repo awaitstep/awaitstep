@@ -112,6 +112,8 @@ function workerEmails(env: Env, baseURL: string, logger: ReturnType<typeof creat
     service: emailService,
     logLinks: env.LOG_EMAIL_LINKS === '1',
     log: (message) => logger.warn(message),
+    // A link the flag asks to see is the point of its line: it is logged as is.
+    logLink: (message) => logger.warnAsIs(message),
   })
   return { emails, sendMagicLink }
 }

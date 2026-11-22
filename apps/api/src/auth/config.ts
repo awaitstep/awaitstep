@@ -5,6 +5,7 @@ import { CLIENT_IP_HEADER } from '../lib/client-ip.js'
 import { orgSlugProblem } from '../lib/slugs.js'
 import { ONLY_WAY_IN, stripUnsafeText, type AccountProviders } from '@awaitstep/ir'
 import { isProviderImageUrl } from '@awaitstep/storage'
+import { createLogger } from '../lib/logger.js'
 
 export interface AuthOptions {
   baseURL: string
@@ -143,9 +144,21 @@ const CLOSED_ACCOUNT_PATHS = new Set([
   '/delete-user/callback',
 ])
 
+// better-auth's own lines (a failed query quotes its params: a sign-in
+// token, an email) go through the app's logger, which redacts them.
+const authLog = createLogger('auth')
+
+/** better-auth's `logger` option: its lines, through the app's redacting logger. */
+export const betterAuthLogger = {
+  log: (level: 'debug' | 'info' | 'warn' | 'error', message: string, ...args: unknown[]) => {
+    authLog[level](message, args.length === 0 ? undefined : args.length === 1 ? args[0] : args)
+  },
+}
+
 export function createAuth(options: AuthOptions) {
   return betterAuth({
     basePath: '/api/auth',
+    logger: betterAuthLogger,
     baseURL: options.baseURL,
     secret: options.secret,
     database: options.database as Parameters<typeof betterAuth>[0]['database'],
