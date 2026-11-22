@@ -9,6 +9,10 @@ export default defineConfig({
   trailingSlash: 'never',
   build: { format: 'file' },
   integrations: [sitemap()],
+  // No page renders Markdown or code blocks (release notes are read as raw text), so nothing is
+  // highlighted. Off, rather than Astro's default Shiki, whose inline styles a CSP would have to
+  // allow and which makes every build warn once CSP is on.
+  markdown: { syntaxHighlight: false },
   // A Content-Security-Policy <meta> on every page: Astro hashes the page's own scripts, so
   // nothing else can run. Styles allow 'unsafe-inline' because pages set custom properties in
   // style attributes (a drawing's width, the steps' count); every other source is this origin.
