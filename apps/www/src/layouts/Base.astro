@@ -1,64 +1,101 @@
 ---
-import satoshiWoff2 from '@awaitstep/theme/fonts/Satoshi-Variable.woff2?url'
 import '../styles/global.css'
+import SiteNav from '../components/site/SiteNav.astro'
+import SiteFooter from '../components/site/SiteFooter.astro'
+import { inlineJson, pagePath } from '../lib/paths'
 
 interface Props {
-  title?: string
-  description?: string
+  title: string
+  description: string
+  jsonLd?: Record<string, unknown>[]
+  /** The page opens on a full-bleed hero (or a page opening) the nav sits over. */
+  overHero?: boolean
+  /** The footer's large closing line. */
+  closing?: string
+  /** The share card in /og/, by name (`pricing` is /og/pricing.png). */
+  image?: string
+  /** The page's name in the breadcrumb trail search results show; the home page has none. */
+  crumb?: string
+  /** Keep the page out of search results (the 404 page): no canonical, a noindex robots tag. */
+  noindex?: boolean
 }
 
 const {
-  title = 'AwaitStep — Open Source Visual Workflow Builder',
-  description = 'A self-hosted visual builder that turns a node graph into portable TypeScript. No proprietary engine, just your code — ready for the runtime you choose.',
+  title,
+  description,
+  jsonLd = [],
+  overHero = true,
+  closing,
+  image = 'home',
+  crumb,
+  noindex = false,
 } = Astro.props
+const path = pagePath(Astro.url.pathname)
+const canonical = new URL(path, Astro.site).toString()
+const imageUrl = new URL(`/og/${image}.png`, Astro.site).toString()
+const breadcrumbs = crumb
+  ? [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'AwaitStep', item: new URL('/', Astro.site).toString() },
+          { '@type': 'ListItem', position: 2, name: crumb, item: canonical },
+        ],
+      },
+    ]
+  : []
+const structured = [...breadcrumbs, ...jsonLd]
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" class="landing">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
-
-    <!-- Open Graph -->
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
     <meta property="og:type" content="website" />
+    {!noindex && <meta property="og:url" content={canonical} />}
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:site_name" content="AwaitStep" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:image" content={imageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="theme-color" content="#fafafa" />
-
-    <!-- Favicon -->
+    <meta name="twitter:image" content={imageUrl} />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
-    <!-- Fonts: Satoshi is shared with the dashboard; Caveat is the handwriting accent. -->
-    <link rel="preload" href={satoshiWoff2} as="font" type="font/woff2" crossorigin />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&display=swap"
-      rel="stylesheet"
-    />
+    <script is:inline>
+      // Before paint: the `js` class that script-dependent styles key off. If the site script has
+      // not started within a few seconds (it failed to load), the page falls back to its no-script
+      // layout, so a phone never keeps a hidden menu with no button to open it.
+      document.documentElement.classList.add('js')
+      setTimeout(function () {
+        if (!document.documentElement.hasAttribute('data-site-ready'))
+          document.documentElement.classList.remove('js')
+      }, 4000)
+    </script>
+    {structured.map((data) => <script type="application/ld+json" set:html={inlineJson(data)} />)}
   </head>
   <body>
-    <slot />
-
+    <a class="skip" href="#main">Skip to content</a>
+    <SiteNav overHero={overHero} />
+    <main id="main">
+      <slot />
+    </main>
+    <SiteFooter statement={closing} />
     <script>
-      // Nav border on scroll
-      const nav = document.querySelector('[data-nav]')
-      if (nav) {
-        window.addEventListener(
-          'scroll',
-          () => {
-            nav.classList.toggle('border-b', window.scrollY > 10)
-            nav.classList.toggle('border-border', window.scrollY > 10)
-          },
-          { passive: true },
-        )
-      }
+      import { initSite } from '../scripts/site'
+      initSite()
     </script>
   </body>
 </html>

@@ -1,0 +1,28 @@
+---
+import { getImage } from 'astro:assets'
+import type { ImageMetadata } from 'astro'
+
+interface Props {
+  /** The screen, captured in the dashboard's dark theme. */
+  src: ImageMetadata
+  alt: string
+  caption?: string
+  class?: string
+}
+
+const { src, alt, caption, class: className } = Astro.props
+
+/**
+ * The screen as a CSS background: WebP at quality 60 (flat UI stays crisp), 960px for 1x screens
+ * and 1920px for 2x.
+ */
+const [one, two] = await Promise.all(
+  [960, 1920].map((width) => getImage({ src, width, format: 'webp', quality: 60 })),
+)
+const style = `--shot: image-set(url("${one.src}") 1x, url("${two.src}") 2x); --shot-aspect: ${src.width} / ${src.height}`
+---
+
+<figure class:list={['shot', className]} style={style}>
+  <div class="shot__frame" role="img" aria-label={alt}></div>
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

@@ -1,0 +1,28 @@
+---
+interface Props {
+  /** The text equivalent of the video, read by assistive tech and crawlers. */
+  summary: string
+  class?: string
+}
+
+const { summary, class: className } = Astro.props
+---
+
+<figure class:list={['scene', className]} data-scene="hero">
+  <div class="scene__stage">
+    <!-- No autoplay attribute: the script starts it unless the visitor prefers reduced motion,
+         so without script or with reduced motion the poster stands still. -->
+    <video
+      class="scene-video"
+      src="/video/hero.mp4"
+      poster="/video/hero-poster.jpg"
+      muted
+      loop
+      playsinline
+      preload="metadata"
+      aria-hidden="true"
+      data-hero-video
+    ></video>
+  </div>
+  <figcaption class="visually-hidden">{summary}</figcaption>
+</figure>

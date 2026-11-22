@@ -1,0 +1,26 @@
+---
+import { APP_URL, DEFAULT_CLOSING, FOOTER_LINKS, INSTALL_URL, LICENSE_URL } from '../../content/site'
+
+interface Props {
+  /** The large closing line above the actions. */
+  statement?: string
+}
+
+const { statement = DEFAULT_CLOSING } = Astro.props
+---
+
+<footer class="footer">
+  <div class="container">
+    <p class="footer__statement">{statement}</p>
+    <div class="actions footer__actions">
+      <a class="btn" href={APP_URL}>Start building</a>
+      <a class="btn btn--quiet" href={INSTALL_URL}>Self-host</a>
+    </div>
+    <nav class="footer__links" aria-label="Footer">
+      {FOOTER_LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <p class="footer__legal">
+      The self-hosted edition is open source under <a href={LICENSE_URL}>Apache 2.0</a>.
+    </p>
+  </div>
+</footer>
