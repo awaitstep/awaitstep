@@ -35,6 +35,17 @@ declare module '#awaitstep/workflow' {
   export function startWorkflow(env: unknown, params: unknown): Promise<{ instanceId: string }>
   /** The status of an instance, or null when there is none by that id. */
   export function workflowStatus(env: unknown, instanceId: string): Promise<unknown>
+  /** An instance of this workflow by id — its status and a way to send it an event — or null when there is none. */
+  export function getInstance(
+    env: unknown,
+    instanceId: string,
+  ): Promise<import('#awaitstep/runtime').WorkflowInstanceHandle | null>
+  /**
+   * Sends an event to an instance of this workflow: \`getInstance\`, then its \`sendEvent\`.
+   * A wait for an event of this \`type\` takes its onEvent path; its value is the event, with \`payload\` as sent.
+   * Throws InstanceNotFoundError when there is no instance by that id.
+   */
+  export function sendEvent(env: unknown, instanceId: string, type: string, payload?: unknown): Promise<void>
 }
 `
 

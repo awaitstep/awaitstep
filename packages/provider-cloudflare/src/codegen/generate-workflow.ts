@@ -331,21 +331,62 @@ ${handlerBlocks.join('\n')}
   const moduleCodeBlock = collapseBlankLines(moduleCode).trim()
 
   const retentionConst = `export const AWAITSTEP_RETENTION = ${retentionLiteral(retention)};`
-  const workflowHelpers = `/** Starts an instance of this workflow with \`params\` as its event payload. */
-export async function startWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
+  const workflowHelpers = `// Declared under awaitstep names and exported under the public ones: inline
+// code's imports are hoisted into this module, and a step importing its own
+// \`startWorkflow\`, \`workflowStatus\`, \`getInstance\` or \`sendEvent\` must keep it.
+/** Starts an instance of this workflow with \`params\` as its event payload. */
+async function awaitstepStartWorkflow(env: Env, params: unknown): Promise<{ instanceId: string }> {
   const instance = await env.WORKFLOW.create({ params, retention: AWAITSTEP_RETENTION });
   return { instanceId: instance.id };
 }
 
-/** The status of an instance, or null when there is none by that id. */
-export async function workflowStatus(env: Env, instanceId: string) {
+/** An instance of this workflow by id — its status and a way to send it an event — or null when there is none. */
+async function awaitstepGetInstance(env: Env, instanceId: string): Promise<AwaitstepInstanceHandle | null> {
   const instance = await env.WORKFLOW.get(instanceId).catch(() => null);
+  if (!instance) return null;
+  return {
+    instanceId,
+    status: () => instance.status(),
+    sendEvent: (type: string, payload?: unknown) => instance.sendEvent({ type, payload }),
+  };
+}
+
+/**
+ * Sends an event to an instance of this workflow: \`getInstance\`, then its \`sendEvent\`.
+ * A wait for an event of this \`type\` takes its onEvent path; its value is the event, with \`payload\` as sent.
+ * Throws InstanceNotFoundError when there is no instance by that id.
+ */
+function awaitstepSendWorkflowEvent(env: Env, instanceId: string, type: string, payload?: unknown): Promise<void> {
+  return awaitstepSendInstanceEvent((id) => awaitstepGetInstance(env, id), instanceId, type, payload);
+}
+
+/** The status of an instance, or null when there is none by that id. */
+async function awaitstepWorkflowStatus(env: Env, instanceId: string) {
+  const instance = await awaitstepGetInstance(env, instanceId);
   return instance ? instance.status() : null;
-}`
-  const workflowSource = portable.source.replace(
-    '\nexport default defineWorkflow',
-    `\n${retentionConst}\n\n${workflowHelpers}\n\nexport default defineWorkflow`,
-  )
+}
+
+export {
+  awaitstepStartWorkflow as startWorkflow,
+  awaitstepWorkflowStatus as workflowStatus,
+  awaitstepGetInstance as getInstance,
+  awaitstepSendWorkflowEvent as sendEvent,
+};`
+
+  // The helpers' runtime names join the module's own runtime import.
+  const { imports: portableImports, body: portableBody } = extractImports(portable.source)
+  const workflowSource = `${mergeImports([
+    ...portableImports.map((statement) => ({ statement })),
+    {
+      statement:
+        'import { sendInstanceEvent as awaitstepSendInstanceEvent, type WorkflowInstanceHandle as AwaitstepInstanceHandle } from "#awaitstep/runtime";',
+    },
+  ]).join('\n')}\n\n${portableBody
+    .trimStart()
+    .replace(
+      /^export default defineWorkflow/m,
+      `${retentionConst}\n\n${workflowHelpers}\n\nexport default defineWorkflow`,
+    )}`
 
   // The bootstrap needs the runtime, the workflow module and the trigger
   // code's imports. Nothing imports the worker, so it takes from the workflow
@@ -353,11 +394,17 @@ export async function workflowStatus(env: Env, instanceId: string) {
   // default fetch (or legacy trigger code) creates instances itself.
   const usesRetention =
     graphModuleNames(`${moduleCodeBlock}\n${exportDefault}`, ['AWAITSTEP_RETENTION']).length > 0
+  // The send-event route sends through the module's own `sendEvent`, under a
+  // name the trigger code can't have taken.
+  const graphNames = [
+    ...(usesRetention ? ['AWAITSTEP_RETENTION'] : []),
+    ...(hasWaitForEvent ? ['sendEvent as awaitstepWorkflowEvent'] : []),
+  ]
   const entryGenerated = [
     'import { WorkflowEntrypoint } from "cloudflare:workers";',
-    'import { createWorkflowContext, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";',
+    `import { createWorkflowContext${hasWaitForEvent ? ', InstanceNotFoundError as AwaitstepInstanceNotFound' : ''}, type StepAttempt, type StepConfig, type WaitForEventOptions, type WorkflowHost } from "#awaitstep/runtime";`,
     'import { createAwaitstepPlatform } from "#awaitstep/platform";',
-    `import workflow${usesRetention ? ', { AWAITSTEP_RETENTION }' : ''} from "#awaitstep/workflow";`,
+    `import workflow${graphNames.length > 0 ? `, { ${graphNames.join(', ')} }` : ''} from "#awaitstep/workflow";`,
     'import type { Env } from "#awaitstep/env";',
   ]
   const entryImportBlock = mergeImports([
@@ -373,22 +420,21 @@ export async function workflowStatus(env: Env, instanceId: string) {
   const action = body?.action ?? url.searchParams.get("action");
   if (action !== "send-event") return null;
   const instanceId = body?.instanceId ?? url.searchParams.get("instanceId");
-  if (typeof instanceId !== "string" || instanceId.length === 0) {
+  if (typeof instanceId !== "string" || instanceId.trim().length === 0) {
     return Response.json({ message: "instanceId is required" }, { status: 400 });
   }
-  const instance = await env.WORKFLOW.get(instanceId).catch(() => null);
-  if (!instance) {
-    return Response.json({ message: "Instance not found" }, { status: 404 });
-  }
   const type = body?.type ?? url.searchParams.get("type");
-  if (typeof type !== "string" || type.length === 0) {
+  if (typeof type !== "string" || type.trim().length === 0) {
     return Response.json({ message: "type is required" }, { status: 400 });
   }
   const queryAction = url.searchParams.get("action") === "send-event";
   const payload = body?.params ?? body?.payload ?? (queryAction ? body : undefined);
   try {
-    await instance.sendEvent({ type, payload });
+    await awaitstepWorkflowEvent(env, instanceId, type, payload);
   } catch (error) {
+    if (error instanceof AwaitstepInstanceNotFound) {
+      return Response.json({ message: "Instance not found" }, { status: 404 });
+    }
     return Response.json({ message: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
   return Response.json({ ok: true });

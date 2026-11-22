@@ -238,7 +238,19 @@ await flow.sleepUntil('wait_until', '2025-12-31T09:00:00Z')
 
 ## wait_for_event
 
-Pause execution until an external event is received via the `sendEvent` API.
+Pause execution until an external event is received. Send it from a handler with
+`sendEvent` from `#awaitstep/workflow`:
+
+```typescript
+import { sendEvent } from '#awaitstep/workflow'
+
+// The type is the node's eventType; the wait's value is the event, its `payload` what you send.
+await sendEvent(env, instanceId, 'user-approval', { approved: true })
+```
+
+`getInstance(env, instanceId)` looks the run up first (`null` when there is none) and its
+handle has the same `sendEvent(type, payload)`. `sendEvent` throws `InstanceNotFoundError`
+(from `#awaitstep/runtime`) for an unknown id.
 
 **Config:**
 
@@ -249,9 +261,9 @@ Pause execution until an external event is received via the `sendEvent` API.
 
 **Output:**
 
-| Field     | Type     | Description                                     |
-| --------- | -------- | ----------------------------------------------- |
-| `payload` | `object` | The event payload sent via the `sendEvent` API. |
+| Field     | Type     | Description                              |
+| --------- | -------- | ---------------------------------------- |
+| `payload` | `object` | The event payload passed to `sendEvent`. |
 
 **Generated code:**
 
