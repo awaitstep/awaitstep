@@ -58,6 +58,8 @@ function inputOf(overrides: Partial<Input> = {}): Input {
     editedDoc: null,
     fullError: null,
     sourceError: null,
+    missingNode: null,
+    onMissingNode: vi.fn(),
     source,
     baseline: new Map(source.files.map((f) => [f.path, f])),
     ghostPaths: [],
@@ -268,6 +270,43 @@ describe('useWorkspaceLifecycle load errors', () => {
         sourceError: new Error('500'),
       }),
     )
+    expect(actionToast.error).toHaveBeenCalledTimes(1)
+  })
+
+  it('switches to the canvas for a node it cannot build, naming it, instead of the general toast', () => {
+    const onMissingNode = vi.fn()
+    const missingNode = {
+      nodeId: 'say_hello',
+      name: 'Say Hello',
+      reason: 'Custom node "Say Hello" has no published version yet; publish it to use it',
+    }
+    setup(
+      inputOf({
+        source: undefined,
+        sourceError: new Error('Bundle validation failed'),
+        missingNode,
+        onMissingNode,
+      }),
+    )
+    expect(onMissingNode).toHaveBeenCalledWith(missingNode)
+    expect(actionToast.error).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(actionToast.error).mock.calls[0]![0]).toBe(
+      'Code can’t open because of “Say Hello”: Custom node "Say Hello" has no published version yet; publish it to use it',
+    )
+  })
+
+  it('switches and toasts once, even when another load fails after it', () => {
+    const onMissingNode = vi.fn()
+    const missingNode = { nodeId: 'say_hello', name: 'Say Hello', reason: 'Unknown custom node' }
+    const first = inputOf({
+      source: undefined,
+      sourceError: new Error('Bundle validation failed'),
+      missingNode,
+      onMissingNode,
+    })
+    const { rerender } = setup(first)
+    rerender({ ...first, fullError: new Error('full refetch failed') })
+    expect(onMissingNode).toHaveBeenCalledTimes(1)
     expect(actionToast.error).toHaveBeenCalledTimes(1)
   })
 

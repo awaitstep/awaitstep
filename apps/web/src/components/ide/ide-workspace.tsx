@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useBlocker } from '@tanstack/react-router'
 import { actionToast } from '../../lib/action-toast'
@@ -7,6 +7,8 @@ import { useQueries } from '../../contexts/api-client-context'
 import { useMinWidth } from '../../hooks/use-min-width'
 import { useProjectFiles } from '../../hooks/use-project-files'
 import { useSearchActions } from '../../hooks/use-search-actions'
+import { useSwitchView } from '../../hooks/use-switch-view'
+import { missingLibraryNode, type MissingNode } from '../../lib/ide/missing-node'
 import { useWorkspaceActions } from '../../hooks/use-workspace-actions'
 import { useWorkspaceData } from '../../hooks/use-workspace-data'
 import { useWorkspaceDraftSync, useWorkspaceLifecycle } from '../../hooks/use-workspace-lifecycle'
@@ -74,6 +76,26 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     [],
   )
 
+  // Only on the first load: a refetch that fails keeps the loaded source on
+  // screen (and any drafts with it), as any other failed refetch does.
+  const missingNode = useMemo(
+    () =>
+      source === undefined
+        ? missingLibraryNode(sourceQuery.error, data.savedVersion?.doc.nodes)
+        : null,
+    [source, sourceQuery.error, data.savedVersion],
+  )
+  const switchView = useSwitchView(workflowId)
+  const handleMissingNode = useCallback(
+    (node: MissingNode) => {
+      // Pinned only for a history version: a pinned current version opens
+      // read-only once a newer one exists.
+      const version = data.isHistorical ? versionParam : undefined
+      void switchView('canvas', { version, node: node.nodeId })
+    },
+    [switchView, versionParam, data.isHistorical],
+  )
+
   useWorkspaceDraftSync({
     workflowId,
     versionParam,
@@ -107,6 +129,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
     editedDoc: data.editedDoc,
     fullError: fullQuery.error,
     sourceError: sourceQuery.error,
+    missingNode,
+    onMissingNode: handleMissingNode,
     source,
     baseline,
     ghostPaths: data.ghostPaths,
@@ -167,7 +191,8 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   if (!fullData) {
     return <LoadFailure workflowId={workflowId} message={fullQuery.error?.message} />
   }
-  if (sourceQuery.isPending) return <IdeSkeleton />
+  // Switching to the canvas for a node it can't build: no failure page meanwhile.
+  if (sourceQuery.isPending || missingNode) return <IdeSkeleton />
   if (!source || !data.workspace) {
     return <LoadFailure workflowId={workflowId} message={sourceQuery.error?.message} />
   }

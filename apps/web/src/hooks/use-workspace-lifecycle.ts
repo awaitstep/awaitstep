@@ -4,6 +4,7 @@ import type { ArtifactIR } from '@awaitstep/ir'
 import type { DraftUndo } from '../lib/ide/draft-undo'
 import { pruneGraphOps } from '../lib/ide/graph-ops-actions'
 import type { LoadedVersion } from '../lib/ide/node-source'
+import { missingNodeMessage, type MissingNode } from '../lib/ide/missing-node'
 import { normalizeBundlePath } from '../lib/ide/file-tree'
 import { buildWorkflowStoreState } from '../lib/hydrate-workflow'
 import type { SourceFile, WorkflowFull, WorkflowSource } from '../lib/api-client'
@@ -73,6 +74,10 @@ interface LifecycleInput {
   editedDoc: ArtifactIR | null
   fullError: Error | null
   sourceError: Error | null
+  /** The custom node the source could not be built for, when that is why its first load failed. */
+  missingNode: MissingNode | null
+  /** Leaves Code for the canvas with the missing node selected. */
+  onMissingNode: (node: MissingNode) => void
   source: WorkflowSource | undefined
   baseline: ReadonlyMap<string, SourceFile>
   ghostPaths: string[]
@@ -99,6 +104,8 @@ export function useWorkspaceLifecycle({
   editedDoc,
   fullError,
   sourceError,
+  missingNode,
+  onMissingNode,
   source,
   baseline,
   ghostPaths,
@@ -175,10 +182,18 @@ export function useWorkspaceLifecycle({
     if (initial && baseline.has(initial)) openFile(initial)
   }, [source, loaded, baseline, ghostPaths, fileParam, openFile, pruneFiles, reconcileDrafts])
 
+  // A node the code can't be built for leaves Code for the canvas, which can
+  // still show it: once per such failure, whatever else fails after it.
+  useEffect(() => {
+    if (!missingNode) return
+    actionToast.error(missingNodeMessage(missingNode))
+    onMissingNode(missingNode)
+  }, [missingNode, onMissingNode])
+
   const loadError = fullError ?? sourceError
   useEffect(() => {
-    if (loadError) {
+    if (loadError && !missingNode) {
       actionToast.error(failureLine(loadError, 'Couldn’t load the workflow source'))
     }
-  }, [loadError])
+  }, [loadError, missingNode])
 }
