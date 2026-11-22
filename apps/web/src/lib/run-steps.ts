@@ -138,11 +138,10 @@ function waitArm(status: StepStatus | undefined): string | null {
  * Marks done the nodes that report no step of their own (the entry, inline
  * steps, containers) but certainly ran — from evidence, never a guess:
  * - a node on every path to a node that reported (it dominates it) ran;
- * - a node whose only way in is the arm a wait took (or a plain edge from a
- *   node that ran), with something after it reported, or a run that
- *   completed, ran;
- * - in a run that completed, its entry ran, and a node whose only way in is a
- *   plain edge from a node that ran inherits it.
+ * - a node with a way in the run took — the arm a wait took, or a plain edge
+ *   from a node that ran — with something after it reported, or a run that
+ *   completed, ran; a merge needs only one of its ways in taken;
+ * - in a run that completed, its entry ran.
  * A branch's arms are never inferred: nothing says which one ran.
  */
 function inferStepless(
@@ -198,14 +197,15 @@ function inferStepless(
       if (completed) byNode.set(id, 'complete')
       continue
     }
-    if (ins.length !== 1) continue
-    const { source, label } = ins[0]!
-    const parent = byNode.get(source)
-    if (!parent || !DONE.has(parent)) continue
-    const taken =
-      shape.types.get(source) === 'wait_for_event' && label !== undefined
+    // Any way in the run took will do: a merge (both arms of a wait joining,
+    // a join after a branch) ran once one of its ways in was taken.
+    const taken = ins.some(({ source, label }) => {
+      const parent = byNode.get(source)
+      if (!parent || !DONE.has(parent)) return false
+      return shape.types.get(source) === 'wait_for_event' && label !== undefined
         ? label === waitArm(parent)
         : label === undefined
+    })
     if (!taken) continue
     if (completed || reachedAfter.get(id)) byNode.set(id, 'complete')
   }
