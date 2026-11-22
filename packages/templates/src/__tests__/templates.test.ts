@@ -29,6 +29,17 @@ describe('workflowTemplates', () => {
       expect(t.ir.nodes.some((n) => n.id === t.ir.entryNodeId)).toBe(true)
     }
   })
+
+  // A step's code becomes a module that reads earlier values from `inputs`;
+  // a `{{…}}` left in it is not JavaScript.
+  it('reads earlier values in step code by name, not through {{…}}', () => {
+    const offenders = workflowTemplates.flatMap((t) =>
+      t.ir.nodes
+        .filter((n) => n.type === 'step' && String(n.data.code ?? '').includes('{{'))
+        .map((n) => `${t.id}/${n.id}`),
+    )
+    expect(offenders).toEqual([])
+  })
 })
 
 describe('templateRegistryNodes', () => {

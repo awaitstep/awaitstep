@@ -68,11 +68,7 @@ const abandonedCart: WorkflowTemplate = {
   return { cartId, email };`,
       ),
       waitForPurchase,
-      step(
-        'purchased',
-        [150, 240],
-        '  return { status: "purchased", cartId: {{read_cart.cartId}} };',
-      ),
+      step('purchased', [150, 240], '  return { status: "purchased", cartId: read_cart.cartId };'),
       sendEmail('send_reminder', [450, 240], {
         to: '{{read_cart.email}}',
         subject: 'You left something in your cart',
@@ -111,7 +107,7 @@ const postPurchaseSurvey: WorkflowTemplate = {
         'store_feedback',
         [150, 360],
         `  // TODO: save the response.
-  return { orderId: event.payload.orderId, rating: {{wait_for_response.payload.rating}} };`,
+  return { orderId: event.payload.orderId, rating: wait_for_response.payload.rating };`,
       ),
       step(
         'mark_no_response',

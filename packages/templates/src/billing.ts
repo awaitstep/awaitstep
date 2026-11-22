@@ -50,13 +50,13 @@ const failedPayment: WorkflowTemplate = {
       step(
         'payment_recovered',
         [150, 360],
-        '  return { status: "recovered", invoiceId: {{read_invoice.invoiceId}} };',
+        '  return { status: "recovered", invoiceId: read_invoice.invoiceId };',
       ),
       step(
         'downgrade_account',
         [450, 360],
         `  // TODO: downgrade or pause the customer's account in your app.
-  return { status: "downgraded", customerId: {{read_invoice.customerId}} };`,
+  return { status: "downgraded", customerId: read_invoice.customerId };`,
       ),
     ],
     [
@@ -104,13 +104,13 @@ const trialEnding: WorkflowTemplate = {
       step(
         'trial_converted',
         [150, 360],
-        '  return { status: "subscribed", subscriptionId: {{read_trial.subscriptionId}} };',
+        '  return { status: "subscribed", subscriptionId: read_trial.subscriptionId };',
       ),
       step(
         'end_trial',
         [450, 360],
         `  // TODO: move the account to your free plan or lock it.
-  return { status: "trial-ended", customerId: {{read_trial.customerId}} };`,
+  return { status: "trial-ended", customerId: read_trial.customerId };`,
       ),
     ],
     [

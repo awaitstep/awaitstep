@@ -30,7 +30,7 @@ const accountDeletion: WorkflowTemplate = {
         [300, 240],
         `  // Each arm settles as { status: "fulfilled" | "rejected" }. Stop before the
   // email if any deletion failed.
-  const failed = {{delete_everywhere}}.filter((result) => result.status === "rejected");
+  const failed = delete_everywhere.filter((result) => result.status === "rejected");
   if (failed.length > 0) throw new Error(\`\${failed.length} deletion(s) failed\`);
   return { deleted: true };`,
       ),
@@ -79,7 +79,7 @@ const dataExport: WorkflowTemplate = {
         'delete_export',
         [300, 360],
         `  // TODO: delete the file from storage.
-  return { deleted: {{build_export.fileKey}} };`,
+  return { deleted: build_export.fileKey };`,
       ),
     ],
     [

@@ -66,15 +66,15 @@ const inboundWebhook: WorkflowTemplate = {
         'handle_user',
         [100, 240],
         `  // TODO: create the user in your app.
-  return { handled: {{verify_signature.id}} };`,
+  return { handled: verify_signature.id };`,
       ),
       step(
         'handle_order',
         [300, 240],
         `  // TODO: mark the order paid in your app.
-  return { handled: {{verify_signature.id}} };`,
+  return { handled: verify_signature.id };`,
       ),
-      step('ignore_event', [500, 240], '  return { ignored: {{verify_signature.type}} };'),
+      step('ignore_event', [500, 240], '  return { ignored: verify_signature.type };'),
     ],
     [
       edge('verify_signature', 'route_event'),
@@ -141,7 +141,7 @@ const outboundWebhook: WorkflowTemplate = {
         'record_delivery',
         [300, 240],
         `  // TODO: save the delivery in your webhook log.
-  return { delivered: true, url: {{sign_payload.url}} };`,
+  return { delivered: true, url: sign_payload.url };`,
       ),
     ],
     [edge('sign_payload', 'deliver'), edge('deliver', 'record_delivery')],
@@ -199,7 +199,7 @@ const approval: WorkflowTemplate = {
         'handle_rejection',
         [250, 360],
         `  // TODO: tell the requester why it was rejected.
-  return { status: "rejected", reason: {{wait_for_decision.payload.reason}} };`,
+  return { status: "rejected", reason: wait_for_decision.payload.reason };`,
       ),
     ],
     [
@@ -238,7 +238,7 @@ const incidentEscalation: WorkflowTemplate = {
       step(
         'record_ack',
         [150, 240],
-        '  return { status: "acknowledged", by: {{wait_for_ack.payload.acknowledgedBy}} };',
+        '  return { status: "acknowledged", by: wait_for_ack.payload.acknowledgedBy };',
       ),
       slackMessage(
         'escalate',
