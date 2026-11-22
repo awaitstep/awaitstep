@@ -333,8 +333,10 @@ describe('generatedNameProblems: inline names across blocks', () => {
 })
 
 describe('generatedNameProblems: large graphs', () => {
-  it('checks a 2000-arm branch whose arms and merge share a name within seconds', () => {
-    const arms = 2000
+  it('checks a 600-arm branch whose arms and merge share a name within seconds', () => {
+    // The cubic check took about 22 s here (6.6 s at 400 arms); the walk takes
+    // a fraction of one, with room left for a loaded test run.
+    const arms = 600
     const nodes: WorkflowIR['nodes'] = [
       node('gate', 'branch', 'Gate', {
         branches: Array.from({ length: arms }, (_, i) => ({ label: `l${i}`, condition: 'true' })),
@@ -351,7 +353,6 @@ describe('generatedNameProblems: large graphs', () => {
     }
     const started = performance.now()
     const problems = generatedNameProblems({ metadata: META, nodes, edges, entryNodeId: 'gate' })
-    // A full scope pass per arm and per node was cubic: minutes at this size.
     expect(performance.now() - started).toBeLessThan(5_000)
     expect(problems.length).toBeGreaterThan(0)
   })
