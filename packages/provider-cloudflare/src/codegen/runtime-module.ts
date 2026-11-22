@@ -93,7 +93,8 @@ export function createAwaitstepPlatform(env: Env): PlatformHost {
       return { instanceId: instance.id };
     },
     async workflowStatus(instanceId, options) {
-      const status = await bindings[cfBinding(options)].get(instanceId).status();
+      const instance = await bindings[cfBinding(options)].get(instanceId);
+      const status = await instance.status();
       if (status.status === "errored") {
         throw new NonRetryableError(status.error?.message ?? "Sub-workflow failed");
       }
@@ -157,6 +158,7 @@ export function platformModuleFile(retention: string, envModule = '#awaitstep/en
   return {
     path: PLATFORM_MODULE_PATH,
     source: `// Generated from @awaitstep/provider-cloudflare — do not edit.
+import { NonRetryableError } from "cloudflare:workflows";
 import type { PlatformHost } from "${CORE_RUNTIME_IMPORT}";
 import type { Env } from "${envModule}";
 
