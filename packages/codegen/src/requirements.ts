@@ -1,4 +1,4 @@
-import type { ArtifactIR } from '@awaitstep/ir'
+import type { ArtifactIR, WorkflowNode } from '@awaitstep/ir'
 import { isProjectCodePath } from '@awaitstep/ir'
 import { AWAITSTEP_IMPORT_PREFIX, GENERATED_GRAPH_MODULES } from './runtime.js'
 
@@ -320,3 +320,24 @@ const SPECIFIER_PATTERNS = [
   // import('x') / require("x")
   /\b(?:import|require)\s*\(\s*(?:'([^'\n]+)'|"([^"\n]+)"|`([^`$\n]+)`)\s*[,)]/g,
 ]
+
+/** A hand-written call of another artifact through `flow`. */
+const FLOW_PLATFORM_CALL_RE =
+  /\bflow\??\.(?:startWorkflow|workflowStatus|getInstance|sendEvent|callScript)\(/
+
+/**
+ * Whether a graph reaches another deployed artifact, so its context needs the
+ * provider's platform adapter: a Call Workflow / Call Function node, or code
+ * that calls `flow.startWorkflow`, `flow.workflowStatus`, `flow.getInstance`,
+ * `flow.sendEvent` or `flow.callScript` itself (inline code runs where `flow`
+ * is in scope).
+ */
+export function callsPlatform(nodes: readonly WorkflowNode[]): boolean {
+  return nodes.some(
+    (node) =>
+      node.type === 'sub_workflow' ||
+      node.type === 'sub_script' ||
+      (typeof node.data.code === 'string' &&
+        FLOW_PLATFORM_CALL_RE.test(withoutComments(node.data.code))),
+  )
+}

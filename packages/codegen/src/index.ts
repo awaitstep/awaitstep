@@ -124,6 +124,7 @@ export {
   workflowRuntimeImport,
 } from './runtime.js'
 export {
+  callsPlatform,
   checkRequirements,
   collectProviderImports,
   collectRuntimeRequirements,

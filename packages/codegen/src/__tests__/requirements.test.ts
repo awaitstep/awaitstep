@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import {
+  callsPlatform,
   checkRequirements,
   collectProviderImports,
   collectRuntimeRequirements,
@@ -418,5 +419,41 @@ describe('security-sensitive import shapes', () => {
     const started = performance.now()
     expect(importSpecifiers(source)).toEqual([])
     expect(performance.now() - started).toBeLessThan(2000)
+  })
+})
+
+describe('callsPlatform', () => {
+  function node(type: string, code?: string): WorkflowNode {
+    return {
+      id: 'n',
+      type,
+      name: 'N',
+      position: { x: 0, y: 0 },
+      version: '1.0.0',
+      data: code === undefined ? {} : { code },
+    } as WorkflowNode
+  }
+
+  it.each(['sub_workflow', 'sub_script'])('is true for a %s node', (type) => {
+    expect(callsPlatform([node('step', 'return 1'), node(type)])).toBe(true)
+  })
+
+  it.each(['startWorkflow', 'workflowStatus', 'getInstance', 'sendEvent', 'callScript'])(
+    'is true for code calling flow.%s',
+    (method) => {
+      expect(callsPlatform([node('step', `await flow.${method}('x', {})`)])).toBe(true)
+      expect(callsPlatform([node('step', `await flow?.${method}('x', {})`)])).toBe(true)
+    },
+  )
+
+  it('is false for a call in a comment, on another object, or of a durable primitive', () => {
+    expect(
+      callsPlatform([
+        node('step', "// await flow.sendEvent('x', {})\n/* flow.startWorkflow({}) */ return 1"),
+        node('step', "await workflow.sendEvent('x')\nawait myflow.getInstance('x')"),
+        node('step', "await flow.step('a', async () => 1)\nawait flow.sleep('b', 10)"),
+        node('step'),
+      ]),
+    ).toBe(false)
   })
 })

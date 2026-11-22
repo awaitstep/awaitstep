@@ -17,7 +17,7 @@ import { maskStepLabels, stepLabel } from '../naming.js'
 import type { GeneratorLookup } from '../node-generator.js'
 import { sanitizeIdentifier } from '../sanitize.js'
 import { normalizeStepModules } from '../step-module.js'
-import { withoutComments } from '../requirements.js'
+import { callsPlatform, withoutComments } from '../requirements.js'
 import type { TemplateResolver } from '../template-resolver.js'
 import type { GeneratedBundle, GeneratedFile } from '../types.js'
 import { buildOutputConsumption } from './consumption.js'
@@ -372,9 +372,9 @@ function generateFunction(
   assertStepPathsFree(ir)
   const { templateResolver, envVarNames } = options
   const generators = options.generators ?? builtinGenerators
-  const hasSubCalls = ir.nodes.some(
-    (node) => node.type === 'sub_workflow' || node.type === 'sub_script',
-  )
+  // A Call Workflow / Call Function node, or code calling another artifact
+  // through `flow`: either way the context needs the platform adapter.
+  const hasSubCalls = callsPlatform(ir.nodes)
   ir = normalizeStepModules(ir)
   const irAsWorkflow = ir as unknown as WorkflowIR
   const sorted = topologicalSort(irAsWorkflow)
@@ -455,16 +455,19 @@ function generateFunction(
 
   const declStatement = hoistedVarNames.length > 0 ? `  let ${hoistedVarNames.join(', ')};\n` : ''
   graphBody = wrapModuleCalls(graphBody, 2)
+  // A platform call anywhere in the graph's code needs the context (and its
+  // PlatformHost import), even from a node the graph doesn't reach yet.
   const usesFlow =
+    hasSubCalls ||
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|getInstance|sendEvent|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   // A host is only needed where something runs through it: a step, a wait or
   // another artifact. A context that only makes HTTP calls goes without.
   const needsHost =
     hasSubCalls ||
-    /\b(?:flow\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
       withoutComments(graphBody),
     )
   const contextLines = usesFlow
