@@ -28,7 +28,9 @@ describe('template behaviour', () => {
     const after = ir.edges.find((e) => e.source === 'delete_everywhere' && e.label === 'then')
     const check = ir.nodes.find((n) => n.id === after?.target)
     expect(check?.type).toBe('step')
-    expect(String(check?.data.code)).toMatch(/\{\{delete_everywhere\}\}[\s\S]*rejected[\s\S]*throw/)
+    expect(String(check?.data.code)).toMatch(
+      /\bdelete_everywhere\.filter[\s\S]*rejected[\s\S]*throw/,
+    )
     expect(ir.edges).toContainEqual(
       expect.objectContaining({ source: check!.id, target: 'send_confirmation' }),
     )
