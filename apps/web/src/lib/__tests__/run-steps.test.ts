@@ -460,3 +460,42 @@ describe('buildRunTimeline', () => {
     expect(timeline.spanMs).toBe(1000)
   })
 })
+
+describe('a sleep the run never woke from', () => {
+  // The provider reports a sleep with the time it would wake; the run was
+  // terminated 3 s in, before that, and the step stayed `waiting`.
+  const sleep = step({
+    stepName: 'nap (nap)-1',
+    nodeId: 'nap',
+    kind: 'sleep',
+    status: 'waiting',
+    startedAt: '2026-11-22T06:00:10.660Z',
+    endedAt: '2026-11-22T06:00:20.660Z',
+  })
+  const runEnd = '2026-11-22T06:00:13.929Z'
+
+  it('reads as interrupted, whatever end it was given', () => {
+    expect(isInterruptedStep(sleep, 'terminated')).toBe(true)
+    expect(mapRunStepsToNodeStatuses(['nap'], [sleep], {}, 'terminated')).toEqual({
+      nap: 'pending',
+    })
+  })
+
+  it('stops its bar at the run’s end, not at the wake time', () => {
+    const { rows } = buildRunTimeline([sleep], { status: 'terminated', endedAt: runEnd })
+    expect(rows[0]!.interrupted).toBe(true)
+    expect(rows[0]!.durationMs).toBe(3_269)
+  })
+
+  it('stops it at its own end when that came first, the run’s last update being later', () => {
+    // The app stamps the run's end when it notices it, which can be well after.
+    const late = '2026-11-22T06:01:00.000Z'
+    const { rows } = buildRunTimeline([sleep], { status: 'terminated', endedAt: late })
+    expect(rows[0]!.interrupted).toBe(true)
+    expect(rows[0]!.durationMs).toBe(10_000)
+  })
+
+  it('is not interrupted while the run is going', () => {
+    expect(isInterruptedStep(sleep, 'running')).toBe(false)
+  })
+})

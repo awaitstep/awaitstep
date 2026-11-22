@@ -124,13 +124,14 @@ function StepOutput({
 interface AttemptLine {
   label: string
   at: string | undefined
-  tone: 'ok' | 'fail' | 'wait'
+  tone: 'ok' | 'fail' | 'wait' | 'stopped'
 }
 
 const DOT: Record<AttemptLine['tone'], string> = {
   ok: 'bg-status-success',
   fail: 'bg-status-error',
   wait: 'bg-status-info',
+  stopped: 'bg-muted-foreground/60',
 }
 
 /** Newest first: each try with when it ended, or the step's start and end when none were reported. */
@@ -170,11 +171,13 @@ export function attemptLines(item: StepItem, attempts: RunStepAttempt[]): Attemp
       .map((a, i): AttemptLine => {
         const failed = Boolean(a.error)
         const open = !a.end && !failed
-        const word = failed ? 'failed' : open ? 'running' : 'succeeded'
+        // An unfinished try of a step its run stopped in will never finish.
+        const stopped = open && item.state === 'interrupted'
+        const word = failed ? 'failed' : stopped ? 'interrupted' : open ? 'running' : 'succeeded'
         return {
           label: `Attempt ${i + 1} · ${word}`,
           at: a.end ?? a.start,
-          tone: failed ? 'fail' : open ? 'wait' : 'ok',
+          tone: failed ? 'fail' : stopped ? 'stopped' : open ? 'wait' : 'ok',
         }
       })
       .reverse()
@@ -186,6 +189,9 @@ export function attemptLines(item: StepItem, attempts: RunStepAttempt[]): Attemp
       at: undefined,
       tone: 'wait',
     })
+  } else if (item.state === 'interrupted') {
+    // The run stopped first: a sleep's end is the wake time it never reached.
+    lines.push({ label: 'Interrupted', at: undefined, tone: 'stopped' })
   } else if (step.endedAt) {
     lines.push({
       label:

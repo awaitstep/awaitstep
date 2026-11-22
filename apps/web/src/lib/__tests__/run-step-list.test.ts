@@ -74,6 +74,26 @@ describe('buildStepList', () => {
     ])
     expect(entry!.kind === 'step' && entry.state).toBe('timedOut')
   })
+
+  it('reads a sleep a terminated run never woke from as interrupted, not still sleeping', () => {
+    const sleep = step({
+      kind: 'sleep',
+      status: 'waiting',
+      startedAt: '2026-11-22T06:00:10.660Z',
+      endedAt: '2026-11-22T06:00:20.660Z',
+    })
+    const runEndedAt = '2026-11-22T06:00:13.929Z'
+    const timeline = buildRunTimeline([sleep], { status: 'terminated', endedAt: runEndedAt })
+    const [entry] = buildStepList({
+      rows: timeline.rows,
+      steps: [sleep],
+      runStatus: 'terminated',
+      nodeNames: {},
+      containment: new Map(),
+      types: new Map(),
+    })
+    expect(entry!.kind === 'step' && entry.state).toBe('interrupted')
+  })
 })
 
 describe('failedOnly', () => {
