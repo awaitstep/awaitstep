@@ -85,8 +85,9 @@ self-hosted instance lists none. `disabled` lists the open-source features the
 instance switches off, from a fixed set: `playground` (the API Playground),
 `connections.ui` (the dashboard's Connections pages; the connections and the
 endpoints below stay), `connections.apiTokens` (connecting with a pasted
-token, see [Connections](#connections)) and `docs` (the dashboard's Docs
-link). A self-hosted instance switches none
+token, see [Connections](#connections)), `docs` (the dashboard's Docs
+link) and `landing` (the landing page at `/`, which then opens the dashboard,
+or sign-in when signed out). A self-hosted instance switches none
 off. An extension's routes live under
 `/ext/<id>` and take a session: an API key there is `403`
 `{ "error": "This endpoint is not available to API keys" }`.

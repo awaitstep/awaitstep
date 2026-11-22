@@ -11,6 +11,7 @@ export const OSS_FEATURES = {
   'connections.apiTokens':
     'Connecting or re-keying a Cloudflare account with a pasted API token. OAuth is unaffected.',
   docs: 'The Docs link in the rail and the account menu.',
+  landing: 'The landing page at the app root: / opens the dashboard, or sign-in when signed out.',
 } as const satisfies Record<string, string>
 
 export type OssFeature = keyof typeof OSS_FEATURES

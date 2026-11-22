@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { pageHead } from '../../components/navigation/dashboard-page'
 import { useInstanceStore } from '../../stores/instance-store'
-import { disabledIn, useDisabledFeatures, useFeatureOn } from '../feature-switches'
+import { disabledIn, rootRedirect, useDisabledFeatures, useFeatureOn } from '../feature-switches'
 
 function matches(authedData: unknown): AnyRouteMatch[] {
   return [
@@ -48,5 +48,16 @@ describe('useFeatureOn', () => {
     useInstanceStore.setState({ disabled: ['connections.ui'] })
     expect(renderHook(() => useFeatureOn('playground')).result.current).toBe(true)
     expect(renderHook(() => useDisabledFeatures()).result.current).toEqual(['connections.ui'])
+  })
+})
+
+describe('rootRedirect', () => {
+  it('sends the root to the dashboard when the instance switches the landing page off', () => {
+    expect(rootRedirect(['playground', 'landing'])).toBe('/dashboard')
+  })
+
+  it('keeps the landing page at the root otherwise', () => {
+    expect(rootRedirect([])).toBeUndefined()
+    expect(rootRedirect(['playground', 'docs'])).toBeUndefined()
   })
 })

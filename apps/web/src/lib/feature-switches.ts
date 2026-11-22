@@ -21,3 +21,12 @@ export function disabledIn(matches: readonly AnyRouteMatch[]): readonly OssFeatu
     { disabled?: readonly OssFeature[] } | undefined
   return loaderData?.disabled ?? []
 }
+
+/**
+ * Where `/` sends a visitor instead of the landing page: the dashboard,
+ * whose layout sends a signed-out visitor on to sign-in. None while the
+ * instance keeps the landing page.
+ */
+export function rootRedirect(disabled: readonly OssFeature[]): '/dashboard' | undefined {
+  return disabled.includes('landing') ? '/dashboard' : undefined
+}
