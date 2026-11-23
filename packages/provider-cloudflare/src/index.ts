@@ -79,6 +79,7 @@ export {
   throwIfCancelled,
   deployedWorkerUrl,
   routeUrl,
+  attachedModuleType,
 } from './deploy/index.js'
 export { sendsEventsItself } from './codegen/generate-workflow.js'
 export type {
@@ -86,6 +87,10 @@ export type {
   DeployControl,
   WranglerDeployer,
   DeployOptions as WranglerDeployOptions,
+  BuildOptions as WranglerBuildOptions,
+  WorkerBuild,
+  WorkerBuildModule,
+  WorkerModuleType,
   WranglerDeployResult,
   RunFailure,
   RunToEndOptions,

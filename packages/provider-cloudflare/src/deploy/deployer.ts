@@ -142,7 +142,48 @@ export interface DeployControl {
   beforeUpload?: () => Promise<boolean>
 }
 
+/** What a build needs: everything a deploy takes except the account and the secrets. */
+export type BuildOptions = Omit<DeployOptions, 'accountId' | 'apiToken' | 'secrets'>
+
+/** How a module is attached: the entry is `esm`; the rest by wrangler's default rules. */
+export type WorkerModuleType = 'esm' | 'text' | 'data' | 'compiled-wasm'
+
+/** One file of a checked build, as the upload would send it. */
+export interface WorkerBuildModule {
+  /** Its path inside the build, `/`-separated: how the entry imports it. */
+  name: string
+  type: WorkerModuleType
+  content: Uint8Array
+}
+
+/**
+ * The Worker a deploy would upload, built and checked but not uploaded: the
+ * bundled entry and every module beside it, and the wrangler config it was
+ * built with. A host that runs Workers itself (Dynamic Workers) loads these
+ * instead of deploying to an account.
+ */
+export interface WorkerBuild {
+  workerName: string
+  /** The bundled entry's `name` in `modules`. */
+  mainModule: string
+  modules: WorkerBuildModule[]
+  /** The generated wrangler.json, parsed: bindings, compatibility date and flags, crons. */
+  wranglerConfig: Record<string, unknown>
+}
+
 export interface WranglerDeployer {
+  /**
+   * Builds and checks the Worker exactly as `deploy` does, then stops before
+   * the upload: no account, token or secret is used. Throws when the build
+   * fails, and `DeployCancelledError` when `signal` aborts it.
+   */
+  build(
+    bundle: GeneratedBundle,
+    options: BuildOptions,
+    onProgress?: (stage: string, message: string) => void,
+    control?: { signal?: AbortSignal },
+  ): Promise<WorkerBuild>
+
   deploy(
     bundle: GeneratedBundle,
     options: DeployOptions,

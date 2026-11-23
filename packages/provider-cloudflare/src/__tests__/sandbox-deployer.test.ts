@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { SandboxWranglerDeployer, withoutWorkerUrl } from '../deploy/sandbox-deployer.js'
+import { DeployCancelledError } from '../deploy/run-to-end.js'
 import { toBundle } from '@awaitstep/codegen'
 
 interface ExecCall {
@@ -223,5 +224,152 @@ describe('SandboxWranglerDeployer', () => {
       'UPLOADING_SECRETS',
       expect.stringContaining('Skipping invalid secret key "1bad"'),
     )
+  })
+})
+
+describe('SandboxWranglerDeployer.build', () => {
+  const BUILD = '/tmp/awaitstep-build'
+  const wasm = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0])
+
+  /** A sandbox whose dry run leaves a build behind, as wrangler's does. */
+  function buildingSandbox(dryRun: { success: boolean; stderr?: string } = { success: true }) {
+    const fake = makeFakeSandbox(() => ({ success: true }))
+    const exec = fake.exec.bind(fake)
+    fake.exec = async (command, options) => {
+      const result = await exec(command, options)
+      if (command.includes('--dry-run')) {
+        if (!dryRun.success) return { ...result, success: false, stderr: dryRun.stderr ?? '' }
+        fake.files.set(`${BUILD}/worker.js`, 'export default {}')
+        fake.files.set(`${BUILD}/${'b'.repeat(40)}-greeting.txt`, 'hello')
+        fake.files.set(`${BUILD}/engine.wasm`, String.fromCharCode(...wasm))
+        fake.files.set(`${BUILD}/README.md`, 'readme')
+        fake.files.set(`${BUILD}/worker.js.map`, '{}')
+        fake.files.set(
+          '/tmp/awaitstep-build-meta.json',
+          JSON.stringify({
+            outputs: {
+              '../tmp/awaitstep-build/worker.js': { entryPoint: 'worker.js' },
+              '../tmp/awaitstep-build/worker.js.map': {},
+            },
+          }),
+        )
+      }
+      if (command.startsWith('find ')) {
+        const listed = [...fake.files.keys()].filter((p) => p.startsWith(`${BUILD}/`))
+        return { ...result, stdout: `${listed.join('\n')}\n` }
+      }
+      return result
+    }
+    const readFile = async (path: string) => {
+      const content = fake.files.get(path)
+      if (content === undefined) return { success: false, content: '' }
+      const binary = path.endsWith('.wasm')
+      return {
+        success: true,
+        content: binary ? btoa(content) : content,
+        encoding: binary ? 'base64' : 'utf-8',
+      }
+    }
+    return Object.assign(fake, { readFile })
+  }
+
+  const buildOptions = { workflowId: 'my-workflow', workflowName: 'my-workflow', vars: { A: '1' } }
+
+  it('builds with a dry run and returns the entry and the modules the upload attaches', async () => {
+    const sandbox = buildingSandbox()
+    const build = await new SandboxWranglerDeployer(() => sandbox).build(bundle, buildOptions)
+
+    expect(build.mainModule).toBe('worker.js')
+    expect(build.modules.map((m) => [m.name, m.type])).toEqual([
+      ['worker.js', 'esm'],
+      [`${'b'.repeat(40)}-greeting.txt`, 'text'],
+      ['engine.wasm', 'compiled-wasm'],
+    ])
+    expect([...build.modules[2]!.content]).toEqual([...wasm])
+    expect(build.wranglerConfig).toMatchObject({ name: build.workerName, vars: { A: '1' } })
+    expect(sandbox.destroyed).toBe(true)
+  })
+
+  it('never uploads, and never passes an account or token', async () => {
+    const sandbox = buildingSandbox()
+    await new SandboxWranglerDeployer(() => sandbox).build(bundle, buildOptions)
+    const wranglerRuns = sandbox.execCalls.filter((c) => c.command.startsWith('wrangler'))
+    expect(wranglerRuns.map((c) => c.command)).toEqual([
+      `wrangler deploy --dry-run --outdir ${BUILD} --metafile /tmp/awaitstep-build-meta.json`,
+    ])
+    for (const call of sandbox.execCalls) {
+      expect(call.env?.CLOUDFLARE_API_TOKEN).toBeUndefined()
+      expect(call.env?.CLOUDFLARE_ACCOUNT_ID).toBeUndefined()
+    }
+  })
+
+  it('throws a failed build redacted, and destroys the sandbox', async () => {
+    const sandbox = buildingSandbox({ success: false, stderr: `failed ${'x'.repeat(40)}` })
+    const failure = await new SandboxWranglerDeployer(() => sandbox)
+      .build(bundle, buildOptions)
+      .catch((err: Error) => err)
+    expect((failure as Error).message).toBe('failed [REDACTED]')
+    expect(sandbox.destroyed).toBe(true)
+  })
+
+  it('throws DeployCancelledError when cancelled, without starting a sandbox', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const getSandbox = vi.fn()
+    await expect(
+      new SandboxWranglerDeployer(getSandbox).build(bundle, buildOptions, undefined, {
+        signal: controller.signal,
+      }),
+    ).rejects.toBeInstanceOf(DeployCancelledError)
+    expect(getSandbox).not.toHaveBeenCalled()
+  })
+
+  it('throws DeployCancelledError when a cancel cuts the build short', async () => {
+    const controller = new AbortController()
+    const sandbox = buildingSandbox()
+    const exec = sandbox.exec.bind(sandbox)
+    sandbox.exec = async (command, options) => {
+      if (command.includes('--dry-run')) {
+        controller.abort()
+        throw new Error('container destroyed')
+      }
+      return exec(command, options)
+    }
+    await expect(
+      new SandboxWranglerDeployer(() => sandbox).build(bundle, buildOptions, undefined, {
+        signal: controller.signal,
+      }),
+    ).rejects.toBeInstanceOf(DeployCancelledError)
+    expect(sandbox.destroyed).toBe(true)
+  })
+})
+
+describe('SandboxWranglerDeployer workflow names', () => {
+  it('rejects a name with no letters or digits before starting a sandbox, as before', async () => {
+    const getSandbox = vi.fn()
+    const deployer = new SandboxWranglerDeployer(getSandbox)
+    const named = { ...baseOptions, workflowName: '---' }
+    await expect(deployer.deploy(bundle, named)).rejects.toThrow(/alphanumeric/)
+    await expect(deployer.build(bundle, named)).rejects.toThrow(/alphanumeric/)
+    expect(getSandbox).not.toHaveBeenCalled()
+  })
+})
+
+describe('SandboxWranglerDeployer sandbox ids', () => {
+  it('gives each run its own container, within the SDK’s 63-character id limit', async () => {
+    const ids: string[] = []
+    const deployer = new SandboxWranglerDeployer((id: string) => {
+      ids.push(id)
+      return makeFakeSandbox(() => ({ success: true }))
+    })
+    const long = { ...baseOptions, workflowId: 'w'.repeat(60) }
+    await deployer.deploy(bundle, long)
+    await deployer.deploy(bundle, long)
+    await deployer.deleteWorker(`awaitstep-${'w'.repeat(60)}`, baseOptions)
+    expect(new Set(ids).size).toBe(3)
+    for (const id of ids) {
+      expect(id.length).toBeLessThanOrEqual(63)
+      expect(id).toMatch(/^(deploy|delete)-[0-9a-f-]{36}$/)
+    }
   })
 })
