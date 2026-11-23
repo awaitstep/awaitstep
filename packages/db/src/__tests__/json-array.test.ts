@@ -2,8 +2,11 @@ import { describe, it, expect } from 'vitest'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { aliasedTable, sql } from 'drizzle-orm'
+import { PGlite } from '@electric-sql/pglite'
+import { drizzle as drizzlePg } from 'drizzle-orm/pglite'
 import {
   aliasedFrom,
+  fieldOf,
   jsonArrayOf,
   jsonArrayOfValues,
   readJsonArray,
@@ -25,6 +28,17 @@ describe('aliasedFrom', () => {
     )
     expect(render(sql`from ${cp}`)).toBe('from "cp"')
   })
+})
+
+describe('fieldOf', () => {
+  it('keeps the field’s decoder, so a count node-postgres sends as text reads as a number', async () => {
+    const pg = drizzlePg(new PGlite())
+    // node-postgres hands count(*) (a bigint) over as text; PGlite does not, so send text.
+    const count = sql<number>`(select count(*)::text from (values (1)) v)`.mapWith(Number)
+    const [row] = await pg.select({ n: fieldOf(count) }).from(sql`(values (1)) t`)
+    expect(row?.n).toBe(1)
+    await pg.$client.close()
+  }, 30_000)
 })
 
 describe('jsonArrayOf', () => {
