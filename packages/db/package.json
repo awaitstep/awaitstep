@@ -38,8 +38,7 @@
     "tsup": "9.0.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^5.0.5",
-    "@types/pg": "8.23.1"
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

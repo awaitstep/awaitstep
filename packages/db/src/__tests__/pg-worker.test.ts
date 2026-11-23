@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { sql } from 'drizzle-orm'
-import type pg from 'pg'
+import type { PoolConfig } from 'pg'
 import {
   createPgWorkerDatabaseAdapter,
   createRequestScopedPg,
@@ -10,14 +10,14 @@ import {
 
 interface FakePool extends RequestPool {
   label: string
-  config: pg.PoolConfig
+  config: PoolConfig
   queries: string[]
   released: number
 }
 
 function fakePools() {
   const pools: FakePool[] = []
-  const createPool = (config: pg.PoolConfig): RequestPool => {
+  const createPool = (config: PoolConfig): RequestPool => {
     const query = async (q: { text: string } | string) => {
       pool.queries.push(typeof q === 'string' ? q : q.text)
       return { rows: [{ pool: pool.label }], fields: [{ name: 'pool' }], rowCount: 1 }
