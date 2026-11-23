@@ -1464,10 +1464,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<PaginatedResult<WorkflowRun>> {
     return this._runs.listByWorkflow(workflowId, pagination)
   }
-  updateRun(
-    id: string,
-    data: { status?: string; output?: string; error?: string },
-  ): Promise<WorkflowRun> {
+  updateRun(id: string, data: { status?: string; output?: string; error?: string }): Promise<void> {
     return this._runs.update(id, data)
   }
   updateRunFromStatus(

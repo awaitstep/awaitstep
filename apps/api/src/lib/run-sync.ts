@@ -35,18 +35,21 @@ export async function syncActiveRuns(db: DatabaseAdapter, options?: RunSyncOptio
   // The runs and their accounts in one read; each account decrypted once.
   const active = await db.listActiveRunsForSyncWithAccounts(options?.limit)
   const byConnection = new Map<string, { connection: Connection; entries: ActiveRunForSync[] }>()
+  const unreachable: ActiveRunForSync[] = []
   for (const { entry, connection } of active) {
     if (!entry.run.instanceId) continue
     // Its account was deleted, or isn't its workflow's organization's any more (a moved
     // project): nothing can reach the run again.
     if (!connection) {
-      await closeRun(db, entry, ACCOUNT_GONE)
+      unreachable.push(entry)
       continue
     }
     const group = byConnection.get(connection.id) ?? { connection, entries: [] }
     group.entries.push(entry)
     byConnection.set(connection.id, group)
   }
+  // Each close is its own guarded statement; they need not wait on one another.
+  await Promise.all(unreachable.map((entry) => closeRun(db, entry, ACCOUNT_GONE)))
 
   for (const [connectionId, { connection, entries }] of byConnection) {
     try {

@@ -852,10 +852,11 @@ export interface DatabaseAdapter {
     workflowId: string,
     pagination?: PaginationParams,
   ): Promise<PaginatedResult<WorkflowRun>>
+  /** Writes `data` to the run; throws when there is no such run. */
   updateRun(
     id: string,
     data: { status?: string; output?: string; error?: string; updatedAt?: string },
-  ): Promise<WorkflowRun>
+  ): Promise<void>
   /** Writes `data` only while the run is in `fromStatus`; whether it did — one statement. */
   updateRunFromStatus(
     id: string,

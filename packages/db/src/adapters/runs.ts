@@ -252,12 +252,15 @@ export class RunsAdapter {
   async update(
     id: string,
     data: { status?: string; output?: string; error?: string; updatedAt?: string },
-  ): Promise<WorkflowRun> {
+  ): Promise<void> {
     const updates = { ...data, updatedAt: data.updatedAt ?? new Date().toISOString() }
-    await this.db.update(this.table).set(updates).where(eq(this.table.id, id))
-    const updated = await this.getById(id)
-    if (!updated) throw new Error(`WorkflowRun ${id} not found`)
-    return updated
+    // One statement: the write says whether the run exists, no read back.
+    const rows = await this.db
+      .update(this.table)
+      .set(updates)
+      .where(eq(this.table.id, id))
+      .returning({ id: this.table.id })
+    if (rows.length === 0) throw new Error(`WorkflowRun ${id} not found`)
   }
 
   /**
