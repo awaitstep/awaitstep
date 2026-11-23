@@ -122,6 +122,11 @@ export interface DeployResult {
   error?: string
   /** It stopped because it was cancelled, before anything reached the provider. */
   cancelled?: boolean
+  /**
+   * The provider turned it away for capacity: nothing is wrong with the
+   * workflow, and the same deploy can be tried again. Answered 429.
+   */
+  busy?: boolean
 }
 
 /** One progress report from a running deploy. */
@@ -134,6 +139,12 @@ export interface DeployProgressEvent {
 
 /** How one deploy runs: where it reports progress, and how it is stopped. */
 export interface DeployRunOptions {
+  /**
+   * The id of the record the host keeps for this deploy, when it keeps one:
+   * a provider that stores what it deploys can key it by this, so the host's
+   * record and the provider's are found by one id.
+   */
+  deploymentId?: string
   onProgress?: (progress: DeployProgressEvent) => void
   /**
    * Aborted when the deploy is cancelled. The provider stops what it is
