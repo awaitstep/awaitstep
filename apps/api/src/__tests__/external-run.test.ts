@@ -21,6 +21,9 @@ import { settingsFor } from './fixtures/deploy-settings.js'
 const provider = vi.hoisted(() => ({
   triggered: [] as Array<{ params: unknown; account: string; instanceId?: string }>,
   triggerFails: false,
+  /** Seconds the provider asks a caller to wait: it is at a limit. */
+  busyFor: 0,
+  refuses: '',
   calls: [] as Array<{
     url: string
     body: string
@@ -46,7 +49,8 @@ const provider = vi.hoisted(() => ({
 vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
   const actual = await importOriginal<typeof ProviderResolver>()
   const { callFunction } = await import('@awaitstep/provider-cloudflare')
-  const { InstanceExistsError, RunGoneError } = await import('@awaitstep/codegen')
+  const { InstanceExistsError, ProviderBusyError, RunGoneError, RunRefusedError } =
+    await import('@awaitstep/codegen')
   return {
     ...actual,
     resolveProvider: (...args: Parameters<typeof actual.resolveProvider>) => {
@@ -65,6 +69,12 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
                   Object.assign(new Error('Could not route to /client/v4/accounts/acct-a/x'), {
                     status: 404,
                   }),
+                )
+              }
+              if (provider.refuses) return Promise.reject(new RunRefusedError(provider.refuses))
+              if (provider.busyFor > 0) {
+                return Promise.reject(
+                  new ProviderBusyError('Too many runs are starting. Try again.', provider.busyFor),
                 )
               }
               const named = options?.instanceId
@@ -364,6 +374,25 @@ describe('POST /api/run/:workflowId', () => {
         error: 'An instance with id "order-42" already exists.',
       })
       expect((await mockDb.listRunsByWorkflow('wf-1')).data).toHaveLength(1)
+    })
+
+    it('answers 429 with Retry-After when the provider is at a limit, recording nothing', async () => {
+      provider.busyFor = 2.2
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body: '{}' })
+      provider.busyFor = 0
+      expect(res.status).toBe(429)
+      expect(res.headers.get('retry-after')).toBe('3')
+      expect(await res.json()).toEqual({ error: 'Too many runs are starting. Try again.' })
+      expect((await mockDb.listRunsByWorkflow('wf-1')).data).toHaveLength(0)
+    })
+
+    it('answers 400 with the provider’s words when it refuses the request itself, recording nothing', async () => {
+      provider.refuses = 'That instance id is too long.'
+      const res = await run(app, 'wf-1', { key: PROJECT_KEY, body: '{}' })
+      provider.refuses = ''
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'That instance id is too long.' })
+      expect((await mockDb.listRunsByWorkflow('wf-1')).data).toHaveLength(0)
     })
 
     it('answers 400 for an instanceId that can’t be one, starting nothing', async () => {

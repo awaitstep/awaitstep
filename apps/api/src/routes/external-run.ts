@@ -5,6 +5,7 @@ import { INSTANCE_ID_HEADER } from '@awaitstep/codegen'
 import {
   callFunctionRun,
   MAX_RUN_PAYLOAD_BYTES,
+  refusalResponse,
   runStartDeps,
   startWorkflowRun,
   type CallAnswer,
@@ -55,7 +56,7 @@ externalRun.post('/:workflowId', async (c) => {
       body: raw,
       ...(contentType && { contentType }),
     }))
-    if (!called.ok) return c.json({ error: called.error }, called.status)
+    if (!called.ok) return refusalResponse(c, called)
     return functionAnswer(c, called.answer, called.run.id)
   }
 
@@ -65,7 +66,7 @@ externalRun.post('/:workflowId', async (c) => {
     ...(contentType && { contentType }),
     query: queryWithoutAccount(c.req.url),
   }))
-  if (!started.ok) return c.json({ error: started.error }, started.status)
+  if (!started.ok) return refusalResponse(c, started)
   if (started.outcome === 'event-sent') return c.json({ ok: true })
   const { run, answer } = started
   // Through the workflow's own URL: its handler's answer, the run in headers.

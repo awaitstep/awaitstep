@@ -32,7 +32,10 @@ const provider = vi.hoisted(() => ({
   holdBeforeUpload: false,
   holdDuringUpload: false,
   throws: false,
+  busy: false,
   uploaded: false,
+  /** The record id the deploy was handed. */
+  deploymentId: undefined as string | undefined,
   releaseInstall: null as null | (() => void),
   releaseUpload: null as null | (() => void),
 }))
@@ -48,7 +51,11 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
           if (property === 'verifyCredentials') return () => Promise.resolve({ valid: true })
           if (property === 'deploy') {
             return async (_bundle: unknown, _config: unknown, run?: DeployRunOptions) => {
+              provider.deploymentId = run?.deploymentId
               if (provider.throws) throw new Error('wrangler failed in /srv/build')
+              if (provider.busy) {
+                return { success: false, deploymentId: '', error: 'Busy: try again', busy: true }
+              }
               const cancelled = () => {
                 run?.onProgress?.({ stage: 'CANCELLED', message: 'Deploy cancelled', progress: 0 })
                 return { success: false, deploymentId: '', cancelled: true }
@@ -162,6 +169,7 @@ describe('cancelling a deploy', () => {
       holdBeforeUpload: false,
       holdDuringUpload: false,
       throws: false,
+      busy: false,
       uploaded: false,
       releaseInstall: null,
       releaseUpload: null,
@@ -196,6 +204,8 @@ describe('cancelling a deploy', () => {
     expect(started?.event).toBe('started')
     const id = started!.data['deploymentId'] as string
     expect((await deployment(id))?.status).toBe('deploying')
+    // The provider is handed the id of that same row.
+    expect(provider.deploymentId).toBe(id)
     provider.releaseInstall?.()
     const events = await stream.rest()
     expect(events.at(-1)).toMatchObject({ event: 'result', data: { success: true } })
@@ -324,6 +334,15 @@ describe('cancelling a deploy', () => {
     const id = events[0]!.data['deploymentId'] as string
     expect(await deployment(id)).toMatchObject({ status: 'failed' })
     expect((await deployment(id))?.error).toContain('The deploy failed unexpectedly.')
+  })
+
+  it('answers 429, not a fault, when the provider turns the deploy away for capacity', async () => {
+    provider.busy = true
+    const res = await post(app, '/deploy', { connectionId: 'conn-1' })
+    expect(res.status).toBe(429)
+    const body = (await res.json()) as { id: string; error: string }
+    expect(body.error).toBe('Busy: try again')
+    expect(await deployment(body.id)).toMatchObject({ status: 'failed', error: 'Busy: try again' })
   })
 
   it('finds nothing to cancel in a deploy left running by a stopped server', async () => {

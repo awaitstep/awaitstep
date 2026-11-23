@@ -99,7 +99,13 @@ export {
   bundleDeployFiles,
   bundlePackageManifest,
 } from './bundle.js'
-export { GenerateInputError, InstanceExistsError, RunGoneError } from './errors.js'
+export {
+  GenerateInputError,
+  InstanceExistsError,
+  ProviderBusyError,
+  RunGoneError,
+  RunRefusedError,
+} from './errors.js'
 export {
   BAD_EVENT_TYPE,
   BAD_INSTANCE_ID,

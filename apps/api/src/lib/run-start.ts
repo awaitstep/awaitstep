@@ -1,5 +1,7 @@
 import {
   InstanceExistsError,
+  ProviderBusyError,
+  RunRefusedError,
   RunGoneError,
   namedInstanceId,
   sendEventBody,
@@ -26,6 +28,7 @@ import { startThroughUrl } from './run-through-url.js'
 export {
   MAX_RUN_PAYLOAD_BYTES,
   callBody,
+  refusalResponse,
   runStartDeps,
   type CallAnswer,
   type CallBody,
@@ -175,6 +178,15 @@ async function startDirectly(live: LiveWorkflow, payload: RunPayload): Promise<R
     }))
   } catch (err) {
     if (err instanceof InstanceExistsError) return { ok: false, status: 409, error: err.message }
+    if (err instanceof RunRefusedError) return { ok: false, status: 400, error: err.message }
+    if (err instanceof ProviderBusyError) {
+      return {
+        ok: false,
+        status: 429,
+        error: err.message,
+        retryAfterSeconds: err.retryAfterSeconds,
+      }
+    }
     // Its text names the account and paths: the log keeps it, the caller gets the gist.
     log.error(`Provider refused to start a run (workflow ${workflow.id})`, err)
     return { ok: false, status: 502, error: triggerFailure(label, err) }
