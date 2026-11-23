@@ -11,6 +11,10 @@
     "./d1": {
       "types": "./dist/d1.d.ts",
       "import": "./dist/d1.js"
+    },
+    "./pg-worker": {
+      "types": "./dist/pg-worker.d.ts",
+      "import": "./dist/pg-worker.js"
     }
   },
   "scripts": {
@@ -21,7 +25,8 @@
     "lint": "eslint src/",
     "db:generate": "drizzle-kit generate && DB_DIALECT=pg drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "db:migrate:pg": "DB_DIALECT=pg drizzle-kit migrate"
   },
   "devDependencies": {
     "@awaitstep/tsconfig": "workspace:*",
@@ -33,9 +38,11 @@
     "tsup": "9.0.0",
     "@typescript/native": "npm:typescript@^7.0.2",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "@types/pg": "8.23.1"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.4"
+    "drizzle-orm": "^0.45.4",
+    "pg": "8.23.1"
   }
 }

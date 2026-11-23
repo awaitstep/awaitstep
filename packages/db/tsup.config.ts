@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig((options) => ({
-  entry: ['src/index.ts', 'src/d1.ts'],
+  entry: ['src/index.ts', 'src/d1.ts', 'src/pg-worker.ts'],
   format: ['esm'],
   dts: !process.env.NO_DTS,
   // Watch rebuilds run beside the app dev servers; cleaning dist here
