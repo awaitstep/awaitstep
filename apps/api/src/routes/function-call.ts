@@ -7,6 +7,7 @@ import type { AppEnv } from '../types.js'
 import {
   callFunctionRun,
   MAX_RUN_PAYLOAD_BYTES,
+  refusalResponse,
   runStartDeps,
   type CallBody,
 } from '../lib/run-start.js'
@@ -45,7 +46,7 @@ export async function callFunction(
   readBody: () => Promise<CallBody | null>,
 ) {
   const called = await callFunctionRun(runStartDeps(c), { workflow, connectionId }, readBody)
-  if (!called.ok) return c.json({ error: called.error }, called.status)
+  if (!called.ok) return refusalResponse(c, called)
   const { answer, run } = called
   // No answer in time, or unreachable, is still an answer to show: its reason, not a 5xx.
   let body: FunctionCallResponse

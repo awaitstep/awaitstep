@@ -14,6 +14,7 @@ import { callFunction } from './function-call.js'
 import {
   callBody,
   MAX_RUN_PAYLOAD_BYTES,
+  refusalResponse,
   runStartDeps,
   startWorkflowRun,
   type RunPayload,
@@ -89,7 +90,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   if (result.cancelled) {
     return c.json({ ...deployAnswer(result), id, error: DEPLOY_CANCELLED }, 409)
   }
-  return c.json({ ...deployAnswer(result), id }, result.success ? 200 : 500)
+  return c.json({ ...deployAnswer(result), id }, result.success ? 200 : result.busy ? 429 : 500)
 })
 
 deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), async (c) => {
@@ -406,7 +407,7 @@ async function startRun(
   readPayload: () => Promise<RunPayload | null>,
 ) {
   const started = await startWorkflowRun(runStartDeps(c), { workflow, connectionId }, readPayload)
-  if (!started.ok) return c.json({ error: started.error }, started.status)
+  if (!started.ok) return refusalResponse(c, started)
   if (started.outcome === 'event-sent') return c.json({ ok: true as const })
   return c.json(runDetailRecord(started.run), 201)
 }

@@ -47,6 +47,35 @@ export class RunGoneError extends Error {
   }
 }
 
+/**
+ * The provider won't start the run now, and says when to ask again: it is at
+ * a rate or concurrency limit. Thrown from `trigger`; the caller answers 429
+ * with `Retry-After`. `message` is shown to the caller, so it names no
+ * account or internal detail.
+ */
+export class ProviderBusyError extends Error {
+  constructor(
+    message: string,
+    readonly retryAfterSeconds: number,
+  ) {
+    super(message)
+    this.name = 'ProviderBusyError'
+  }
+}
+
+/**
+ * The provider won't start the run as it was asked for: the request is the
+ * problem (an instance id it cannot take, a workflow it no longer serves),
+ * not the provider. Thrown from `trigger`; the caller answers 400 with
+ * `message`, so it names no account or internal detail.
+ */
+export class RunRefusedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RunRefusedError'
+  }
+}
+
 /** A run was asked for under an instance id the provider already has. */
 export class InstanceExistsError extends Error {
   constructor(readonly instanceId: string) {

@@ -47,9 +47,21 @@ export function runStartDeps(c: Context<AppEnv>): RunStartDeps {
 /** Why nothing was started; nothing was recorded either. */
 export interface RunStartRefusal {
   ok: false
-  /** 409: a run under that instance id exists. 502: the provider wouldn't start it. */
-  status: 400 | 404 | 409 | 502
+  /**
+   * 409: a run under that instance id exists. 429: the provider is at a limit
+   * (`retryAfterSeconds` says when to ask again). 502: it wouldn't start it.
+   */
+  status: 400 | 404 | 409 | 429 | 502
   error: string
+  retryAfterSeconds?: number
+}
+
+/** The response for a refusal: its error and status, and `Retry-After` when it names a wait. */
+export function refusalResponse(c: Context<AppEnv>, refusal: RunStartRefusal) {
+  if (refusal.retryAfterSeconds !== undefined) {
+    c.header('Retry-After', String(Math.max(1, Math.ceil(refusal.retryAfterSeconds))))
+  }
+  return c.json({ error: refusal.error }, refusal.status)
 }
 
 /**
