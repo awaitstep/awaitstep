@@ -79,6 +79,7 @@ export async function runDeploy(
   let result: DeployResult
   try {
     result = await adapter.deploy(bundle, providerConfig, {
+      deploymentId,
       onProgress: (progress) => {
         hooks.onProgress?.(progress).catch(() => {})
       },
