@@ -70,10 +70,23 @@ function patchApiConfig() {
   const configPath = resolve(ROOT, 'apps/api/wrangler.jsonc')
   const config = readJsonc(configPath)
 
-  // D1 database ID (required)
+  // Postgres through Hyperdrive replaces D1: the Worker uses HYPERDRIVE when it is bound.
+  const hyperdriveId = env('CF_HYPERDRIVE_ID')
+  if (hyperdriveId) {
+    delete config.d1_databases
+    config.hyperdrive = [{ binding: 'HYPERDRIVE', id: hyperdriveId }]
+  }
+
+  // D1 database ID (required without Hyperdrive)
   const d1Id = env('CF_D1_DATABASE_ID')
   if (d1Id && config.d1_databases?.[0]) {
     config.d1_databases[0].database_id = d1Id
+  }
+
+  // Smart Placement runs the Worker near the database rather than the visitor.
+  const placementMode = env('CF_PLACEMENT_MODE')
+  if (placementMode) {
+    config.placement = { mode: placementMode }
   }
 
   // Worker name

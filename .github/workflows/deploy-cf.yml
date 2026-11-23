@@ -25,10 +25,17 @@ env:
 # GITHUB SECRETS (Settings → Secrets → Actions):
 #
 #   Required:
-#     CLOUDFLARE_API_TOKEN          CF API token (Workers + D1 + Containers)
+#     CLOUDFLARE_API_TOKEN          CF API token (Workers + D1 + Containers; Hyperdrive read
+#                                   with CF_HYPERDRIVE_ID)
 #     CLOUDFLARE_ACCOUNT_ID         CF account ID
 #     CF_TOKEN_ENCRYPTION_KEY       openssl rand -hex 32
 #     CF_BETTER_AUTH_SECRET         openssl rand -hex 32
+#
+#   With CF_HYPERDRIVE_ID:
+#     CF_DATABASE_URL               postgres:// URL migrations run against; through the tunnel,
+#                                   postgres://…@127.0.0.1:5432/…?sslmode=require
+#     CF_ACCESS_CLIENT_ID           Access service token id (with CF_DB_TUNNEL_HOSTNAME)
+#     CF_ACCESS_CLIENT_SECRET       Access service token secret (with CF_DB_TUNNEL_HOSTNAME)
 #
 #   Optional — email:
 #     CF_RESEND_API_KEY             Resend API key (enables magic link emails)
@@ -50,8 +57,19 @@ env:
 # GITHUB VARIABLES (Settings → Variables → Actions):
 #
 #   Required:
-#     CF_D1_DATABASE_ID             D1 database UUID
+#     CF_D1_DATABASE_ID             D1 database UUID (not with CF_HYPERDRIVE_ID)
 #     CF_API_WORKER_URL             API Worker public URL
+#
+#   Optional — Postgres instead of D1:
+#     CF_HYPERDRIVE_ID              Hyperdrive config id; the Worker then uses Postgres, not D1.
+#                                   Create it with caching off (`--caching-disabled`): the app
+#                                   reads its own writes, and a cached read can be 60 s old.
+#                                   Needs the CF_DATABASE_URL secret: migrations run with it
+#                                   before the deploy, and a failed migration stops the deploy.
+#     CF_DB_TUNNEL_HOSTNAME         A Cloudflare Tunnel hostname in front of Postgres. CI opens
+#                                   it on 127.0.0.1:5432 with the CF_ACCESS_CLIENT_ID/SECRET
+#                                   service token; point CF_DATABASE_URL at 127.0.0.1:5432.
+#     CF_PLACEMENT_MODE             `smart` runs the Worker near its database.
 #
 #   Optional — deploy control:
 #     CF_DEPLOY_ENABLED             "true" to enable auto-deploy on push
@@ -97,13 +115,33 @@ jobs:
           check-latest: true
           cache: pnpm
 
+      # Values come in through env, never pasted into the script: a secret with a quote,
+      # backtick or $( in it would otherwise run as shell.
       - name: Validate required configuration
+        env:
+          HYPERDRIVE_ID: ${{ vars.CF_HYPERDRIVE_ID }}
+          DB_TUNNEL_HOSTNAME: ${{ vars.CF_DB_TUNNEL_HOSTNAME }}
+          D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
+          API_WORKER_URL: ${{ vars.CF_API_WORKER_URL }}
+          DATABASE_URL: ${{ secrets.CF_DATABASE_URL }}
+          ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.CF_TOKEN_ENCRYPTION_KEY }}
+          BETTER_AUTH_SECRET: ${{ secrets.CF_BETTER_AUTH_SECRET }}
         run: |
           missing=()
-          [ -z "${{ vars.CF_D1_DATABASE_ID }}" ] && missing+=("CF_D1_DATABASE_ID (variable)")
-          [ -z "${{ vars.CF_API_WORKER_URL }}" ] && missing+=("CF_API_WORKER_URL (variable)")
-          [ -z "${{ secrets.CF_TOKEN_ENCRYPTION_KEY }}" ] && missing+=("CF_TOKEN_ENCRYPTION_KEY (secret)")
-          [ -z "${{ secrets.CF_BETTER_AUTH_SECRET }}" ] && missing+=("CF_BETTER_AUTH_SECRET (secret)")
+          if [ -n "$HYPERDRIVE_ID" ]; then
+            [ -z "$DATABASE_URL" ] && missing+=("CF_DATABASE_URL (secret, with CF_HYPERDRIVE_ID)")
+            if [ -n "$DB_TUNNEL_HOSTNAME" ]; then
+              [ -z "$ACCESS_CLIENT_ID" ] && missing+=("CF_ACCESS_CLIENT_ID (secret, with CF_DB_TUNNEL_HOSTNAME)")
+              [ -z "$ACCESS_CLIENT_SECRET" ] && missing+=("CF_ACCESS_CLIENT_SECRET (secret, with CF_DB_TUNNEL_HOSTNAME)")
+            fi
+          else
+            [ -z "$D1_DATABASE_ID" ] && missing+=("CF_D1_DATABASE_ID (variable)")
+          fi
+          [ -z "$API_WORKER_URL" ] && missing+=("CF_API_WORKER_URL (variable)")
+          [ -z "$TOKEN_ENCRYPTION_KEY" ] && missing+=("CF_TOKEN_ENCRYPTION_KEY (secret)")
+          [ -z "$BETTER_AUTH_SECRET" ] && missing+=("CF_BETTER_AUTH_SECRET (secret)")
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing required configuration:"
             for m in "${missing[@]}"; do echo "  - $m"; done
@@ -113,6 +151,8 @@ jobs:
       - name: Patch wrangler configs
         env:
           CF_D1_DATABASE_ID: ${{ vars.CF_D1_DATABASE_ID }}
+          CF_HYPERDRIVE_ID: ${{ vars.CF_HYPERDRIVE_ID }}
+          CF_PLACEMENT_MODE: ${{ vars.CF_PLACEMENT_MODE }}
           CF_API_WORKER_URL: ${{ vars.CF_API_WORKER_URL }}
           CF_API_WORKER_NAME: ${{ vars.CF_API_WORKER_NAME }}
           CF_WEB_WORKER_NAME: ${{ vars.CF_WEB_WORKER_NAME }}
@@ -137,12 +177,59 @@ jobs:
       - name: Build packages (excluding apps)
         run: pnpm build --filter='./packages/*'
 
+      # A cached read can be 60 s old: a revoked session or removed member would keep working.
+      - name: Check Hyperdrive caching is off
+        if: (inputs.target == 'all' || inputs.target == 'api' || inputs.target == '') && vars.CF_HYPERDRIVE_ID != ''
+        working-directory: apps/api
+        env:
+          HYPERDRIVE_ID: ${{ vars.CF_HYPERDRIVE_ID }}
+        run: pnpm exec wrangler hyperdrive get "$HYPERDRIVE_ID" | node ../../scripts/check-hyperdrive-caching.mjs
+
+      - name: Open the database tunnel
+        if: (inputs.target == 'all' || inputs.target == 'api' || inputs.target == '') && vars.CF_HYPERDRIVE_ID != '' && vars.CF_DB_TUNNEL_HOSTNAME != ''
+        env:
+          DB_TUNNEL_HOSTNAME: ${{ vars.CF_DB_TUNNEL_HOSTNAME }}
+          TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+          TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+        run: |
+          # Pinned release and its published SHA-256: this binary holds the service token and
+          # the path to the production database.
+          curl -fsSL -o "$RUNNER_TEMP/cloudflared" https://github.com/cloudflare/cloudflared/releases/download/2026.11.1/cloudflared-linux-amd64
+          echo "97bb3b02d23a5980fc9c15a1a270e692da1923f103f920d5b16d4931d5ab55e7  $RUNNER_TEMP/cloudflared" | sha256sum -c -
+          chmod +x "$RUNNER_TEMP/cloudflared"
+          "$RUNNER_TEMP/cloudflared" access tcp --hostname "$DB_TUNNEL_HOSTNAME" --url 127.0.0.1:5432 > "$RUNNER_TEMP/cloudflared.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/cloudflared.pid"
+          # The listener opens before any auth: a wrong hostname or token shows up as a
+          # connection error in the migrate step, which still stops the deploy.
+          for i in $(seq 1 30); do
+            (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/cloudflared.log"
+          echo "::error::The database tunnel did not open"
+          exit 1
+
+      # Migrations run before the deploy, never at Worker start; a failure stops the job here.
+      - name: Migrate Postgres
+        if: (inputs.target == 'all' || inputs.target == 'api' || inputs.target == '') && vars.CF_HYPERDRIVE_ID != ''
+        env:
+          DATABASE_URL: ${{ secrets.CF_DATABASE_URL }}
+        run: pnpm --filter @awaitstep/db db:migrate:pg
+
+      # Closed before any later step (the Worker build, wrangler) runs with a path to the database.
+      - name: Close the database tunnel
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/cloudflared.pid" ]; then kill "$(cat "$RUNNER_TEMP/cloudflared.pid")" 2>/dev/null || true; fi
+
       - name: Build and deploy API Worker
         if: inputs.target == 'all' || inputs.target == 'api' || inputs.target == ''
         working-directory: apps/api
+        env:
+          USES_D1: ${{ vars.CF_HYPERDRIVE_ID == '' }}
         run: |
           pnpm build
-          pnpm d1:migrate
+          if [ "$USES_D1" = "true" ]; then pnpm d1:migrate; fi
           pnpm exec wrangler deploy --config wrangler.json
 
       - name: Set API Worker secrets
