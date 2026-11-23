@@ -285,6 +285,19 @@ describe('updateRunFromStatus', () => {
   })
 })
 
+describe('updateRun', () => {
+  it('writes the run in one statement and refuses a run that does not exist', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'run-1', 'running')
+    await adapter.updateRun('run-1', { status: 'complete', output: '"done"' })
+    const row = sqlite.prepare('SELECT status, output FROM workflow_runs WHERE id = ?').get('run-1')
+    expect(row).toEqual({ status: 'complete', output: '"done"' })
+    await expect(adapter.updateRun('missing', { status: 'complete' })).rejects.toThrow(
+      /WorkflowRun missing not found/,
+    )
+  })
+})
+
 describe('many steps (D1 binds at most 100 parameters per statement)', () => {
   it('upserts 40 steps in statements of at most 100 parameters', async () => {
     const db = createTestDb()

@@ -1408,9 +1408,7 @@ const mockDb: DatabaseAdapter = {
   async updateRun(id, data) {
     const r = store.runs.get(id)
     if (!r) throw new Error('Not found')
-    const updated = { ...r, ...data, updatedAt: now() }
-    store.runs.set(id, updated)
-    return updated
+    store.runs.set(id, { ...r, ...data, updatedAt: now() })
   },
   async updateRunFromStatus(id, fromStatus, data) {
     const r = store.runs.get(id)
