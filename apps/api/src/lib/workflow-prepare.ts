@@ -38,7 +38,7 @@ import type {
 } from '@awaitstep/db'
 import type { AppNodeRegistry } from './node-registry.js'
 import { createMergedNodeRegistry } from './node-registry.js'
-import { resolveProvider, validateNodesForProvider } from './provider-resolver.js'
+import { providerRunsAs, resolveProvider, validateNodesForProvider } from './provider-resolver.js'
 import { collectNodeDependencies } from './dependencies.js'
 import { dependenciesWithLibrary, validateWithLibrary } from './library-prepare.js'
 import { foldLibrary, type BundledLibraryModule } from './library-fold.js'
@@ -323,16 +323,23 @@ export async function prepareWorkflow(
 
   // The artifact can name its runtime itself, which is what lets a canvas or
   // local test work with no deployment connection. A caller that names a
-  // provider (a deploy's connection) must agree with it.
-  const targetProvider = ir.runtime?.provider ?? input.provider
-  if (ir.runtime?.provider && input.provider && ir.runtime.provider !== input.provider) {
+  // provider (a deploy's connection) must agree with it, or be a provider
+  // that runs what was written for the one the artifact names.
+  const stated = ir.runtime?.provider
+  const agrees =
+    !stated ||
+    !input.provider ||
+    stated === input.provider ||
+    providerRunsAs(input.provider, stated)
+  if (!agrees) {
     return {
-      error: `This workflow targets ${ir.runtime.provider}, but this connection uses ${input.provider}`,
+      error: `This workflow targets ${stated}, but this connection uses ${input.provider}`,
       status: 400,
       finding: true,
       checked,
     }
   }
+  const targetProvider = input.provider ?? stated
 
   let adapter
   try {
@@ -406,6 +413,7 @@ export async function prepareWorkflow(
       ir,
       adapter.name,
       (type) => nodeRegistry.registry.get(type)?.providers,
+      adapter.nodeProviders,
     )
     if (!nodeCheck.valid) {
       const names = nodeCheck.unsupportedNodes.map((node) => node.name)

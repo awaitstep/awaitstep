@@ -2,7 +2,7 @@ import type { TemplateResolver, WorkflowProvider } from '@awaitstep/codegen'
 import { createProvider, hasProvider, providerIds } from './provider-registry.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 
-export { validateNodesForProvider } from './provider-registry.js'
+export { providerRunsAs, validateNodesForProvider } from './provider-registry.js'
 
 /**
  * Kept as the one provider the host currently knows. A production migration
