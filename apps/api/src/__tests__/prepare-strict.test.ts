@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { createProvider, useExtensionProviders } from '../lib/provider-registry.js'
 import { isPrepareError, prepareWorkflow } from '../lib/workflow-prepare.js'
 import { resetStore, TEST_ORG_ID, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
 
@@ -134,6 +135,23 @@ describe('a strict prepare', () => {
     if (!isPrepareError(prepared)) return
     expect(prepared.status).toBe(400)
     expect(prepared.error).toContain('targets cloudflare')
+  })
+
+  it('accepts a connection whose provider runs what the artifact targets', async () => {
+    const cloudflare = createProvider('cloudflare', {})
+    const hosted = Object.assign(Object.create(cloudflare) as typeof cloudflare, {
+      name: 'hosted',
+      nodeProviders: ['cloudflare'],
+    })
+    useExtensionProviders([{ id: 'acme-ext', providers: { hosted: () => hosted } }])
+    try {
+      const ir = { ...validIR, runtime: { provider: 'cloudflare' } }
+      const prepared = await prepareStoredIr(ir, 'hosted')
+      expect(isPrepareError(prepared) ? prepared.error : null).toBeNull()
+      if (!isPrepareError(prepared)) expect(prepared.adapter.name).toBe('hosted')
+    } finally {
+      useExtensionProviders([])
+    }
   })
 
   it('refuses a marketplace node with a required field left empty, naming the node and field', async () => {

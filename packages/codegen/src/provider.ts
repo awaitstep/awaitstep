@@ -103,6 +103,13 @@ export interface WorkflowProvider {
   readonly supportedBindingKinds?: readonly string[]
 
   /**
+   * Other providers whose nodes this one runs as its own: a provider built on
+   * another's runtime takes the nodes written for it. A node stamped for one
+   * of these, or whose definition lists one, is accepted as this provider's.
+   */
+  readonly nodeProviders?: readonly string[]
+
+  /**
    * Requirements this provider detects beyond the shared analyzer: inferred
    * bindings, derived service/workflow bindings. Unioned with
    * `collectRuntimeRequirements`.

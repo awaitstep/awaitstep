@@ -51,6 +51,19 @@ export function acceptsConnections(id: string): boolean {
 }
 
 /**
+ * The providers the instance operates itself: an extension's that users
+ * connect no account to. A connection to one is the instance's own record,
+ * not a person's: it is read-only through every route.
+ */
+export function instanceOperatedProviders(): string[] {
+  return Object.keys(fromExtensions).filter((id) => !connectableFromExtensions.has(id))
+}
+
+export function isInstanceOperated(id: string): boolean {
+  return Object.hasOwn(fromExtensions, id) && !connectableFromExtensions.has(id)
+}
+
+/**
  * Installs the providers the app's extensions contribute, replacing any set
  * an earlier app installed. Refuses, at startup, an id that is not a valid
  * provider id, or one already taken by a built-in provider or another
@@ -141,20 +154,32 @@ export function createProvider(id: string, options: ProviderFactoryOptions): Wor
 }
 
 /**
+ * Whether `provider` takes work written for `other` as its own
+ * (`WorkflowProvider.nodeProviders`). False for an unknown provider.
+ */
+export function providerRunsAs(provider: string, other: string): boolean {
+  if (!hasProvider(provider)) return false
+  return createProvider(provider, {}).nodeProviders?.includes(other) ?? false
+}
+
+/**
  * Whether every node in the artifact can run on the target. Node-level
  * compatibility is metadata on the definition, not a provider label on the
  * instance; this remains the coarse check for a provider that declares
- * support separately.
+ * support separately. `alsoRuns` names the providers whose nodes the target
+ * takes as its own (`WorkflowProvider.nodeProviders`).
  */
 export function validateNodesForProvider(
   ir: ArtifactIR,
   provider: string,
   providersFor?: (nodeType: string) => readonly string[] | undefined,
+  alsoRuns: readonly string[] = [],
 ): { valid: boolean; unsupportedNodes: { id: string; name: string }[] } {
+  const runs = (id: string) => id === provider || alsoRuns.includes(id)
   const unsupported = ir.nodes.filter((node) => {
-    if (node.provider !== undefined) return node.provider !== provider
+    if (node.provider !== undefined) return !runs(node.provider)
     const providers = providersFor?.(node.type)
-    return providers !== undefined && providers.length > 0 && !providers.includes(provider)
+    return providers !== undefined && providers.length > 0 && !providers.some(runs)
   })
   return {
     valid: unsupported.length === 0,
