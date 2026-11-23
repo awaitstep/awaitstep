@@ -1315,8 +1315,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listConnectionAccounts(
     organizationId: string,
     pagination?: PaginationParams,
+    options?: { excludeProviders?: readonly string[] },
   ): Promise<PaginatedResult<ConnectionAccountRow>> {
-    return this._connections.listAccounts(organizationId, pagination)
+    return this._connections.listAccounts(organizationId, pagination, options)
   }
   updateConnection(id: string, data: ConnectionUpdate): Promise<ConnectionListRow | null> {
     return this._connections.update(id, data)
@@ -1406,8 +1407,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   removeProjectConnection(
     projectId: string,
     connectionId: string,
+    options?: { fixedProviders?: readonly string[] },
   ): Promise<ProjectConnectionRemoval | null> {
-    return this._projectConnections.remove(projectId, connectionId)
+    return this._projectConnections.remove(projectId, connectionId, options)
   }
   listLiveDeployments(workflowId: string): Promise<LiveDeploymentRow[]> {
     return this._projectConnections.liveDeployments(workflowId)

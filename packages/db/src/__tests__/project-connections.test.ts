@@ -401,10 +401,39 @@ describe.each([
         workspacesCleared: 1,
         blockedBy: [],
         blockedElsewhere: 0,
+        fixed: false,
       })
       expect(await h.count('connections', "id = 'c-sandbox'")).toBe(1)
       expect(await h.count('workspace_connections')).toBe(0)
       expect(await h.adapter.removeProjectConnection('p-101', 'c-sandbox')).toBeNull()
+    })
+
+    it('leaves one of a fixed provider as it is: on the project, the default, its workspaces set', async () => {
+      await add(['c-prod', 'c-sandbox'])
+      await h.adapter.setWorkspaceConnection({
+        projectId: 'p-101',
+        workspaceId: 'ws-sales',
+        connectionId: 'c-prod',
+        setBy: 'u-ama',
+      })
+      const before = await h.adapter.listProjectConnections('p-101', 'org-acme')
+      expect(
+        await h.adapter.removeProjectConnection('p-101', 'c-prod', {
+          fixedProviders: ['cloudflare'],
+        }),
+      ).toMatchObject({ fixed: true, blockedBy: [], blockedElsewhere: 0 })
+      expect(await h.adapter.listProjectConnections('p-101', 'org-acme')).toEqual(before)
+      expect(await h.count('workspace_connections')).toBe(1)
+      // Another provider's name fixes nothing.
+      expect(
+        await h.adapter.removeProjectConnection('p-101', 'c-prod', { fixedProviders: ['other'] }),
+      ).toMatchObject({ fixed: false })
+      // One that is not on the project is still not found.
+      expect(
+        await h.adapter.removeProjectConnection('p-202', 'c-prod', {
+          fixedProviders: ['cloudflare'],
+        }),
+      ).toBeNull()
     })
 
     it('deletes an owned one, and the one account left becomes the default', async () => {

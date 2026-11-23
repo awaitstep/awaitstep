@@ -13,6 +13,8 @@ export interface ConnectionSummary {
   id: string
   provider: string
   name: string
+  /** Set when the instance operates it: no account behind it, and nothing about it can be changed. */
+  managed?: true
   /** Null when the person has been removed from the instance. */
   createdByName: string | null
   /** Last four characters of the account id; the only account detail the list carries. */
@@ -94,6 +96,8 @@ export interface ProjectConnection {
   id: string
   provider: string
   name: string
+  /** Set when the instance operates it: no account behind it, and nothing about it can be changed. */
+  managed?: true
   /** Last four characters of the account id. */
   accountSuffix: string | null
   /** Who connected the account; null when they've been removed from the instance. */
@@ -198,6 +202,7 @@ export interface DeployConnections {
     ProjectConnection,
     | 'id'
     | 'provider'
+    | 'managed'
     | 'name'
     | 'accountSuffix'
     | 'scope'

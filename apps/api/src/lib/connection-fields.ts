@@ -1,7 +1,7 @@
 import type { ConnectionTokenStatus, DeployConnections } from '@awaitstep/ir'
 import type { DeployTargetRow } from '@awaitstep/db'
 import { resolveProvider } from './provider-resolver.js'
-import { acceptsConnections } from './provider-registry.js'
+import { acceptsConnections, isInstanceOperated } from './provider-registry.js'
 import { parseCredentials } from './connection-token.js'
 import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 
@@ -17,6 +17,14 @@ export function credentialError(
   // A validator that throws is a provider bug, not permission to store the
   // credentials: let it surface as a 500/failure instead of failing open.
   return resolveProvider(provider).validateCredentials?.(credentials) ?? null
+}
+
+/** Why a connection the instance operates can't be changed; the answer to every write on one. */
+export const MANAGED_CONNECTION = 'This connection is managed for you and can’t be changed'
+
+/** `managed: true` for a connection the instance operates; nothing otherwise. */
+export function managedMark(provider: string): { managed?: true } {
+  return isInstanceOperated(provider) ? { managed: true } : {}
 }
 
 export function parseTokenStatus(value: string): ConnectionTokenStatus {
@@ -54,6 +62,7 @@ export function deployConnections(
       return {
         id: row.id,
         provider: row.provider,
+        ...managedMark(row.provider),
         name: row.name,
         accountSuffix: accountSuffixOf(row.credentials),
         scope: row.scope,

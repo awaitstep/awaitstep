@@ -16,9 +16,12 @@ import {
   accountSuffixOf,
   authKindOf,
   credentialError,
+  MANAGED_CONNECTION,
+  managedMark,
   parseTokenStatus,
   scopesOf,
 } from '../lib/connection-fields.js'
+import { instanceOperatedProviders, isInstanceOperated } from '../lib/provider-registry.js'
 import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 import { revokeConnectionGrant } from '../lib/connection-oauth.js'
 import { featureOff, requireFeature, switchedOff } from '../lib/feature-switches.js'
@@ -76,6 +79,7 @@ function projectConnections(rows: ProjectConnectionsRows): ProjectConnections {
       const canDeploy = authKind !== 'oauth' || canDeployWithScopes(scopes)
       return {
         ...row,
+        ...managedMark(row.provider),
         accountSuffix: accountSuffixOf(credentials),
         tokenStatus: parseTokenStatus(tokenStatus),
         authKind,
@@ -262,6 +266,11 @@ projectConnectionRoutes.patch(
     const connectionId = c.req.param('connectionId')
     const body = c.req.valid('json')
     const db = c.get('db')
+    // Before anything else, so every change to one answers the same way.
+    const target = await db.getProviderConnectionById(connectionId, organizationId)
+    if (target && isInstanceOperated(target.provider)) {
+      return c.json({ error: MANAGED_CONNECTION }, 403)
+    }
     // A rename alone needs no token, so it stays open on an OAuth-only instance.
     if (body.token !== undefined && featureOff(c, 'connections.apiTokens')) {
       return switchedOff(c, 'connections.apiTokens')
@@ -351,8 +360,12 @@ projectConnectionRoutes.delete('/connections/:connectionId', async (c) => {
   // grant is withdrawn only if the removal actually goes through — a blocked
   // delete must leave the working account alone.
   const ownedBefore = await db.getProjectOwnedConnection(connectionId, projectId)
-  const removed = await db.removeProjectConnection(projectId, connectionId)
-  if (!removed) return c.json(NOT_FOUND, 404)
+  const found = await db.removeProjectConnection(projectId, connectionId, {
+    fixedProviders: instanceOperatedProviders(),
+  })
+  if (!found) return c.json(NOT_FOUND, 404)
+  const { fixed, ...removed } = found
+  if (fixed) return c.json({ error: MANAGED_CONNECTION }, 403)
   if (removed.blockedBy.length > 0 || removed.blockedElsewhere > 0) {
     return c.json(
       {

@@ -479,6 +479,8 @@ export interface ProjectConnectionRemoval {
   blockedBy: string[]
   /** As `blockedBy`, workflows in other projects (moved since): counted, never named. */
   blockedElsewhere: number
+  /** Kept because its provider is one the caller named as not removable. */
+  fixed: boolean
 }
 
 /** What a workspace's account change found: null fields name what refused it. */

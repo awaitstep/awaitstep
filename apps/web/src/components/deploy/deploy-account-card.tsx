@@ -36,6 +36,19 @@ function suffix(account: Account): string {
   return account.accountSuffix ? `••••${account.accountSuffix}` : 'No account ID'
 }
 
+/**
+ * The line under the chosen account's name: its provider and account. One the
+ * instance operates has no account behind it, so only the provider is named.
+ */
+export function accountLine(account: Account, provider: string): string {
+  return account.managed ? provider : `${provider} account ${suffix(account)}`
+}
+
+/** An account's line in the Change menu: its token and account; nothing for one the instance operates. */
+export function menuLine(account: Account, now: Date): string | null {
+  return account.managed ? null : `${tokenStatus(account, now).text} · ${suffix(account)}`
+}
+
 /** Where this deploy goes (25a), and Change to the project's other accounts (25c). */
 export function DeployAccountCard({
   accounts,
@@ -65,7 +78,7 @@ export function DeployAccountCard({
         </span>
         {selected && (
           <span className="text-xs text-muted-foreground">
-            {providerLabel(capabilities, selected.provider)} account {suffix(selected)}
+            {accountLine(selected, providerLabel(capabilities, selected.provider))}
           </span>
         )}
       </span>
@@ -115,7 +128,7 @@ function AccountItem({
   now: Date
   onPick: (id: string) => void
 }) {
-  const token = tokenStatus(account, now)
+  const line = menuLine(account, now)
 
   function handleSelect() {
     onPick(account.id)
@@ -136,9 +149,7 @@ function AccountItem({
           {tag && <Badge variant="neutral">{tag}</Badge>}
           {chosen && <span className="sr-only">(chosen)</span>}
         </span>
-        <span className="text-2xs text-muted-foreground">
-          {token.text} · {suffix(account)}
-        </span>
+        {line && <span className="text-2xs text-muted-foreground">{line}</span>}
       </span>
     </DropdownMenuItem>
   )
