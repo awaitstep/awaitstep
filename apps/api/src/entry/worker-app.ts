@@ -1,7 +1,11 @@
 import { recordAccountEvent, recordOrganizationUpdate, recordSignIn } from '../lib/audit.js'
 import { runMaintenance } from '../lib/maintenance.js'
-import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@awaitstep/db/d1'
+import type { DrizzleDatabaseAdapter } from '@awaitstep/db'
+import {
+  workerDatabase,
+  type WorkerDatabase,
+  type WorkerDatabaseBindings,
+} from './worker-database.js'
 import { createApp, createAuth, type AppDeps } from '../index.js'
 import type { AppExtension, ExtensionsPackage } from '../types.js'
 import { checkExtensions } from '../lib/extensions.js'
@@ -34,8 +38,7 @@ import registryData from '../../../../nodes/registry.json' with { type: 'json' }
 
 const DEFAULT_REGISTRY_URL = 'https://raw.githubusercontent.com/awaitstep/awaitstep/main/registry'
 
-export interface Env {
-  DB: D1Database
+export interface Env extends WorkerDatabaseBindings {
   SANDBOX: DurableObjectNamespace<Sandbox>
   TOKEN_ENCRYPTION_KEY: string
   BETTER_AUTH_SECRET: string
@@ -78,7 +81,7 @@ export interface Env {
 }
 
 /** The image store this deployment's settings ask for. */
-function workerImageStore(env: Env, db: ReturnType<typeof createD1DatabaseAdapter>) {
+function workerImageStore(env: Env, db: DrizzleDatabaseAdapter) {
   return imageStoreFromEnv(env as unknown as Record<string, string | undefined>, db)
 }
 
@@ -120,10 +123,16 @@ function workerEmails(env: Env, baseURL: string, logger: ReturnType<typeof creat
 }
 
 /**
- * Everything `createApp` needs on Workers, built from the Worker's bindings.
- * A wrapping entry adds its own deps (extensions) on top.
+ * Everything `createApp` needs on Workers, built from the Worker's bindings,
+ * and the database scope its requests run in: an entry that builds its own
+ * app must run every request (and cron run) inside `database.run`, or a
+ * Postgres-backed app refuses its queries. A wrapping entry adds its own
+ * deps (extensions) on top.
  */
-export async function buildWorkerDeps(env: Env, baseURL: string): Promise<AppDeps> {
+export async function buildWorkerDeps(
+  env: Env,
+  baseURL: string,
+): Promise<{ deps: AppDeps; database: WorkerDatabase }> {
   const logger = createLogger('app')
 
   if (!env.TOKEN_ENCRYPTION_KEY) {
@@ -134,7 +143,6 @@ export async function buildWorkerDeps(env: Env, baseURL: string): Promise<AppDep
   }
 
   const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
-  const drizzleDb = createD1DrizzleDb(env.DB)
   const cloudflareOAuth = cloudflareOAuthFromEnv(
     env as unknown as Record<string, string | undefined>,
     {
@@ -143,10 +151,11 @@ export async function buildWorkerDeps(env: Env, baseURL: string): Promise<AppDep
       originConfigured: Boolean(env.BETTER_AUTH_URL || env.WEB_URL || env.CORS_ORIGIN),
     },
   )
-  const db = createD1DatabaseAdapter(env.DB, {
+  const database = workerDatabase(env, {
     tokenCrypto,
     refreshConnection: createConnectionRefresh(cloudflareOAuth),
   })
+  const db = database.db
   const imageStore = workerImageStore(env, db)
 
   const { emails, sendMagicLink } = workerEmails(env, baseURL, logger)
@@ -163,7 +172,7 @@ export async function buildWorkerDeps(env: Env, baseURL: string): Promise<AppDep
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),
     onImageOwnerDeleted: (owner) => discardOwnerImages(db, imageStore, owner),
-    database: drizzleAdapter(drizzleDb, { provider: 'sqlite', schema: sqliteSchema }),
+    database: database.authDatabase,
     trustedOrigins: [...new Set([baseURL, ...parseAppOrigins(env.CORS_ORIGIN)])],
     sendMagicLink,
     github: env.GITHUB_CLIENT_ID
@@ -196,7 +205,7 @@ export async function buildWorkerDeps(env: Env, baseURL: string): Promise<AppDep
 
   const appOrigins = parseAppOrigins(env.CORS_ORIGIN)
 
-  return {
+  const deps: AppDeps = {
     accountProviders: accountProvidersOf(authOptions),
     db,
     auth,
@@ -221,6 +230,7 @@ export async function buildWorkerDeps(env: Env, baseURL: string): Promise<AppDep
     emails,
     imageStore,
   }
+  return { deps, database }
 }
 
 // A test session's container must outlast the session's idle window, so the
@@ -274,16 +284,23 @@ export function workerAppOptions(options: WorkerOptions): {
  */
 export function createWorker(options: WorkerOptions = {}) {
   const appOptions = workerAppOptions(options)
-  let cached: { env: Env; baseURL: string; app: ReturnType<typeof createApp> } | null = null
+  let cached: {
+    env: Env
+    baseURL: string
+    app: ReturnType<typeof createApp>
+    database: WorkerDatabase
+  } | null = null
 
   return {
     async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
       const baseURL = env.BETTER_AUTH_URL ?? new URL(request.url).origin
       if (!cached || cached.env !== env || cached.baseURL !== baseURL) {
-        const deps = await buildWorkerDeps(env, baseURL)
-        cached = { env, baseURL, app: createApp({ ...deps, ...appOptions }) }
+        const { deps, database } = await buildWorkerDeps(env, baseURL)
+        cached = { env, baseURL, app: createApp({ ...deps, ...appOptions }), database }
       }
-      return cached.app.fetch(request, env, ctx)
+      const { app, database } = cached
+      // Everything the request starts, a streamed body included, runs on its own connections.
+      return database.run(() => app.fetch(request, env, ctx))
     },
 
     // Cron-driven counterpart of serve.ts's interval loop: reconciles run
@@ -303,10 +320,11 @@ export function createWorker(options: WorkerOptions = {}) {
           originConfigured: Boolean(env.BETTER_AUTH_URL || env.WEB_URL || env.CORS_ORIGIN),
         },
       )
-      const db = createD1DatabaseAdapter(env.DB, {
+      const database = workerDatabase(env, {
         tokenCrypto,
         refreshConnection: createConnectionRefresh(cloudflareOAuth),
       })
+      const db = database.db
       // Nothing in a Worker survives between requests, so the cron is where
       // expired sessions get stopped.
       const limits = resolveTestSessionLimits(
@@ -316,24 +334,26 @@ export function createWorker(options: WorkerOptions = {}) {
       // allSettled, not all: one task rejecting would otherwise end the others'
       // waitUntil partway through, leaving sessions unreaped.
       ctx.waitUntil(
-        Promise.allSettled([
-          // No request here, so no origin to fall back on: without a configured
-          // web origin the links would be relative, and failures go to the Inbox only.
-          syncActiveRuns(db, {
-            emails: cronWebOrigin(env)
-              ? workerEmails(env, cronWebOrigin(env)!, createLogger('cron')).emails
-              : undefined,
-          }),
-          // The cron runs every minute; the purges and the expiry check need an hour.
-          isTopOfHour(controller.scheduledTime)
-            ? runMaintenance(db, new Date(), workerImageStore(env, db))
-            : Promise.resolve(),
-          reapTestSessions({
-            db,
-            runner: testSessionRunnerFor(env, sleepAfter),
-            limits,
-          }),
-        ]),
+        database.run(() =>
+          Promise.allSettled([
+            // No request here, so no origin to fall back on: without a configured
+            // web origin the links would be relative, and failures go to the Inbox only.
+            syncActiveRuns(db, {
+              emails: cronWebOrigin(env)
+                ? workerEmails(env, cronWebOrigin(env)!, createLogger('cron')).emails
+                : undefined,
+            }),
+            // The cron runs every minute; the purges and the expiry check need an hour.
+            isTopOfHour(controller.scheduledTime)
+              ? runMaintenance(db, new Date(), workerImageStore(env, db))
+              : Promise.resolve(),
+            reapTestSessions({
+              db,
+              runner: testSessionRunnerFor(env, sleepAfter),
+              limits,
+            }),
+          ]),
+        ),
       )
     },
   } satisfies ExportedHandler<Env>
