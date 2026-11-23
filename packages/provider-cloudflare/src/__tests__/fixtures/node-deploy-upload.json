@@ -1,0 +1,26 @@
+{
+  "args": [
+    "wrangler",
+    "deploy",
+    "-c",
+    "wrangler.json",
+    "--no-bundle",
+    "--secrets-file",
+    ".secrets.bulk.json",
+    "<build>/worker.js"
+  ],
+  "credentials": {
+    "CLOUDFLARE_ACCOUNT_ID": "account-1",
+    "CLOUDFLARE_API_TOKEN": "token-1"
+  },
+  "files": {
+    "<deploy>/.secrets.bulk.json": "{\"API_KEY\":\"secret-1\"}",
+    "<deploy>/greeting.txt": "hello\n",
+    "<deploy>/lib/util.ts": "export const x=1",
+    "<deploy>/package.json": "{\n  \"name\": \"awaitstep-worker\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"imports\": {\n    \"#app/*.json\": \"./*.json\",\n    \"#app/*.mjs\": \"./*.mjs\",\n    \"#app/*.cjs\": \"./*.cjs\",\n    \"#app/*.mts\": \"./*.mjs\",\n    \"#app/*.cts\": \"./*.cjs\",\n    \"#app/*.js\": \"./*.js\",\n    \"#app/*.ts\": \"./*.js\",\n    \"#app/*\": \"./*.js\",\n    \"#awaitstep/*\": \"./awaitstep/*.js\"\n  },\n  \"dependencies\": {\n    \"left-pad\": \"1.3.0\"\n  }\n}",
+    "<deploy>/worker.ts": "import g from \"./greeting.txt\"\nexport default {}",
+    "<deploy>/wrangler.json": "{\n  \"compatibility_date\": \"2026-01-01\",\n  \"compatibility_flags\": [\n    \"nodejs_compat\"\n  ],\n  \"observability\": {\n    \"enabled\": true\n  },\n  \"name\": \"awaitstep-orders\",\n  \"main\": \"./worker.ts\",\n  \"workflows\": [\n    {\n      \"binding\": \"WORKFLOW\",\n      \"name\": \"Orders\",\n      \"class_name\": \"Orders\"\n    }\n  ],\n  \"vars\": {\n    \"REGION\": \"eu\"\n  },\n  \"routes\": [\n    {\n      \"pattern\": \"orders.example.com/*\",\n      \"zone_name\": \"example.com\"\n    }\n  ],\n  \"triggers\": {\n    \"crons\": [\n      \"*/5 * * * *\"\n    ]\n  },\n  \"kv_namespaces\": [\n    {\n      \"binding\": \"CACHE\",\n      \"id\": \"kv-1\"\n    }\n  ]\n}",
+    "<build>/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-greeting.txt": "hello\n",
+    "<build>/worker.js": "export default { fetch() {} }\n"
+  }
+}

@@ -14,6 +14,7 @@ import {
 import type { WranglerDeployer } from '../deploy/deployer.js'
 
 const mockDeployer: WranglerDeployer = {
+  build: vi.fn(),
   deploy: vi.fn().mockResolvedValue({
     success: true,
     workerName: 'awaitstep-test-workflow',
