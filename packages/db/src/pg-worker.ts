@@ -1,4 +1,4 @@
-import pg from 'pg'
+import pg, { type Pool, type PoolClient, type PoolConfig } from 'pg'
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres'
 import * as pgSchema from './schema/pg/index.js'
 import { DrizzleDatabaseAdapter, type DrizzleAdapterOptions } from './adapters/index.js'
@@ -7,8 +7,8 @@ type PgDrizzle = NodePgDatabase<typeof pgSchema>
 
 /** What a request's pool must offer: the part of `pg.Pool` drizzle uses. */
 export interface RequestPool {
-  query: pg.Pool['query']
-  connect: pg.Pool['connect']
+  query: Pool['query']
+  connect: Pool['connect']
 }
 
 /**
@@ -37,7 +37,7 @@ export interface RequestScopedPgOptions {
   /** A fresh `new AsyncLocalStorage()`, used by this handle alone. */
   storage: RequestStorage<unknown>
   /** Builds a request's pool; tests swap in a fake. */
-  createPool?: (config: pg.PoolConfig) => RequestPool
+  createPool?: (config: PoolConfig) => RequestPool
 }
 
 /** Postgres for a Worker: one drizzle handle, a pool of its own per request. */
@@ -73,9 +73,9 @@ class RequestScopedPool {
     return (pool.query as (...a: unknown[]) => unknown).apply(pool, args)
   }
 
-  connect(): Promise<pg.PoolClient> {
+  connect(): Promise<PoolClient> {
     const pool = this.current()
-    return (pool.connect as () => Promise<pg.PoolClient>).call(pool)
+    return pool.connect.call(pool)
   }
 }
 
@@ -89,14 +89,14 @@ class RequestScopedPool {
  */
 export function createRequestScopedPg(options: RequestScopedPgOptions): RequestScopedPg {
   const createPool = options.createPool ?? ((config) => new pg.Pool(config))
-  const config: pg.PoolConfig = {
+  const config: PoolConfig = {
     connectionString: options.connectionString,
     max: options.maxConnections ?? 5,
     idleTimeoutMillis: options.idleTimeoutMs ?? 1_000,
   }
   const storage = options.storage as RequestStorage<RequestPool>
   const client = new RequestScopedPool(storage)
-  const db = drizzle(client as unknown as pg.Pool, { schema: pgSchema })
+  const db = drizzle(client as unknown as Pool, { schema: pgSchema })
 
   return {
     db,
