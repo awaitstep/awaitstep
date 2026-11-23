@@ -6,6 +6,7 @@ import {
   type WorkerDatabase,
   type WorkerDatabaseBindings,
 } from './worker-database.js'
+import { organizationCreated, useExtensionHooks } from '../lib/extension-hooks.js'
 import { createApp, createAuth, type AppDeps } from '../index.js'
 import type { AppExtension, ExtensionsPackage } from '../types.js'
 import { checkExtensions } from '../lib/extensions.js'
@@ -168,6 +169,7 @@ export async function buildWorkerDeps(
       return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
     },
     onSessionCreated: (session) => recordSignIn(db, session),
+    onOrganizationCreated: (data) => organizationCreated(db, data),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),
@@ -265,6 +267,7 @@ export function workerAppOptions(options: WorkerOptions): {
   const extensions = options.extensions ?? []
   checkExtensions(extensions)
   useExtensionProviders(extensions)
+  useExtensionHooks(extensions)
   return {
     extensions,
     disabledFeatures: checkDisabledFeatures(options.disabled ?? []),

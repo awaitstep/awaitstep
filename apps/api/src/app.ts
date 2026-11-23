@@ -8,6 +8,7 @@ import { requestId } from 'hono/request-id'
 import type { AppEmails, AppEnv, AppExtension } from './types.js'
 import { checkExtensions } from './lib/extensions.js'
 import { useExtensionProviders } from './lib/provider-registry.js'
+import { useExtensionHooks } from './lib/extension-hooks.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
@@ -122,6 +123,7 @@ export function createApp(deps: AppDeps) {
   const extensions = deps.extensions ?? []
   checkExtensions(extensions)
   useExtensionProviders(extensions)
+  useExtensionHooks(extensions)
   const disabled = checkDisabledFeatures(deps.disabledFeatures ?? [])
   const disabledFeatures: ReadonlySet<OssFeature> = new Set(disabled)
   const oauthReturnPath =

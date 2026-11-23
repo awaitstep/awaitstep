@@ -32,6 +32,8 @@ export interface AuthOptions {
     userId: string
     ipAddress?: string | null
   }) => Promise<void>
+  /** Called once an organization exists, with who created it. */
+  onOrganizationCreated?: (data: { organizationId: string; userId: string }) => Promise<void>
   /** Called once an owner or admin changed the organization's name or URL, for the audit log. */
   onOrganizationUpdated?: (data: {
     organization: { id: string; name: string; slug: string }
@@ -183,6 +185,12 @@ export function createAuth(options: AuthOptions) {
           beforeCreateOrganization: async ({ organization }) => {
             refuseBadOrgSlug(organization.slug)
             refuseImageValue(organization.logo, 'logo', LOGO_ROUTE)
+          },
+          afterCreateOrganization: async ({ organization, user }) => {
+            await options.onOrganizationCreated?.({
+              organizationId: organization.id,
+              userId: user.id,
+            })
           },
           beforeUpdateOrganization: async ({ organization }) => {
             if (organization.slug !== undefined) refuseBadOrgSlug(organization.slug)

@@ -206,6 +206,30 @@ export interface AppExtension {
    * refused as an unsupported provider.
    */
   connectableProviders?: readonly string[]
+  /** Called as the app's own records are created; see {@link ExtensionHooks}. */
+  hooks?: ExtensionHooks
+}
+
+/**
+ * What an extension is told as it happens, after the row exists. Each is
+ * awaited before the request that caused it is answered, and gets the app's
+ * database. A hook that throws is logged and changes nothing: the
+ * organization or project stays created, so a hook must be safe to run again
+ * for the same id.
+ */
+export interface ExtensionHooks {
+  organizationCreated?: (event: {
+    db: DatabaseAdapter
+    organizationId: string
+    /** Who created it: its first owner. */
+    userId: string
+  }) => Promise<void>
+  projectCreated?: (event: {
+    db: DatabaseAdapter
+    organizationId: string
+    projectId: string
+    userId: string
+  }) => Promise<void>
 }
 
 /**
