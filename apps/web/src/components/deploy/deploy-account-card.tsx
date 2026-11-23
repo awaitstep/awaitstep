@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { tokenStatus } from '../org-settings/parts/connection-card'
+import { providerLabel, useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 
 type Account = DeployConnections['connections'][number]
 
@@ -23,11 +24,6 @@ interface DeployAccountCardProps {
   /** While a deploy runs the account can't change. */
   disabled: boolean
   onPick: (id: string) => void
-}
-
-/** "Cloudflare" for the provider's id; another provider reads as its id. */
-export function providerName(provider: string): string {
-  return provider === 'cloudflare' ? 'Cloudflare' : provider
 }
 
 function accountTag(account: Account, defaultId: string | null): string | null {
@@ -49,6 +45,7 @@ export function DeployAccountCard({
   disabled,
   onPick,
 }: DeployAccountCardProps) {
+  const capabilities = useProviderCapabilities()
   const selected = accounts.find((a) => a.id === selectedId)
   const tag = selected ? accountTag(selected, defaultId) : null
   const now = new Date()
@@ -68,7 +65,7 @@ export function DeployAccountCard({
         </span>
         {selected && (
           <span className="text-xs text-muted-foreground">
-            {providerName(selected.provider)} account {suffix(selected)}
+            {providerLabel(capabilities, selected.provider)} account {suffix(selected)}
           </span>
         )}
       </span>

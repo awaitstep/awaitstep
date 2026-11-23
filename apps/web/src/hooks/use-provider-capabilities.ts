@@ -71,3 +71,26 @@ export function resetProviderCapabilities(): void {
   status = 'idle'
   for (const listener of listeners) listener()
 }
+
+// The built-in provider is always offered; its label stands in until the
+// capabilities load, or when they can't be.
+const BUILT_IN_LABELS: Readonly<Record<string, string>> = { cloudflare: 'Cloudflare' }
+
+/** A provider's label from the capabilities, else the built-in one's, else its id. */
+export function providerLabel(capabilities: readonly ProviderCapabilities[], id: string): string {
+  return (
+    capabilities.find((capability) => capability.id === id)?.label ??
+    (Object.hasOwn(BUILT_IN_LABELS, id) ? BUILT_IN_LABELS[id]! : id)
+  )
+}
+
+/** "a Cloudflare account", or "a Cloudflare or Acme account" when several providers are offered. */
+export function providerAccountPhrase(capabilities: readonly ProviderCapabilities[]): string {
+  const labels =
+    capabilities.length > 0
+      ? capabilities.map((capability) => capability.label)
+      : Object.values(BUILT_IN_LABELS)
+  const named =
+    labels.length === 1 ? labels[0]! : `${labels.slice(0, -1).join(', ')} or ${labels.at(-1)}`
+  return `${/^[aeiou]/i.test(named) ? 'an' : 'a'} ${named} account`
+}

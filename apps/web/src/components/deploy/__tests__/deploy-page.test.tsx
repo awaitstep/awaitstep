@@ -4,20 +4,23 @@ import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DeployConnections, LiveDeployment } from '@awaitstep/ir'
+import type { DeploymentConfigUiSchema, ProviderCapabilities } from '@awaitstep/codegen'
 import {
   cloudflareDefaultDeploymentConfig,
   cloudflareDeploymentConfigUiSchema,
 } from '@awaitstep/provider-cloudflare'
 import { useInstanceStore } from '../../../stores/instance-store'
+import { resetProviderCapabilities } from '../../../hooks/use-provider-capabilities'
 import type * as ApiClient from '../../../lib/api-client'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }))
 const getDeployConnections = vi.hoisted(() => vi.fn())
 const getDeployConfig = vi.hoisted(() => vi.fn())
 const getDeployConfigPreview = vi.hoisted(() => vi.fn())
+const getProviders = vi.hoisted(() => vi.fn())
 vi.mock('../../../lib/api-client', async (original) => ({
   ...(await original<typeof ApiClient>()),
-  api: { getDeployConnections, getDeployConfig, getDeployConfigPreview },
+  api: { getDeployConnections, getDeployConfig, getDeployConfigPreview, getProviders },
 }))
 
 // The stream itself is the hook's; the page only reads its state.
@@ -74,10 +77,28 @@ import { EditorScopeProvider } from '../../../contexts/editor-scope-context'
 // default chosen, every setting with its value, and what this deploy changes
 // against what is live on that account.
 
-function account(id: string, name: string, scope: 'shared' | 'project' = 'shared') {
+function capability(id: string, label: string): ProviderCapabilities {
   return {
     id,
-    provider: 'cloudflare',
+    label,
+    handlerKinds: ['fetch'],
+    importSchemes: [],
+    bindingKinds: [],
+    bindingKindLabels: {},
+  }
+}
+const CLOUDFLARE = capability('cloudflare', 'Cloudflare')
+const TEST_PROVIDER = capability('test-provider', 'Test provider')
+
+function account(
+  id: string,
+  name: string,
+  scope: 'shared' | 'project' = 'shared',
+  provider = 'cloudflare',
+) {
+  return {
+    id,
+    provider,
     name,
     accountSuffix: id.slice(-4),
     scope,
@@ -137,6 +158,9 @@ function renderPage(props: { connectionId?: string; kind?: 'workflow' | 'script'
 }
 
 beforeEach(() => {
+  resetProviderCapabilities()
+  getProviders.mockReset()
+  getProviders.mockResolvedValue({ providers: [CLOUDFLARE] })
   getDeployConnections.mockReset()
   getDeployConfig.mockReset()
   getDeployConfigPreview.mockReset()
@@ -234,6 +258,67 @@ describe('DeployPage account', () => {
     expect(await screen.findByText('No account connected yet')).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Open Connections' })).not.toBeInTheDocument()
     expect(screen.queryByText(/Connections page/)).not.toBeInTheDocument()
+  })
+})
+
+describe('DeployPage provider', () => {
+  it('names an account by its provider’s label', async () => {
+    getProviders.mockResolvedValue({ providers: [CLOUDFLARE, TEST_PROVIDER] })
+    getDeployConnections.mockResolvedValue({
+      connections: [account('c-testa1b2', 'Acme', 'shared', 'test-provider')],
+      defaultId: 'c-testa1b2',
+      deployedWith: [],
+    })
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Account' })
+    expect(await within(card).findByText(/Test provider account ••••a1b2/)).toBeVisible()
+  })
+
+  it('names every provider offered when no account is connected', async () => {
+    getProviders.mockResolvedValue({ providers: [CLOUDFLARE, TEST_PROVIDER] })
+    getDeployConnections.mockResolvedValue({ connections: [], defaultId: null, deployedWith: [] })
+    renderPage()
+    expect(
+      await screen.findByText(/can reach a Cloudflare or Test provider account\./),
+    ).toBeVisible()
+  })
+
+  it('shows only the setting groups the provider’s schema has', async () => {
+    const schedulingOnly: DeploymentConfigUiSchema = {
+      groups: cloudflareDeploymentConfigUiSchema.groups.filter((g) => g.title === 'Scheduling'),
+    }
+    getDeployConnections.mockResolvedValue({
+      connections: [account('c-testa1b2', 'Acme', 'shared', 'test-provider')],
+      defaultId: 'c-testa1b2',
+      deployedWith: [],
+    })
+    getDeployConfig.mockResolvedValue({
+      ...settings(),
+      provider: 'test-provider',
+      uiSchema: schedulingOnly,
+    })
+    renderPage()
+    expect(await screen.findByRole('button', { name: /Scheduling/ })).toBeVisible()
+    for (const hidden of [/Routing/, /Instance retention/, /Observability/, /Preview & access/]) {
+      expect(screen.queryByRole('button', { name: hidden })).toBeNull()
+    }
+  })
+
+  it('shows the Cloudflare groups for a Cloudflare account', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    renderPage()
+    expect(await screen.findByRole('button', { name: /Routing/ })).toBeVisible()
+    expect(screen.getByRole('button', { name: /Instance retention/ })).toBeVisible()
+  })
+})
+
+describe('DeployPage provider fallback', () => {
+  it('still says Cloudflare when the provider list can’t be loaded', async () => {
+    getProviders.mockRejectedValue(new Error('offline'))
+    getDeployConnections.mockResolvedValue(TWO)
+    renderPage()
+    const card = await screen.findByRole('region', { name: 'Account' })
+    expect(await within(card).findByText(/Cloudflare account ••••b84d/)).toBeVisible()
   })
 })
 

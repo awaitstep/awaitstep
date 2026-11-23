@@ -13,7 +13,12 @@ import { Button, buttonVariants } from '../ui/button'
 import { ConfirmDialog } from '../ui/confirm-dialog'
 import { EmptyState } from '../ui/empty-state'
 import { Bone } from '../ui/skeletons'
-import { DeployAccountCard, providerName } from './deploy-account-card'
+import { DeployAccountCard } from './deploy-account-card'
+import {
+  providerAccountPhrase,
+  providerLabel,
+  useProviderCapabilities,
+} from '../../hooks/use-provider-capabilities'
 import { phaseOfStage, type DeployOutcome } from './deploy-phases'
 import { DeployPreviewCard } from './deploy-preview-card'
 import { DeployProgressCard } from './deploy-progress-card'
@@ -54,6 +59,7 @@ export function DeployPage({
 }: DeployPageProps) {
   const api = useApi()
   const queries = useQueries()
+  const capabilities = useProviderCapabilities()
   const ready = useApiReady()
   // Only the project's accounts, with its workspace's (else the project's) default
   // chosen: the API refuses a deploy with any other (23a).
@@ -160,8 +166,8 @@ export function DeployPage({
         title="No account connected yet"
         description={
           connectionsHref
-            ? 'Deploy stays disabled until this project can reach a Cloudflare account. Add one on the project’s Connections page.'
-            : 'Deploy stays disabled until this project can reach a Cloudflare account.'
+            ? `Deploy stays disabled until this project can reach ${providerAccountPhrase(capabilities)}. Add one on the project’s Connections page.`
+            : `Deploy stays disabled until this project can reach ${providerAccountPhrase(capabilities)}.`
         }
         action={
           connectionsHref ? (
@@ -217,7 +223,7 @@ export function DeployPage({
   else if (stream.state === 'error') outcome = stream.failure === 'connection' ? 'lost' : 'error'
   const verb = kind === 'script' ? 'Publish' : 'Deploy'
   const blockedReason = live?.versionLocked ? LOCKED_HERE : undefined
-  const provider = providerName(selected?.provider ?? 'cloudflare')
+  const provider = providerLabel(capabilities, selected?.provider ?? 'cloudflare')
 
   return (
     <div className="flex flex-wrap items-start gap-5">
