@@ -1,5 +1,5 @@
 import { rateLimiter } from 'hono-rate-limiter'
-import type { Context } from 'hono'
+import type { Context, MiddlewareHandler } from 'hono'
 import type { AppEnv } from '../types.js'
 import { rateLimitKey } from '../lib/client-ip.js'
 
@@ -28,14 +28,23 @@ export function createRateLimiter(config: {
   windowMs: number
   max: number
   keyGenerator?: (c: Context<AppEnv>) => string
-}) {
-  return rateLimiter<AppEnv>({
-    windowMs: config.windowMs,
-    limit: config.max,
-    // JSON like every other refusal, with a reason the page can show as it is.
-    message: { error: tooManyRequests(config.windowMs) },
-    keyGenerator: config.keyGenerator ?? ((c) => rateLimitKey(c.get('clientIp'))),
-  })
+}): MiddlewareHandler<AppEnv> {
+  // Built on the first request: its store starts a cleanup timer, and a
+  // Worker refuses timers in global scope, where a route module creates it.
+  // On Workers that timer belongs to the first request and stops with it, so
+  // old keys are not swept until the isolate is recycled; counts stay right,
+  // as each key resets at its own window's end.
+  let limiter: MiddlewareHandler<AppEnv> | undefined
+  return (c, next) => {
+    limiter ??= rateLimiter<AppEnv>({
+      windowMs: config.windowMs,
+      limit: config.max,
+      // JSON like every other refusal, with a reason the page can show as it is.
+      message: { error: tooManyRequests(config.windowMs) },
+      keyGenerator: config.keyGenerator ?? ((c) => rateLimitKey(c.get('clientIp'))),
+    })
+    return limiter(c, next)
+  }
 }
 
 /**
