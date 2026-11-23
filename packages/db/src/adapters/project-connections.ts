@@ -1,4 +1,4 @@
-import { aliasedTable, and, eq, sql, type SQL } from 'drizzle-orm'
+import { aliasedTable, and, eq, inArray, sql, type SQL } from 'drizzle-orm'
 import type {
   AvailableConnectionRow,
   DeployTargetRow,
@@ -644,7 +644,11 @@ export class ProjectConnectionsAdapter {
    * workers running with no credentials to take them down or run them — and
    * `blockedBy` names those workflows. Null when it wasn't one of the project's.
    */
-  async remove(projectId: string, connectionId: string): Promise<ProjectConnectionRemoval | null> {
+  async remove(
+    projectId: string,
+    connectionId: string,
+    options: { fixedProviders?: readonly string[] } = {},
+  ): Promise<ProjectConnectionRemoval | null> {
     const pcT = this.t.projectConnections
     const wcT = this.t.workspaceConnections
     const cT = this.t.connections
@@ -659,7 +663,14 @@ export class ProjectConnectionsAdapter {
     const projectWorkspaces = this.db.select({ id: w.id }).from(w).where(eq(w.projectId, projectId))
     // Workflows whose workers went out with this account and haven't been taken down.
     const live = sql`from ${aliasedFrom(wf)} where ${wf.currentVersionId} is not null and exists (select 1 from ${aliasedFrom(d)} where ${d.workflowId} = ${wf.id} and ${d.connectionId} = ${connectionId} and ${d.status} = 'success')`
-    const kept = sql`not (exists (select 1 from ${aliasedFrom(oc)} where ${oc.id} = ${connectionId} and ${oc.projectId} = ${projectId}) and exists (select 1 ${live}))`
+    const fixedProviders = options.fixedProviders ?? []
+    // A connection of a provider the caller fixed in place: nothing below touches it.
+    const fixed =
+      fixedProviders.length > 0
+        ? sql`exists (select 1 from ${aliasedFrom(oc)} where ${oc.id} = ${connectionId} and ${inArray(oc.provider, [...fixedProviders])})`
+        : sql`1 = 0`
+    const kept = sql`not (${fixed}) and not (exists (select 1 from ${aliasedFrom(oc)} where ${oc.id} = ${connectionId} and ${oc.projectId} = ${projectId}) and exists (select 1 ${live}))`
+    const blocked = sql`(exists (select 1 from ${aliasedFrom(oc)} where ${oc.id} = ${connectionId} and ${oc.projectId} = ${projectId}) and exists (select 1 ${live}))`
     const results = await atomicallyReturning<unknown>(this.db, (tx) => [
       tx
         .select({
@@ -667,9 +678,10 @@ export class ProjectConnectionsAdapter {
           owned: sql<unknown>`(case when ${c.projectId} = ${projectId} then ${yes} else ${this.dialect === 'pg' ? sql`false` : sql`0`} end)`,
           isDefault: pc.isDefault,
           // Named only within this project; any elsewhere (moved since) are counted.
-          blockedBy: sql<unknown>`(case when ${kept} then null else (select ${jsonArrayOfValues(this.dialect, wf.name, wf.name)} ${live} and ${wf.projectId} = ${projectId}) end)`,
+          fixed: sql<unknown>`(case when ${fixed} then ${yes} else ${this.dialect === 'pg' ? sql`false` : sql`0`} end)`,
+          blockedBy: sql<unknown>`(case when not ${blocked} then null else (select ${jsonArrayOfValues(this.dialect, wf.name, wf.name)} ${live} and ${wf.projectId} = ${projectId}) end)`,
           blockedElsewhere:
-            sql<number>`(case when ${kept} then 0 else (select count(*) ${live} and ${wf.projectId} <> ${projectId}) end)`.mapWith(
+            sql<number>`(case when not ${blocked} then 0 else (select count(*) ${live} and ${wf.projectId} <> ${projectId}) end)`.mapWith(
               Number,
             ),
         })
@@ -713,6 +725,7 @@ export class ProjectConnectionsAdapter {
         name: string
         owned: unknown
         isDefault: unknown
+        fixed: unknown
         blockedBy: unknown
         blockedElsewhere: number
       }[]
@@ -720,9 +733,11 @@ export class ProjectConnectionsAdapter {
     if (!found) return null
     const blockedBy = readJsonArray<string>(found.blockedBy)
     const blockedElsewhere = Number(found.blockedElsewhere)
-    const blocked = blockedBy.length > 0 || blockedElsewhere > 0
-    if (!blocked && (results[2] ?? []).length === 0) return null
+    const isFixed = truthy(found.fixed)
+    const isBlocked = blockedBy.length > 0 || blockedElsewhere > 0
+    if (!isFixed && !isBlocked && (results[2] ?? []).length === 0) return null
     return {
+      fixed: isFixed,
       name: found.name,
       owned: truthy(found.owned),
       wasDefault: truthy(found.isDefault),

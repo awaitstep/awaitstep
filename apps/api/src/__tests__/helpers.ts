@@ -1213,10 +1213,12 @@ const mockDb: DatabaseAdapter = {
       nextCursor: null,
     }
   },
-  async listConnectionAccounts(organizationId) {
+  async listConnectionAccounts(organizationId, _pagination, options) {
+    const excluded = options?.excludeProviders ?? []
     return {
       data: [...store.connections.values()]
         .filter((c) => c.organizationId === organizationId && !c.projectId)
+        .filter((c) => !excluded.includes(c.provider))
         .map((c) => ({
           id: c.id,
           name: c.name,

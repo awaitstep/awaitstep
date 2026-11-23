@@ -7,6 +7,7 @@ import {
   getTableColumns,
   lt,
   ne,
+  notInArray,
   or,
   sql,
   type SQL,
@@ -508,10 +509,14 @@ export class ConnectionsAdapter {
   async listAccounts(
     organizationId: string,
     pagination: PaginationParams = {},
+    options: { excludeProviders?: readonly string[] } = {},
   ): Promise<PaginatedResult<ConnectionAccountRow>> {
     const c = this.table
     const limit = clampLimit(pagination.limit)
     const conditions: SQL[] = [eq(c.organizationId, organizationId), sql`${c.projectId} is null`]
+    if (options.excludeProviders?.length) {
+      conditions.push(notInArray(c.provider, [...options.excludeProviders]))
+    }
     if (pagination.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(

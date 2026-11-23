@@ -768,6 +768,17 @@ describe.each([
       ])
     })
 
+    it('leaves out the providers it is told to', async () => {
+      await h.adapter.createConnection(write({ id: 'c-mine' }))
+      await h.adapter.createConnection(write({ id: 'c-run', provider: 'instance-run' }))
+      const ids = async (excludeProviders: string[]) =>
+        (await h.adapter.listConnectionAccounts('org-acme', {}, { excludeProviders })).data.map(
+          (r) => r.id,
+        )
+      expect((await ids([])).sort()).toEqual(['c-mine', 'c-run'])
+      expect(await ids(['instance-run'])).toEqual(['c-mine'])
+    })
+
     it('pages newest first, as the list orders them', async () => {
       for (const [id, at] of [
         ['c-a', '2026-10-01T00:00:00.000Z'],

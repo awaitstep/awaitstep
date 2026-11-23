@@ -726,10 +726,12 @@ export interface DatabaseAdapter {
   /**
    * The organization's own accounts (no project's), as the list orders them:
    * id, name, decrypted credentials and token status — one statement.
+   * `excludeProviders` leaves those providers' connections out.
    */
   listConnectionAccounts(
     organizationId: string,
     pagination?: PaginationParams,
+    options?: { excludeProviders?: readonly string[] },
   ): Promise<PaginatedResult<ConnectionAccountRow>>
   /**
    * Answers the row as the list shows it; null when nothing was written —
@@ -808,10 +810,15 @@ export interface DatabaseAdapter {
     connectionId: string | null
     setBy: string
   }): Promise<WorkspaceConnectionChange>
-  /** Takes an account off the project (an owned one is deleted); null when it wasn't one. */
+  /**
+   * Takes an account off the project (an owned one is deleted); null when it
+   * wasn't one. One of a provider in `fixedProviders` is left as it is and
+   * answered with `fixed`.
+   */
   removeProjectConnection(
     projectId: string,
     connectionId: string,
+    options?: { fixedProviders?: readonly string[] },
   ): Promise<ProjectConnectionRemoval | null>
   /**
    * What is live on each account a workflow has a successful deployment with (that

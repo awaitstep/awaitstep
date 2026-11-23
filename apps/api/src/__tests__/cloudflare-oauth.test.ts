@@ -418,6 +418,7 @@ describe('Cloudflare OAuth routes', () => {
       name: 'Acme',
       blockedBy: [],
       blockedElsewhere: 0,
+      fixed: false,
       wasDefault: false,
       workspacesCleared: 0,
     })
@@ -622,6 +623,7 @@ describe('Cloudflare OAuth routes', () => {
       name: 'Acme',
       blockedBy: [],
       blockedElsewhere: 0,
+      fixed: false,
       wasDefault: false,
       workspacesCleared: 0,
     })

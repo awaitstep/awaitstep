@@ -19,7 +19,8 @@ import { createLogger } from '../lib/logger.js'
 import { recordAudit } from '../lib/audit.js'
 import { parseCredentials } from '../lib/connection-token.js'
 import { clearConnectionNotices } from '../lib/notify.js'
-import { authKindOf } from '../lib/connection-fields.js'
+import { authKindOf, MANAGED_CONNECTION } from '../lib/connection-fields.js'
+import { isInstanceOperated } from '../lib/provider-registry.js'
 import { DEFAULT_OAUTH_RETURN_PATH, oauthReturnUrl } from '../lib/oauth-return-path.js'
 import { orgCapabilities, projectCapabilities, resolveRoles, UNLOCKED_PROJECT } from '@awaitstep/ir'
 
@@ -236,6 +237,9 @@ export function createCloudflareOAuthRoutes(options: Options) {
       const rightPlace = project ? existing?.projectId === project.id : existing?.projectId === null
       if (!existing || !rightPlace) {
         return c.json({ error: 'Not found' }, 404)
+      }
+      if (isInstanceOperated(existing.provider)) {
+        return c.json({ error: MANAGED_CONNECTION }, 403)
       }
       if (authKindOf(existing.credentials) !== 'oauth') {
         return c.json(

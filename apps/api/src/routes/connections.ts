@@ -15,10 +15,16 @@ import { apiKeyLevel, apiKeyProjectHome, apiKeyProjectScopes } from '../middlewa
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
-import { acceptsConnections } from '../lib/provider-registry.js'
+import {
+  acceptsConnections,
+  instanceOperatedProviders,
+  isInstanceOperated,
+} from '../lib/provider-registry.js'
 import {
   authKindOf,
   credentialError,
+  MANAGED_CONNECTION,
+  managedMark,
   parseTokenStatus,
   scopesOf,
 } from '../lib/connection-fields.js'
@@ -98,10 +104,14 @@ export function createConnectionRoutes() {
   // no creator, projects or deployments, and never the credentials.
   connections.get('/accounts', zValidator('query', paginationQuerySchema), async (c) => {
     const { cursor, limit } = c.req.valid('query')
-    const result = await c.get('db').listConnectionAccounts(c.get('organizationId'), {
-      cursor,
-      limit,
-    })
+    // Accounts are what people connected: what the instance operates is not one.
+    const result = await c
+      .get('db')
+      .listConnectionAccounts(
+        c.get('organizationId'),
+        { cursor, limit },
+        { excludeProviders: instanceOperatedProviders() },
+      )
     return c.json({ data: result.data.map(connectionAccount), nextCursor: result.nextCursor })
   })
 
@@ -187,6 +197,7 @@ export function createConnectionRoutes() {
     const body = c.req.valid('json')
     const before = c.get('connection')
     if (!before) return c.json({ error: 'Not found' }, 404)
+    if (isInstanceOperated(before.provider)) return c.json({ error: MANAGED_CONNECTION }, 403)
 
     let credentials: string | undefined
     let token: ConnectionTokenCheck | undefined
@@ -247,6 +258,9 @@ export function createConnectionRoutes() {
   connections.delete('/:id', async (c) => {
     const db = c.get('db')
     const before = c.get('connection')
+    if (before && isInstanceOperated(before.provider)) {
+      return c.json({ error: MANAGED_CONNECTION }, 403)
+    }
     // A deleted row must not leave AwaitStep authorized on Cloudflare.
     if (before) await revokeConnectionGrant(c, before)
     // A delete that found the row already gone (a concurrent one) records nothing.
@@ -274,6 +288,7 @@ function connectionSummary(row: ConnectionListRow): ConnectionSummary {
   return {
     id: row.id,
     provider: row.provider,
+    ...managedMark(row.provider),
     name: row.name,
     createdByName: row.createdByName,
     accountSuffix: accountSuffixOf(row.credentials),
