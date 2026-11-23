@@ -1,7 +1,7 @@
 import type { ConnectionTokenStatus, DeployConnections } from '@awaitstep/ir'
 import type { DeployTargetRow } from '@awaitstep/db'
 import { resolveProvider } from './provider-resolver.js'
-import { hasProvider } from './provider-registry.js'
+import { acceptsConnections } from './provider-registry.js'
 import { parseCredentials } from './connection-token.js'
 import { canDeployWithScopes } from '@awaitstep/provider-cloudflare'
 
@@ -10,7 +10,8 @@ export function credentialError(
   provider: string,
   credentials: Record<string, string>,
 ): { field: string; error: string } | null {
-  if (!hasProvider(provider)) {
+  // An extension provider the instance operates itself takes no user accounts.
+  if (!acceptsConnections(provider)) {
     return { field: 'provider', error: `Unsupported provider: ${provider}` }
   }
   // A validator that throws is a provider bug, not permission to store the

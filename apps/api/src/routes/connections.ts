@@ -15,6 +15,7 @@ import { apiKeyLevel, apiKeyProjectHome, apiKeyProjectScopes } from '../middlewa
 import { recordAudit } from '../lib/audit.js'
 import { clearConnectionNotices } from '../lib/notify.js'
 import { checkCredentialsGated, parseCredentials, providerNamed } from '../lib/connection-token.js'
+import { acceptsConnections } from '../lib/provider-registry.js'
 import {
   authKindOf,
   credentialError,
@@ -154,7 +155,7 @@ export function createConnectionRoutes() {
     ),
     async (c) => {
       const body = c.req.valid('json')
-      const provider = providerNamed(body.provider)
+      const provider = acceptsConnections(body.provider) ? providerNamed(body.provider) : null
       if (!provider?.inspectCredentials) {
         return c.json({ error: `Unsupported provider: ${body.provider}` }, 400)
       }

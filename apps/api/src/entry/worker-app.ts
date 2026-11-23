@@ -5,6 +5,7 @@ import { createD1DatabaseAdapter, createD1DrizzleDb, sqliteSchema } from '@await
 import { createApp, createAuth, type AppDeps } from '../index.js'
 import type { AppExtension, ExtensionsPackage } from '../types.js'
 import { checkExtensions } from '../lib/extensions.js'
+import { useExtensionProviders } from '../lib/provider-registry.js'
 import { checkOAuthReturnPath } from '../lib/oauth-return-path.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
@@ -241,7 +242,11 @@ function testSessionRunnerFor(env: Env, sleepAfter: string): SandboxTestSessionR
  */
 export type WorkerOptions = Partial<ExtensionsPackage>
 
-/** The options as `createApp` takes them, checked: a malformed set throws. */
+/**
+ * The options as `createApp` takes them, checked: a malformed set throws.
+ * Installs the extensions' providers here, at module load, and not only in
+ * `createApp`: the cron handler never builds the app, and resolves providers.
+ */
 export function workerAppOptions(options: WorkerOptions): {
   extensions: readonly AppExtension[]
   disabledFeatures: readonly OssFeature[]
@@ -249,6 +254,7 @@ export function workerAppOptions(options: WorkerOptions): {
 } {
   const extensions = options.extensions ?? []
   checkExtensions(extensions)
+  useExtensionProviders(extensions)
   return {
     extensions,
     disabledFeatures: checkDisabledFeatures(options.disabled ?? []),

@@ -12,6 +12,7 @@ import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
 import type { ImageStore } from '@awaitstep/storage'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
+import type { ProviderFactory } from './lib/provider-registry.js'
 import type { CloudflareOAuthRuntime } from './lib/cloudflare-oauth-config.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
@@ -192,6 +193,19 @@ export interface AppExtension {
   id: string
   /** Registers the extension's routes on a router mounted at `/api/ext/<id>`. */
   routes?: (router: Hono<AppEnv>) => void
+  /**
+   * Workflow providers this extension adds, by provider id (lowercase letters,
+   * digits and dashes, starting with a letter). They are listed by
+   * `GET /api/providers` and resolved like the built-in ones; an id that is
+   * built in or added by another extension is refused at startup.
+   */
+  providers?: Readonly<Record<string, ProviderFactory>>
+  /**
+   * The ids in `providers` a user may connect their own account to. The rest
+   * are operated by the instance: creating or editing a connection for one is
+   * refused as an unsupported provider.
+   */
+  connectableProviders?: readonly string[]
 }
 
 /**
