@@ -7,6 +7,7 @@ import { logger as honoLogger } from 'hono/logger'
 import { requestId } from 'hono/request-id'
 import type { AppEmails, AppEnv, AppExtension } from './types.js'
 import { checkExtensions } from './lib/extensions.js'
+import { useExtensionProviders } from './lib/provider-registry.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
 import type { AppNodeRegistry } from './lib/node-registry.js'
@@ -120,6 +121,7 @@ export function createApp(deps: AppDeps) {
     deps.webUrl ?? (Array.isArray(deps.corsOrigin) ? deps.corsOrigin[0] : deps.corsOrigin) ?? ''
   const extensions = deps.extensions ?? []
   checkExtensions(extensions)
+  useExtensionProviders(extensions)
   const disabled = checkDisabledFeatures(deps.disabledFeatures ?? [])
   const disabledFeatures: ReadonlySet<OssFeature> = new Set(disabled)
   const oauthReturnPath =

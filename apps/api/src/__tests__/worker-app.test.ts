@@ -1,10 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { ExtensionsPackage } from '../types.js'
 
 // The Sandbox SDK imports `cloudflare:workers`, which only workerd provides.
 vi.mock('@cloudflare/sandbox', () => ({ getSandbox: vi.fn(), Sandbox: class {} }))
 
 const { createWorker, workerAppOptions } = await import('../entry/worker-app.js')
+const { hasProvider, providerIds, useExtensionProviders } =
+  await import('../lib/provider-registry.js')
 
 describe('createWorker', () => {
   it('refuses a malformed set of extensions when the module loads, not per request', () => {
@@ -46,5 +48,31 @@ describe('createWorker', () => {
     expect(() => createWorker({ oauthReturnPath: 'https://evil.test/{org}' })).toThrow(
       /is not valid/,
     )
+  })
+})
+
+describe('createWorker providers', () => {
+  afterEach(() => useExtensionProviders([]))
+
+  it('installs the extensions’ providers when the module loads, before any request', () => {
+    // The cron handler resolves providers without ever building the app.
+    createWorker({
+      extensions: [
+        {
+          id: 'acme-ext',
+          providers: { 'test-provider': () => ({ name: 'test-provider' }) as never },
+        },
+      ],
+    })
+    expect(hasProvider('test-provider')).toBe(true)
+    expect(providerIds()).toEqual(['cloudflare', 'test-provider'])
+  })
+
+  it('refuses a provider id that is built in when the module loads', () => {
+    expect(() =>
+      createWorker({
+        extensions: [{ id: 'clash', providers: { cloudflare: () => ({}) as never } }],
+      }),
+    ).toThrow('Provider id "cloudflare" (extension "clash") is already a built-in provider.')
   })
 })
