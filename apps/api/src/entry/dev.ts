@@ -8,6 +8,7 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
+import { organizationCreated } from '../lib/extension-hooks.js'
 import { createApp, createAuth } from '../index.js'
 import { loadExtensionsPackage, EXTENSIONS_PACKAGE } from '../lib/extensions-package-fs.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
@@ -100,6 +101,7 @@ async function start() {
       return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
     },
     onSessionCreated: (session) => recordSignIn(db, session),
+    onOrganizationCreated: (data) => organizationCreated(db, data),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),

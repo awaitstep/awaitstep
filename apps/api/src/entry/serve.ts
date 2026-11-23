@@ -8,6 +8,7 @@ import { mkdirSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
+import { organizationCreated } from '../lib/extension-hooks.js'
 import { createApp, createAuth } from '../index.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
 import { createTokenCrypto } from '../lib/token-crypto.js'
@@ -163,6 +164,7 @@ async function start() {
       return left > 0 ? ACCESS_REASONS.projectsLeft(left) : null
     },
     onSessionCreated: (session) => recordSignIn(db, session),
+    onOrganizationCreated: (data) => organizationCreated(db, data),
     onOrganizationUpdated: (data) => recordOrganizationUpdate(db, data),
     deleteUserProblem: async (userId) => deleteBlockedReason(await db.soleOwnedOrgNames(userId)),
     onAccountEvent: (event) => recordAccountEvent(db, event),

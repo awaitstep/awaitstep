@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { projectCreated } from '../lib/extension-hooks.js'
 import { nanoid } from 'nanoid'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
@@ -70,6 +71,7 @@ projects.post('/', zValidator('json', createProjectSchema), async (c) => {
       defaultWorkspaceId: nanoid(),
       createdBy: c.get('userId'),
     })
+    await projectCreated(db, { organizationId, projectId: project.id, userId: c.get('userId') })
     return c.json({ ...project, defaultWorkspace: workspace }, 201)
   } catch (error) {
     // The (organization, slug) index is the check: no read before the write.
