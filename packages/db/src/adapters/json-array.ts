@@ -1,4 +1,4 @@
-import { getTableName, sql, type SQL } from 'drizzle-orm'
+import { getTableName, sql, type DriverValueDecoder, type SQL } from 'drizzle-orm'
 
 export type Dialect = 'sqlite' | 'pg'
 
@@ -68,9 +68,13 @@ export function nestedJson(dialect: Dialect, value: SQL): SQL {
  * chunk at the top level of a field to its bare name, as if it were the one
  * table's, so `"ov"."name" = "v"."name"` would reach the driver as
  * `"name" = "name"`. Nesting the expression once keeps its qualifiers.
+ * The wrapper keeps the expression's `mapWith` decoder: Postgres returns a
+ * `count(*)` as text, so a count read through a bare wrapper compares as "1".
  */
 export function fieldOf<T>(expr: SQL<T>): SQL<T> {
-  return sql`${expr}` as SQL<T>
+  // drizzle keeps the decoder on the instance but leaves it out of the typings.
+  const { decoder } = expr as unknown as { decoder: DriverValueDecoder<T, unknown> }
+  return sql<T>`${expr}`.mapWith(decoder)
 }
 
 /** A `jsonObjectOf` subquery as the driver returns it: text on sqlite, parsed JSON on pg. */
