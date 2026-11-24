@@ -33,6 +33,7 @@ const provider = vi.hoisted(() => ({
   holdDuringUpload: false,
   throws: false,
   busy: false,
+  refused: false,
   uploaded: false,
   /** The record id the deploy was handed. */
   deploymentId: undefined as string | undefined,
@@ -53,6 +54,9 @@ vi.mock('../lib/provider-resolver.js', async (importOriginal) => {
             return async (_bundle: unknown, _config: unknown, run?: DeployRunOptions) => {
               provider.deploymentId = run?.deploymentId
               if (provider.throws) throw new Error('wrangler failed in /srv/build')
+              if (provider.refused) {
+                return { success: false, deploymentId: '', error: 'Over a limit', refused: true }
+              }
               if (provider.busy) {
                 return { success: false, deploymentId: '', error: 'Busy: try again', busy: true }
               }
@@ -170,6 +174,7 @@ describe('cancelling a deploy', () => {
       holdDuringUpload: false,
       throws: false,
       busy: false,
+      refused: false,
       uploaded: false,
       releaseInstall: null,
       releaseUpload: null,
@@ -343,6 +348,15 @@ describe('cancelling a deploy', () => {
     const body = (await res.json()) as { id: string; error: string }
     expect(body.error).toBe('Busy: try again')
     expect(await deployment(body.id)).toMatchObject({ status: 'failed', error: 'Busy: try again' })
+  })
+
+  it('answers 422, not a fault, when the provider will not take what was asked', async () => {
+    provider.refused = true
+    const res = await post(app, '/deploy', { connectionId: 'conn-1' })
+    expect(res.status).toBe(422)
+    const body = (await res.json()) as { id: string; error: string; refused: boolean }
+    expect(body).toMatchObject({ success: false, error: 'Over a limit', refused: true })
+    expect(await deployment(body.id)).toMatchObject({ status: 'failed', error: 'Over a limit' })
   })
 
   it('finds nothing to cancel in a deploy left running by a stopped server', async () => {

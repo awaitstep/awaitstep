@@ -53,6 +53,13 @@ export function deployAnswer(result: DeployResult): Omit<DeployResult, 'deployed
   return answer
 }
 
+/** A finished deploy's status: only a deploy that broke is the server's fault. */
+export function deployStatus(result: DeployResult): 200 | 422 | 429 | 500 {
+  if (result.success) return 200
+  if (result.busy) return 429
+  return result.refused ? 422 : 500
+}
+
 /** Why a cancel was refused, by what the deployment's row said. */
 export const CANCEL_TOO_LATE = 'Already uploading to Cloudflare — it can’t be stopped now.'
 export const CANCEL_FINISHED = 'This deploy has already finished.'
@@ -90,7 +97,7 @@ deploy.post('/:workflowId/deploy', zValidator('json', deploySchema), async (c) =
   if (result.cancelled) {
     return c.json({ ...deployAnswer(result), id, error: DEPLOY_CANCELLED }, 409)
   }
-  return c.json({ ...deployAnswer(result), id }, result.success ? 200 : result.busy ? 429 : 500)
+  return c.json({ ...deployAnswer(result), id }, deployStatus(result))
 })
 
 deploy.post('/:workflowId/deploy-stream', zValidator('json', deploySchema), async (c) => {

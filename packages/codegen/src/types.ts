@@ -127,6 +127,12 @@ export interface DeployResult {
    * workflow, and the same deploy can be tried again. Answered 429.
    */
   busy?: boolean
+  /**
+   * The provider will not take what was asked (a limit reached, a setting it
+   * does not offer): nothing broke, and the same deploy would be turned away
+   * again until the request changes. Answered 422.
+   */
+  refused?: boolean
 }
 
 /** One progress report from a running deploy. */
