@@ -1551,17 +1551,27 @@ subpath-import prefix, so the same code runs under Node tooling too.
 `handlers/`, each with a default export, and the filename is the only fact
 the deploy reads from them:
 
-| File                        | Export (types from `#awaitstep/runtime`)                                            | Declares                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `handlers/fetch.ts`         | `({ request, env, execution }: FetchContext<Env>) => Promise<Response>`             | the HTTP entry (seeded on the first save; the inline default otherwise) |
-| `handlers/queue/<queue>.ts` | `({ batch, env, execution }: QueueContext<Env>) => Promise<void>`                   | a consumer of `<queue>` (lowercase letters, digits, `-`)                |
-| `handlers/scheduled.ts`     | `({ cron, scheduledTime, env, execution }: ScheduledContext<Env>) => Promise<void>` | the handler for every cron trigger in the deployment config             |
+| File                        | Export (types from `#awaitstep/runtime`)                                                    | Declares                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `handlers/fetch.ts`         | `({ request, env, execution }: FetchContext<Env>) => Promise<Response>`                     | the HTTP entry (seeded on the first save; the inline default otherwise) |
+| `handlers/queue/<queue>.ts` | `({ batch, env, execution }: QueueContext<Env>) => Promise<void>`                           | a consumer of `<queue>` (lowercase letters, digits, `-`)                |
+| `handlers/scheduled.ts`     | `({ cron, scheduledTime, params, env, execution }: ScheduledContext<Env>) => Promise<void>` | the handler for every schedule in the deployment config                 |
 
 The contract is AwaitStep's, so a handler deploys unchanged to any provider: every context carries `execution`, whose `waitUntil(promise)` keeps work alive after the handler returns; a queue batch is `{ queue, messages: [{ id, body }] }` and a handler that throws has the batch retried; a schedule is `{ cron, scheduledTime }`. Converting an annotated `handlers.ts` keeps the names its bodies were written against: an `@fetch` declared as `(req, env, context)` gets `const req = request; const context = execution;`, a body using `ctx` gets `const ctx = execution;`, a scheduled body using `controller` gets `const controller = { cron, scheduledTime };` — each only when used. The generated `worker.ts` imports whichever modules exist and adapts what the Cloudflare runtime hands it into these contexts. A handler imports what the graph exports from the generated graph module — `runGraph` from `#awaitstep/function` in a function; `AWAITSTEP_RETENTION`, `startWorkflow` and `workflowStatus` from `#awaitstep/workflow` in a workflow — which imports nothing of the project, so no import cycle forms. `worker.ts` exports nothing but its handlers; a file still importing `#app/worker` no longer resolves and must import from the graph module. Nothing is parsed out of
 code: the queue binding, cron expressions (`deploymentConfig.cronTriggers`) and per-queue settings
-(`deploymentConfig.queueConsumers`) stay declared. A `handlers/scheduled.ts`
-without a schedule, or schedules without the module, fail the deploy with
-a message naming the missing half. Helpers may live under `handlers/` too,
+(`deploymentConfig.queueConsumers`) stay declared. Each `cronTriggers` entry is
+a cron expression, read in UTC, or `{ "cron", "timezone", "params" }`: an IANA
+timezone the expression is read in (default UTC) and the JSON each run it
+starts is given (at most 100 KB). Expressions are Cloudflare's five fields:
+weekdays are `1` (Sunday) to `7` or names (`MON-FRI`), with `L`, `W` and `#`
+as Cron Triggers read them. On the two days a year a timezone's clock changes
+a schedule still fires once: a time the clock jumps over fires at the jump,
+and a time that comes round twice fires the first time. Without a
+`handlers/scheduled.ts` a schedule starts the workflow with its `params` as
+the payload, or calls the function with them as the JSON body; with one, the
+module is handed `{ cron, scheduledTime, params }` of the schedule that is
+due. A `handlers/scheduled.ts` without a schedule fails the deploy, as does
+an entry that cannot be read, names an unknown timezone or is listed twice. Helpers may live under `handlers/` too,
 and `handlers/shared.ts` is special: the generated entry re-exports it, so
 anything the runtime must find on the Worker (a Durable Object class, say)
 belongs there. Writes are refused (`422`) for a path that merely looks like
@@ -2123,7 +2133,14 @@ server). The worker's URL itself is never in a response.
 
 ```json
 {
-  "config": { "workersDev": true, "previewUrls": true, "cronTriggers": ["0 */6 * * *"] },
+  "config": {
+    "workersDev": true,
+    "previewUrls": true,
+    "cronTriggers": [
+      "0 */6 * * *",
+      { "cron": "0 8 * * MON-FRI", "timezone": "Europe/Amsterdam", "params": { "shift": "day" } }
+    ]
+  },
   "defaults": {
     "workersDev": true,
     "previewUrls": true,

@@ -6,7 +6,9 @@ import { Input } from '../ui/input'
 import { Select } from '../ui/select'
 import { Switch } from '../ui/switch'
 import { Textarea } from '../ui/textarea'
+import type { ScheduleEntry } from '@awaitstep/ir'
 import { switchedOn } from './config-paths'
+import { ScheduleList } from './deploy-schedule-list'
 
 interface SettingFieldProps {
   field: DeploymentConfigUiField
@@ -46,7 +48,8 @@ export function SettingField({ field, value, onChange }: SettingFieldProps) {
   const id = useId()
   const label = labelOf(field)
   const common = { id, label, placeholder: field.placeholder, onChange }
-  const isList = field.widget === 'array' || field.widget === 'array-of-objects'
+  const isList =
+    field.widget === 'array' || field.widget === 'array-of-objects' || field.widget === 'schedules'
 
   let control: ReactNode = null
   let below: ReactNode = null
@@ -69,6 +72,17 @@ export function SettingField({ field, value, onChange }: SettingFieldProps) {
     const items = Array.isArray(value) ? (value as string[]) : []
     control = <AddButton label={label} items={items} blank="" onChange={onChange} />
     below = <StringList {...common} value={items} />
+  } else if (field.widget === 'schedules') {
+    const items = Array.isArray(value) ? (value as ScheduleEntry[]) : []
+    control = <AddButton<ScheduleEntry> label={label} items={items} blank="" onChange={onChange} />
+    below = (
+      <ScheduleList
+        label={label}
+        placeholder={field.placeholder}
+        items={items}
+        onChange={onChange}
+      />
+    )
   } else if (field.widget === 'array-of-objects') {
     const items = Array.isArray(value) ? (value as RouteItem[]) : []
     control = (
