@@ -67,6 +67,8 @@ interface Edge {
   source: string // Source node ID
   target: string // Target node ID
   label?: string // Branch condition label
+  sourceSide?: 'bottom' | 'right' // Canvas layout only; ignored by codegen
+  targetSide?: 'top' | 'left' // Canvas layout only; ignored by codegen
 }
 ```
 

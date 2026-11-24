@@ -46,6 +46,14 @@ const chain = () =>
   )
 
 describe('removeNode — reconnecting', () => {
+  it('keeps the exit side of the edge it reconnects and drops the removed node’s entry side', () => {
+    const ir = chain()
+    ir.edges[0] = { ...ir.edges[0]!, sourceSide: 'right', targetSide: 'left' }
+    expect(remove(ir, 'x').ir.edges).toEqual([
+      { id: 'e1', source: 'a', target: 'b', sourceSide: 'right' },
+    ])
+  })
+
   it('connects A to B through the edge that led into the removed node, id kept', () => {
     const { ir } = remove(chain(), 'x')
     expect(ir.nodes.map((n) => n.id)).toEqual(['a', 'b'])

@@ -82,8 +82,14 @@ interface Edge {
   source: string // node id
   target: string // node id
   label?: string // the arm, or "then" for a block's way on
+  sourceSide?: 'bottom' | 'right' // canvas layout only; omit it
+  targetSide?: 'top' | 'left' // canvas layout only; omit it
 }
 ```
+
+`sourceSide` / `targetSide` record the canvas sides a person dragged the edge
+between. They change nothing in the generated code. Leave them out and the
+canvas works the sides out from node positions.
 
 The graph is a DAG. Every node except the entry should have a way in, and every
 edge must name existing nodes. Duplicate node ids are refused. A cycle is

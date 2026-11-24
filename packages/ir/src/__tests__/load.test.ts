@@ -192,3 +192,23 @@ describe('loadArtifact', () => {
     expect(result.ok).toBe(true)
   })
 })
+
+describe('edge sides', () => {
+  const withEdge = (edge: Record<string, unknown>) => ({
+    ...simpleWorkflow,
+    edges: [{ ...simpleWorkflow.edges[0], ...edge }],
+  })
+
+  it('keeps the canvas sides an edge was drawn between', () => {
+    const result = loadArtifact(withEdge({ sourceSide: 'right', targetSide: 'top' }))
+    expect(result.ok && result.value.edges[0]).toMatchObject({
+      sourceSide: 'right',
+      targetSide: 'top',
+    })
+  })
+
+  it('rejects a side on the wrong end', () => {
+    expect(loadArtifact(withEdge({ sourceSide: 'top' })).ok).toBe(false)
+    expect(loadArtifact(withEdge({ targetSide: 'right' })).ok).toBe(false)
+  })
+})

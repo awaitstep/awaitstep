@@ -28,6 +28,8 @@ export type {
   TypedWorkflowNode,
   WorkflowNode,
   Edge,
+  EdgeExitSide,
+  EdgeEntrySide,
   WorkflowMetadata,
   WorkflowIR,
   ScriptIR,

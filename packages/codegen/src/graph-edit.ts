@@ -331,11 +331,14 @@ export function insertNode(
         source: chosen.source,
         target: newStep.id,
         ...(chosen.label !== undefined && { label: chosen.label }),
+        // Each half keeps the canvas side of the old edge's end it still has.
+        ...(chosen.sourceSide && { sourceSide: chosen.sourceSide }),
       }
       const outOfNew: Edge = {
         id: uniqueEdgeId(usedEdgeIds, `${newStep.id}-out`),
         source: newStep.id,
         target: chosen.target,
+        ...(chosen.targetSide && { targetSide: chosen.targetSide }),
       }
       // Replace the edge where it sat, so the source's other connections keep
       // their order (a branch's arms, a container's arms).

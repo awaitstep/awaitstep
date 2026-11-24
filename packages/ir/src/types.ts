@@ -251,11 +251,24 @@ export function nodeDataOf<T extends BuiltinNodeType>(
   return isNodeOfType(node, type) ? node.data : undefined
 }
 
+/** The canvas side an edge leaves its source by. */
+export type EdgeExitSide = 'bottom' | 'right'
+/** The canvas side an edge enters its target by. */
+export type EdgeEntrySide = 'top' | 'left'
+
 export interface Edge {
   id: EdgeId
   source: NodeId
   target: NodeId
   label?: string
+  /**
+   * Canvas layout only: the side the edge was drawn from, set when a person
+   * picks it by dragging. Absent, the canvas works it out from where the
+   * nodes sit. Code generation ignores it.
+   */
+  sourceSide?: EdgeExitSide
+  /** Canvas layout only: the side the edge enters its target by; see `sourceSide`. */
+  targetSide?: EdgeEntrySide
 }
 
 export interface WorkflowMetadata {

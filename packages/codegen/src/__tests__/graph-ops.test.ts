@@ -240,6 +240,61 @@ describe('a node edit with its name and connections', () => {
       [{ id: 'e1', source: 'w', target: 's', label: 'onEvent' }],
     )
 
+  // Regression: an edited edge was rebuilt from id/source/target/label only,
+  // so a Code edit lost the canvas sides the same canvas edit keeps.
+  it('keeps an edited edge’s canvas sides, dropping the entry side when its target moves', () => {
+    const pinned = graph(
+      [wait, node('s', 'Sunny'), node('late', 'Late')],
+      [
+        {
+          id: 'e1',
+          source: 'w',
+          target: 's',
+          label: 'onEvent',
+          sourceSide: 'right',
+          targetSide: 'top',
+        },
+        {
+          id: 'e2',
+          source: 'w',
+          target: 'late',
+          label: 'onTimeout',
+          sourceSide: 'right',
+          targetSide: 'left',
+        },
+      ],
+    )
+    const op: GraphOp = {
+      kind: 'fields',
+      nodeId: 'w',
+      base: wait.data,
+      edited: wait.data,
+      edges: {
+        base: [
+          { id: 'e1', target: 's', label: 'onEvent' },
+          { id: 'e2', target: 'late', label: 'onTimeout' },
+        ],
+        edited: [
+          { id: 'e1', target: 'late', label: 'onEvent' },
+          { id: 'e2', target: 'late', label: 'then' },
+        ],
+      },
+    }
+    const result = applyGraphOp(pinned, op)
+    if (!result.ok) throw new Error(result.reason)
+    expect(result.ir.edges).toEqual([
+      { id: 'e1', source: 'w', target: 'late', label: 'onEvent', sourceSide: 'right' },
+      {
+        id: 'e2',
+        source: 'w',
+        target: 'late',
+        label: 'then',
+        sourceSide: 'right',
+        targetSide: 'left',
+      },
+    ])
+  })
+
   it('connects an arm, retargets one, and renames, as the canvas panel does', () => {
     const op: GraphOp = {
       kind: 'fields',

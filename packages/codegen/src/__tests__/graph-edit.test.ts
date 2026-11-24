@@ -54,6 +54,25 @@ const TEMPLATE = (name: string) =>
   `export default async function ${name}({ env, event, inputs, step, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n`
 
 describe('insertStep — splicing into an edge', () => {
+  it('gives each half the canvas side of the old edge’s end it still has', () => {
+    const ir = graph(
+      [node('a', 'Fetch user'), node('b', 'Send mail')],
+      [{ id: 'e1', source: 'a', target: 'b', sourceSide: 'right', targetSide: 'top' }],
+    )
+    const next = insert(ir, { after: 'a' })
+    expect(
+      next.edges.map(({ source, target, sourceSide, targetSide }) => ({
+        source,
+        target,
+        sourceSide,
+        targetSide,
+      })),
+    ).toEqual([
+      { source: 'a', target: NEW.id, sourceSide: 'right', targetSide: undefined },
+      { source: NEW.id, target: 'b', sourceSide: undefined, targetSide: 'top' },
+    ])
+  })
+
   it('puts the step between A and B, on A’s only connection', () => {
     const ir = graph(
       [node('a', 'Fetch user'), node('b', 'Send mail')],

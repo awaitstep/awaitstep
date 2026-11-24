@@ -127,12 +127,19 @@ function applyNodeEdit(
       if (edge.target === op.nodeId) return { ok: false, reason: 'A node can’t connect to itself.' }
     }
     const removed = new Set([...before.keys()].filter((id) => !after.has(id)))
-    const own = (edge: OutgoingEdge): Edge => ({
-      id: edge.id,
-      source: op.nodeId,
-      target: edge.target,
-      ...(edge.label !== undefined && { label: edge.label }),
-    })
+    // An edited edge keeps the canvas side it leaves by, and the side it
+    // enters by while it still enters the same node (as the canvas does).
+    const own = (edge: OutgoingEdge): Edge => {
+      const was = ir.edges.find((e) => e.id === edge.id && e.source === op.nodeId)
+      return {
+        id: edge.id,
+        source: op.nodeId,
+        target: edge.target,
+        ...(edge.label !== undefined && { label: edge.label }),
+        ...(was?.sourceSide && { sourceSide: was.sourceSide }),
+        ...(was?.targetSide && was.target === edge.target && { targetSide: was.targetSide }),
+      }
+    }
     edges = ir.edges
       .filter((edge) => !(edge.source === op.nodeId && removed.has(edge.id)))
       .map((edge) => {

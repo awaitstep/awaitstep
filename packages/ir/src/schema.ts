@@ -179,6 +179,8 @@ export const edgeSchema = z.object({
   source: nodeIdSchema,
   target: nodeIdSchema,
   label: z.string().optional(),
+  sourceSide: z.enum(['bottom', 'right']).optional(),
+  targetSide: z.enum(['top', 'left']).optional(),
 })
 
 export const workflowMetadataSchema = z.object({

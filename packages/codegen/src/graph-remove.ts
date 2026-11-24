@@ -141,7 +141,9 @@ export function removeNode<T extends GraphShape>(ir: T, nodeId: NodeId): RemoveN
     // `S → X → S` would become a loop on S; a connection that already exists
     // would become a duplicate.
     if (edge.source === next) continue
-    const retargeted: Edge = { ...edge, target: next }
+    // The entry side it had picked was the removed node's; the exit side stays.
+    const { targetSide: _targetSide, ...rest } = edge
+    const retargeted: Edge = { ...rest, target: next }
     const retargetedKey = key(retargeted)
     if (seen.has(retargetedKey)) continue
     seen.add(retargetedKey)
