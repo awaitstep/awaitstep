@@ -2,21 +2,147 @@
 
 <img src="docs/images/banner.png" alt="AwaitStep" width="100%" />
 
-### Build and deploy workflows _visually_.
+### Build & run durable workflows.
 
-A self-hosted visual builder that turns a node graph into portable TypeScript.
-No proprietary engines — just your code, ready for the runtime you choose.
+Draw them on a canvas or write them in TypeScript. AwaitStep retries what fails, shows every step, and deploys the code it generates — code you can read in full.
+Use AwaitStep Cloud, or self-host the open-source edition.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare%20Only-f6821f?logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
+[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
 
-[Get Started](https://docs.awaitstep.dev/installation/docker-compose) &bull; [Documentation](https://docs.awaitstep.dev) &bull; [API Reference](https://docs.awaitstep.dev/api-reference)
+[AwaitStep Cloud](https://app.awaitstep.dev) &bull; [Self-host](https://docs.awaitstep.dev/installation/docker-compose) &bull; [Documentation](https://docs.awaitstep.dev) &bull; [REST API](https://docs.awaitstep.dev/api/rest)
 
 </div>
 
 ---
 
-### Use with AI agents
+## Demo
+
+<a href="apps/www/public/video/demo.mp4">
+  <img src="apps/www/public/video/demo-poster.jpg" alt="AwaitStep in one minute: open a project and workspace, open a workflow, read its TypeScript, switch to the canvas, deploy it and open a run" width="100%" />
+</a>
+
+<p align="center"><sub>▶ <a href="apps/www/public/video/demo.mp4">Watch AwaitStep in one minute</a> — open a project, a workflow and its code, switch to the canvas, deploy, and follow a run.</sub></p>
+
+---
+
+<table>
+<tr>
+<td width="40%" valign="top">
+
+### Build on the canvas
+
+Steps, branches, loops, parallel paths, races, try / catch, sleeps and waits for events — drawn as a graph. Join nodes from any side, and add the next node straight from a `+`.
+
+- 13 built-in nodes, plus 45 integrations ready to drop in
+- Custom nodes and reusable scripts from your Library
+- Start from a template, or import a workflow
+
+</td>
+<td width="60%">
+
+<img src="docs/images/canvas.png" alt="The canvas: an entry step, a sleep, and a wait for event with its onEvent and onTimeout paths" />
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td width="60%">
+
+<img src="docs/images/code.png" alt="The Code view: project files, the generated workflow.ts and a live canvas preview" />
+
+</td>
+<td width="40%" valign="top">
+
+### Drop into code anytime
+
+Canvas and Code edit the same workflow. Each step is a TypeScript module in your project, with a typed editor, search across files, and changes you review before you save.
+
+- The generated `workflow.ts` is readable, and yours
+- The canvas preview follows every edit
+- Run one step, or the whole workflow in a test session
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td width="40%" valign="top">
+
+### Ship it, see what's live
+
+Every deploy is a version. See which version runs on each account, roll back (it asks first), and take one account down on its own.
+
+- A trigger URL to start runs with an API key
+- Version history and per-account deployments
+- Recent runs at a glance
+
+</td>
+<td width="60%">
+
+<img src="docs/images/overview.png" alt="A workflow overview: the live version, its trigger, versions and recent runs" />
+
+</td>
+</tr>
+</table>
+
+---
+
+<table>
+<tr>
+<td width="60%">
+
+<img src="docs/images/run.png" alt="A run page: the path the run took, each step with its timing, and the step's output" />
+
+</td>
+<td width="40%" valign="top">
+
+### Watch every run
+
+Each run has its own page: the path it took, every step with its attempts and timing, its output, and the version that ran. Failed runs land in your inbox.
+
+- Live step-by-step progress
+- Step and run output
+- Pause, resume and terminate
+
+</td>
+</tr>
+</table>
+
+---
+
+### Workflows and Functions
+
+|                 | **Workflows**                                                                                                       | **Functions**                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| What it is      | Background work that survives restarts and picks up where it stopped                                                | A request in, a response out                                              |
+| What you get    | Retries with backoff, sleeps up to a year, waits for events with a timeout path, parallel paths, races, try / catch | Your own routes, steps that retry inside a request, a response you choose |
+| How you call it | A trigger URL, the REST API, or another workflow                                                                    | Its own URL, with an API key                                              |
+
+### Building blocks
+
+| Node             | What it does                                     | Node               | What it does                              |
+| ---------------- | ------------------------------------------------ | ------------------ | ----------------------------------------- |
+| **Step**         | Run your code with retries and backoff           | **Parallel**       | Run paths at the same time                |
+| **Branch**       | Take a path based on a condition                 | **Race**           | Keep the first path that finishes         |
+| **Loop**         | Repeat steps (forEach, while, or count)          | **Break**          | Leave a loop early                        |
+| **Try / Catch**  | Handle errors with try / catch / finally         | **Sleep**          | Pause for a duration (up to a year)       |
+| **Sleep Until**  | Pause until a timestamp                          | **Wait for Event** | Pause until an event arrives, or time out |
+| **HTTP Request** | Call an API with retries                         | **Sub-Workflow**   | Start another workflow                    |
+| **Custom**       | Your own nodes and integrations from the Library |                    |                                           |
+
+### Built for teams, and their agents
+
+- **Orgs, projects, workspaces** — admin, editor and viewer roles, invites and an audit log.
+- **API keys scoped to the work** — one workspace or several; start runs from your own systems. Try every endpoint in the built-in API playground.
+- **Your coding agent** — install the skill pack, give it a project key, and describe the job.
 
 AwaitStep ships an [Agent Skills](https://docs.awaitstep.dev/agents/) pack that teaches Claude Code, Cursor, Codex and other coding agents to build workflows, Functions, Library modules and custom nodes through the API, and to work safely in Canvas or Code mode.
 
@@ -33,126 +159,22 @@ Or install it in Claude Code from the plugin marketplace:
 
 ---
 
-## Demo
+## Cloud or self-hosted
 
-<!-- TODO: Replace with actual demo video URL -->
+|                    | **AwaitStep Cloud**                                              | **Self-hosted**                              |
+| ------------------ | ---------------------------------------------------------------- | -------------------------------------------- |
+| Setup              | Nothing to install — [start building](https://app.awaitstep.dev) | Docker, Node, or Cloudflare Workers          |
+| Where runs execute | On AwaitStep, or bring your own Cloudflare account               | Your Cloudflare account, on its plan         |
+| Database           | Managed                                                          | SQLite or Postgres (D1 on Cloudflare)        |
+| License            | —                                                                | Apache 2.0; your data stays in your database |
 
-https://github.com/user-attachments/assets/PLACEHOLDER
+Workflows deploy to Cloudflare today; more providers are on the way.
 
----
+[![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?style=for-the-badge&logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
 
-<table>
-<tr>
-<td width="40%" valign="top">
+## Quickstart (from source)
 
-### Visual Canvas
-
-Drag and drop steps, branches, loops, parallel paths, error handling, and more. See your entire workflow structure at a glance — no YAML, no config files.
-
-- Drag-and-drop node placement
-- 30+ built-in node types
-- Instant undo/redo and keyboard shortcuts
-
-</td>
-<td width="60%">
-
-<img src="docs/images/canvas.png" alt="Visual workflow canvas" />
-
-</td>
-</tr>
-</table>
-
----
-
-<table>
-<tr>
-<td width="60%">
-
-<img src="docs/images/code-preview.png" alt="Side-by-side canvas and code view" />
-
-</td>
-<td width="40%" valign="top">
-
-### Live Code Preview
-
-Every change on the canvas instantly reflects in the code preview. Toggle between generated TypeScript, IR, and the final deployable package. What you see is what gets deployed.
-
-- Real-time TypeScript generation
-- IR, TypeScript, and package output views
-- No lock-in — the generated code is yours, readable in full and portable across runtimes
-
-</td>
-</tr>
-</table>
-
----
-
-<table>
-<tr>
-<td width="40%" valign="top">
-
-### Deploy & Monitor
-
-Deploy from the UI. AwaitStep handles code generation, bundling, dependency installation, and deployment. Track version history, lock versions, roll back. (Cloudflare is the deploy target shipped today.)
-
-- One-click deploy with version tracking
-- Real-time run monitoring with status and errors
-- Pause, resume, terminate, and roll back
-
-</td>
-<td width="60%">
-
-<img src="docs/images/deploy-and-monitor.png" alt="Deployment overview with versions and runs" />
-
-</td>
-</tr>
-</table>
-
----
-
-### Building Blocks
-
-Composable nodes that map to durable workflow primitives.
-
-| Node             | Description                                  | Node               | Description                                  |
-| ---------------- | -------------------------------------------- | ------------------ | -------------------------------------------- |
-| **Step**         | Execute custom code with retries and backoff | **Parallel**       | Run steps concurrently                       |
-| **Sleep**        | Pause for a duration (up to 365 days)        | **Loop**           | Repeat steps (forEach, while, or count)      |
-| **Sleep Until**  | Pause until a specific timestamp             | **Try / Catch**    | Error handling with try/catch/finally        |
-| **Branch**       | Conditional execution paths                  | **Exit**           | Break from a loop or return from workflow    |
-| **HTTP Request** | Make HTTP calls with configurable retries    | **Wait for Event** | Pause until an external event arrives        |
-| **Sub-Workflow** | Trigger another workflow                     | **Custom**         | User-defined node types from the marketplace |
-
-### Features
-
-|                                                                           |                                                                     |                                                                        |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Drag & Drop Canvas** — Visual workflow designer with intuitive controls | **One-Click Deploy** — Deploy from the UI (Cloudflare Only)         | **30+ Node Types** — Composable building blocks for any workflow       |
-| **Node Marketplace** — Build, publish, and install custom nodes           | **REST API** — Full API with scoped keys and interactive playground | **Self-Hosted** — Run on your infra — Docker, VPS, or any Node.js host |
-
----
-
-### Open Source & Self-Hosted
-
-AwaitStep is fully open source under Apache 2.0. Self-host on Docker, a VPS, or any Node.js host — your data never leaves your infrastructure.
-
-**Cloudflare only:** run the entire stack on Cloudflare. API on Workers, builds in sandboxed containers, data in D1.
-
-|      Edge API      |   Sandbox Builds    |    D1 Database     |
-| :----------------: | :-----------------: | :----------------: |
-| Cloudflare Workers | Isolated containers | SQLite at the edge |
-
-|       **30+**       |   **Apache 2.0**    |      **5 min**       |
-| :-----------------: | :-----------------: | :------------------: |
-| Built-in node types | Open source license | Self-host setup time |
-
-[![Deploy on Cloudflare only](https://img.shields.io/badge/Deploy%20on-Cloudflare%20Only-f6821f?style=for-the-badge&logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
-
----
-
-## Quickstart
-
-**Prerequisites:** Node.js >= 20, pnpm >= 9
+**Prerequisites:** Node.js >= 22.23.4, pnpm >= 12
 
 ```bash
 git clone https://github.com/awaitstep/awaitstep.git
@@ -163,8 +185,8 @@ cp .env.example .env
 Generate the required secrets and update `.env`:
 
 ```bash
-# Generate TOKEN_ENCRYPTION_KEY and BETTER_AUTH_SECRET
-openssl rand -hex 32  # run twice, one for each key
+openssl rand -hex 32     # TOKEN_ENCRYPTION_KEY
+openssl rand -base64 32  # BETTER_AUTH_SECRET
 ```
 
 Then build and start:
@@ -175,8 +197,11 @@ pnpm build
 pnpm dev
 ```
 
+For Docker Compose, a VPS or Cloudflare Workers, see the [installation guides](https://docs.awaitstep.dev/installation/docker-compose).
+
 ## Documentation
 
+- [Quickstart](https://docs.awaitstep.dev/getting-started/quickstart) — Build and deploy your first workflow
 - [Architecture](docs/architecture.md) — System design, data flow, and package structure
 - [API Reference](docs/api-reference.md) — All endpoints and database schema
 - [Compilation Pipeline](docs/compilation.md) — How canvas IR becomes deployed code
