@@ -343,8 +343,8 @@ describe('DeployPage settings', () => {
     expect(screen.getByText('Route patterns')).toBeVisible()
     await userEvent.click(scheduling)
     expect(screen.queryByText('Route patterns')).not.toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Add to Cron triggers' }))
-    await userEvent.type(screen.getByRole('textbox', { name: 'Cron triggers 1' }), '0 * * * *')
+    await userEvent.click(screen.getByRole('button', { name: 'Add to Schedules' }))
+    await userEvent.type(screen.getByRole('textbox', { name: 'Schedules 1' }), '0 * * * *')
     expect(scheduling).toHaveTextContent('Cron 0 * * * *')
     expect(scheduling).toHaveTextContent('Changed')
     expect(screen.getByText('1 changed from the defaults')).toBeVisible()
@@ -352,6 +352,58 @@ describe('DeployPage settings', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Reset to defaults' }))
     expect(screen.getByText('All at their defaults')).toBeVisible()
     expect(scheduling).toHaveTextContent('Default')
+  })
+
+  it('shows when a schedule fires next, what is wrong with one, and takes its params', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    getDeployConfig.mockResolvedValue(
+      settings({
+        ...DEFAULTS,
+        cronTriggers: [{ cron: '0 8 * * *', timezone: 'Europe/Amsterdam' }],
+      }),
+    )
+    renderPage()
+    const scheduling = await screen.findByRole('button', { name: /Scheduling/ })
+    expect(scheduling).toHaveTextContent('Cron 0 8 * * * (Europe/Amsterdam)')
+    await userEvent.click(scheduling)
+    expect(screen.getByRole('button', { name: 'Timezone: Europe/Amsterdam' })).toBeVisible()
+    expect(screen.getByText(/^Next: .*08:00/)).toBeVisible()
+
+    const cron = screen.getByRole('textbox', { name: 'Schedules 1' })
+    await userEvent.clear(cron)
+    await userEvent.type(cron, '0 8 * * 0')
+    expect(screen.getByRole('alert')).toHaveTextContent('1 is Sunday')
+    await userEvent.clear(cron)
+    await userEvent.type(cron, '0 8 * * MON')
+    expect(screen.queryByRole('alert')).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Params' }))
+    const params = screen.getByRole('textbox', { name: 'Schedules 1 params' })
+    await userEvent.type(params, '{{"shift":')
+    expect(screen.getByText('This is not JSON yet.')).toBeVisible()
+    await userEvent.type(params, '"day"}')
+    expect(screen.getByText('JSON given to each run this schedule starts.')).toBeVisible()
+  })
+
+  it('shows each schedule its own params after the one above it is removed', async () => {
+    getDeployConnections.mockResolvedValue(TWO)
+    getDeployConfig.mockResolvedValue(
+      settings({
+        ...DEFAULTS,
+        cronTriggers: [
+          { cron: '0 8 * * *', params: { shift: 'day' } },
+          { cron: '0 20 * * *', params: { shift: 'night' } },
+        ],
+      }),
+    )
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: /Scheduling/ }))
+    // Typed text, not yet JSON, on the first row.
+    await userEvent.type(screen.getByRole('textbox', { name: 'Schedules 1 params' }), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Remove 0 8 * * *' }))
+    expect(screen.getByRole('textbox', { name: 'Schedules 1' })).toHaveValue('0 20 * * *')
+    const params = screen.getByRole('textbox', { name: 'Schedules 1 params' })
+    expect(JSON.parse((params as HTMLTextAreaElement).value)).toEqual({ shift: 'night' })
   })
 })
 

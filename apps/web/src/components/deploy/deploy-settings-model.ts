@@ -29,6 +29,8 @@ export function buildHints(schema: DeploymentConfigUiSchema): ConfigHints {
 function blank(item: unknown): boolean {
   if (typeof item === 'string') return item.trim() === ''
   if (item && typeof item === 'object') {
+    // A schedule is its cron: a timezone picked for one not yet typed is still blank.
+    if ('cron' in item) return typeof item.cron !== 'string' || item.cron.trim() === ''
     return Object.values(item).every((v) => typeof v !== 'string' || v.trim() === '')
   }
   return item == null
@@ -86,11 +88,27 @@ export function groupChanged(
   return group.fields.some((field) => fieldDiffers(field, config, defaults, hints))
 }
 
+type ScheduleItem = string | { cron: string; timezone?: string }
+
+function isScheduleEntry(item: unknown): item is ScheduleItem {
+  if (typeof item === 'string') return true
+  return (
+    item !== null && typeof item === 'object' && 'cron' in item && typeof item.cron === 'string'
+  )
+}
+
+/** "0 8 * * *", or "0 8 * * * (Europe/Amsterdam)". */
+function scheduleLabel(item: ScheduleItem): string {
+  if (typeof item === 'string') return item
+  return item.timezone && item.timezone !== 'UTC' ? `${item.cron} (${item.timezone})` : item.cron
+}
+
 function shown(value: unknown): string {
   if (value === true) return 'on'
   if (value === false) return 'off'
   if (value === undefined) return 'none'
   if (Array.isArray(value)) {
+    if (value.every(isScheduleEntry)) return value.map(scheduleLabel).join(', ')
     return value.every((v) => typeof v === 'string') ? value.join(', ') : String(value.length)
   }
   if (typeof value === 'object') return 'set'
@@ -171,7 +189,13 @@ export function withoutBlankItems(
   let out = config
   for (const group of schema.groups) {
     for (const field of group.fields) {
-      if (field.widget !== 'array' && field.widget !== 'array-of-objects') continue
+      if (
+        field.widget !== 'array' &&
+        field.widget !== 'array-of-objects' &&
+        field.widget !== 'schedules'
+      ) {
+        continue
+      }
       const raw = readPath(out, field.path, hints.objects)
       if (!Array.isArray(raw) || !raw.some(blank)) continue
       const filled = raw.filter((item) => !blank(item))
