@@ -925,4 +925,65 @@ describe('POST /api/run/:workflowId', () => {
       expect((await run(app, 'wf-missing', { key: PROJECT_KEY, body: '{}' })).status).toBe(404)
     })
   })
+
+  describe('asking whether a key may run it (GET)', () => {
+    const ask = (path: string, key?: string) =>
+      app.request(`/api/run/${path}`, {
+        headers: key ? { Authorization: `Bearer ${key}` } : {},
+      })
+
+    it('says what it is, whose, and the account it is live on, starting nothing', async () => {
+      await deployed('wf-1', 'conn-a', '2026-11-01T00:00:00.000Z')
+      await deployed('wf-1', 'conn-b', '2026-11-02T00:00:00.000Z')
+      const res = await ask('wf-1', PROJECT_KEY)
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({
+        workflowId: 'wf-1',
+        kind: 'workflow',
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+        key: { id: 'key-project', expiresAt: null, readsRuns: true },
+        live: { connectionId: 'conn-b', provider: 'cloudflare' },
+      })
+      expect(await (await ask('wf-1?account=conn-a', PROJECT_KEY)).json()).toMatchObject({
+        live: { connectionId: 'conn-a' },
+      })
+      expect(provider.triggered).toEqual([])
+      expect((await mockDb.listRunsByWorkflow('wf-1')).data).toEqual([])
+    })
+
+    it('says when a key that may run may not read runs', async () => {
+      await seedKey('key-run-only', 'ask_run_only_key', 'project', { workflows: ['run'] })
+      const res = await ask('wf-1', 'ask_run_only_key')
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ key: { id: 'key-run-only', readsRuns: false } })
+    })
+
+    it('does not spend the key owner’s budget for starts', async () => {
+      await deployed('wf-1', 'conn-a', '2026-11-01T00:00:00.000Z')
+      // More asks than a minute's starts (30).
+      for (let i = 0; i < 35; i++) expect((await ask('wf-1', PROJECT_KEY)).status).toBe(200)
+      const started = await app.request('/api/run/wf-1', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${PROJECT_KEY}`, 'Content-Type': 'application/json' },
+        body: '{}',
+      })
+      expect(started.status).toBe(201)
+    })
+
+    it('says a function is one, and that nothing is live when nothing is', async () => {
+      expect(await (await ask('fn-1', PROJECT_KEY)).json()).toMatchObject({
+        kind: 'script',
+        live: null,
+      })
+    })
+
+    it('refuses whoever the POST refuses', async () => {
+      expect((await ask('wf-1')).status).toBe(401)
+      expect((await ask('wf-1', ORG_KEY)).status).toBe(403)
+      expect((await ask('wf-1', READ_KEY)).status).toBe(403)
+      expect((await ask('wf-1', OTHER_WS_KEY)).status).toBe(404)
+      expect((await ask('no-such', PROJECT_KEY)).status).toBe(404)
+    })
+  })
 })

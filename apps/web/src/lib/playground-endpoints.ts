@@ -771,6 +771,20 @@ export const endpoints: EndpointDef[] = [
     bodyExample: JSON.stringify({ instanceId: 'order-42' }, null, 2),
   },
   {
+    // The same checks as running it, starting nothing.
+    id: 'check-run',
+    group: 'Deployments',
+    method: 'GET',
+    path: '/api/run/:workflowId',
+    label: 'Check that this key may run a workflow or function',
+    permission: 'workflows:run',
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'account', in: 'query', required: false },
+    ],
+    hasBody: false,
+  },
+  {
     id: 'takedown-workflow',
     group: 'Deployments',
     method: 'POST',
