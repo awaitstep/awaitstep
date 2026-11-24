@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WorkflowProvider } from '@awaitstep/codegen'
-import { settleRun } from '../lib/run-settle.js'
+import { settleRun, tellFunctionsFailed } from '../lib/run-settle.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
 import { useExtensionProviders } from '../lib/provider-registry.js'
 import {
@@ -115,5 +115,42 @@ describe('a provider that reports its own runs’ ends', () => {
     expect(await settleRun(mockDb, { ...ref, organizationId: 'org-other' })).toBeNull()
     expect(await settleRun(mockDb, { ...ref, runId: 'run-none' })).toBeNull()
     expect(getRunDetail).not.toHaveBeenCalled()
+  })
+})
+
+describe('failed function calls with no run behind them', () => {
+  beforeEach(async () => {
+    resetStore()
+    await mockDb.createWorkflow({
+      id: 'fn-1',
+      kind: 'script',
+      projectId: TEST_PROJECT_ID,
+      createdBy: TEST_USER_ID,
+      name: 'My Function',
+    })
+  })
+
+  it('tells the function’s watchers once for a batch of its failures, with the newest error', async () => {
+    const failed = (message: string) => ({
+      organizationId: TEST_ORG_ID,
+      workflowId: 'fn-1',
+      error: JSON.stringify({ name: 'HttpStatus', message }),
+    })
+    await tellFunctionsFailed(mockDb, [failed('Answered 500'), failed('Answered 503')])
+    const sent = sentNotifications()
+    expect(sent).toHaveLength(1)
+    expect(sent[0]).toMatchObject({
+      event: 'run.failed',
+      organizationId: TEST_ORG_ID,
+      meta: { workflow: 'My Function', call: true },
+    })
+  })
+
+  it('tells nothing for a function of another organization, or one that is gone', async () => {
+    await tellFunctionsFailed(mockDb, [
+      { organizationId: 'org-other', workflowId: 'fn-1', error: null },
+      { organizationId: TEST_ORG_ID, workflowId: 'fn-none', error: null },
+    ])
+    expect(sentNotifications()).toHaveLength(0)
   })
 })

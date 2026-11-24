@@ -203,6 +203,44 @@ export class RunsAdapter {
     return { entry, connection: connection?.id ? connection : null }
   }
 
+  /**
+   * A workflow's name and place, for telling of a failure that has no run to
+   * read them from (a function call counted, not recorded); null when the
+   * workflow is not that organization's.
+   */
+  async getFailurePlace(
+    workflowId: string,
+    organizationId: string,
+  ): Promise<Pick<ActiveRunForSync, 'workflowName' | 'place'> | null> {
+    const workflows = this.workflowsTable
+    const place = this.placeTables
+    if (!workflows || !place) {
+      throw new Error('RunsAdapter needs workflows and place tables for failure places')
+    }
+    const { projects: p, workspaces: w, organization: o } = place
+    const rows = await this.db
+      .select({
+        workflowName: workflows.name,
+        place: {
+          organizationId: p.organizationId,
+          orgSlug: o.slug,
+          projectId: p.id,
+          projectSlug: p.slug,
+          projectName: p.name,
+          workspaceId: w.id,
+          workspaceSlug: w.slug,
+          workspaceName: w.name,
+        },
+      })
+      .from(workflows)
+      .innerJoin(p, and(eq(p.id, workflows.projectId), eq(p.organizationId, organizationId)))
+      .leftJoin(o, eq(o.id, p.organizationId))
+      .leftJoin(w, and(eq(w.id, workflows.workspaceId), eq(w.projectId, p.id)))
+      .where(eq(workflows.id, workflowId))
+      .limit(1)
+    return (rows[0] as Pick<ActiveRunForSync, 'workflowName' | 'place'> | undefined) ?? null
+  }
+
   /** One run of that workflow, in the columns its page shows; the workflow is checked in the WHERE. */
   async getDetail(runId: string, workflowId: string): Promise<RunDetail | null> {
     const r = this.table

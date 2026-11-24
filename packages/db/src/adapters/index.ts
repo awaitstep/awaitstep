@@ -56,6 +56,7 @@ import type {
   CreateRunData,
   RunStepExtras,
   RunSyncTarget,
+  ActiveRunForSync,
   VersionDeleteCheck,
   LatestVersionForSave,
   LiveDeploymentRow,
@@ -1441,6 +1442,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       entry: found.entry,
       connection: found.connection ? await this._connections.hydrate(found.connection) : null,
     }
+  }
+  getWorkflowFailurePlace(
+    workflowId: string,
+    organizationId: string,
+  ): Promise<Pick<ActiveRunForSync, 'workflowName' | 'place'> | null> {
+    return this._runs.getFailurePlace(workflowId, organizationId)
   }
   getRunDetail(runId: string, workflowId: string): Promise<RunDetail | null> {
     return this._runs.getDetail(runId, workflowId)
