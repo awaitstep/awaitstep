@@ -48,3 +48,11 @@ export function projectCreated(
 ): Promise<void> {
   return run('projectCreated', { db, ...event })
 }
+
+/** Tells every extension a key (or a scope of it) was revoked. Never throws. */
+export function apiKeyRevoked(
+  db: DatabaseAdapter,
+  event: { organizationId: string; keyId: string; keyHash: string },
+): Promise<void> {
+  return run('apiKeyRevoked', { db, ...event })
+}

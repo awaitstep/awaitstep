@@ -10,6 +10,7 @@ import {
   TEST_WORKSPACE_ID,
 } from './helpers.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
+import { useExtensionHooks } from '../lib/extension-hooks.js'
 import { stubCloudflare } from './fixtures/cloudflare.js'
 
 // Keys at three levels (B3): what each level reaches, and what a key's grid
@@ -907,5 +908,35 @@ describe('router middleware', () => {
     expect((await app.request(`/api/api-keys?projectId=${TEST_PROJECT_ID}`)).status).toBe(200)
     expect(isOrgMember).not.toHaveBeenCalled()
     expect(getProjectIfMember).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('telling extensions a key was revoked', () => {
+  beforeEach(() => resetStore())
+  afterEach(() => useExtensionHooks([]))
+
+  it('names the key by id and stored hash, once it is revoked and not before', async () => {
+    const seen: unknown[] = []
+    const app = createTestApp({
+      extensions: [
+        {
+          id: 'listener',
+          hooks: {
+            apiKeyRevoked: async ({ organizationId, keyId, keyHash }) => {
+              seen.push({ organizationId, keyId, keyHash })
+            },
+          },
+        },
+      ],
+    })
+    await seedOrgKey()
+    const missing = await app.request(...asSession('/api/api-keys/no-such', { method: 'DELETE' }))
+    expect(missing.status).toBe(404)
+    expect(seen).toEqual([])
+    const revoked = await app.request(...asSession('/api/api-keys/org-key-1', { method: 'DELETE' }))
+    expect(revoked.status).toBe(200)
+    expect(seen).toEqual([
+      { organizationId: TEST_ORG_ID, keyId: 'org-key-1', keyHash: await hashApiKey(ORG_KEY) },
+    ])
   })
 })
