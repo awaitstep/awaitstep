@@ -37,7 +37,7 @@
     "@awaitstep/codegen": "workspace:*",
     "@awaitstep/ir": "workspace:*",
     "@awaitstep/sdk": "workspace:*",
-    "wrangler": "4.152.0",
+    "wrangler": "4.166.0",
     "zod": "^4.6.7"
   }
 }
