@@ -2214,7 +2214,9 @@ Deploy a workflow version to a connection. Validates environment variables and c
 ```
 
 Answers `200` with `{ "success": true, "deploymentId": "<worker name>", "id": "<deployment id>" }`,
-`500` with `success: false` and `error` when it failed, and `409` with
+`500` with `success: false` and `error` when it failed, `422` with `"refused": true` when the provider
+will not take what was asked (a limit, a setting it does not offer), `429` with `"busy": true` when it has no
+room right now and the same deploy can be tried again, and `409` with
 `"cancelled": true` and `"error": "Deploy cancelled"` when it was cancelled before its upload. The deployment is
 listed (as `deploying`) while the request is still open, so another request can
 cancel it by its `id` from `GET /workflows/:workflowId/deployments`.
