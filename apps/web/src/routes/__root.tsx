@@ -15,6 +15,7 @@ import { Toaster } from '../components/ui/toaster'
 import { isCanvasRoute } from '../lib/shell-routes'
 import { ZOD_JITLESS_SCRIPT } from '../lib/zod-jitless'
 import satoshiWoff2 from '@awaitstep/theme/fonts/Satoshi-Variable.woff2?url'
+import { SHARE_CARD_META } from '../lib/share-card'
 import '../styles.css'
 
 export const Route = createRootRoute({
@@ -23,6 +24,7 @@ export const Route = createRootRoute({
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+      ...SHARE_CARD_META,
     ],
     title: 'AwaitStep',
     links: [
