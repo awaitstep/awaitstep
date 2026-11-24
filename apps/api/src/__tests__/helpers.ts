@@ -1381,6 +1381,12 @@ const mockDb: DatabaseAdapter = {
       connection: connection && connection.organizationId === organizationId ? connection : null,
     }
   },
+  async getWorkflowFailurePlace(workflowId, organizationId) {
+    const workflow = store.workflows.get(workflowId)
+    const project = workflow?.projectId ? store.projects.get(workflow.projectId) : undefined
+    if (!workflow || project?.organizationId !== organizationId) return null
+    return { workflowName: workflow.name, place: syncPlace(workflowId) }
+  },
   async getRunDetail(runId, workflowId) {
     const run = store.runs.get(runId)
     if (!run || run.workflowId !== workflowId) return null

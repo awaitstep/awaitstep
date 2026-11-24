@@ -2403,7 +2403,9 @@ built-in route left out by handling send-event there).
 (JSON when none is given) — and the answer **is the function's own**: its
 status, `Content-Type` and body bytes (the first 100 KB;
 `X-AwaitStep-Body-Truncated: true` past that), with the run in the
-`X-AwaitStep-Run-Id` header. A redirect keeps its status, but its target comes
+`X-AwaitStep-Run-Id` header (on AwaitStep Cloud, a call is counted instead of
+kept as a run: the header names it among the function's recent calls, its last
+20 and last 20 failed, on the function's Overview). A redirect keeps its status, but its target comes
 as `X-AwaitStep-Function-Location`, never `Location`: answered from the API's
 own origin, a followed redirect would carry your key to wherever it points.
 The answer carries `Content-Security-Policy: default-src 'none'; sandbox`.

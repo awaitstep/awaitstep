@@ -29,7 +29,12 @@ import {
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { checkPublicRunUrl } from '../lib/public-run-url.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
-import { settleRun, type RecordedRun } from '../lib/run-settle.js'
+import {
+  settleRun,
+  tellFunctionsFailed,
+  type FailedCall,
+  type RecordedRun,
+} from '../lib/run-settle.js'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { reapTestSessions } from '../lib/test-sessions.js'
@@ -289,6 +294,25 @@ export async function settleRecordedRuns(
     Promise.all(runs.map((run) => settleRun(database.db, run, emails).catch(() => null))),
   )
 }
+
+/**
+ * Tells the watchers of functions whose calls failed, for an entry that
+ * counts calls instead of recording them (no run to settle). Never throws:
+ * a notice not sent costs the caller nothing.
+ */
+export async function tellCallsFailed(env: Env, calls: readonly FailedCall[]): Promise<void> {
+  if (calls.length === 0) return
+  try {
+    const database = await backgroundDatabase(env)
+    const emails = backgroundEmails(env)
+    await database.run(() => tellFunctionsFailed(database.db, calls, emails))
+  } catch (error) {
+    // The calls are counted; their notice is the only thing lost.
+    createLogger('queue').error('Failed calls could not be told', { error: String(error) })
+  }
+}
+
+export type { FailedCall }
 
 /**
  * What a Worker entry plugs in: the extensions package's own export, so the

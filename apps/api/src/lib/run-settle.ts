@@ -45,3 +45,42 @@ export async function settleRun(
   }
   return run.status
 }
+
+/** A function call that failed, counted and not recorded: no run to read its place from. */
+export interface FailedCall {
+  organizationId: string
+  workflowId: string
+  /** The call's error as recorded (`{ name, message }` JSON); null for none. */
+  error: string | null
+}
+
+/**
+ * Tells the watchers of each function that failed calls, once per function
+ * (its newest failure; repeats fold into one notice as a run's do). One that
+ * is not that organization's is left out.
+ */
+export async function tellFunctionsFailed(
+  db: DatabaseAdapter,
+  calls: readonly FailedCall[],
+  emails?: AppEmails,
+): Promise<void> {
+  const newest = new Map<string, FailedCall>()
+  for (const call of calls) newest.set(`${call.organizationId}/${call.workflowId}`, call)
+  await Promise.all(
+    [...newest.values()].map(async (call) => {
+      const found = await db.getWorkflowFailurePlace(call.workflowId, call.organizationId)
+      if (!found) return
+      await tellRunFailed(
+        db,
+        {
+          place: found.place,
+          workflowId: call.workflowId,
+          workflowName: found.workflowName,
+          call: { errorMessage: failureMessage(call.error) },
+        },
+        null,
+        emails,
+      )
+    }),
+  )
+}

@@ -54,6 +54,7 @@ import type {
   CreateRunData,
   RunStepExtras,
   RunSyncTarget,
+  ActiveRunForSync,
   VersionDeleteCheck,
   LatestVersionForSave,
   ConnectionCoverage,
@@ -838,6 +839,11 @@ export interface DatabaseAdapter {
     workflowId: string,
     organizationId: string,
   ): Promise<RunSyncTarget | null>
+  /** A workflow's name and place, for a failure notice with no run behind it; null when it isn't that organization's. */
+  getWorkflowFailurePlace(
+    workflowId: string,
+    organizationId: string,
+  ): Promise<Pick<ActiveRunForSync, 'workflowName' | 'place'> | null>
   /** One run of that workflow in the columns its page shows; null when it isn't that workflow's. */
   getRunDetail(runId: string, workflowId: string): Promise<RunDetail | null>
   /**

@@ -267,6 +267,28 @@ describe('getRunForSync', () => {
   })
 })
 
+describe('getWorkflowFailurePlace', () => {
+  it('answers a workflow’s name and place, only for its own organization', async () => {
+    const { adapter, sqlite } = createTestDb()
+    seedRun(sqlite, 'run-1', 'complete')
+    expect(await adapter.getWorkflowFailurePlace('wf-1', 'org-1')).toEqual({
+      workflowName: 'My Flow',
+      place: {
+        organizationId: 'org-1',
+        orgSlug: 'acme',
+        projectId: 'p-1',
+        projectSlug: 'project-101',
+        projectName: 'Project 101',
+        workspaceId: 'ws-1',
+        workspaceSlug: 'sales',
+        workspaceName: 'Sales',
+      },
+    })
+    expect(await adapter.getWorkflowFailurePlace('wf-1', 'org-other')).toBeNull()
+    expect(await adapter.getWorkflowFailurePlace('wf-none', 'org-1')).toBeNull()
+  })
+})
+
 describe('updateRunFromStatus', () => {
   it('moves the run only from the status it was read in, and says whether it did', async () => {
     const { adapter, sqlite } = createTestDb()
