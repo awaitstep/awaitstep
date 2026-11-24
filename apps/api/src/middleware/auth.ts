@@ -11,11 +11,19 @@ import { parseOrgRole } from '../lib/org-role.js'
 
 const log = createLogger('auth')
 
-export function createAuthMiddleware(auth: Auth) {
+/** Who an entry lets in: people with a session, API keys, or both. */
+export type AcceptedAuth = 'both' | 'sessions' | 'keys'
+
+export const KEYS_NOT_ACCEPTED = 'API keys are not accepted here'
+export const KEY_REQUIRED = 'Use an API key'
+
+export function createAuthMiddleware(auth: Auth, accepts: AcceptedAuth = 'both') {
   return createMiddleware<AppEnv>(async (c, next) => {
     // Try bearer token (API key) auth first
     const authHeader = c.req.header('Authorization')
     if (authHeader?.startsWith('Bearer ')) {
+      // Before the key is looked up: this entry says nothing about any key.
+      if (accepts === 'sessions') return c.json({ error: KEYS_NOT_ACCEPTED }, 401)
       const token = authHeader.slice(7)
       const db = c.get('db')
       const keyHash = await hashApiKey(token)
@@ -104,6 +112,8 @@ export function createAuthMiddleware(auth: Auth) {
 
       return next()
     }
+
+    if (accepts === 'keys') return c.json({ error: KEY_REQUIRED }, 401)
 
     // Fall back to session cookie auth
     const session = await auth.api.getSession({

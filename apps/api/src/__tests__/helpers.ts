@@ -2659,6 +2659,7 @@ export function createTestApp(options?: {
   extensions?: AppDeps['extensions']
   disabledFeatures?: AppDeps['disabledFeatures']
   oauthReturnPath?: AppDeps['oauthReturnPath']
+  acceptedAuth?: AppDeps['acceptedAuth']
 }) {
   seedTestProject()
 
@@ -2679,6 +2680,7 @@ export function createTestApp(options?: {
     ...(options?.extensions && { extensions: options.extensions }),
     ...(options?.disabledFeatures && { disabledFeatures: options.disabledFeatures }),
     ...(options?.oauthReturnPath !== undefined && { oauthReturnPath: options.oauthReturnPath }),
+    ...(options?.acceptedAuth && { acceptedAuth: options.acceptedAuth }),
   })
 }
 
