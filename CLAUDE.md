@@ -6,7 +6,7 @@
 
 ## Full-cycle steps (the user reviews only ship-ready work)
 
-- A planned step is built end to end before the user sees it: all slices, `pnpm build`/`test`/`lint`/`tsc` green, QA notes written. Do not stop between slices to ask.
+- A planned step is built end to end before the user sees it: all slices, `pnpm build`/`test:affected`/`lint`/`tsc` green, QA notes written. Do not stop between slices to ask.
 - Then, without asking, run the review subagents **one after another, never in parallel**, each with an explicit model override (`opus` or `sonnet`, never a fork):
   1. a `/code-review`-style correctness review at **high** effort; work through every finding as in "Review Feedback" below, with regression tests, and re-run the checks;
   2. only then a security review; work through its findings the same way;
@@ -54,7 +54,7 @@ When review feedback is shared, work through **every** comment in it — in full
 
 ## Code Quality
 
-- Run `pnpm build` and `pnpm test` before considering any task complete. Fix failures before moving on.
+- Run `pnpm build` and `pnpm test:affected` before considering any task complete. Fix failures before moving on. It runs only the tests your changes reach (changed test files plus tests importing changed files) and skips `packages/db`. Do not run the full `pnpm test` or the db suite locally: both run in CI on every pull request. Run `pnpm test:affected --with-db` only when the user asks.
 - Run `pnpm lint` after writing new code. Fix lint errors immediately, don't leave them for later.
 - Never leave `console.log` debugging statements in committed code. Use proper logging if needed.
 - Prefer explicit types over `any`. If `any` is truly unavoidable, use `// eslint-disable-next-line` with a comment explaining why.
@@ -114,6 +114,8 @@ When review feedback is shared, work through **every** comment in it — in full
 - Every new module with logic must have a corresponding `.test.ts` file alongside it or in a `__tests__/` directory.
 - Tests should be self-contained — no test should depend on another test's side effects or execution order.
 - Use descriptive test names that explain the expected behavior, not the implementation.
+- **UI tests (`.test.tsx`, DOM) only in critical areas:** save, draft and pending-edit flows (lost work); canvas and Code edits that change the saved graph or generated code; deploy; sign-in/sign-out and session; key creation; scope and isolation. Everything else (settings pages, navigation, shell, kit components, banners, layout, copy, toasts) gets no UI test. Put the logic in a plain `.ts` module and unit-test that instead.
+- A test protects behaviour someone would notice breaking. Prefer one test per behaviour with `it.each` tables over one test per input.
 
 ## Documentation
 
