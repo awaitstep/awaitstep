@@ -28,6 +28,7 @@ import {
 } from '@awaitstep/ir'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
+import { settleRun, type RecordedRun } from '../lib/run-settle.js'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { reapTestSessions } from '../lib/test-sessions.js'
@@ -248,6 +249,46 @@ function testSessionRunnerFor(env: Env, sleepAfter: string): SandboxTestSessionR
   )
 }
 
+/** The database for work no request started (the cron, a queue). */
+async function backgroundDatabase(env: Env): Promise<WorkerDatabase> {
+  const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
+  const cloudflareOAuth = cloudflareOAuthFromEnv(
+    env as unknown as Record<string, string | undefined>,
+    {
+      baseURL: cronWebOrigin(env) ?? 'http://localhost',
+      isDev: false,
+      originConfigured: Boolean(env.BETTER_AUTH_URL || env.WEB_URL || env.CORS_ORIGIN),
+    },
+  )
+  return workerDatabase(env, {
+    tokenCrypto,
+    refreshConnection: createConnectionRefresh(cloudflareOAuth),
+  })
+}
+
+/** Mail for that work: none without a configured web origin, when links would be relative. */
+function backgroundEmails(env: Env) {
+  const origin = cronWebOrigin(env)
+  return origin ? workerEmails(env, origin, createLogger('cron')).emails : undefined
+}
+
+/**
+ * Brings recorded runs up to date outside a request, for an entry that hears
+ * of them itself (a provider that reports its own runs' ends): each run is
+ * read from its provider, and a failure told to its watchers. Answers each
+ * run's status in order; null where the run could not be read.
+ */
+export async function settleRecordedRuns(
+  env: Env,
+  runs: readonly RecordedRun[],
+): Promise<Array<string | null>> {
+  const database = await backgroundDatabase(env)
+  const emails = backgroundEmails(env)
+  return database.run(() =>
+    Promise.all(runs.map((run) => settleRun(database.db, run, emails).catch(() => null))),
+  )
+}
+
 /**
  * What a Worker entry plugs in: the extensions package's own export, so the
  * Worker and the dev server read one shape. The public Worker passes nothing.
@@ -315,20 +356,7 @@ export function createWorker(options: WorkerOptions = {}) {
       env: Env,
       ctx: ExecutionContext,
     ): Promise<void> {
-      const tokenCrypto = await createTokenCrypto(env.TOKEN_ENCRYPTION_KEY)
-      const origin = cronWebOrigin(env)
-      const cloudflareOAuth = cloudflareOAuthFromEnv(
-        env as unknown as Record<string, string | undefined>,
-        {
-          baseURL: origin ?? 'http://localhost',
-          isDev: false,
-          originConfigured: Boolean(env.BETTER_AUTH_URL || env.WEB_URL || env.CORS_ORIGIN),
-        },
-      )
-      const database = workerDatabase(env, {
-        tokenCrypto,
-        refreshConnection: createConnectionRefresh(cloudflareOAuth),
-      })
+      const database = await backgroundDatabase(env)
       const db = database.db
       // Nothing in a Worker survives between requests, so the cron is where
       // expired sessions get stopped.
@@ -343,11 +371,7 @@ export function createWorker(options: WorkerOptions = {}) {
           Promise.allSettled([
             // No request here, so no origin to fall back on: without a configured
             // web origin the links would be relative, and failures go to the Inbox only.
-            syncActiveRuns(db, {
-              emails: cronWebOrigin(env)
-                ? workerEmails(env, cronWebOrigin(env)!, createLogger('cron')).emails
-                : undefined,
-            }),
+            syncActiveRuns(db, { emails: backgroundEmails(env) }),
             // The cron runs every minute; the purges and the expiry check need an hour.
             isTopOfHour(controller.scheduledTime)
               ? runMaintenance(db, new Date(), workerImageStore(env, db))

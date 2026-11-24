@@ -428,6 +428,32 @@ describe.each([
       expect(names.get('run-old')).toBe('From the deploy')
     })
 
+    it('leaves out the runs on a provider that is excepted, and keeps one whose account is gone', async () => {
+      await h.adapter.createConnection(write())
+      const base = {
+        workflowId: 'wf-enrich',
+        versionId: 'v-enrich-2',
+        versionNumber: 2,
+        status: 'running',
+      }
+      await h.adapter.createRun({ ...base, id: 'run-here', connectionId: 'c-1', instanceId: 'i-1' })
+      await h.adapter.createRun({ ...base, id: 'run-lost', connectionId: 'c-1', instanceId: 'i-2' })
+      await h.db
+        .update(h.schema.workflowRuns)
+        .set({ connectionId: null })
+        .where(eq(h.schema.workflowRuns.id, 'run-lost'))
+      const listed = await h.adapter.listActiveRunsForSyncWithAccounts()
+      const provider = listed.find((e) => e.entry.run.id === 'run-here')!.connection!.provider
+      const ids = async (except: string[]) =>
+        (await h.adapter.listActiveRunsForSyncWithAccounts(undefined, except))
+          .map((e) => e.entry.run.id)
+          .filter((id) => id === 'run-here' || id === 'run-lost')
+          .sort()
+      expect(await ids([])).toEqual(['run-here', 'run-lost'])
+      expect(await ids(['no-such-provider'])).toEqual(['run-here', 'run-lost'])
+      expect(await ids([provider])).toEqual(['run-lost'])
+    })
+
     it('reads what run control needs in one go, the account only when it is the organization’s', async () => {
       await h.adapter.createConnection(write())
       await h.db
@@ -472,6 +498,8 @@ describe.each([
         status: 'running',
       })
       const found = await h.adapter.getRunForSyncWithAccount('run-s', 'wf-enrich', 'org-acme')
+      // What the workflow is comes with it: a function's runs are calls, never read back.
+      expect(found?.entry.workflowKind).toBe('workflow')
       expect(found?.entry.run.id).toBe('run-s')
       expect(found?.entry.workflowName).toBe('Lead enrichment')
       expect(found?.connection?.credentials).toBe(CREDS)
