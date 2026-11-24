@@ -230,6 +230,18 @@ export interface ExtensionHooks {
     projectId: string
     userId: string
   }) => Promise<void>
+  /**
+   * A key, or one of its scopes, was revoked: whatever remembers what the key
+   * may do should forget it. Keys the revoked one created stop working with
+   * it and are not named here.
+   */
+  apiKeyRevoked?: (event: {
+    db: DatabaseAdapter
+    organizationId: string
+    keyId: string
+    /** The stored hash of the key, as `Authorization: Bearer` values are matched. */
+    keyHash: string
+  }) => Promise<void>
 }
 
 /**

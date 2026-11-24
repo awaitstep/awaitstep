@@ -1,3 +1,4 @@
+import { apiKeyRevoked } from '../lib/extension-hooks.js'
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { nanoid } from 'nanoid'
@@ -273,6 +274,11 @@ apiKeys.delete('/:id', async (c) => {
   if (!can.allowed) return c.json({ error: can.reason ?? 'Forbidden' }, 403)
   const revoked = await c.get('db').revokeApiKey(c.req.param('id'), targetOf(c, level))
   if (!revoked) return c.json({ error: 'Not found' }, 404)
+  await apiKeyRevoked(c.get('db'), {
+    organizationId: c.get('organizationId'),
+    keyId: revoked.id,
+    keyHash: revoked.keyHash,
+  })
   await recordAudit(c, {
     event: 'api_key.revoke',
     facts: { name: revoked.name },
@@ -300,6 +306,11 @@ apiKeys.delete('/:id/scope', async (c) => {
       : { level, keyId: c.req.param('id'), projectId: c.get('projectId') }
   const revoked = await c.get('db').revokeApiKeyScope(target)
   if (!revoked) return c.json({ error: 'Not found' }, 404)
+  await apiKeyRevoked(c.get('db'), {
+    organizationId: c.get('organizationId'),
+    keyId: revoked.id,
+    keyHash: revoked.keyHash,
+  })
   await recordAudit(c, {
     event: 'api_key.revoke',
     facts: { name: revoked.name },
