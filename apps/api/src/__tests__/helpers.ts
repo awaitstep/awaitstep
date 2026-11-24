@@ -2666,6 +2666,7 @@ export function createTestApp(options?: {
   disabledFeatures?: AppDeps['disabledFeatures']
   oauthReturnPath?: AppDeps['oauthReturnPath']
   acceptedAuth?: AppDeps['acceptedAuth']
+  publicRunUrl?: AppDeps['publicRunUrl']
 }) {
   seedTestProject()
 
@@ -2687,6 +2688,7 @@ export function createTestApp(options?: {
     ...(options?.disabledFeatures && { disabledFeatures: options.disabledFeatures }),
     ...(options?.oauthReturnPath !== undefined && { oauthReturnPath: options.oauthReturnPath }),
     ...(options?.acceptedAuth && { acceptedAuth: options.acceptedAuth }),
+    ...(options?.publicRunUrl !== undefined && { publicRunUrl: options.publicRunUrl }),
   })
 }
 

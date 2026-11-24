@@ -27,6 +27,7 @@ import {
   type OssFeature,
 } from '@awaitstep/ir'
 import { createAppEmails, createEmailService, type EmailService } from '../lib/email.js'
+import { checkPublicRunUrl } from '../lib/public-run-url.js'
 import { syncActiveRuns } from '../lib/run-sync.js'
 import { settleRun, type RecordedRun } from '../lib/run-settle.js'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
@@ -305,6 +306,7 @@ export function workerAppOptions(options: WorkerOptions): {
   disabledFeatures: readonly OssFeature[]
   oauthReturnPath?: string
   acceptedAuth?: ExtensionsPackage['acceptedAuth']
+  publicRunUrl?: string
 } {
   const extensions = options.extensions ?? []
   checkExtensions(extensions)
@@ -317,6 +319,9 @@ export function workerAppOptions(options: WorkerOptions): {
       oauthReturnPath: checkOAuthReturnPath(options.oauthReturnPath),
     }),
     ...(options.acceptedAuth !== undefined && { acceptedAuth: options.acceptedAuth }),
+    ...(options.publicRunUrl !== undefined && {
+      publicRunUrl: checkPublicRunUrl(options.publicRunUrl),
+    }),
   }
 }
 

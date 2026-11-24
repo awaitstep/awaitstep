@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { useInstanceStore } from '../../../stores/instance-store'
 import { runCurl, runEndpoint } from '../run-endpoint'
 
 describe('runEndpoint', () => {
@@ -9,6 +10,22 @@ describe('runEndpoint', () => {
   })
 
   it('is the path alone where there is no page to take an origin from', () => {
+    expect(runEndpoint('wf-1')).toBe('/api/run/wf-1')
+  })
+
+  it('is the instance’s own run address when it names one', () => {
+    const instance = { features: [], disabled: [] }
+    useInstanceStore.getState().setInstance({ ...instance, runUrl: 'https://run.example.com/run' })
+    try {
+      expect(runEndpoint('wf 1')).toBe('https://run.example.com/run/wf%201')
+      expect(runCurl('wf-1')).toContain("'https://run.example.com/run/wf-1'")
+      // An origin asked for by name still wins.
+      expect(runEndpoint('wf-1', 'https://app.example.com')).toBe(
+        'https://app.example.com/api/run/wf-1',
+      )
+    } finally {
+      useInstanceStore.getState().setInstance(instance)
+    }
     expect(runEndpoint('wf-1')).toBe('/api/run/wf-1')
   })
 })
