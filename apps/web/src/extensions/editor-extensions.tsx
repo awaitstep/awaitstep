@@ -9,6 +9,7 @@ interface EditorExtensionsProps {
   slot: EditorSlot
   workflowId: string
   canEdit: boolean
+  kind?: 'workflow' | 'script'
 }
 
 /**
@@ -16,7 +17,7 @@ interface EditorExtensionsProps {
  * sections on a workflow's Overview. Nothing outside
  * a workspace URL, or before its ids are known: there is no scope to hand them.
  */
-export function EditorExtensions({ slot, workflowId, canEdit }: EditorExtensionsProps) {
+export function EditorExtensions({ slot, workflowId, canEdit, kind }: EditorExtensionsProps) {
   const extensions = useEnabledExtensions()
   const scope = useEditorScope()
   const ids = useItemApiScope()
@@ -42,6 +43,7 @@ export function EditorExtensions({ slot, workflowId, canEdit }: EditorExtensions
           workspace={scope.workspace}
           ids={ids}
           canEdit={canEdit}
+          {...(kind && { kind })}
         />
       ))}
     </div>

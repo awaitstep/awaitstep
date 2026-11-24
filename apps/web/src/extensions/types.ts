@@ -116,6 +116,8 @@ export interface EditorSlotProps {
   ids: Required<ExtensionScopeIds>
   /** The viewer may change this workflow right now (role, and not an older version). */
   canEdit: boolean
+  /** Whether it is a workflow or a function, where the page knows (the Overview does). */
+  kind?: 'workflow' | 'script'
 }
 
 /** The places in the dashboard an extension can add to. */
