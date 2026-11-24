@@ -1,35 +1,12 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { Plus, X, Store, Search } from 'lucide-react'
 import type { NodeType } from '@awaitstep/ir'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { cn } from '../../lib/utils'
 import { isTypingTarget } from '../../lib/typing-target'
-import { useNodeRegistry } from '../../contexts/node-registry-context'
-import { filterNodes, paletteGroups } from '../../lib/node-categories'
 import { PaletteRow } from './node-palette-row'
-import { useWorkflowStore } from '../../stores/workflow-store'
+import { BUILTIN_IDS, usePaletteGroups } from './use-palette-groups'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
-
-// Nodes that require a durable runtime (sleeps, waiting on external events).
-// Functions run in a fetch handler with no step runner, so these are filtered
-// out — kept in sync with `validateScript` in @awaitstep/ir.
-const SCRIPT_INCOMPATIBLE_NODE_TYPES = new Set<string>(['sleep', 'sleep_until', 'wait_for_event'])
-
-const BUILTIN_IDS = new Set([
-  'step',
-  'sleep',
-  'sleep_until',
-  'branch',
-  'parallel',
-  'http_request',
-  'wait_for_event',
-  'try_catch',
-  'loop',
-  'break',
-  'sub_workflow',
-  'sub_script',
-  'race',
-])
 
 interface NodePaletteProps {
   onAddNode: (type: NodeType) => void
@@ -41,20 +18,9 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
   const open = useCanvasLayoutStore((s) => s.paletteOpen)
   const setOpen = useCanvasLayoutStore((s) => s.setPaletteOpen)
   const [searchTerm, setSearchTerm] = useState('')
-  const { registry, customNodes } = useNodeRegistry()
-  const definitions = registry.getAll()
-  const kind = useWorkflowStore((s) => s.kind)
   // Installs from the marketplace dialog refresh the registry on close; the
   // registry's window-focus refresh covers installs made in another tab.
-
-  const filteredGrouped = useMemo(() => {
-    const compatibleDefs =
-      kind === 'script'
-        ? definitions.filter((d) => !SCRIPT_INCOMPATIBLE_NODE_TYPES.has(d.id))
-        : definitions
-    const items = searchTerm ? filterNodes(compatibleDefs, searchTerm) : compatibleDefs
-    return paletteGroups(items)
-  }, [definitions, searchTerm, kind])
+  const { groups: filteredGrouped, customNodes } = usePaletteGroups(searchTerm)
 
   function handleToggle() {
     if (open) {
