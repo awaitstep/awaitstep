@@ -8,6 +8,8 @@ export interface InstanceInfo {
   features: string[]
   /** The open-source features it switches off. */
   disabled: OssFeature[]
+  /** Where other systems run a workflow, when not the API's own `/api/run`. */
+  runUrl?: string
 }
 
 const NOTHING: InstanceInfo = { features: [], disabled: [] }
@@ -22,11 +24,17 @@ export async function readInstance(fetch: Fetch): Promise<InstanceInfo> {
   try {
     const res = await fetch('/api/instance')
     if (!res.ok) return NOTHING
-    const body = (await res.json()) as { features?: unknown; disabled?: unknown } | null
+    const body = (await res.json()) as {
+      features?: unknown
+      disabled?: unknown
+      runUrl?: unknown
+    } | null
     return {
       features: Array.isArray(body?.features) ? body.features.filter(isExtensionId) : [],
       // A name this dashboard doesn't know has nothing here to hide.
       disabled: Array.isArray(body?.disabled) ? body.disabled.filter(isOssFeature) : [],
+      ...(typeof body?.runUrl === 'string' &&
+        /^https?:\/\//.test(body.runUrl) && { runUrl: body.runUrl }),
     }
   } catch {
     return NOTHING

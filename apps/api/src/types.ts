@@ -257,4 +257,6 @@ export interface ExtensionsPackage {
   oauthReturnPath?: string
   /** Who the entry lets in: sessions, API keys, or both (the default). */
   acceptedAuth?: 'both' | 'sessions' | 'keys'
+  /** Where other systems run a workflow, when not this API's own `/api/run`. */
+  publicRunUrl?: string
 }

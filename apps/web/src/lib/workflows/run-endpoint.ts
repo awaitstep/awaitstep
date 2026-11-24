@@ -1,5 +1,15 @@
 import { isBrowser } from '../utils'
 
+let runAddress: string | undefined
+
+/**
+ * An instance may run workflows at an address of its own (`GET /api/instance`):
+ * whoever reads the instance says so here, and the samples then name it.
+ */
+export function setRunAddress(url: string | undefined): void {
+  runAddress = url
+}
+
 /** The public run route, as documented for other systems (docs/api-reference.md). */
 const RUN_PATH = '/api/run'
 
@@ -9,6 +19,8 @@ const RUN_PATH = '/api/run'
  * is served at the dashboard's own origin.
  */
 export function runEndpoint(workflowId: string, origin?: string): string {
+  const elsewhere = origin === undefined ? runAddress : undefined
+  if (elsewhere) return `${elsewhere}/${encodeURIComponent(workflowId)}`
   const base = origin ?? (isBrowser ? window.location.origin : '')
   return `${base}${RUN_PATH}/${encodeURIComponent(workflowId)}`
 }

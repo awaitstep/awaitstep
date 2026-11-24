@@ -26,6 +26,7 @@ import { createRouter } from './routes/index.js'
 import { corsPolicy } from './middleware/cors-policy.js'
 import { originCheck } from './middleware/origin-check.js'
 import type { AcceptedAuth } from './middleware/auth.js'
+import { checkPublicRunUrl } from './lib/public-run-url.js'
 import { imageResponseHeaders, images } from './routes/images.js'
 import { databaseImageStore } from './lib/images.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
@@ -117,6 +118,13 @@ export interface AppDeps {
    * sign-in routes and refuses a session.
    */
   acceptedAuth?: AcceptedAuth
+  /**
+   * Where other systems run a workflow, when that is not this API's own
+   * `/api/run`: an absolute URL the workflow's id is appended to. Told to the
+   * dashboard in `GET /api/instance` → `runUrl`. Refused at startup unless
+   * it is an http(s) URL.
+   */
+  publicRunUrl?: string
 }
 
 export function createApp(deps: AppDeps) {
@@ -135,8 +143,13 @@ export function createApp(deps: AppDeps) {
   const disabledFeatures: ReadonlySet<OssFeature> = new Set(disabled)
   const oauthReturnPath =
     deps.oauthReturnPath === undefined ? undefined : checkOAuthReturnPath(deps.oauthReturnPath)
-  const instance = { features: extensions.map((extension) => extension.id), disabled }
+  const runUrl = deps.publicRunUrl === undefined ? undefined : checkPublicRunUrl(deps.publicRunUrl)
   const acceptedAuth = deps.acceptedAuth ?? 'both'
+  const instance = {
+    features: extensions.map((extension) => extension.id),
+    disabled,
+    ...(runUrl && { runUrl }),
+  }
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
