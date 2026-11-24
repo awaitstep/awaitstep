@@ -183,6 +183,9 @@ html.dark {
   --status-warning: oklch(0.78 0.12 75);
   --status-info: oklch(0.7 0.1 230);
   --node-code: oklch(0.7 0.12 250);
+  /* Links inside a loop body / a try block. Named, so an arrow's id has no spaces. */
+  --edge-body: oklch(0.7 0.12 200);
+  --edge-try: oklch(0.7 0.12 55);
   --node-timing: oklch(0.78 0.14 75);
   --node-flow: oklch(0.7 0.15 300);
   --node-parallel: oklch(0.72 0.12 185);
@@ -260,6 +263,8 @@ html.light {
   --status-warning: oklch(0.52 0.12 60);
   --status-info: oklch(0.5 0.1 230);
   --node-code: oklch(0.5 0.12 250);
+  --edge-body: oklch(0.5 0.12 200);
+  --edge-try: oklch(0.5 0.12 55);
   --node-timing: oklch(0.55 0.14 75);
   --node-flow: oklch(0.5 0.15 300);
   --node-parallel: oklch(0.5 0.12 185);

@@ -42,6 +42,7 @@ interface FakeNode {
 // React Flow needs a measured DOM; what is under test is what the preview
 // hands it and what it does with its events.
 vi.mock('@xyflow/react', () => ({
+  MarkerType: { ArrowClosed: 'arrowclosed' },
   ReactFlow: (props: {
     nodes: FakeNode[]
     onNodeClick: (e: unknown, n: FakeNode) => void

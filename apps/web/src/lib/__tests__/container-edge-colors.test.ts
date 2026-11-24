@@ -28,8 +28,8 @@ describe('withContainerEdgeColors', () => {
     const result = withContainerEdgeColors(nodes, edges)
 
     expect(result.map((e) => e.data?.['containerColor'])).toEqual([
-      'oklch(0.7 0.12 200)',
-      'oklch(0.7 0.12 200)',
+      'var(--edge-body)',
+      'var(--edge-body)',
     ])
   })
 
@@ -48,7 +48,7 @@ describe('withContainerEdgeColors', () => {
 
     const result = withContainerEdgeColors(nodes, edges)
 
-    expect(result[0]?.data?.['containerColor']).toBe('oklch(0.7 0.12 200)')
+    expect(result[0]?.data?.['containerColor']).toBe('var(--edge-body)')
     expect(result[1]?.data?.['containerColor']).toBeUndefined()
   })
 
@@ -58,7 +58,7 @@ describe('withContainerEdgeColors', () => {
 
     const result = withContainerEdgeColors(nodes, edges)
 
-    expect(result[0]?.data).toEqual({ hovered: true, containerColor: 'oklch(0.7 0.12 200)' })
+    expect(result[0]?.data).toEqual({ hovered: true, containerColor: 'var(--edge-body)' })
   })
 
   it('does not mutate the edges it was given', () => {
@@ -68,5 +68,16 @@ describe('withContainerEdgeColors', () => {
     withContainerEdgeColors(nodes, edges)
 
     expect(edges[0]?.data).toBeUndefined()
+  })
+
+  // A label is IR data; a name Object.prototype holds must not become a colour.
+  it('gives no colour to a label named like a built-in', () => {
+    const nodes = [makeNode('l1', 'loop'), makeNode('s1', 'step'), makeNode('s2', 'step')]
+    const edges = [
+      makeEdge('e1', 'l1', 's1', 'constructor'),
+      makeEdge('e2', 'l1', 's2', '__proto__'),
+    ]
+    const result = withContainerEdgeColors(nodes, edges)
+    expect(result.map((e) => e.data?.['containerColor'])).toEqual([undefined, undefined])
   })
 })

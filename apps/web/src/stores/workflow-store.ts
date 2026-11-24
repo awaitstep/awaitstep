@@ -27,10 +27,21 @@ import {
 import { buildIRFromState } from '../lib/build-ir'
 import { configDefaults } from '../lib/node-defaults'
 import { stepCodeForInline } from '../lib/step-inline'
+import { exitConnection } from '../lib/canvas/connection-rules'
+import {
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  nodeBox,
+  pinnedHandles,
+  pinnedSides,
+  retargetEdge,
+  type EntrySide,
+  type ExitSide,
+  type NodeSide,
+} from '../lib/canvas/node-sides'
+import { placeBeside } from '../lib/canvas/place-beside'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
-
-const MULTI_EDGE_TYPES = new Set(['branch', 'parallel', 'try_catch', 'loop', 'race'])
 
 const BUILTIN_FLOW_TYPES = new Set([
   'step',
@@ -58,6 +69,8 @@ interface ClipboardEdge {
   source: string
   target: string
   label?: string
+  sourceSide?: ExitSide
+  targetSide?: EntrySide
 }
 
 interface ClipboardPayload {
@@ -88,6 +101,7 @@ function buildClipboardPayload(
       source: e.source,
       target: e.target,
       ...(typeof e.label === 'string' ? { label: e.label } : {}),
+      ...pinnedSides(e),
     }))
   return { __awaitstep: CLIPBOARD_FORMAT, nodes: sourceNodes, edges: sourceEdges }
 }
@@ -112,6 +126,7 @@ function instantiateClones(
       source: idMap.get(e.source)!,
       target: idMap.get(e.target)!,
       ...(e.label ? { label: e.label } : {}),
+      ...pinnedHandles(e),
     }))
   return { nodes: newNodes, edges: newEdges }
 }
@@ -218,6 +233,18 @@ interface WorkflowState {
     edgeId: string,
     registry?: NodeRegistry,
   ) => void
+  /**
+   * Adds a node from one of `nodeId`'s sides (a + on the canvas) and joins it
+   * up: from an exit, `nodeId → new`; from an entry, `new → nodeId`, with
+   * every edge that came into `nodeId` arriving at the new node instead.
+   * Returns the new id, or null when that side cannot take one more edge.
+   */
+  addNodeFromSide: (
+    nodeId: string,
+    side: NodeSide,
+    type: NodeType,
+    registry?: NodeRegistry,
+  ) => string | null
   updateNodeData: (nodeId: string, data: Partial<WorkflowNode>) => void
   /** Renames a node; a step's module function follows when it still carried the old name. */
   renameNode: (nodeId: string, name: string) => void
@@ -403,6 +430,11 @@ function undoableNode(node: FlowNode): FlowNode {
   }
 }
 
+function withoutHandles(edge: Edge): Edge {
+  const { sourceHandle: _sourceHandle, targetHandle: _targetHandle, ...rest } = edge
+  return rest
+}
+
 function undoableEdge(edge: Edge): Edge {
   return {
     id: edge.id,
@@ -584,52 +616,116 @@ export const useWorkflowStore = create<WorkflowState>()(
       onConnect: (connection) => {
         if (get().readOnly) return
         const { nodes, edges } = get()
-        const sourceNode = nodes.find((n) => n.id === connection.source)
-        if (!sourceNode) {
-          set({ edges: addEdge({ ...connection, id: nanoid() }, edges), isDirty: true })
+        // A dragged edge keeps the sides it was dragged between (saved as
+        // the IR edge's sourceSide / targetSide); stray handle ids are dropped.
+        const sides = pinnedSides(connection)
+        const ends = {
+          source: connection.source,
+          target: connection.target,
+          ...pinnedHandles(sides),
+        }
+        // Dragging again between two joined nodes moves the edge to the new
+        // sides; it never adds a second edge.
+        const existing = edges.find(
+          (e) => e.source === connection.source && e.target === connection.target,
+        )
+        if (existing) {
+          const same =
+            (existing.sourceHandle ?? undefined) === ends.sourceHandle &&
+            (existing.targetHandle ?? undefined) === ends.targetHandle
+          if (same) return
+          set({
+            edges: edges.map((e) => (e === existing ? { ...withoutHandles(e), ...ends } : e)),
+            isDirty: true,
+          })
           return
         }
-
-        const type = sourceNode.data.irNode.type
-
-        // Collect outgoing edges once — used by both linear check and label logic
-        let outgoing: typeof edges | undefined
-        if (MULTI_EDGE_TYPES.has(type)) {
-          outgoing = edges.filter((e) => e.source === connection.source)
-        } else {
-          if (edges.some((e) => e.source === connection.source)) return
+        const sourceNode = nodes.find((n) => n.id === connection.source)
+        if (!sourceNode) {
+          set({ edges: addEdge({ ...ends, id: nanoid() }, edges), isDirty: true })
+          return
         }
+        const outgoing = edges.filter((e) => e.source === connection.source)
+        const exit = exitConnection(sourceNode.data.irNode, outgoing)
+        if (!exit.allowed) return
 
-        // Auto-label edges from container nodes
-        let label: string | undefined
-        if (type === 'loop') {
-          const labels = new Set(outgoing!.map((e) => e.label))
-          if (!labels.has('body')) label = 'body'
-          else if (!labels.has('then')) label = 'then'
-          else return
-        } else if (type === 'break') {
-          if (outgoing!.length > 0) return
-          if (String(sourceNode.data.irNode.data.condition ?? '').trim()) label = 'else'
-        } else if (type === 'try_catch') {
-          const labels = new Set(outgoing!.map((e) => e.label))
-          if (!labels.has('try')) label = 'try'
-          else if (!labels.has('catch')) label = 'catch'
-          else if (!labels.has('finally')) label = 'finally'
-          else if (!labels.has('then')) label = 'then'
-          else return
-        } else if (type === 'branch') {
-          // Per-branch wiring (yes/no/etc.) is done via the config panel, which
-          // sets explicit branch labels. A direct drag from the branch's source
-          // handle is for the continuation path that runs after the if/else
-          // block returns — auto-label as 'then'. Block if one already exists.
-          const labels = new Set(outgoing!.map((e) => e.label))
-          if (!labels.has('then')) label = 'then'
-          else return
-        }
-
-        const newEdge = { ...connection, id: nanoid(), ...(label ? { label } : {}) }
+        const newEdge = { ...ends, id: nanoid(), ...(exit.label ? { label: exit.label } : {}) }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- addEdge's internal type is stricter than Edge[]
         set({ edges: addEdge(newEdge, edges as any) as Edge[], isDirty: true })
+      },
+
+      addNodeFromSide: (nodeId, side, type, registry) => {
+        if (get().readOnly) return null
+        const { nodes, edges } = get()
+        const anchor = nodes.find((n) => n.id === nodeId)
+        if (!anchor) return null
+        const isExit = side === 'bottom' || side === 'right'
+        const outgoing = edges.filter((e) => e.source === nodeId)
+        const exit = isExit ? exitConnection(anchor.data.irNode, outgoing) : null
+        if (exit && !exit.allowed) return null
+
+        const position = placeBeside(
+          nodeBox(anchor),
+          side,
+          { width: NODE_WIDTH, height: NODE_HEIGHT },
+          nodes.filter((n) => n.id !== nodeId).map(nodeBox),
+        )
+        const irNode = createDefaultNode(
+          type,
+          position,
+          registry,
+          nodes.map((n) => n.data.irNode),
+        )
+        const flowNode: FlowNode = {
+          id: irNode.id,
+          type: toFlowType(irNode.type),
+          position,
+          data: { irNode },
+          selected: true,
+        }
+        const deselected = nodes.map((n) => (n.selected ? { ...n, selected: false } : n))
+
+        // An entry + goes right before the node: every way in now arrives at
+        // the new node instead, keeping its label, and the new node leads on.
+        const incoming = isExit ? [] : edges.filter((e) => e.target === nodeId)
+        let nextNodes = [...deselected, flowNode]
+        let nextEdges: Edge[]
+        if (exit) {
+          nextEdges = [
+            ...edges,
+            {
+              id: nanoid(),
+              source: nodeId,
+              target: irNode.id,
+              ...(exit.label ? { label: exit.label } : {}),
+            },
+          ]
+        } else {
+          nextEdges = [
+            // The side it entered by belonged to the old node; the new one's is
+            // worked out from where it sits.
+            ...edges.map((e) => (e.target === nodeId ? retargetEdge(e, irNode.id) : e)),
+            { id: nanoid(), source: irNode.id, target: nodeId },
+          ]
+          // A wait names its arm's first node: on those arms, that is now the new node.
+          for (const edge of incoming) {
+            const label = typeof edge.label === 'string' ? edge.label : undefined
+            nextNodes = nextNodes.map((n) => {
+              if (n.id !== edge.source) return n
+              const moved = followWaitArm(n.data.irNode, label, nodeId, irNode.id)
+              return moved === n.data.irNode ? n : { ...n, data: { ...n.data, irNode: moved } }
+            })
+          }
+        }
+
+        set({
+          nodes: nextNodes,
+          edges: nextEdges,
+          selectedNodeId: irNode.id,
+          selectedEdgeId: null,
+          isDirty: true,
+        })
+        return irNode.id
       },
 
       addNode: (type, position, registry) => {
@@ -670,8 +766,21 @@ export const useWorkflowStore = create<WorkflowState>()(
 
         const newEdges = edges.filter((e) => e.id !== edgeId)
         newEdges.push(
-          { id: nanoid(), source: edge.source, target: irNode.id, label: edge.label },
-          { id: nanoid(), source: irNode.id, target: edge.target },
+          // Each half keeps the end of the old edge it still has: the exit
+          // side it left by, the entry side it arrived by.
+          {
+            id: nanoid(),
+            source: edge.source,
+            target: irNode.id,
+            label: edge.label,
+            ...(edge.sourceHandle != null && { sourceHandle: edge.sourceHandle }),
+          },
+          {
+            id: nanoid(),
+            source: irNode.id,
+            target: edge.target,
+            ...(edge.targetHandle != null && { targetHandle: edge.targetHandle }),
+          },
         )
         // A wait also names its arm's first node in a field the generated code
         // reads first: it moves to the new node, or the new node is skipped.

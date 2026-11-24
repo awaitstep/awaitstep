@@ -1,16 +1,25 @@
-import { Handle, Position, useNodeId } from '@xyflow/react'
+import { useNodeId } from '@xyflow/react'
 import { useCallback, type ReactNode } from 'react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
-import { useRunOverlayStore } from '../../stores/run-overlay-store'
+import { getNodeVisuals } from '../../lib/node-icon-map'
+import { useNodeRegistry } from '../../contexts/node-registry-context'
+import { useRunOverlayStore, type StepStatus } from '../../stores/run-overlay-store'
 import { useShallow } from 'zustand/react/shallow'
 import { useWorkflowStore } from '../../stores/workflow-store'
+import { NodeHandles } from './node-handles'
 
 interface NodeBaseProps {
   label: string
-  icon: ReactNode
-  accent: string
+  /** The IR node type: picks the icon, the kind colour and the kind line. */
+  nodeType: string
+  /** Replaces the kind line (a Library node reads "Custom node"). */
+  kind?: string
+  /** A short chip at the right, such as a Library node's version. */
+  chip?: string
   selected?: boolean
   warning?: boolean
+  /** One line of the node's config, under the header. */
   children?: ReactNode
 }
 
@@ -43,104 +52,121 @@ function useNodeIssue(
   )
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  complete: 'border-status-success/60 shadow-[0_0_6px_oklch(0.72_0.14_155/0.2)]',
-  running: 'border-status-info/60 shadow-[0_0_6px_oklch(0.7_0.1_230/0.2)] animate-pulse',
-  errored: 'border-status-error/60 shadow-[0_0_6px_oklch(0.68_0.17_22/0.2)]',
-  timed_out: 'border-status-warning/60 shadow-[0_0_6px_oklch(0.8_0.15_80/0.2)]',
-  pending: 'border-border opacity-60',
-  skipped: 'border-border/50 opacity-30',
+const STATUS_BORDER: Record<StepStatus, string> = {
+  complete: 'border-status-success/50',
+  running: 'border-status-info/65 ring-[3px] ring-status-info/15',
+  errored: 'border-status-error/65 ring-[3px] ring-status-error/12',
+  timed_out: 'border-status-warning/65 ring-[3px] ring-status-warning/12',
+  pending: 'opacity-60',
+  skipped: 'opacity-30',
 }
 
-export function NodeBase({ label, icon, accent, selected, warning, children }: NodeBaseProps) {
+/** The chip a run puts in the node's header (board 31a, "During a run"). */
+const STATUS_CHIP: Partial<Record<StepStatus, { text: string; className: string }>> = {
+  running: { text: 'Running', className: 'bg-status-info/15 text-status-info' },
+  complete: { text: 'Done', className: 'bg-status-success/15 text-status-success' },
+  errored: { text: 'Failed', className: 'bg-status-error/15 text-status-error' },
+  timed_out: { text: 'Timed out', className: 'bg-status-warning/15 text-status-warning' },
+}
+
+/** A canvas node (board 31a): kind rail, icon tile, name over kind, one config line. */
+export function NodeBase({
+  label,
+  nodeType,
+  kind,
+  chip,
+  selected = false,
+  warning,
+  children,
+}: NodeBaseProps) {
   const nodeId = useNodeId()
-  const hasIncoming = useWorkflowStore(
-    useCallback((s) => s.edges.some((e) => e.target === nodeId), [nodeId]),
-  )
-  const hasOutgoing = useWorkflowStore(
-    useCallback((s) => s.edges.some((e) => e.source === nodeId), [nodeId]),
-  )
+  const { registry } = useNodeRegistry()
+  const definition = registry.get(nodeType)
+  const visuals = getNodeVisuals(nodeType, definition?.icon)
+  const kindLine = kind ?? definition?.name ?? nodeType
   const { active: overlayActive, nodeStatuses } = useRunOverlayStore()
   const stepStatus =
     nodeId && Object.hasOwn(nodeStatuses, nodeId) ? nodeStatuses[nodeId] : undefined
+  const runStatus = overlayActive ? stepStatus : undefined
+  const statusChip = runStatus ? STATUS_CHIP[runStatus] : undefined
   const issue = useNodeIssue(nodeId)
+  const badge = overlayActive
+    ? null
+    : issue
+      ? {
+          className: issue.severity === 'error' ? 'bg-status-error' : 'bg-status-warning',
+          title: issue.message,
+        }
+      : warning
+        ? { className: 'bg-status-warning', title: 'Unknown node type' }
+        : null
 
   return (
     <div
       className={cn(
-        'group relative w-[120px] rounded border border-border bg-card shadow-md transition-[color,background-color,border-color,box-shadow,opacity] duration-150',
-        selected && 'border-primary/60 shadow-lg ring-1 ring-primary/30',
-        overlayActive && stepStatus && !selected && STATUS_STYLES[stepStatus],
+        'group relative w-[220px] rounded-[12px] border border-border bg-card transition-[border-color,box-shadow,opacity] duration-150 hover:shadow-[0_8px_24px_rgb(0_0_0/0.45)]',
+        runStatus && !selected && STATUS_BORDER[runStatus],
+        selected && 'border-primary ring-[3px] ring-primary/20',
         // A run overlay owns the border while it is active; outside a run,
-        // validation errors take precedence over the selected ring.
+        // validation errors take precedence over the selected border.
         !overlayActive && issue?.severity === 'error' && 'border-status-error/70',
       )}
     >
-      {issue && !overlayActive ? (
-        <div
-          className={cn(
-            'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
-            issue.severity === 'error' ? 'bg-status-error' : 'bg-status-warning',
-          )}
-          title={issue.message}
-        />
-      ) : (
-        warning &&
-        !overlayActive && (
-          <div
-            className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card bg-status-warning"
-            title="Unknown node type"
-          />
-        )
-      )}
-
-      {overlayActive && stepStatus && stepStatus !== 'pending' && stepStatus !== 'skipped' && (
-        <div
-          className={cn(
-            'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
-            stepStatus === 'complete' && 'bg-status-success',
-            stepStatus === 'running' && 'bg-status-info animate-pulse',
-            stepStatus === 'errored' && 'bg-status-error',
-            stepStatus === 'timed_out' && 'bg-status-warning',
-          )}
-          title={stepStatus === 'timed_out' ? 'Timed out waiting for the event' : undefined}
-        />
-      )}
-
-      <Handle
-        type="target"
-        position={Position.Top}
-        className={cn(
-          '!-top-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary-ink',
-          hasIncoming
-            ? '!bg-muted-foreground'
-            : '!bg-transparent !border-transparent group-hover:!bg-primary-ink group-hover:!border-card',
-        )}
+      <span
+        aria-hidden
+        className={cn('absolute bottom-[9px] left-0 top-[9px] w-[2px] rounded-full', visuals.rail)}
       />
+      {badge && (
+        <div
+          className={cn(
+            'absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border border-card',
+            badge.className,
+          )}
+          title={badge.title}
+        />
+      )}
 
-      <div className="flex items-center gap-1 px-1.5 py-1">
-        <div className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded-sm', accent)}>
-          {icon}
+      <div className="flex items-center gap-2 py-[9px] pl-3 pr-2.5">
+        <div
+          className={cn(
+            'flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] [&_img]:size-3.5 [&_svg]:size-3.5',
+            visuals.accent,
+          )}
+        >
+          {visuals.paletteIcon}
         </div>
-        <span className="truncate text-2xs font-medium leading-tight text-foreground">{label}</span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-sm font-semibold leading-tight text-foreground">
+            {label}
+          </span>
+          <span className="truncate text-2xs leading-tight text-muted-foreground">{kindLine}</span>
+        </div>
+        {statusChip ? (
+          <span
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-2xs',
+              statusChip.className,
+            )}
+          >
+            {runStatus === 'running' && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
+            {statusChip.text}
+          </span>
+        ) : (
+          chip && (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 font-mono text-2xs text-muted-foreground">
+              {chip}
+            </span>
+          )
+        )}
       </div>
 
       {children && (
-        <div className="border-t border-border px-1.5 py-0.5 text-2xs leading-tight text-muted-foreground/60 truncate">
+        <div className="truncate border-t border-border/60 py-1.5 pl-3 pr-2.5 font-mono text-2xs text-muted-foreground">
           {children}
         </div>
       )}
 
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className={cn(
-          '!-bottom-[3px] !h-[6px] !w-[6px] !rounded-full !border-[1px] !border-card transition-colors group-hover:!bg-primary-ink',
-          hasOutgoing
-            ? '!bg-muted-foreground'
-            : '!bg-transparent !border-transparent group-hover:!bg-primary-ink group-hover:!border-card',
-        )}
-      />
+      {nodeId && <NodeHandles nodeId={nodeId} nodeName={label} selected={selected} />}
     </div>
   )
 }

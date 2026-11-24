@@ -14,6 +14,8 @@ import '@xyflow/react/dist/style.css'
 import { Maximize2, Workflow, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { nodeTypes } from '../canvas/nodes'
+import { withEdgeSides } from '../../lib/canvas/node-sides'
+import { EDGE_COLOR, withFlow } from '../../lib/canvas/edge-flow'
 import { LabeledEdge } from '../canvas/labeled-edge'
 import { withContainerEdgeColors } from '../../lib/container-edge-colors'
 import { useWorkflowStore } from '../../stores/workflow-store'
@@ -77,7 +79,6 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
   const activePath = useIdeStore((s) => s.activePath)
   const selectedNodeId = useIdeStore((s) => s.selectedNodeId)
   const togglePreview = useIdeLayoutStore((s) => s.togglePreview)
-  const styledEdges = useMemo(() => withContainerEdgeColors(graphNodes, edges), [graphNodes, edges])
   const switchView = useSwitchView(workflowId)
   const hideHint = formatShortcut(IDE_SHORTCUTS.togglePreview, isMacPlatform())
 
@@ -94,6 +95,11 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
     [graphNodes, selectedNodeId],
   )
   const { nodes, onNodesChange } = useMeasuredNodes(selectable)
+  // Sides from the measured nodes: the sizes React Flow draws them at.
+  const styledEdges = useMemo(
+    () => withFlow(withEdgeSides(nodes, withContainerEdgeColors(graphNodes, edges))),
+    [nodes, graphNodes, edges],
+  )
   const outlines = outlineCss(OUTLINE_SCOPE, highlight.primary, highlight.usedBy)
   const selectedExists = selectedNodeId !== null && graphNodes.some((n) => n.id === selectedNodeId)
   const syncLabel = previewSyncLabel({ graphVersionId, codeVersionId, versions })
@@ -195,7 +201,7 @@ export function CanvasPreview({ workflowId, versionParam }: CanvasPreviewProps) 
             zoomOnScroll
             defaultEdgeOptions={{
               type: 'smoothstep',
-              style: { stroke: 'var(--muted-foreground)', strokeWidth: 0.5 },
+              style: { stroke: EDGE_COLOR, strokeWidth: 1.25 },
             }}
             proOptions={{ hideAttribution: true }}
             className="!bg-background"

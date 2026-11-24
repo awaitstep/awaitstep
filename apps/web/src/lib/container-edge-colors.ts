@@ -4,10 +4,10 @@ import type { FlowNode } from '../stores/workflow-store'
 const CONTAINER_TYPES = new Set(['loop', 'try_catch'])
 
 const INLINE_LABEL_COLORS: Record<string, string> = {
-  body: 'oklch(0.7 0.12 200)',
-  try: 'oklch(0.7 0.12 55)',
-  catch: 'oklch(0.7 0.12 55)',
-  finally: 'oklch(0.7 0.12 55)',
+  body: 'var(--edge-body)',
+  try: 'var(--edge-try)',
+  catch: 'var(--edge-try)',
+  finally: 'var(--edge-try)',
 }
 
 /**
@@ -39,7 +39,11 @@ export function buildContainerEdgeColors(nodes: FlowNode[], edges: Edge[]): Map<
   for (const e of edges) {
     const sourceType = nodeTypeMap.get(e.source)
     if (!sourceType || !CONTAINER_TYPES.has(sourceType)) continue
-    const color = typeof e.label === 'string' ? INLINE_LABEL_COLORS[e.label] : undefined
+    // A label is IR data: `constructor` must not find Object's own function.
+    const color =
+      typeof e.label === 'string' && Object.hasOwn(INLINE_LABEL_COLORS, e.label)
+        ? INLINE_LABEL_COLORS[e.label]
+        : undefined
     if (!color) continue
 
     colors.set(e.id, color)

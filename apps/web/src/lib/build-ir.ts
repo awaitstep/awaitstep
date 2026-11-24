@@ -1,6 +1,7 @@
 import { IR_VERSION } from '@awaitstep/ir'
 import type { EnvDeclaration, WorkflowRuntime } from '@awaitstep/ir'
 import { splitSecretName } from './env-var-parser'
+import { pinnedSides } from './canvas/node-sides'
 import type { useWorkflowStore } from '../stores/workflow-store'
 
 type StoreState = ReturnType<typeof useWorkflowStore.getState>
@@ -84,6 +85,7 @@ export function buildIRFromState(state: BuildState) {
     source: e.source,
     target: e.target,
     ...(e.label ? { label: String(e.label) } : {}),
+    ...pinnedSides(e),
   }))
   const runtime = buildRuntime(state)
   const base = {

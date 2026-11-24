@@ -4,12 +4,17 @@ import { ReactFlow, Background, BackgroundVariant, type NodeTypes } from '@xyflo
 import '@xyflow/react/dist/style.css'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
 import { nodeTypes } from '../canvas/nodes'
+import { pinnedHandles, withEdgeSides } from '../../lib/canvas/node-sides'
+import { flowingEdgeIds, runningNodeIds, withFlow } from '../../lib/canvas/edge-flow'
 import { LabeledEdge } from '../canvas/labeled-edge'
 import { toFlowType, type FlowNode } from '../../stores/workflow-store'
 import { useRunOverlayStore, type StepStatus } from '../../stores/run-overlay-store'
 import { NodeRegistryProvider } from '../../contexts/node-registry-context'
 
 const edgeTypes = { smoothstep: LabeledEdge }
+const RUN_EDGE_COLOR = 'oklch(0.5 0 0)'
+// Fitting never zooms past 100%, as on the editor canvas.
+const FIT_VIEW_OPTIONS = { maxZoom: 1 }
 
 interface RunCanvasPreviewProps {
   /** The run's workflow: its marketplace and Library nodes draw with their own icons. */
@@ -48,25 +53,37 @@ export function RunCanvasPreview({ workflowId, ir, nodeStatuses }: RunCanvasPrev
         source: e.source,
         target: e.target,
         type: 'smoothstep' as const,
-        animated: false,
         label: e.label,
-        style: { stroke: 'oklch(0.5 0 0)', strokeWidth: 1.5 },
+        ...pinnedHandles(e),
+        style: { stroke: RUN_EDGE_COLOR, strokeWidth: 1.5 },
       }))
 
-      return { nodes: flowNodes, edges: flowEdges }
+      return { nodes: flowNodes, edges: withEdgeSides(flowNodes, flowEdges) }
     } catch {
       return { nodes: [], edges: [] }
     }
   }, [ir])
 
+  // Arrows on every link, and dashes moving into the steps that are running.
+  const flowEdges = useMemo(
+    () =>
+      withFlow(
+        edges,
+        flowingEdgeIds(edges, [], runningNodeIds(true, nodeStatuses ?? {})),
+        RUN_EDGE_COLOR,
+      ),
+    [edges, nodeStatuses],
+  )
+
   return (
     <NodeRegistryProvider workflowId={workflowId}>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={flowEdges}
         nodeTypes={nodeTypes as NodeTypes}
         edgeTypes={edgeTypes}
         fitView
+        fitViewOptions={FIT_VIEW_OPTIONS}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}

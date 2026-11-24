@@ -33,6 +33,7 @@ const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 import type { BranchCondition, ConfigField, WorkflowNode } from '@awaitstep/ir'
 import { useNodeExpressionErrors } from '../../hooks/use-node-expression-errors'
 import { isBuiltinNodeType } from '@awaitstep/ir'
+import { retargetEdge } from '../../lib/canvas/node-sides'
 
 const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 
@@ -141,7 +142,7 @@ const storeWriter: NodeWriter = {
       const updated = byId.get(edge.id)
       if (!updated) return []
       byId.delete(edge.id)
-      return [{ ...edge, target: updated.target, label: updated.label }]
+      return [{ ...retargetEdge(edge, updated.target), label: updated.label }]
     })
     const added = [...byId.values()].map((edge) => ({
       id: edge.id,

@@ -86,3 +86,20 @@ describe('buildIRFromState — runtime block', () => {
     expect('runtime' in ir).toBe(false)
   })
 })
+
+describe('buildIRFromState — edges', () => {
+  it('saves the sides a person dragged an edge between, and no handle ids', () => {
+    const ir = buildIRFromState({
+      ...baseState,
+      nodes: [node, { ...node, id: 'n2', data: { irNode: { ...node.data.irNode, id: 'n2' } } }],
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2', sourceHandle: 'out-right', targetHandle: 'in-top' },
+        { id: 'e2', source: 'n2', target: 'n1' },
+      ],
+    } as never)
+    expect(ir.edges).toEqual([
+      { id: 'e1', source: 'n1', target: 'n2', sourceSide: 'right', targetSide: 'top' },
+      { id: 'e2', source: 'n2', target: 'n1' },
+    ])
+  })
+})

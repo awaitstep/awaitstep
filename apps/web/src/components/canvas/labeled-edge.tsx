@@ -1,5 +1,6 @@
 import { memo } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react'
+import { EDGE_HIGHLIGHT_COLOR } from '../../lib/canvas/edge-flow'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from '@xyflow/react'
 
 export const LabeledEdge = memo(function LabeledEdge({
   id,
@@ -14,7 +15,7 @@ export const LabeledEdge = memo(function LabeledEdge({
   style,
   markerEnd,
 }: EdgeProps) {
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
     sourceY,
     targetX,
@@ -25,15 +26,15 @@ export const LabeledEdge = memo(function LabeledEdge({
 
   const hovered = data?.hovered === true
   const highlighted = data?.selected === true || hovered
-  const containerColor = (data?.containerColor as string) ?? undefined
+  const containerColor = typeof data?.containerColor === 'string' ? data.containerColor : undefined
 
   const edgeStyle = highlighted
-    ? { ...style, stroke: 'oklch(0.696 0.17 162.48)', strokeWidth: 2.5 }
+    ? { ...style, stroke: EDGE_HIGHLIGHT_COLOR, strokeWidth: 2.5 }
     : containerColor
       ? { ...style, stroke: containerColor, strokeWidth: 1.5 }
       : style
 
-  const labelColor = highlighted ? 'oklch(0.696 0.17 162.48)' : (containerColor ?? undefined)
+  const labelColor = highlighted ? EDGE_HIGHLIGHT_COLOR : (containerColor ?? undefined)
 
   return (
     <>
@@ -47,7 +48,7 @@ export const LabeledEdge = memo(function LabeledEdge({
               ...(labelColor
                 ? {
                     color: labelColor,
-                    borderColor: labelColor.replace(')', ' / 0.4)'),
+                    borderColor: `color-mix(in oklch, ${labelColor} 40%, transparent)`,
                   }
                 : {}),
             }}

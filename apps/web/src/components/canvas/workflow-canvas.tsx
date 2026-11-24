@@ -9,6 +9,8 @@ import {
   useReactFlow,
   type ReactFlowInstance,
   type NodeTypes,
+  type Connection,
+  type Edge,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { actionToast } from '../../lib/action-toast'
@@ -16,8 +18,21 @@ import { isTypingTarget } from '../../lib/typing-target'
 import type { NodeType } from '@awaitstep/ir'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
-import { validateNode } from './node-config-panel'
+import { canLeaveSelectedNode } from './leave-guard'
 import { findNearestEdge } from '../../lib/edge-proximity'
+import { withEdgeSides } from '../../lib/canvas/node-sides'
+import {
+  arrowMarker,
+  EDGE_COLOR,
+  edgeColor,
+  flowingEdgeIds,
+  runningNodeIds,
+} from '../../lib/canvas/edge-flow'
+import { useRunOverlayStore } from '../../stores/run-overlay-store'
+import { useShallow } from 'zustand/react/shallow'
+import { connectionFits } from '../../lib/canvas/connection-rules'
+import { CANVAS_GRID } from '../../lib/canvas/place-beside'
+import { reuseUnchanged } from '../../lib/canvas/stable-edges'
 import { useNodeRegistry } from '../../contexts/node-registry-context'
 import { nodeTypes } from './nodes'
 import { LabeledEdge } from './labeled-edge'
@@ -28,6 +43,13 @@ import { LastRunOverlay } from './last-run-overlay'
 import { useWorkflowTypeContext } from '../../lib/monaco/use-workflow-type-context'
 
 const edgeTypes = { smoothstep: LabeledEdge }
+
+// Fitting a small workflow never zooms past 100%, so nodes open at their own
+// size instead of blown up to fill the screen.
+const FIT_VIEW_OPTIONS = { maxZoom: 1 }
+
+// The grid the + places new nodes on, so dragged and added nodes line up.
+const SNAP_GRID: [number, number] = [CANVAS_GRID, CANVAS_GRID]
 
 interface WorkflowCanvasProps {
   /** Opens centred on this node instead of fitting the whole graph. Unknown ids are ignored. */
@@ -54,8 +76,8 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     insertNodeOnEdge,
     selectNode,
     selectEdge,
-    selectedNodeId,
     selectedEdgeId,
+    selectedNodeId,
     duplicateNodes,
     copyNodesToClipboard,
     pasteNodesFromClipboard,
@@ -65,6 +87,14 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
   const { registry } = useNodeRegistry()
   const focusedNodeExists = focusNodeId !== undefined && nodes.some((n) => n.id === focusNodeId)
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null)
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  const runOverlay = useRunOverlayStore(
+    useShallow((s) => ({ active: s.active, nodeStatuses: s.nodeStatuses })),
+  )
+  const running = useMemo(
+    () => runningNodeIds(runOverlay.active, runOverlay.nodeStatuses),
+    [runOverlay.active, runOverlay.nodeStatuses],
+  )
   const [contextMenu, setContextMenu] = useState<
     | { type: 'node'; x: number; y: number; nodeId: string }
     | { type: 'pane'; x: number; y: number; flowPosition: { x: number; y: number } }
@@ -73,20 +103,9 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
 
   const validatedSelectNode = useCallback(
     (nodeId: string | null) => {
-      if (selectedNodeId && nodeId !== selectedNodeId) {
-        const currentNode = useWorkflowStore.getState().nodes.find((n) => n.id === selectedNodeId)
-        if (currentNode) {
-          const errors = validateNode(currentNode.data.irNode)
-          if (errors.length > 0) {
-            // The step's form marks no field, so the reason rides as the description (D-AT-4).
-            actionToast.error('Fix this step before leaving it', { description: errors[0] })
-            return
-          }
-        }
-      }
-      selectNode(nodeId)
+      if (canLeaveSelectedNode(nodeId)) selectNode(nodeId)
     },
-    [selectedNodeId, selectNode],
+    [selectNode],
   )
 
   const onDragOver = useCallback(
@@ -128,6 +147,12 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
 
   const onDragLeave = useCallback(() => {
     setHoveredEdgeId(null)
+  }, [])
+
+  // A drag the store would turn away shows as refused while it is dragged.
+  const isValidConnection = useCallback((connection: Connection | Edge) => {
+    const { nodes: current, edges: currentEdges } = useWorkflowStore.getState()
+    return connectionFits(current, currentEdges, connection)
   }, [])
 
   const getActiveSelection = useCallback(() => {
@@ -286,17 +311,29 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     return colors
   }, [nodes, edges])
 
+  // Each edge joins the sides a person dragged it between, or else the ones
+  // its two nodes' positions call for (board 31b), worked out on every
+  // render so an unpinned edge follows a drag live.
+  const prevStyledRef = useRef<typeof edges>([])
+  // Each link points at its target, and the links around the node in focus
+  // (or into a running step) show dashes moving the way the run goes.
   const styledEdges = useMemo(() => {
-    const hasContainerColors = containerEdgeColors.size > 0
-    if (!hoveredEdgeId && !selectedEdgeId && !hasContainerColors) return edges
-
-    return edges.map((e) => {
+    // No mouseleave fires for a node deleted under the pointer, so a hovered
+    // id counts only while its node is there (an undo brings the id back).
+    const hovered =
+      hoveredNodeId && nodes.some((n) => n.id === hoveredNodeId) ? hoveredNodeId : null
+    const flowing = flowingEdgeIds(edges, [selectedNodeId, hovered], running)
+    const next = withEdgeSides(nodes, edges).map((e) => {
       const hovered = e.id === hoveredEdgeId
       const selected = e.id === selectedEdgeId
-      const containerColor = hasContainerColors ? containerEdgeColors.get(e.id) : undefined
-      if (!hovered && !selected && !containerColor) return e
+      const containerColor = containerEdgeColors.get(e.id)
+      const markerEnd = arrowMarker(edgeColor({ highlighted: hovered || selected, containerColor }))
+      const animated = flowing.has(e.id)
+      if (!hovered && !selected && !containerColor) return { ...e, markerEnd, animated }
       return {
         ...e,
+        markerEnd,
+        animated,
         data: {
           ...e.data,
           ...(hovered && { hovered: true }),
@@ -305,7 +342,24 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         },
       }
     })
-  }, [edges, hoveredEdgeId, selectedEdgeId, containerEdgeColors])
+    const stable = reuseUnchanged(prevStyledRef.current, next)
+    prevStyledRef.current = stable
+    return stable
+  }, [
+    nodes,
+    edges,
+    hoveredEdgeId,
+    selectedEdgeId,
+    selectedNodeId,
+    hoveredNodeId,
+    running,
+    containerEdgeColors,
+  ])
+
+  const handleNodeMouseEnter = useCallback((_event: React.MouseEvent, node: { id: string }) => {
+    setHoveredNodeId(node.id)
+  }, [])
+  const handleNodeMouseLeave = useCallback(() => setHoveredNodeId(null), [])
 
   return (
     <div ref={containerRef} className="h-full w-full">
@@ -322,8 +376,11 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         nodesDraggable={!readOnly}
         nodesConnectable={!readOnly}
+        // A click on a handle opens its + selector rather than starting a connection.
+        connectOnClick={false}
         onInit={(instance) => {
           reactFlowInstance.current = instance
         }}
@@ -334,15 +391,18 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         onEdgeClick={(_event, edge) => selectEdge(edge.id)}
         onPaneClick={() => validatedSelectNode(null)}
         onNodeContextMenu={onNodeContextMenu}
+        onNodeMouseEnter={handleNodeMouseEnter}
+        onNodeMouseLeave={handleNodeMouseLeave}
         onPaneContextMenu={onPaneContextMenu}
         nodeTypes={nodeTypes as NodeTypes}
         edgeTypes={edgeTypes}
         fitView={!focusedNodeExists}
+        fitViewOptions={FIT_VIEW_OPTIONS}
         snapToGrid
-        snapGrid={[20, 20]}
+        snapGrid={SNAP_GRID}
         defaultEdgeOptions={{
           type: 'smoothstep',
-          style: { stroke: 'var(--muted-foreground)', strokeWidth: 0.5 },
+          style: { stroke: EDGE_COLOR, strokeWidth: 1.25 },
         }}
         proOptions={{ hideAttribution: true }}
         className="!bg-background"
@@ -351,7 +411,7 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         {workflowId !== null && <LastRunOverlay workflowId={workflowId} />}
         <Background
           variant={BackgroundVariant.Dots}
-          gap={20}
+          gap={CANVAS_GRID}
           size={1}
           color="var(--muted-foreground)"
           style={{ opacity: 0.3 }}

@@ -281,6 +281,20 @@ describe('buildWorkflowStoreState', () => {
     expect(edges[0]).toEqual({ id: 'e1', source: 'n1', target: 'n2' })
   })
 
+  it('opens an edge’s saved sides as its handles', () => {
+    const ir = JSON.parse(baseVersion.ir)
+    ir.edges = [{ id: 'e1', source: 'n1', target: 'n2', sourceSide: 'right', targetSide: 'top' }]
+    const result = buildWorkflowStoreState(
+      baseWorkflow,
+      { ...baseVersion, ir: JSON.stringify(ir) },
+      1,
+      false,
+    )
+    expect(result.edges).toEqual([
+      { id: 'e1', source: 'n1', target: 'n2', sourceHandle: 'out-right', targetHandle: 'in-top' },
+    ])
+  })
+
   it('maps custom node types to "custom" flow type', () => {
     const version = {
       ...baseVersion,
@@ -310,7 +324,7 @@ describe('buildWorkflowStoreState', () => {
     const result = buildWorkflowStoreState(baseWorkflow, baseVersion, 1, false)
     const nodes = result.nodes as { id: string; position: { x: number; y: number } }[]
     // n2 has no stored position (code-derived shape) and falls back to the grid
-    expect(nodes[1].position).toEqual({ x: 320, y: 80 })
+    expect(nodes[1].position).toEqual({ x: 420, y: 80 })
   })
 
   it('hydrates schema-invalid legacy rows through the lenient fallback', () => {
@@ -327,6 +341,33 @@ describe('buildWorkflowStoreState', () => {
     const nodes = result.nodes as { id: string }[]
     expect(nodes).toHaveLength(1)
     expect(nodes[0].id).toBe('n1')
+  })
+
+  it('keeps only an edge’s own fields from a legacy row', () => {
+    const version = {
+      ...baseVersion,
+      ir: JSON.stringify({
+        nodes: [{ id: 'n1', type: 'step', position: { x: 0, y: 0 }, data: {} }],
+        edges: [
+          null,
+          { id: 'bad', source: 1, target: 'n1' },
+          {
+            id: 'e1',
+            source: 'n1',
+            target: 'n2',
+            label: 'then',
+            sourceSide: 'right',
+            targetSide: 'constructor',
+            sourceHandle: 'constructor',
+            className: 'x',
+          },
+        ],
+      }),
+    }
+    const result = buildWorkflowStoreState(baseWorkflow, version, 1, false)
+    expect(result.edges).toEqual([
+      { id: 'e1', source: 'n1', target: 'n2', label: 'then', sourceHandle: 'out-right' },
+    ])
   })
 
   it('fills triggerCode and dependencies from ir.runtime when columns are empty', () => {

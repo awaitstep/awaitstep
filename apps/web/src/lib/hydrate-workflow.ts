@@ -4,6 +4,7 @@ import type { ArtifactIR, WorkflowNode, WorkflowRuntime } from '@awaitstep/ir'
 import { secretDisplayName } from './env-var-parser'
 import type { WorkflowSummary, WorkflowVersion, WorkflowFull, VersionSummary } from './api-client'
 import { toFlowType } from '../stores/workflow-store'
+import { pinnedHandles } from './canvas/node-sides'
 
 /**
  * The URL's node to select on this hydration, or undefined when that node was
@@ -12,6 +13,30 @@ import { toFlowType } from '../stores/workflow-store'
  */
 export function nodeToSelectOnce(param: string | undefined, applied: string | undefined) {
   return param !== applied ? param : undefined
+}
+
+/**
+ * Store edges from a document's edges: only the fields an edge has, with its
+ * chosen sides as handle ids. A legacy save is not schema-checked, so
+ * anything else on it (or an entry that is not an edge) is left behind.
+ */
+function storeEdges(irEdges: readonly unknown[]) {
+  return irEdges.flatMap((raw) => {
+    if (raw === null || typeof raw !== 'object') return []
+    const e = raw as Record<string, unknown>
+    if (typeof e.id !== 'string' || typeof e.source !== 'string' || typeof e.target !== 'string') {
+      return []
+    }
+    return [
+      {
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        ...(typeof e.label === 'string' && { label: e.label }),
+        ...pinnedHandles(e),
+      },
+    ]
+  })
 }
 
 export function buildWorkflowStoreState(
@@ -164,7 +189,8 @@ export function buildWorkflowStoreState(
         position: irNode.position ?? fallbackPosition(i),
         data: { irNode },
       }))
-      state.edges = irEdges
+      // An edge's chosen sides travel in the store as its handle ids.
+      state.edges = storeEdges(irEdges) as typeof state.edges
       const wanted = [options.selectNodeId, options.keepSelectedNodeId].find(
         (id) => id && hydratedNodes.some((n) => n.id === id),
       )
@@ -225,7 +251,8 @@ export function buildWorkflowStoreState(
  * agree on where position-less nodes land.
  */
 export function fallbackPosition(index: number): { x: number; y: number } {
-  return { x: 80 + (index % 4) * 240, y: 80 + Math.floor(index / 4) * 160 }
+  // Columns clear a node's 220px width with a gap.
+  return { x: 80 + (index % 4) * 340, y: 80 + Math.floor(index / 4) * 160 }
 }
 
 export function deriveReadOnlyState(
