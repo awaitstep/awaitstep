@@ -131,7 +131,9 @@ export function runOnInstance(live: LiveWorkflow, instanceId: string, payload: R
     trigger: deps.trigger,
     // Kept so the run page can show it and start the run again (already capped at 100 KB).
     ...keptPayload(payload),
-    status: 'queued' as const,
+    // The background sync moves a run out of `queued`; it never asks about a
+    // provider that reports its own ends, whose instance exists by now.
+    status: live.adapter.reportsRunEnds === true ? ('running' as const) : ('queued' as const),
   }
 }
 
