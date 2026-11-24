@@ -32,7 +32,8 @@ const {
 } = Astro.props
 const path = pagePath(Astro.url.pathname)
 const canonical = new URL(path, Astro.site).toString()
-const imageUrl = new URL(`/og/${image}.png`, Astro.site).toString()
+// Relative, so each deploy (production, staging, previews) serves its own share image.
+const imageUrl = `/og/${image}.png`
 const breadcrumbs = crumb
   ? [
       {
