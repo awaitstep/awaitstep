@@ -463,3 +463,29 @@ export {
   validateCustomNodeManifest,
   type LibraryVersionChoice,
 } from './library-versions.js'
+
+export {
+  CronError,
+  SCHEDULE_PARAMS_MAX_BYTES,
+  clockIn,
+  isDue,
+  isTimeZone,
+  matchesClock,
+  matchesDate,
+  nextAfter,
+  nextTimes,
+  offsetIn,
+  parseCron,
+  sameSchedule,
+  scheduleOf,
+  scheduleProblemIn,
+  timetableOf,
+} from './schedule/index.js'
+export type {
+  ClockTime,
+  CronExpression,
+  Schedule,
+  ScheduleDetails,
+  ScheduleEntry,
+  Timetable,
+} from './schedule/index.js'
