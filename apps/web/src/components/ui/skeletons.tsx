@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
-export function Bone({ className }: { className?: string }) {
+export function Bone({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
     <div
+      style={style}
       className={`animate-pulse rounded bg-muted/40 motion-reduce:animate-none ${className ?? ''}`}
     />
   )
