@@ -1,8 +1,6 @@
 <div align="center">
 
-<img src="docs/images/banner.png" alt="AwaitStep" width="100%" />
-
-### Build & run durable workflows.
+<img src="docs/images/banner.png" alt="AwaitStep: Build & Run durable workflows" width="100%" />
 
 Draw them on a canvas or write them in TypeScript. AwaitStep retries what fails, shows every step, and deploys the code it generates — code you can read in full.
 Use AwaitStep Cloud, or self-host the open-source edition.
@@ -10,7 +8,7 @@ Use AwaitStep Cloud, or self-host the open-source edition.
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
 
-[AwaitStep Cloud](https://app.awaitstep.dev) &bull; [Self-host](https://docs.awaitstep.dev/installation/docker-compose) &bull; [Documentation](https://docs.awaitstep.dev) &bull; [REST API](https://docs.awaitstep.dev/api/rest)
+[Website](https://awaitstep.dev) &bull; [AwaitStep Cloud](https://app.awaitstep.dev) &bull; [Self-host](https://docs.awaitstep.dev/installation/docker-compose) &bull; [Documentation](https://docs.awaitstep.dev) &bull; [REST API](https://docs.awaitstep.dev/api/rest)
 
 </div>
 
@@ -18,11 +16,11 @@ Use AwaitStep Cloud, or self-host the open-source edition.
 
 ## Demo
 
-<a href="apps/www/public/video/demo.mp4">
+<a href="https://awaitstep.dev/video/demo.mp4">
   <img src="apps/www/public/video/demo-poster.jpg" alt="AwaitStep in one minute: open a project and workspace, open a workflow, read its TypeScript, switch to the canvas, deploy it and open a run" width="100%" />
 </a>
 
-<p align="center"><sub>▶ <a href="apps/www/public/video/demo.mp4">Watch AwaitStep in one minute</a> — open a project, a workflow and its code, switch to the canvas, deploy, and follow a run.</sub></p>
+<p align="center"><sub>▶ <a href="https://awaitstep.dev/video/demo.mp4">Watch AwaitStep in one minute</a> — open a project, a workflow and its code, switch to the canvas, deploy, and follow a run.</sub></p>
 
 ---
 
