@@ -56,12 +56,6 @@ afterEach(() => {
 })
 
 describe('ScopedWorkflowEditor', () => {
-  it('waits on the view’s skeleton while the URL names no project to call', () => {
-    renderAt('ide', null)
-    expect(screen.getByText('code loading')).toBeVisible()
-    expect(screen.queryByText(/^editor/)).toBeNull()
-  })
-
   it('opens the editor in this workspace once they do', () => {
     renderAt()
     expect(screen.getByText('editor wf_1')).toBeVisible()

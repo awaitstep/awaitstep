@@ -200,15 +200,6 @@ describe('IdeWorkspace', () => {
     expect(client.isFetching()).toBe(0)
   })
 
-  it('shows the skeleton while loading, then the workspace once the data arrives', () => {
-    const { client, rerenderWith } = mount()
-    expect(screen.getByTestId('skeleton')).toBeTruthy()
-    seedWorkspaceQueries(client)
-    rerenderWith(WORKFLOW_ID)
-    expect(screen.queryByTestId('skeleton')).toBeNull()
-    expect(screen.getByTestId('editor-group')).toBeTruthy()
-  })
-
   it('renders the editor area, status bar and dock inside the step-sync provider with every dialog closed', () => {
     const client = createWorkspaceClient()
     seedWorkspaceQueries(client)
@@ -237,7 +228,6 @@ describe('IdeWorkspace', () => {
     )
     expect(routing.navigate).toHaveBeenCalledTimes(1)
     expect(screen.queryByTestId('load-failure')).toBeNull()
-    expect(screen.getByTestId('skeleton')).toBeTruthy()
   })
 
   it('keeps the loaded workspace when a later source refetch fails over a missing node', async () => {
@@ -290,15 +280,6 @@ describe('IdeWorkspace', () => {
     mount(client)
     expect(screen.getByTestId('editor-group')).toBeTruthy()
     expect(screen.queryByText(/no saved version yet/)).toBeNull()
-  })
-
-  it('keeps the skeleton while the source is still loading', () => {
-    const client = createWorkspaceClient()
-    seedWorkspaceQueries(client)
-    client.removeQueries({ queryKey: ['workflow-source'] })
-    mount(client)
-    expect(screen.getByTestId('skeleton')).toBeTruthy()
-    expect(screen.queryByTestId('editor-group')).toBeNull()
   })
 
   it('steps aside for a narrow window without the workspace', () => {

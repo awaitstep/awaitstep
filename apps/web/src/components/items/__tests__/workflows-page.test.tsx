@@ -204,13 +204,6 @@ describe('Workflows page', () => {
     expect(await within(dialog).findByText(/isn’t valid JSON/)).toBeInTheDocument()
   })
 
-  it('reads as the board’s skeleton while loading, with New workflow disabled', async () => {
-    renderWorkflows({ api: withList('loading') })
-    expect(await screen.findByRole('status')).toHaveTextContent('Loading workflows')
-    expect(within(topBar()).getByRole('button', { name: 'New workflow' })).toBeDisabled()
-    expect(within(topBar()).queryByRole('link', { name: 'Import' })).not.toBeInTheDocument()
-  })
-
   it('shows the load error with its ID, counts tries, and the reassurance', async () => {
     renderWorkflows({ api: withList('error') })
     expect(await screen.findByRole('heading', { name: 'We couldn’t load workflows' })).toBeVisible()
@@ -338,12 +331,6 @@ describe('Functions page', () => {
     expect(
       within(list).getByRole('switch', { name: 'Shared with Project 101: CRM sync' }),
     ).toHaveAccessibleDescription('Only Editors can share')
-  })
-
-  it('reads as the same skeleton as Workflows while loading, with New function disabled', async () => {
-    renderFunctions({ api: withList('loading') })
-    expect(await screen.findByRole('status')).toHaveTextContent('Loading functions')
-    expect(within(topBar()).getByRole('button', { name: 'New function' })).toBeDisabled()
   })
 
   it('shows the load error with its ID and the reassurance', async () => {

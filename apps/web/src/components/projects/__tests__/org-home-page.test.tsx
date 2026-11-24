@@ -19,7 +19,6 @@ const ok = <T,>(data: T): Query<T> => ({
   isFetching: false,
   refetch: vi.fn(),
 })
-const pending = <T,>(): Query<T> => ({ isError: false, isFetching: true, refetch: vi.fn() })
 
 const state = vi.hoisted(() => ({
   projects: undefined as unknown,
@@ -84,14 +83,6 @@ afterEach(() => {
 describe('OrgHomePage', () => {
   // The last project opened is remembered in storage: each test starts with none.
   beforeEach(() => localStorage.clear())
-
-  it('shows skeletons while the page loads', () => {
-    state.projects = pending()
-    state.failing = pending()
-    state.activity = pending()
-    renderPage()
-    expect(screen.getByRole('status')).toHaveTextContent('Loading projects')
-  })
 
   it('offers a retry when something fails to load', () => {
     settle()

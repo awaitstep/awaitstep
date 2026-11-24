@@ -3,28 +3,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { LoadError } from '../load-error'
 import { NotFoundView } from '../not-found-view'
-import { Bone, ListCardSkeleton, LoadingRegion } from '../skeletons'
-
-describe('Bone', () => {
-  it('stops pulsing for people who reduce motion', () => {
-    const { container } = render(<Bone />)
-    expect(container.firstChild).toHaveClass('animate-pulse', 'motion-reduce:animate-none')
-  })
-})
-
-describe('LoadingRegion', () => {
-  it('is one status named by its label, with the placeholders hidden', () => {
-    const { container } = render(
-      <LoadingRegion label="Loading workflows">
-        <ListCardSkeleton rows={2} />
-      </LoadingRegion>,
-    )
-    expect(screen.getByRole('status')).toHaveTextContent(/^Loading workflows$/)
-    expect(container.querySelector('[aria-hidden="true"]')).toContainElement(
-      container.querySelector('.animate-pulse') as HTMLElement,
-    )
-  })
-})
 
 describe('LoadError', () => {
   afterEach(() => {

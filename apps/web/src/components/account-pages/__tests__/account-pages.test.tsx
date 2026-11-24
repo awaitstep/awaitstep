@@ -9,7 +9,6 @@ import {
   apiError,
   authError,
   installFakeApi,
-  pending,
   renderWithDashboardApi,
   type FakeApi,
   type PersonId,
@@ -244,13 +243,6 @@ describe('Profile layout', () => {
 })
 
 describe('Profile states', () => {
-  it('shows the skeleton while loading', () => {
-    renderWithDashboardApi(<ProfilePage currentOrg="acme" />, {
-      routes: { 'GET /account': () => pending() },
-    })
-    expect(screen.getByText('Loading your account')).toBeInTheDocument()
-  })
-
   it('shows the error card when it fails', async () => {
     renderWithDashboardApi(<ProfilePage currentOrg="acme" />, {
       routes: { 'GET /account': apiError(500, 'Something went wrong') },

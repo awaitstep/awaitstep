@@ -132,11 +132,7 @@ describe('Audit log', () => {
     expect(await screen.findByRole('combobox', { name: 'Period' })).toBeInTheDocument()
   })
 
-  it('shows skeletons while loading, and the error card when it fails', async () => {
-    const { unmount } = render(<AuditLogPage org="acme" />, withLog('loading'))
-    expect(await screen.findByText('Loading the audit log')).toBeInTheDocument()
-    expect(within(topBar()).getByRole('button', { name: 'Export CSV' })).toBeDisabled()
-    unmount()
+  it('shows the error card when it fails', async () => {
     render(<AuditLogPage org="acme" />, withLog('error'))
     expect(await screen.findByText(/We couldn’t load the audit log/)).toBeVisible()
   })

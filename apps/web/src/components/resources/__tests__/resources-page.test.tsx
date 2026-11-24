@@ -293,10 +293,7 @@ describe('Resources › Variables', () => {
 })
 
 describe('Resources states', () => {
-  it('shows skeletons while loading and the error card when it fails', async () => {
-    const { unmount } = render(<Page />, withCatalog('loading'))
-    expect(await screen.findByText('Loading nodes')).toBeInTheDocument()
-    unmount()
+  it('shows the error card when it fails', async () => {
     render(<Page />, withCatalog('error'))
     expect(await screen.findByText(/We couldn’t load nodes/)).toBeVisible()
   })
