@@ -25,6 +25,7 @@ import { redactText } from './lib/log-redaction.js'
 import { createRouter } from './routes/index.js'
 import { corsPolicy } from './middleware/cors-policy.js'
 import { originCheck } from './middleware/origin-check.js'
+import type { AcceptedAuth } from './middleware/auth.js'
 import { imageResponseHeaders, images } from './routes/images.js'
 import { databaseImageStore } from './lib/images.js'
 import { resolveTestSessionLimits } from './lib/test-session-policy.js'
@@ -110,6 +111,12 @@ export interface AppDeps {
    * started from. A path that could leave the web app is refused at startup.
    */
   oauthReturnPath?: string
+  /**
+   * Who this entry lets in: people with a session, API keys, or both (the
+   * default). A sessions-only entry refuses a key; a keys-only entry has no
+   * sign-in routes and refuses a session.
+   */
+  acceptedAuth?: AcceptedAuth
 }
 
 export function createApp(deps: AppDeps) {
@@ -129,6 +136,7 @@ export function createApp(deps: AppDeps) {
   const oauthReturnPath =
     deps.oauthReturnPath === undefined ? undefined : checkOAuthReturnPath(deps.oauthReturnPath)
   const instance = { features: extensions.map((extension) => extension.id), disabled }
+  const acceptedAuth = deps.acceptedAuth ?? 'both'
   const app = new Hono<AppEnv>()
 
   // Request ID — unique ID for every request, returned in X-Request-Id header
@@ -221,10 +229,13 @@ export function createApp(deps: AppDeps) {
   // both read the address this app resolved, never a header a client can set.
   // An app-level limiter used to sit in front of every auth path, sign-out
   // and OAuth callbacks included — removed for this one.
-  app.on(['POST', 'GET'], '/api/auth/*', (c) => {
-    const headers = headersForAuth(c.req.raw.headers, c.get('clientIp'))
-    return deps.auth.handler(new Request(c.req.raw, { headers }))
-  })
+  // A keys-only entry signs no one in.
+  if (acceptedAuth !== 'keys') {
+    app.on(['POST', 'GET'], '/api/auth/*', (c) => {
+      const headers = headersForAuth(c.req.raw.headers, c.get('clientIp'))
+      return deps.auth.handler(new Request(c.req.raw, { headers }))
+    })
+  }
 
   // DB + node registry + app config context
   app.use('/api/*', async (c, next) => {
@@ -269,6 +280,7 @@ export function createApp(deps: AppDeps) {
       webUrl,
       ...(oauthReturnPath && { oauthReturnPath }),
       extensions,
+      acceptedAuth,
     }),
   )
 

@@ -6,7 +6,12 @@ import { mountExtensions } from '../lib/extensions.js'
 import type { Auth } from '../auth/config.js'
 import { zValidator } from '../lib/validation.js'
 import { paginationQuerySchema } from '../lib/pagination.js'
-import { apiKeyLevel, createAuthMiddleware, requireSessionAuth } from '../middleware/auth.js'
+import {
+  apiKeyLevel,
+  createAuthMiddleware,
+  requireSessionAuth,
+  type AcceptedAuth,
+} from '../middleware/auth.js'
 import {
   requireKeyMapped,
   requireKeyPermission,
@@ -92,6 +97,8 @@ export function createRouter(
     oauthReturnPath?: string
     /** Mounted under `/ext/<id>`, behind every middleware above the core routes. */
     extensions?: readonly AppExtension[]
+    /** Who the entry lets in; both by default. */
+    acceptedAuth?: AcceptedAuth
   },
 ) {
   const router = new Hono<AppEnv>()
@@ -100,7 +107,7 @@ export function createRouter(
   router.use('*', createRateLimiter({ windowMs: 60_000, max: 200 }))
 
   // Auth — all API routes require authentication
-  router.use('*', createAuthMiddleware(auth))
+  router.use('*', createAuthMiddleware(auth, options?.acceptedAuth))
 
   // A `/x/*` pattern also matches `/x` itself in Hono, so one registration
   // covers a collection and everything under it. Registering both ran each

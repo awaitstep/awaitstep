@@ -263,6 +263,7 @@ export function workerAppOptions(options: WorkerOptions): {
   extensions: readonly AppExtension[]
   disabledFeatures: readonly OssFeature[]
   oauthReturnPath?: string
+  acceptedAuth?: ExtensionsPackage['acceptedAuth']
 } {
   const extensions = options.extensions ?? []
   checkExtensions(extensions)
@@ -274,6 +275,7 @@ export function workerAppOptions(options: WorkerOptions): {
     ...(options.oauthReturnPath !== undefined && {
       oauthReturnPath: checkOAuthReturnPath(options.oauthReturnPath),
     }),
+    ...(options.acceptedAuth !== undefined && { acceptedAuth: options.acceptedAuth }),
   }
 }
 

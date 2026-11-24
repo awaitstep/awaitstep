@@ -243,4 +243,6 @@ export interface ExtensionsPackage {
   disabled?: readonly OssFeature[]
   /** A web path template with `{org}` (and `{project}`): `/{org}/integrations`. */
   oauthReturnPath?: string
+  /** Who the entry lets in: sessions, API keys, or both (the default). */
+  acceptedAuth?: 'both' | 'sessions' | 'keys'
 }
