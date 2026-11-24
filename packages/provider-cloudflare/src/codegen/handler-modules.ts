@@ -1,4 +1,5 @@
 import type { ProjectFile, ProjectHandlerModules } from '@awaitstep/ir'
+import { configSchedules } from './schedules.js'
 import {
   HANDLER_FETCH_PATH,
   HANDLER_QUEUE_DIR,
@@ -90,7 +91,7 @@ export function handlerWiring(modules: ProjectHandlerModules): HandlerWiring {
  */
 export function handlerDelegates(
   wiring: HandlerWiring,
-  options: { sendEvent?: boolean; requestEnv?: boolean } = {},
+  options: { sendEvent?: boolean; requestEnv?: boolean; ownScheduled?: boolean } = {},
 ): string[] {
   const blocks: string[] = []
   if (wiring.fetch) {
@@ -125,7 +126,8 @@ ${cases}
     }
   },`)
   }
-  if (wiring.scheduled) {
+  // `ownScheduled`: the caller emits `scheduled` itself, from the declared schedules.
+  if (wiring.scheduled && !options.ownScheduled) {
     blocks.push(`  scheduled: (controller: ScheduledController, env: Env, ctx: ExecutionContext) =>
     ${wiring.scheduled}({
       cron: controller.cron,
@@ -431,7 +433,10 @@ export function withConversionSettings<T extends Partial<CloudflareDeploymentCon
   conversion: Pick<HandlerConversion, 'crons' | 'queueConfigs' | 'queueNames'>,
 ): T {
   let next = config
-  const missingCrons = conversion.crons.filter((c) => !(config.cronTriggers ?? []).includes(c))
+  const declared = configSchedules(config.cronTriggers)
+  const missingCrons = conversion.crons.filter(
+    (cron) => !declared.some((schedule) => schedule.timezone === 'UTC' && schedule.cron === cron),
+  )
   if (missingCrons.length > 0) {
     next = { ...next, cronTriggers: [...(config.cronTriggers ?? []), ...missingCrons] }
   }
@@ -471,10 +476,9 @@ export function withConversionSettings<T extends Partial<CloudflareDeploymentCon
 }
 
 /**
- * Why a schedule setup cannot deploy, or null. With handler modules the
- * cron expressions are declared (the workflow's cron trigger once a
- * `handlers/scheduled.ts` exists, plus the deployment config), and that
- * module is the only handler for them.
+ * Why a schedule setup cannot deploy, or null. A `handlers/scheduled.ts`
+ * with no schedule declared would never run. (Schedules with no handler
+ * module are fine: each starts the workflow, or calls the function.)
  */
 export function scheduleProblem(input: {
   hasScheduledModule: boolean
@@ -482,9 +486,6 @@ export function scheduleProblem(input: {
 }): string | null {
   if (input.hasScheduledModule && input.crons.length === 0) {
     return `${HANDLER_SCHEDULED_PATH} has no schedule: add a cron trigger to the workflow or cronTriggers to the deployment config`
-  }
-  if (!input.hasScheduledModule && input.crons.length > 0) {
-    return `Cron triggers are configured (${input.crons.join(', ')}) but there is no ${HANDLER_SCHEDULED_PATH} to run them`
   }
   return null
 }

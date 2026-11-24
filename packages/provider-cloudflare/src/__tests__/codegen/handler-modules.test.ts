@@ -244,13 +244,12 @@ describe('deploy derivation with handler modules', () => {
     expect(buildCronTriggers(annotated, undefined)).toEqual(['* * * * *'])
   })
 
-  it('names the missing half of a schedule setup', () => {
+  it('refuses a scheduled handler with no schedule, and nothing else', () => {
     expect(scheduleProblem({ hasScheduledModule: true, crons: [] })).toMatch(
       /handlers\/scheduled.ts has no schedule/,
     )
-    expect(scheduleProblem({ hasScheduledModule: false, crons: ['0 * * * *'] })).toMatch(
-      /no handlers\/scheduled.ts/,
-    )
+    // A schedule with no handler module runs the generated default.
+    expect(scheduleProblem({ hasScheduledModule: false, crons: ['0 * * * *'] })).toBeNull()
     expect(scheduleProblem({ hasScheduledModule: true, crons: ['0 * * * *'] })).toBeNull()
     expect(scheduleProblem({ hasScheduledModule: false, crons: [] })).toBeNull()
   })

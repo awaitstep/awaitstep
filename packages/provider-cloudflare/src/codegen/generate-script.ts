@@ -1,4 +1,4 @@
-import type { ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
+import type { Schedule, ScriptIR, WorkflowIR, WorkflowNode } from '@awaitstep/ir'
 import { hasHandlerModules, isBuiltinNodeType, projectHandlerModules } from '@awaitstep/ir'
 import type {
   StepManifestEntry,
@@ -10,6 +10,7 @@ import type {
 } from '@awaitstep/codegen'
 import { builtinGenerators } from './generator-registry.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
+import { scheduledCallHelper, scheduledEmission, scheduledMember } from './schedules.js'
 import {
   CORE_RUNTIME_IMPORT,
   callsPlatform,
@@ -112,6 +113,8 @@ export interface GenerateScriptOptions {
   retention?: CloudflareRetention
   /** Generator lookup for node dispatch; defaults to the Cloudflare builtins. */
   generators?: GeneratorLookup
+  /** The schedules the deployment config declares; each one's run is generated. */
+  schedules?: readonly Schedule[]
 }
 
 /** The worker's source alone, for previews and tests; {@link generateScriptBundle} is the deployable form. */
@@ -197,7 +200,7 @@ function generateScriptInternal(
       ? { templateResolver: templateResolverOrOptions }
       : templateResolverOrOptions
     : {}
-  const { templateResolver, envVarNames, preview, triggerCode, retention } = opts
+  const { templateResolver, envVarNames, preview, triggerCode, retention, schedules } = opts
   const generators = opts.generators ?? builtinGenerators
   // A Call Workflow / Call Function node, or code calling another artifact
   // through `flow`: either way the context needs the platform adapter.
@@ -552,7 +555,12 @@ ${contextLines}${declStatement}${runGraphBody}${returnStatement}
 ${indent(fetchHandlerEmission.body, 4)}
   },`)
   }
-  if (wiring) handlerBlocks.push(...handlerDelegates(wiring))
+  const scheduled = scheduledEmission({
+    schedules: schedules ?? [],
+    ...(wiring?.scheduled && { handler: wiring.scheduled }),
+    fallback: 'call-function',
+  })
+  if (wiring) handlerBlocks.push(...handlerDelegates(wiring, { ownScheduled: scheduled !== null }))
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
       .map((qh) => {
@@ -568,9 +576,24 @@ ${cases}
     }
   },`)
   }
-  const exportDefault = `export default {
+  if (scheduled) handlerBlocks.push(scheduledMember(scheduled))
+  // A schedule with no handler of its own calls the function's fetch, so the
+  // handlers need a name to be reached by.
+  const callsItself = scheduled !== null && !wiring?.scheduled
+  const scheduledHelpers = scheduled
+    ? `\n${scheduled.helpers}\n${
+        callsItself
+          ? `\n${scheduledCallHelper('awaitstepHandlers', Boolean(fetchHandlerEmission || wiring?.fetch))}\n`
+          : ''
+      }`
+    : ''
+  const exportDefault = `${scheduledHelpers}${
+    callsItself ? 'const awaitstepHandlers = {' : 'export default {'
+  }
 ${handlerBlocks.join('\n')}
-};${wiring && wiring.reexports.length > 0 ? `\n\n${wiring.reexports.join('\n')}` : ''}`
+};${callsItself ? '\n\nexport default awaitstepHandlers;' : ''}${
+    wiring && wiring.reexports.length > 0 ? `\n\n${wiring.reexports.join('\n')}` : ''
+  }`
 
   // Sub-workflow creates reference AWAITSTEP_RETENTION; only emit the const
   // when a sub_workflow node exists so plain scripts stay unchanged.
@@ -594,6 +617,7 @@ ${runGraphBlock}
     },
     ...collectedImports.map((statement) => ({ statement, origin: 'The trigger code' })),
     ...wiringImports.map((statement) => ({ statement })),
+    ...(scheduled?.imports ?? []).map((statement) => ({ statement })),
   ])
   const entrySource = `${workerImports.join('\n')}
 ${workerBody}
@@ -663,6 +687,7 @@ export { default } from "#awaitstep/entry";
         ? [platformModuleFile(retentionLiteral(retention), '#awaitstep/function')]
         : []),
       ...ctx.files,
+      ...(scheduled?.files ?? []),
     ],
     manifest,
   }
