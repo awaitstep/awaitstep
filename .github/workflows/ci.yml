@@ -2,7 +2,9 @@ name: Tests
 
 on:
   pull_request:
-    branches: [main, dev]
+    # The full suite, db included, runs here only: local rounds run the tests their changes reach
+    # (`pnpm test:affected`).
+    branches: [main, dev, feat/awaitstep-v2]
 
 permissions:
   contents: read
@@ -34,6 +36,9 @@ jobs:
 
       - name: Validate agent skills
         run: pnpm skills:check
+
+      - name: Test root scripts
+        run: pnpm test:scripts
 
       - name: Test
         run: pnpm test
