@@ -18,6 +18,7 @@ import {
   withConversionSettings,
   type HandlerConversion,
 } from './codegen/handler-modules.js'
+import { configSchedules, scheduleCrons, schedulesProblem } from './codegen/schedules.js'
 import type {
   FunctionCallRequest,
   FunctionCallResult,
@@ -387,9 +388,8 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     }
     if (routes.length > 0) preview.routes = routes
 
-    if (c.cronTriggers && c.cronTriggers.length > 0) {
-      preview.triggers = { crons: c.cronTriggers }
-    }
+    const crons = scheduleCrons(configSchedules(c.cronTriggers))
+    if (crons.length > 0) preview.triggers = { crons }
     if (c.placement && c.placement.mode !== 'off') {
       preview.placement = { mode: c.placement.mode }
     }
@@ -507,9 +507,10 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
   generate(ir: ArtifactIR, config?: ProviderConfig): GeneratedBundle {
     const envVarNames = config?.envVars ? Object.keys(config.envVars) : undefined
     const triggerCode = config?.options?.['triggerCode'] as string | undefined
-    const retention = (
-      config?.options?.['deploymentConfig'] as CloudflareDeploymentConfig | undefined
-    )?.retention
+    const deploymentConfig = config?.options?.['deploymentConfig'] as
+      CloudflareDeploymentConfig | undefined
+    const retention = deploymentConfig?.retention
+    const schedules = configSchedules(deploymentConfig?.cronTriggers)
     if (ir.kind === 'script') {
       // A function deploys as a bundle too: the fetch entry, one module per
       // step (run by the in-request host), the runtime, the project files.
@@ -518,6 +519,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
         envVarNames,
         triggerCode,
         retention,
+        schedules,
       })
     }
     // Workflows deploy as multi-file bundles: step code lives in per-node
@@ -527,6 +529,7 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
       envVarNames,
       triggerCode,
       retention,
+      schedules,
     })
   }
 
@@ -716,15 +719,15 @@ export class CloudflareWorkflowsAdapter implements WorkflowProvider, LocalDevPro
     const modules = projectHandlerModules(bundle.files)
     const queueConsumers = buildQueueConsumers(triggerCodeForAnnotations, deploymentConfig, modules)
     const cronTriggers = buildCronTriggers(triggerCodeForAnnotations, deploymentConfig, modules)
-    if (hasHandlerModules(modules)) {
-      const problem = scheduleProblem({
+    const scheduleRefusal =
+      schedulesProblem(deploymentConfig?.cronTriggers) ??
+      scheduleProblem({
         hasScheduledModule: modules.scheduled !== undefined,
         crons: cronTriggers ?? [],
       })
-      if (problem) {
-        report('FAILED', problem, 0)
-        return { success: false, deploymentId: '', error: problem }
-      }
+    if (scheduleRefusal) {
+      report('FAILED', scheduleRefusal, 0)
+      return { success: false, deploymentId: '', error: scheduleRefusal }
     }
 
     if (!this.deployer) {
@@ -1108,8 +1111,8 @@ export function buildQueueConsumers(
 }
 
 /**
- * Returns the union of cron expressions from legacy `@scheduled` annotations
- * and explicit `deploymentConfig.cronTriggers`, deduped while preserving the
+ * Returns the Cron Triggers to deploy: those of legacy `@scheduled` annotations
+ * and those that drive the schedules in `deploymentConfig.cronTriggers`, deduped while preserving the
  * order in which they first appear. Returns undefined when neither source
  * contributes any cron, so the wrangler config omits `triggers` entirely.
  *
@@ -1142,7 +1145,9 @@ export function buildCronTriggers(
       // Ignore — codegen path raises this as a structured DeployResult.
     }
   }
-  for (const cron of deploymentConfig?.cronTriggers ?? []) {
+  // A schedule in UTC is its own trigger; those in another timezone share
+  // the every-minute one the generated entry checks them on.
+  for (const cron of scheduleCrons(configSchedules(deploymentConfig?.cronTriggers))) {
     if (!seen.has(cron)) {
       seen.add(cron)
       out.push(cron)

@@ -83,7 +83,20 @@ export const cloudflareDeploymentConfigSchema = z
     compatibilityFlags: z.array(z.string()).optional(),
 
     // Scheduling
-    cronTriggers: z.array(z.string().min(1)).optional(),
+    // Each entry is a cron expression (read in UTC), or one with the timezone
+    // it is read in and the params each run it starts is given.
+    cronTriggers: z
+      .array(
+        z.union([
+          z.string().min(1),
+          z.object({
+            cron: z.string().min(1),
+            timezone: z.string().min(1).optional(),
+            params: z.unknown().optional(),
+          }),
+        ]),
+      )
+      .optional(),
 
     // Logical binding name -> the physical resource for this connection.
     bindings: z.record(z.string(), cloudflareBindingMappingSchema).optional(),
@@ -227,10 +240,10 @@ export const cloudflareDeploymentConfigUiSchema: DeploymentConfigUiSchema = {
       fields: [
         {
           path: 'cronTriggers',
-          label: 'Cron triggers',
-          widget: 'array',
+          label: 'Schedules',
+          widget: 'schedules',
           placeholder: '0 */6 * * *',
-          help: 'e.g. 0 */6 * * * for every 6 hours',
+          help: 'Each starts a run on its cron expression, in the timezone you pick',
           summaryLabel: 'Cron',
         },
       ],

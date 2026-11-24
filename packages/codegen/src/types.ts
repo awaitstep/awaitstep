@@ -244,7 +244,15 @@ export interface WorkflowRunDetail extends WorkflowRunStatus {
 }
 
 export type DeploymentConfigUiWidget =
-  'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'array' | 'array-of-objects'
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'boolean'
+  | 'select'
+  | 'array'
+  | 'array-of-objects'
+  /** A list of schedules: a cron expression each, with its timezone and params. */
+  | 'schedules'
 
 export interface DeploymentConfigUiFieldOption {
   value: string

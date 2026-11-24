@@ -679,6 +679,8 @@ export interface QueueContext<Env = Record<string, unknown>> {
 export interface ScheduledContext<Env = Record<string, unknown>> {
   readonly cron: string
   readonly scheduledTime: number
+  /** The params the schedule that fired was given in the deploy settings, if any. */
+  readonly params?: unknown
   readonly env: Env
   readonly execution: ExecutionContextLike
 }

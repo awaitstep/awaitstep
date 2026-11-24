@@ -1,4 +1,4 @@
-import type { WorkflowIR } from '@awaitstep/ir'
+import type { Schedule, WorkflowIR } from '@awaitstep/ir'
 import { PROJECT_IMPORT_PREFIX, hasHandlerModules, projectHandlerModules } from '@awaitstep/ir'
 import type {
   GeneratedBundle,
@@ -30,6 +30,7 @@ import { detectBindings } from './bindings.js'
 import { workflowClassName } from '../naming.js'
 import { CF_ENV_TYPE } from './env-types.js'
 import { handlerDelegates, handlerWiring } from './handler-modules.js'
+import { scheduledEmission, scheduledMember } from './schedules.js'
 import { parseAnnotations } from './parse-annotations.js'
 import {
   cloudflareHostHelper,
@@ -174,6 +175,8 @@ export interface GenerateOptions {
   retention?: CloudflareRetention
   /** Generator lookup for node dispatch; defaults to the Cloudflare builtins. */
   generators?: GeneratorLookup
+  /** The schedules the deployment config declares; each one's run is generated. */
+  schedules?: readonly Schedule[]
 }
 
 /**
@@ -387,9 +390,22 @@ function generateWorkflowInternal(
 ${scope}${sendEvent}${indent(fetchHandlerEmission.body, 4)}
   },`)
   }
+  // A declared schedule an annotation already names is that annotation's to run.
+  const annotationCrons = scheduledHandlerEmissions.flatMap((handler) => handler.crons)
+  const scheduled = scheduledEmission({
+    schedules: (opts.schedules ?? []).filter(
+      (schedule) => schedule.timezone !== 'UTC' || !annotationCrons.includes(schedule.cron),
+    ),
+    ...(wiring?.scheduled && { handler: wiring.scheduled }),
+    fallback: 'start-workflow',
+  })
   if (wiring)
     handlerBlocks.push(
-      ...handlerDelegates(wiring, { sendEvent: builtInSendEvent, requestEnv: true }),
+      ...handlerDelegates(wiring, {
+        sendEvent: builtInSendEvent,
+        requestEnv: true,
+        ownScheduled: scheduled !== null,
+      }),
     )
   if (queueHandlerEmissions.length > 0) {
     const cases = queueHandlerEmissions
@@ -406,7 +422,7 @@ ${cases}
     }
   },`)
   }
-  if (scheduledHandlerEmissions.length > 0) {
+  if (scheduled || scheduledHandlerEmissions.length > 0) {
     // One case per cron expression; multiple crons that share a handler use
     // case-fallthrough so the body emits only once per handler.
     const cases = scheduledHandlerEmissions
@@ -418,11 +434,7 @@ ${indent(scheduledHandler.body, 8)}
       }`
       })
       .join('\n')
-    handlerBlocks.push(`  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    switch (controller.cron) {
-${cases}
-    }
-  },`)
+    handlerBlocks.push(scheduledMember(scheduled, cases))
   }
   const exportDefault = `export default {
 ${handlerBlocks.join('\n')}
@@ -515,6 +527,7 @@ export {
     'import { createAwaitstepPlatform } from "#awaitstep/platform";',
     `import workflow${graphNames.length > 0 ? `, { ${graphNames.join(', ')} }` : ''} from "#awaitstep/workflow";`,
     'import type { Env } from "#awaitstep/env";',
+    ...(scheduled?.imports ?? []),
   ]
   const entryImportBlock = mergeImports([
     ...entryGenerated.map((statement) => ({ statement })),
@@ -577,7 +590,7 @@ function awaitstepRequestEnv(request: Request, env: Env): Env {
   const entrySource = `${entryImportBlock}
 
 ${requestEnvHelper}${sendEventHelper}${cloudflareHostHelper()}
-
+${scheduled ? `\n${scheduled.helpers}\n` : ''}
 ${moduleCodeBlock.length > 0 ? moduleCodeBlock + '\n' : ''}
 export class ${className} extends WorkflowEntrypoint<Env> {
   async run(workflowEvent, hostStep) {
@@ -627,6 +640,7 @@ ${envFields.join('\n')}
     ...stepModules,
     ...(usesCloudflarePrimitives ? [cloudflarePrimitivesModuleFile()] : []),
     runtimeModuleFile(),
+    ...(scheduled?.files ?? []),
   ]
 
   return {

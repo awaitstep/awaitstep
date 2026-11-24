@@ -49,6 +49,7 @@ export {
   scheduleProblem,
   withConversionSettings,
 } from './handler-modules.js'
+export { SCHEDULE_TICK, configSchedules, scheduleCrons, schedulesProblem } from './schedules.js'
 export type {
   HandlerConversion,
   HandlerTarget,
