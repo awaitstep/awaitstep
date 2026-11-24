@@ -72,15 +72,21 @@ describe('editor top bar slot', () => {
     render(inWorkspace(<EditorExtensions slot="ide.toolbar" workflowId="wf_1" canEdit={false} />))
     const button = screen.getByRole('button', { name: 'Assist wf_1 in acme/project-101/sales' })
     expect(button).toHaveAttribute('data-can-edit', 'false')
+    expect(button).toHaveAttribute('data-kind', 'unknown')
     expect(button).toHaveAttribute('data-workspace-id', 'ws_1')
   })
 
   it('renders the extension’s section on a workflow’s Overview', () => {
     enable('test-ext')
-    render(inWorkspace(<EditorExtensions slot="workflow.overview" workflowId="wf_1" canEdit />))
-    expect(
-      screen.getByRole('button', { name: 'Assist wf_1 in acme/project-101/sales' }),
-    ).toHaveAttribute('data-can-edit', 'true')
+    render(
+      inWorkspace(
+        <EditorExtensions slot="workflow.overview" workflowId="wf_1" canEdit kind="script" />,
+      ),
+    )
+    const section = screen.getByRole('button', { name: 'Assist wf_1 in acme/project-101/sales' })
+    expect(section).toHaveAttribute('data-can-edit', 'true')
+    // The Overview knows whether it is a function; the editors' toolbars do not say.
+    expect(section).toHaveAttribute('data-kind', 'script')
   })
 
   it('renders nothing until the workspace’s ids are known', () => {

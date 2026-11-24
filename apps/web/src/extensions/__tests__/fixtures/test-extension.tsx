@@ -6,9 +6,22 @@ import type {
   WebExtension,
 } from '../../types'
 
-function ToolbarButton({ workflowId, org, project, workspace, ids, canEdit }: EditorSlotProps) {
+function ToolbarButton({
+  workflowId,
+  org,
+  project,
+  workspace,
+  ids,
+  canEdit,
+  kind,
+}: EditorSlotProps) {
   return (
-    <button type="button" data-can-edit={String(canEdit)} data-workspace-id={ids.workspaceId}>
+    <button
+      type="button"
+      data-can-edit={String(canEdit)}
+      data-workspace-id={ids.workspaceId}
+      data-kind={kind ?? 'unknown'}
+    >
       Assist {workflowId} in {org}/{project}/{workspace}
     </button>
   )
