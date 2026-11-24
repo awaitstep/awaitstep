@@ -11,7 +11,12 @@ import { RunPayloadDialog } from './run-payload-dialog'
 const LABEL = 'text-xs text-muted-foreground'
 const COLUMN = 'flex min-w-0 flex-col gap-1 px-4 py-3.5'
 
-const TRIGGER_NAME: Record<string, string> = { dashboard: 'Dashboard', api: 'API key' }
+const TRIGGER_NAME: Record<string, string> = {
+  dashboard: 'Dashboard',
+  api: 'API key',
+  schedule: 'Schedule',
+  workflow: 'Another workflow',
+}
 
 interface RunBandProps {
   workflowId: string

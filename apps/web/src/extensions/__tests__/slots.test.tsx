@@ -75,6 +75,14 @@ describe('editor top bar slot', () => {
     expect(button).toHaveAttribute('data-workspace-id', 'ws_1')
   })
 
+  it('renders the extension’s section on a workflow’s Overview', () => {
+    enable('test-ext')
+    render(inWorkspace(<EditorExtensions slot="workflow.overview" workflowId="wf_1" canEdit />))
+    expect(
+      screen.getByRole('button', { name: 'Assist wf_1 in acme/project-101/sales' }),
+    ).toHaveAttribute('data-can-edit', 'true')
+  })
+
   it('renders nothing until the workspace’s ids are known', () => {
     enable('test-ext')
     itemIds = null

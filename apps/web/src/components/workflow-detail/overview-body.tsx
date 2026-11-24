@@ -9,6 +9,7 @@ import { VersionsCard } from './parts/versions-card'
 import type { WorkflowOverview } from './use-workflow-overview'
 import { useQueries } from '../../contexts/api-client-context'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
+import { EditorExtensions } from '../../extensions/editor-extensions'
 
 interface OverviewBodyProps {
   workflow: WorkflowSummary
@@ -75,6 +76,7 @@ export function OverviewBody({ workflow, overview, runs24h, neverDeployed }: Ove
         libraryUpdates={overview.summary?.libraryUpdates}
         {...(canDeploy && { redeployHref })}
       />
+      <EditorExtensions slot="workflow.overview" workflowId={workflow.id} canEdit={canDeploy} />
       <div className="flex flex-wrap items-stretch gap-4">
         <div className="flex min-w-0 basis-[420px] grow-[1.3] flex-col [&>*]:flex-1">
           <VersionsCard

@@ -209,8 +209,8 @@ export interface RunDetail {
   updatedAt: string
 }
 
-/** How a run was started: from the dashboard, or by an API key. */
-export type RunTrigger = 'dashboard' | 'api'
+/** What started a run: a person, a key, its schedule, or another workflow. */
+export type RunTrigger = 'dashboard' | 'api' | 'schedule' | 'workflow'
 
 /** A run to record: a workflow run as it starts, or a function call once it has answered. */
 export interface CreateRunData {

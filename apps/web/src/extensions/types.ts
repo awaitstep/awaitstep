@@ -107,7 +107,7 @@ export interface ExtensionPanel {
   component: ComponentType<ExtensionPanelProps>
 }
 
-/** What an editor's top bar hands its extension controls. */
+/** What an editor's top bar, or a workflow's Overview, hands its extension controls. */
 export interface EditorSlotProps {
   workflowId: string
   org: string
@@ -142,6 +142,8 @@ export interface WebExtensionSlots {
   'canvas.toolbar'?: ComponentType<EditorSlotProps>
   /** The Code editor's top bar, left of Save. It owns whatever it opens. */
   'ide.toolbar'?: ComponentType<EditorSlotProps>
+  /** A workflow's or function's Overview, between the status band and the cards. */
+  'workflow.overview'?: ComponentType<EditorSlotProps>
 }
 
 export type SlotName = keyof WebExtensionSlots
