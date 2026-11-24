@@ -60,6 +60,8 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Pinned: without it the action installs its own older default wrangler.
-          wranglerVersion: '4.167.0'
-          command: pages deploy apps/www/dist --project-name=awaitstep-www
+          # wrangler is a devDependency of apps/www, so the action finds it there. Run from the
+          # workspace root, it would try `pnpm add wrangler` at the root, which pnpm refuses.
+          workingDirectory: apps/www
+          wranglerVersion: '4.166.0'
+          command: pages deploy dist --project-name=awaitstep-www
