@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono'
 import type { ContentfulStatusCode, ContentlessStatusCode } from 'hono/utils/http-status'
 import type { AppEnv } from '../types.js'
 import { INSTANCE_ID_HEADER } from '@awaitstep/codegen'
+import { keyMay } from '@awaitstep/ir'
 import {
   callFunctionRun,
   MAX_RUN_PAYLOAD_BYTES,
@@ -75,6 +76,36 @@ externalRun.post('/:workflowId', async (c) => {
     return functionAnswer(c, answer, run.id)
   }
   return c.json({ runId: run.id, instanceId: run.instanceId, status: run.status }, 201)
+})
+
+/**
+ * Whether this key may run it, without running anything: the same checks as
+ * the `POST`, so a caller (or a gateway in front of the API) can learn once
+ * what a key may do. Answers what it is, whose it is, when the key expires,
+ * whether it may also read runs,
+ * and the account it is live on (`?account=` names one), or `live: null`.
+ */
+externalRun.get('/:workflowId', async (c) => {
+  const workflow = c.get('workflow')
+  const key = c.get('apiKey')
+  if (!workflow || !key) return c.json({ error: 'Not found' }, 404)
+  const organizationId = c.get('organizationId')
+  const connection = await c
+    .get('db')
+    .getConnectionDeployedWith(c.req.query('account') || null, organizationId, workflow.id)
+  return c.json({
+    workflowId: workflow.id,
+    kind: workflow.kind === 'script' ? 'script' : 'workflow',
+    organizationId,
+    projectId: workflow.projectId,
+    key: {
+      id: key.id,
+      expiresAt: key.expiresAt ?? null,
+      // Running a workflow is not reading its runs' output: that is its own permission.
+      readsRuns: keyMay(key.level, key.permissions, 'runs', 'read'),
+    },
+    live: connection ? { connectionId: connection.id, provider: connection.provider } : null,
+  })
 })
 
 const BAD_CONTENT_TYPE = 'Content-Type must be a media type, under 256 characters'

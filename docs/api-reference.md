@@ -2349,6 +2349,31 @@ form `?action=send-event&instanceId=…&type=…` (the body as the payload) is
 read the same way. Two requests that start the same instance at once record
 one run; the other is recorded as a call.
 
+**Checking a key first.** `GET /api/run/:workflowId` asks whether the key may
+run it, with the same checks as the `POST`, and starts nothing:
+
+```bash
+curl https://app.awaitstep.dev/api/run/wf_1 \
+  -H "Authorization: Bearer ask_..."
+```
+
+```json
+{
+  "workflowId": "wf_1",
+  "kind": "workflow",
+  "organizationId": "org_1",
+  "projectId": "prj_1",
+  "key": { "id": "key_1", "expiresAt": null, "readsRuns": true },
+  "live": { "connectionId": "conn_1", "provider": "cloudflare" }
+}
+```
+
+`kind` is `workflow` or `script` (a function). `key.readsRuns` says whether
+the key also holds `runs:read`. `live` is the account its
+newest live deploy went out on (`?account=` names one), or `null` when it is
+not live there. A key that could not run it gets what the `POST` answers:
+`401`, `403` or `404`.
+
 The worker's own URL is public: anyone who can reach it can call the handler,
 send the built-in send-event body, or name an instance id, as they could before.
 An instance id you choose (`order-42`) is not a secret, so a wait that must only

@@ -341,6 +341,8 @@ export function createRouter(
   ]) {
     router.post(path, requireWorkspaceCan('run'))
   }
+  // Asking whether a key may run it is held to what running it is.
+  router.get('/run/:workflowId', requireWorkspaceCan('run'))
 
   // Connections are the organization's settings: changing them is an owner's
   // or admin's (D-B9-7); a key manages what its creator may.
@@ -514,6 +516,7 @@ export function createRouter(
   // (D-7): with no mapping, the catch-all refuses a key there. A key runs
   // through `POST /run/:workflowId`, which shares their implementation.
   router.post('/run/:workflowId', key('workflows', 'run'))
+  router.get('/run/:workflowId', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/pause', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/resume', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/terminate', key('workflows', 'run'))
@@ -619,7 +622,8 @@ export function createRouter(
   router.use('/workflows/:workflowId/call', writeLimit)
   // Running again starts a run or makes a call: the same limit.
   router.use('/workflows/:workflowId/runs/:runId/run-again', writeLimit)
-  router.use('/run/:workflowId', writeLimit)
+  // Starting is the limited verb; asking whether a key may start (GET) starts nothing.
+  router.post('/run/:workflowId', writeLimit)
   // Starting a session is the expensive verb; reading one is a poll, and
   // sharing the deploy limiter let polling spend the budget for deploys.
   router.post('/workflows/:workflowId/test-sessions', deployLimit)
