@@ -13,6 +13,8 @@
     "dev": "dotenv -- turbo run dev",
     "web:dev": "dotenv -- turbo run dev --filter=@awaitstep/web...",
     "test": "dotenv -- turbo run test",
+    "test:affected": "dotenv -- node scripts/test-affected.mjs",
+    "test:scripts": "node --test scripts/test-affected.test.mjs scripts/check-hyperdrive-caching.test.mjs",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
     "db:generate": "dotenv -- pnpm --filter @awaitstep/db db:generate",
