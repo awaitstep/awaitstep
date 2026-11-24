@@ -3,7 +3,7 @@ import { useEditorScope } from '../contexts/editor-scope-context'
 import { useEnabledExtensions } from './registry'
 import type { SlotName } from './types'
 
-type EditorSlot = Extract<SlotName, 'canvas.toolbar' | 'ide.toolbar'>
+type EditorSlot = Extract<SlotName, 'canvas.toolbar' | 'ide.toolbar' | 'workflow.overview'>
 
 interface EditorExtensionsProps {
   slot: EditorSlot
@@ -12,7 +12,8 @@ interface EditorExtensionsProps {
 }
 
 /**
- * The enabled extensions' controls for an editor's top bar. Nothing outside
+ * The enabled extensions' controls for an editor's top bar, or their
+ * sections on a workflow's Overview. Nothing outside
  * a workspace URL, or before its ids are known: there is no scope to hand them.
  */
 export function EditorExtensions({ slot, workflowId, canEdit }: EditorExtensionsProps) {
@@ -26,7 +27,12 @@ export function EditorExtensions({ slot, workflowId, canEdit }: EditorExtensions
   })
   if (controls.length === 0) return null
   return (
-    <div data-zone="extensions" className="flex shrink-0 items-center gap-1">
+    <div
+      data-zone="extensions"
+      className={
+        slot === 'workflow.overview' ? 'flex flex-col gap-4' : 'flex shrink-0 items-center gap-1'
+      }
+    >
       {controls.map(({ id, Control }) => (
         <Control
           key={id}

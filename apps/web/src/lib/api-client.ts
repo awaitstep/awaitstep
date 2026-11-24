@@ -542,7 +542,7 @@ export interface RunSummary {
   output: string | null
   error: string | null
   /** How it was started; null on runs from before it was kept. Only the run's own read sends it. */
-  trigger?: 'dashboard' | 'api' | null
+  trigger?: 'dashboard' | 'api' | 'schedule' | 'workflow' | null
   /** Whether its start payload was kept. Only the run's own read sends it. */
   hasParams?: boolean
   /** A function call's HTTP status; null when no answer came. Only the run's own read sends it. */

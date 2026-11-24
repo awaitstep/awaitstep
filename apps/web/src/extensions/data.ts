@@ -12,3 +12,4 @@ export {
 } from '../data/dashboard/org-settings'
 export type { Connection } from '../types/dashboard/org-settings'
 export type { ConnectionAccount } from '@awaitstep/ir'
+export { useExtensionMutation, useExtensionQuery, type ExtensionWrite } from './extension-api'

@@ -69,6 +69,7 @@ export const testExtension: WebExtension = {
     'org.integrations': IntegrationsBody,
     'canvas.toolbar': ToolbarButton,
     'ide.toolbar': ToolbarButton,
+    'workflow.overview': ToolbarButton,
   },
   pages: [
     {
