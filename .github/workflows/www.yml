@@ -60,4 +60,6 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Pinned: without it the action installs its own older default wrangler.
+          wranglerVersion: '4.167.0'
           command: pages deploy apps/www/dist --project-name=awaitstep-www
