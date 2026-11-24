@@ -1,0 +1,47 @@
+import type { DatabaseAdapter } from '@awaitstep/db'
+import type { AppEmails } from '../types.js'
+import { tellRunFailed } from './run-failure.js'
+import { failureMessage } from './run-record.js'
+import { syncRunById } from './run-sync.js'
+
+export interface RecordedRun {
+  runId: string
+  workflowId: string
+  organizationId: string
+}
+
+/**
+ * Brings one recorded run up to date now, for whoever recorded it outside a
+ * request: a run is read from its provider (and its watchers told when it
+ * failed), a failed call's watchers are told. Answers the run's status, or
+ * null when the run isn't that organization's or can't be read.
+ */
+export async function settleRun(
+  db: DatabaseAdapter,
+  ref: RecordedRun,
+  emails?: AppEmails,
+): Promise<string | null> {
+  const found = await db.getRunForSyncWithAccount(ref.runId, ref.workflowId, ref.organizationId)
+  // The read hides another organization's account, not its run.
+  if (!found || found.entry.place.organizationId !== ref.organizationId) return null
+  const { run, place, workflowName, workflowKind } = found.entry
+  // By what the workflow is, not by the run's id: a run may be named anything.
+  if (workflowKind !== 'script') {
+    const detail = await syncRunById(db, ref.runId, ref.workflowId, ref.organizationId, { emails })
+    return detail?.status ?? null
+  }
+  if (run.status === 'errored') {
+    await tellRunFailed(
+      db,
+      {
+        place,
+        workflowId: ref.workflowId,
+        workflowName,
+        call: { errorMessage: failureMessage(run.error) },
+      },
+      null,
+      emails,
+    )
+  }
+  return run.status
+}

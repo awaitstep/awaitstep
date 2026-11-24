@@ -404,9 +404,11 @@ function syncEntry(runId: string, workflowId: string): ActiveRunForSync | null {
   const run = store.runs.get(runId)
   if (!run || run.workflowId !== workflowId) return null
   const [entry] = syncEntries().filter((e) => e.run.id === runId)
+  const workflowKind = store.workflows.get(run.workflowId)?.kind ?? 'workflow'
   return (
-    entry ?? {
+    (entry && { ...entry, workflowKind }) ?? {
       run,
+      workflowKind,
       workflowName: store.workflows.get(run.workflowId)?.name ?? '',
       // A run that ended keeps its own name, as the SQL reads it for any run.
       deployedName: run.deployedName ?? null,
@@ -1350,8 +1352,11 @@ const mockDb: DatabaseAdapter = {
     store.runs.set(r.id, r)
     return r
   },
-  async listActiveRunsForSyncWithAccounts() {
-    return syncEntries().map((entry) => {
+  async listActiveRunsForSyncWithAccounts(
+    _limit?: number,
+    exceptProviders: readonly string[] = [],
+  ) {
+    return syncEntries().flatMap((entry) => {
       const connection = entry.run.connectionId
         ? store.connections.get(entry.run.connectionId)
         : undefined
@@ -1361,7 +1366,8 @@ const mockDb: DatabaseAdapter = {
         (!owner?.projectId ||
           connection.organizationId ===
             (store.projects.get(owner.projectId)?.organizationId ?? connection.organizationId))
-      return { entry, connection: sameOrg ? connection! : null }
+      if (sameOrg && exceptProviders.includes(connection!.provider)) return []
+      return [{ entry, connection: sameOrg ? connection! : null }]
     })
   },
   async getRunForSyncWithAccount(runId, workflowId, organizationId) {

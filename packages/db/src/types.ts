@@ -560,6 +560,8 @@ export interface RunStepsResult {
 export interface ActiveRunForSync {
   run: WorkflowRun
   workflowName: string
+  /** 'script' for a function, whose runs are calls: recorded with their answer, never read back. */
+  workflowKind?: string
   /**
    * The name the provider knows the run's workflow by — the run's own record,
    * else its deploy's (not the worker's name). Null for runs and deploys from

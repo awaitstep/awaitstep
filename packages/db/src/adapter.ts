@@ -877,7 +877,11 @@ export interface DatabaseAdapter {
     visibleTo?: string,
   ): Promise<PaginatedResult<WorkflowRun>>
   /** The active runs for the sync loop, each with its account (its workflow's organization's), in one read. */
-  listActiveRunsForSyncWithAccounts(limit?: number): Promise<RunSyncTarget[]>
+  listActiveRunsForSyncWithAccounts(
+    limit?: number,
+    /** Runs on these providers' accounts are left out. */
+    exceptProviders?: readonly string[],
+  ): Promise<RunSyncTarget[]>
 
   // Run steps (per-step telemetry)
   upsertRunSteps(runId: string, steps: UpsertRunStepData[]): Promise<void>

@@ -258,7 +258,7 @@ export function callOutcome(result: CallAnswer) {
 }
 
 /** The recorded error's message, for the notice: "Answered 500", or why no answer came. */
-function failureMessage(error: string | null): string {
+export function failureMessage(error: string | null): string {
   try {
     return (JSON.parse(error ?? '') as { message?: string }).message ?? 'The call failed'
   } catch {

@@ -1476,8 +1476,15 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<boolean> {
     return this._runs.updateFromStatus(id, fromStatus, data)
   }
-  async listActiveRunsForSyncWithAccounts(limit?: number): Promise<RunSyncTarget[]> {
-    const rows = await this._runs.listActiveForSyncWithAccounts(this._schema.connections, limit)
+  async listActiveRunsForSyncWithAccounts(
+    limit?: number,
+    exceptProviders?: readonly string[],
+  ): Promise<RunSyncTarget[]> {
+    const rows = await this._runs.listActiveForSyncWithAccounts(
+      this._schema.connections,
+      limit,
+      exceptProviders,
+    )
     // Each account made usable once, however many of its runs are in the batch.
     const hydrated = new Map<string, Promise<Connection>>()
     return Promise.all(

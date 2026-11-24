@@ -10,6 +10,7 @@ import type {
 import type { AppEmails } from '../types.js'
 import { tellRunFailed } from './run-failure.js'
 import { resolveProvider } from './provider-resolver.js'
+import { selfReportingProviders } from './provider-registry.js'
 import { parseStepManifest } from './step-manifest.js'
 import { createLogger } from './logger.js'
 
@@ -33,7 +34,11 @@ export interface RunSyncOptions {
  */
 export async function syncActiveRuns(db: DatabaseAdapter, options?: RunSyncOptions): Promise<void> {
   // The runs and their accounts in one read; each account decrypted once.
-  const active = await db.listActiveRunsForSyncWithAccounts(options?.limit)
+  const active = await db.listActiveRunsForSyncWithAccounts(
+    options?.limit,
+    // With a provider handed in (a test's), every run is its to answer for.
+    options?.provider ? [] : selfReportingProviders(),
+  )
   const byConnection = new Map<string, { connection: Connection; entries: ActiveRunForSync[] }>()
   const unreachable: ActiveRunForSync[] = []
   for (const { entry, connection } of active) {

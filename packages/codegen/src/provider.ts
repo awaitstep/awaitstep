@@ -110,6 +110,13 @@ export interface WorkflowProvider {
   readonly nodeProviders?: readonly string[]
 
   /**
+   * The provider tells the app itself when a run of its ends, so the
+   * background sync does not ask about its runs. A run is still read on
+   * demand (its page, {@link getRunDetail}).
+   */
+  readonly reportsRunEnds?: boolean
+
+  /**
    * Requirements this provider detects beyond the shared analyzer: inferred
    * bindings, derived service/workflow bindings. Unioned with
    * `collectRuntimeRequirements`.

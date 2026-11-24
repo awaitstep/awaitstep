@@ -132,6 +132,11 @@ export function useExtensionProviders(
   connectableFromExtensions = connectable
 }
 
+/** Providers that tell the app when their runs end: the background sync leaves their runs alone. */
+export function selfReportingProviders(): string[] {
+  return providerIds().filter((id) => createProvider(id, {}).reportsRunEnds === true)
+}
+
 export function providerCapabilities(): ProviderCapabilities[] {
   return providerIds().map((id) => {
     const provider = createProvider(id, {})

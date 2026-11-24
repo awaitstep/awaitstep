@@ -1,4 +1,4 @@
-import { eq, desc, and, or, lt, notInArray, sql } from 'drizzle-orm'
+import { eq, desc, and, or, lt, isNull, notInArray, sql, type AnyColumn } from 'drizzle-orm'
 import type {
   ActiveRunForSync,
   Connection,
@@ -43,6 +43,7 @@ export class RunsAdapter {
       .select({
         run: runs,
         workflowName: workflows.name,
+        workflowKind: workflows.kind,
         // The run's own record of the name it started under; for older runs, its deploy's.
         deployedName: sql<
           string | null
@@ -162,9 +163,19 @@ export class RunsAdapter {
   async listActiveForSyncWithAccounts(
     connections: AnyTable,
     limit = 200,
+    exceptProviders: readonly string[] = [],
   ): Promise<Array<{ entry: ActiveRunForSync; connection: Connection | null }>> {
+    const provider = (connections as unknown as { provider: AnyColumn }).provider
     const rows = (await this.syncQuery({ connections })
-      .where(notInArray(this.table.status, TERMINAL_RUN_STATUSES))
+      .where(
+        and(
+          notInArray(this.table.status, TERMINAL_RUN_STATUSES),
+          // A run whose account is gone has no provider: it stays, to be closed.
+          exceptProviders.length > 0
+            ? or(isNull(provider), notInArray(provider, [...exceptProviders]))
+            : undefined,
+        ),
+      )
       .orderBy(desc(this.table.createdAt))
       .limit(limit)) as Array<ActiveRunForSync & { connection: Connection | null }>
     return rows.map(({ connection, ...entry }) => ({
