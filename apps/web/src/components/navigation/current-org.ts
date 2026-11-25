@@ -38,6 +38,14 @@ const CurrentOrgContext = createContext<Organization | null>(null)
 export const CurrentOrgProvider = CurrentOrgContext.Provider
 
 /**
+ * The org framing the current org-less page, or `null` on an account page shown
+ * to someone in no organization (it then has no rail to borrow).
+ */
+export function useBorrowedOrgOrNone(): Organization | null {
+  return useContext(CurrentOrgContext)
+}
+
+/**
  * The org framing the current org-less page. Throws outside the org-less
  * layout, which resolves the org (or redirects to /dashboard) before rendering.
  */

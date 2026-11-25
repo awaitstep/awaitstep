@@ -8,9 +8,10 @@ import { YourDataSection } from './your-data-section'
 
 /**
  * `/account/profile` (`AccountProfile`): the same in every org. `currentOrg` is
- * the org whose rail frames this page — where "leave" and account deletion land.
+ * the org whose rail frames this page (none when you're in no organization) —
+ * where "leave" and account deletion land.
  */
-export function ProfilePage({ currentOrg }: { currentOrg: string }) {
+export function ProfilePage({ currentOrg }: { currentOrg: string | null }) {
   const account = useAccount()
   return (
     <PageBody>

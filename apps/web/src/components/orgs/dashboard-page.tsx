@@ -1,9 +1,9 @@
-import { useId, useState } from 'react'
+import { useId, useState, type ReactElement } from 'react'
 import { Plus } from 'lucide-react'
 import { useMyInvites } from '../../data/dashboard/invites'
 import { useOrgs, useSwitchOrg, useViewer } from '../../data/dashboard/session'
 import { handleSignOut } from '../../lib/auth-client'
-import { accountPath, dashboardPath, withNewDialog } from '../../lib/dashboard-paths'
+import { dashboardPath, withNewDialog } from '../../lib/dashboard-paths'
 import type { OrgListing } from '../../types/dashboard/session'
 import { ActionCard } from '../ui/action-card'
 import { LoadError } from '../ui/load-error'
@@ -12,6 +12,7 @@ import { Bone, LoadingRegion } from '../ui/skeletons'
 import { firstName } from '../invites/invite-format'
 import { CreateOrgDialog } from './create-org-dialog'
 import { EntryFrame } from './parts/entry-frame'
+import { EntryAccountMenu } from '../navigation/account-menu-container'
 import { NoOrgState } from './parts/no-org-state'
 import { OrgCard } from './parts/org-card'
 import { filterOrgs, orderOrgs } from './org-cards'
@@ -130,7 +131,7 @@ export function DashboardPage({ dialog, onCloseDialog }: DashboardPageProps) {
     if (!open) onCloseDialog()
   }
 
-  let account = null
+  let account: { name: string; email: string; image: string | null } | null = null
   let body
   if (viewer.isError || orgs.isError) {
     body = (
@@ -148,15 +149,7 @@ export function DashboardPage({ dialog, onCloseDialog }: DashboardPageProps) {
     const ordered = orderOrgs(orgs.data)
     const lastUsed = lastUsedOf(ordered)
     const hasOrgs = ordered.length > 0
-    // Account is top-level now, but its rail borrows an org: offer the link only
-    // with one to borrow (the one opened last, else the first card) — D-DB-5.
-    const accountOrg = lastUsed ?? ordered[0]?.slug
-    account = {
-      name: me.name,
-      email: me.email,
-      image: me.image,
-      href: accountOrg ? accountPath() : null,
-    }
+    account = { name: me.name, email: me.email, image: me.image }
     body = (
       <>
         <div className="flex flex-col gap-1.5">
@@ -178,8 +171,12 @@ export function DashboardPage({ dialog, onCloseDialog }: DashboardPageProps) {
     )
   }
 
+  function renderAccountMenu(trigger: ReactElement) {
+    return account && <EntryAccountMenu trigger={trigger} user={account} />
+  }
+
   return (
-    <EntryFrame account={account} onSignOut={handleSignOutClick}>
+    <EntryFrame account={account} accountMenu={renderAccountMenu} onSignOut={handleSignOutClick}>
       {body}
       {/* Keyed on open: each opening starts with an empty name and no old error. */}
       <CreateOrgDialog

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { drawsOwnShell, isCanvasRoute, isChromelessRoute, sendsToDashboard } from '../shell-routes'
+import {
+  drawsOwnShell,
+  isCanvasRoute,
+  isChromelessRoute,
+  orgLessFrame,
+  sendsToDashboard,
+} from '../shell-routes'
 
 function matchesFor(...routeIds: string[]) {
   return routeIds.map((routeId) => ({ routeId }))
@@ -82,5 +88,17 @@ describe('isCanvasRoute', () => {
     expect(
       isCanvasRoute([{ routeId: '/_authed/$org/$project/$workspace/workflows_/$id/overview' }]),
     ).toBe(false)
+  })
+})
+
+describe('orgLessFrame', () => {
+  it.each([
+    ['your account, in an org', true, 'account', 'rail'],
+    ['the Playground, in an org', true, 'playground', 'rail'],
+    ['your account, in no org', false, 'account', 'entry'],
+    ['the Playground, in no org', false, 'playground', 'to-dashboard'],
+    ['an undeclared page, in no org', false, undefined, 'to-dashboard'],
+  ] as const)('frames %s', (_, hasOrg, kind, frame) => {
+    expect(orgLessFrame(hasOrg, kind)).toBe(frame)
   })
 })

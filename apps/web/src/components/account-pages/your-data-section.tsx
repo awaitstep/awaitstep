@@ -13,8 +13,8 @@ import { exportFileName } from './account-format'
 
 interface YourDataSectionProps {
   account: Account
-  /** The org in the URL; deleting the account leaves it. */
-  currentOrg: string
+  /** The org framing the page, if any; deleting the account leaves it. */
+  currentOrg: string | null
 }
 
 /** Your data (`AccountProfile`): Download JSON, and Delete account. */
