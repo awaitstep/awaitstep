@@ -7,6 +7,7 @@ import type {
   SourceDiagnostic,
 } from '@awaitstep/codegen'
 import { NO_VERSION_MESSAGE } from './blank-source.js'
+import { unreachableCalls } from './call-reach.js'
 import {
   GenerateInputError,
   generatedNameProblems,
@@ -301,6 +302,25 @@ export async function prepareWorkflow(
       }
     }
     diagnostics.push(...nameClashes)
+  }
+
+  // What it calls must be within its reach: a save only warned of it.
+  const unreachable: PrepareDiagnostic[] = (
+    await unreachableCalls(db, workflow.id, organizationId, ir)
+  ).map(({ nodeId, message }) => ({ source: 'ir', message, nodeId }))
+  if (unreachable.length > 0) {
+    if (!lenient) {
+      const [first, ...rest] = unreachable
+      return {
+        error: first!.message,
+        status: 400,
+        ...(rest.length > 0 && { details: unreachable }),
+        diagnostics: unreachable,
+        checked,
+        finding: true,
+      }
+    }
+    diagnostics.push(...unreachable)
   }
 
   // A custom or marketplace node's required fields: the editors warn while

@@ -206,6 +206,12 @@ export interface AppExtension {
    * refused as an unsupported provider.
    */
   connectableProviders?: readonly string[]
+  /**
+   * Every Call Workflow and Call Function node must name a workflow or
+   * function of this instance: a name that is none (a Worker deployed some
+   * other way) is treated as one it cannot reach.
+   */
+  strictCallTargets?: boolean
   /** Called as the app's own records are created; see {@link ExtensionHooks}. */
   hooks?: ExtensionHooks
 }

@@ -26,6 +26,13 @@ let fromExtensions: Readonly<Record<string, ProviderFactory>> = {}
 // The extension providers a user may connect an account to; the rest are
 // operated by the instance itself.
 let connectableFromExtensions: ReadonlySet<string> = new Set()
+// Whether a call may only name a workflow or function of this instance.
+let strictCalls = false
+
+/** Whether a call node naming nothing this instance knows is refused, as one out of reach is. */
+export function strictCallTargets(): boolean {
+  return strictCalls
+}
 
 function all(): Readonly<Record<string, ProviderFactory>> {
   return { ...BUILT_IN, ...fromExtensions }
@@ -75,6 +82,7 @@ export function useExtensionProviders(
     id: string
     providers?: Readonly<Record<string, ProviderFactory>>
     connectableProviders?: readonly string[]
+    strictCallTargets?: boolean
   }[],
 ): void {
   const next: Record<string, ProviderFactory> = {}
@@ -130,6 +138,7 @@ export function useExtensionProviders(
   }
   fromExtensions = next
   connectableFromExtensions = connectable
+  strictCalls = extensions.some((extension) => extension.strictCallTargets === true)
 }
 
 /** Providers that tell the app when their runs end: the background sync leaves their runs alone. */
