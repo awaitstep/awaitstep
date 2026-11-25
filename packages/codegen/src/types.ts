@@ -247,6 +247,8 @@ export interface WorkflowRunDetail extends WorkflowRunStatus {
   /** The provider's billable step count for the run, when reported. */
   stepCount?: number
   steps: RunStepDetail[]
+  /** The steps could not be read right now (the provider is busy): `steps` is empty, not the truth. */
+  stepsUnavailable?: boolean
 }
 
 export type DeploymentConfigUiWidget =

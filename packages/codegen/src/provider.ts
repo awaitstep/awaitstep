@@ -118,6 +118,14 @@ export interface WorkflowProvider {
   readonly reportsRunEnds?: boolean
 
   /**
+   * A run's steps are read from the provider each time they are shown
+   * ({@link getRunDetail}) and never stored by the app. `keptFor` is one
+   * sentence saying how long the provider keeps them, shown once they are
+   * gone.
+   */
+  readonly liveSteps?: { keptFor: string }
+
+  /**
    * Requirements this provider detects beyond the shared analyzer: inferred
    * bindings, derived service/workflow bindings. Unioned with
    * `collectRuntimeRequirements`.
