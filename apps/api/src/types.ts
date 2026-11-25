@@ -266,4 +266,6 @@ export interface ExtensionsPackage {
   acceptedAuth?: 'both' | 'sessions' | 'keys'
   /** Where other systems run a workflow, when not this API's own `/api/run`. */
   publicRunUrl?: string
+  /** The only database the app runs on: `'postgres'` refuses to start without `DATABASE_URL`. */
+  database?: 'postgres'
 }

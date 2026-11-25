@@ -4,10 +4,9 @@ import { serve } from '@hono/node-server'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdirSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { DrizzleDatabaseAdapter, schema } from '@awaitstep/db'
+import { DrizzleDatabaseAdapter } from '@awaitstep/db'
 import { organizationCreated } from '../lib/extension-hooks.js'
 import { createApp, createAuth } from '../index.js'
 import { accountProvidersOf, type AuthOptions } from '../auth/config.js'
@@ -39,46 +38,18 @@ import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { cloudflareOAuthFromEnv } from '../lib/cloudflare-oauth-config.js'
 import { createConnectionRefresh } from '../lib/connection-refresh.js'
 import { publicFetch } from './public-fetch.js'
+import { openNodeDatabase } from './node-database.js'
 
 const __appRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
-async function initDatabase() {
-  const databaseUrl = process.env['DATABASE_URL']
-
-  if (databaseUrl) {
-    const { Pool } = await import('pg')
-    const { drizzle } = await import('drizzle-orm/node-postgres')
-    const { migrate } = await import('drizzle-orm/node-postgres/migrator')
-
-    const pool = new Pool({ connectionString: databaseUrl })
-    const pgSchema = schema.pg
-    const drizzleDb = drizzle(pool, { schema: pgSchema })
-    await migrate(drizzleDb, { migrationsFolder: resolve(__appRoot, 'packages/db/drizzle/pg') })
-
-    return { drizzleDb, dbSchema: pgSchema, provider: 'pg' as const }
-  }
-
-  const Database = (await import('better-sqlite3')).default
-  const { drizzle } = await import('drizzle-orm/better-sqlite3')
-  const { migrate } = await import('drizzle-orm/better-sqlite3/migrator')
-
-  const dataDir = process.env['DATA_DIR'] ?? '/app/data'
-  mkdirSync(dataDir, { recursive: true })
-
-  const sqlite = new Database(resolve(dataDir, 'awaitstep.db'))
-  sqlite.pragma('journal_mode = WAL')
-  sqlite.pragma('foreign_keys = ON')
-
-  const sqliteSchema = schema.sqlite
-  const drizzleDb = drizzle(sqlite, { schema: sqliteSchema })
-  migrate(drizzleDb, { migrationsFolder: resolve(__appRoot, 'packages/db/drizzle/sqlite') })
-
-  return { drizzleDb, dbSchema: sqliteSchema, provider: 'sqlite' as const }
-}
-
 async function start() {
   const logger = createLogger('app')
-  const { drizzleDb, dbSchema, provider } = await initDatabase()
+  const { drizzleDb, dbSchema, provider } = await openNodeDatabase({
+    url: process.env['DATABASE_URL'],
+    sqliteFile: resolve(process.env['DATA_DIR'] ?? '/app/data', 'awaitstep.db'),
+    appRoot: __appRoot,
+    migratePostgres: true,
+  })
   logger.info(`Database: ${process.env['DATABASE_URL'] ? 'postgres' : 'sqlite'}`)
 
   const tokenEncryptionKey = process.env['TOKEN_ENCRYPTION_KEY']

@@ -130,7 +130,7 @@ describe('loadExtensionsPackage', () => {
   it('refuses a default export without an extensions list, the old bare list included', async () => {
     for (const exported of [[], { id: 'one' }, null, { extensions: {} }]) {
       await expect(loadExtensionsPackage(PACKAGE, loaderAt(LINKED, exported))).rejects.toThrow(
-        /must export \{ extensions: \[\.\.\.\], disabled\?: \[\.\.\.\], oauthReturnPath\?: '\/…' \}/,
+        /must export \{ extensions: \[\.\.\.\], disabled\?: \[\.\.\.\], oauthReturnPath\?: '\/…', database\?: 'postgres' \}/,
       )
     }
   })
@@ -149,6 +149,19 @@ describe('loadExtensionsPackage', () => {
     await expect(loadExtensionsPackage(PACKAGE, offsite)).rejects.toThrow(/is not valid/)
     const notText = loaderAt(LINKED, { extensions: [], oauthReturnPath: 42 })
     await expect(loadExtensionsPackage(PACKAGE, notText)).rejects.toThrow(/must export/)
+  })
+
+  it('marks a package that runs on Postgres only, and refuses any other database', async () => {
+    const pg = loaderAt(LINKED, { extensions: [], database: 'postgres' })
+    await expect(loadExtensionsPackage(PACKAGE, pg)).resolves.toEqual({
+      extensions: [],
+      disabled: [],
+      postgresOnly: true,
+    })
+    for (const database of ['sqlite', 'pg', true]) {
+      const other = loaderAt(LINKED, { extensions: [], database })
+      await expect(loadExtensionsPackage(PACKAGE, other)).rejects.toThrow(/must export/)
+    }
   })
 
   it('refuses a disabled entry that is not a list', async () => {
