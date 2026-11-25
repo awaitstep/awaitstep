@@ -833,11 +833,16 @@ export interface DatabaseAdapter {
   createRun(data: CreateRunData): Promise<WorkflowRun>
   /** The run, or null when that workflow already has one on that instance and account (nothing written). */
   createRunForInstance(data: CreateRunData): Promise<WorkflowRun | null>
-  /** One run's sync row with its account (only the organization's), read together. */
+  /**
+   * One run's sync row with its account (only the organization's), read together.
+   * With `forProvider`, an account of a provider it turns down comes back as
+   * null, its credentials never opened.
+   */
   getRunForSyncWithAccount(
     runId: string,
     workflowId: string,
     organizationId: string,
+    forProvider?: (provider: string) => boolean,
   ): Promise<RunSyncTarget | null>
   /** A workflow's name and place, for a failure notice with no run behind it; null when it isn't that organization's. */
   getWorkflowFailurePlace(

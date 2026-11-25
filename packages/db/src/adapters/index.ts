@@ -1430,6 +1430,7 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     runId: string,
     workflowId: string,
     organizationId: string,
+    forProvider?: (provider: string) => boolean,
   ): Promise<RunSyncTarget | null> {
     const found = await this._runs.getForSyncWithAccount(
       runId,
@@ -1438,9 +1439,10 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       this._schema.connections,
     )
     if (!found) return null
+    const wanted = found.connection && (forProvider?.(found.connection.provider) ?? true)
     return {
       entry: found.entry,
-      connection: found.connection ? await this._connections.hydrate(found.connection) : null,
+      connection: wanted ? await this._connections.hydrate(found.connection!) : null,
     }
   }
   getWorkflowFailurePlace(
