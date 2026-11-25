@@ -13,6 +13,8 @@ interface RunStepsCardProps {
   entries: StepListEntry[]
   spanMs: number
   loaded: boolean
+  /** Said instead of "No steps yet" when the provider gives a reason there are none. */
+  notice?: string | undefined
   runStatus: string
   selectedId: string | undefined
   onSelect: (id: string) => void
@@ -25,6 +27,7 @@ export function RunStepsCard({
   entries,
   spanMs,
   loaded,
+  notice,
   runStatus,
   selectedId,
   onSelect,
@@ -99,7 +102,7 @@ export function RunStepsCard({
         <p className="px-4 py-6 text-sm text-muted-foreground">Loading steps…</p>
       ) : all.length === 0 ? (
         <p className="px-4 py-6 text-sm text-muted-foreground">
-          No steps yet. They appear as Cloudflare reports them.
+          {notice ?? 'No steps yet. They appear as Cloudflare reports them.'}
         </p>
       ) : (
         <ul className={long ? 'max-h-[360px] overflow-y-auto' : undefined}>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { WorkflowNode, Edge as IREdge } from '@awaitstep/ir'
-import type { RunStep, RunSummary } from '../lib/api-client'
+import type { RunStep, RunStepsResponse, RunSummary } from '../lib/api-client'
 import {
   buildRunTimeline,
   graphShapeOf,
@@ -23,6 +23,8 @@ export interface RunTelemetry {
   steps: RunStep[]
   /** Whether the steps have been read at least once. */
   stepsLoaded: boolean
+  /** Why there are no steps, where the provider says. */
+  stepsNotice: string | undefined
   /** Per-node status for the canvas; undefined until the steps are in. */
   nodeStatuses: Record<string, StepStatus> | undefined
   entries: StepListEntry[]
@@ -61,9 +63,15 @@ export function useRunTelemetry(workflowId: string, run: RunSummary): RunTelemet
     staleTime: Infinity,
   })
 
+  const stepsKey = ['workflow-run-steps', workflowId, run.id]
   const { data: stepsResponse } = useQuery({
-    queryKey: ['workflow-run-steps', workflowId, run.id],
-    queryFn: () => api.getWorkflowRunSteps(workflowId, run.id),
+    queryKey: stepsKey,
+    queryFn: async () => {
+      const next = await api.getWorkflowRunSteps(workflowId, run.id)
+      // A read that failed this once takes nothing off the page.
+      const shown = queryClient.getQueryData<RunStepsResponse>(stepsKey)
+      return next.unavailable && shown?.data.length ? shown : next
+    },
     refetchInterval: isActive ? 5_000 : false,
   })
   const steps = stepsResponse?.data ?? NO_STEPS
@@ -111,6 +119,7 @@ export function useRunTelemetry(workflowId: string, run: RunSummary): RunTelemet
     ir: version?.ir ?? null,
     steps,
     stepsLoaded: Boolean(stepsResponse),
+    stepsNotice: stepsResponse?.notice,
     nodeStatuses,
     entries,
     spanMs,

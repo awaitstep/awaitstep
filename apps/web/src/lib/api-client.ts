@@ -590,6 +590,10 @@ export interface RunStepsResponse {
   data: RunStep[]
   /** memberNodeId → leader nodeId for nodes whose code ran inside a merged step. */
   coalescedInto: Record<string, string>
+  /** Why there are no steps to show, where the provider says (they are no longer kept, or can't be read now). */
+  notice?: string
+  /** The steps could not be read this time; the ones already shown still stand. */
+  unavailable?: true
 }
 
 /** A connection as `GET /connections` lists it: the account by suffix, never its credentials. */

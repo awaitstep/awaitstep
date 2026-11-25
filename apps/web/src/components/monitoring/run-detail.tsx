@@ -115,6 +115,7 @@ function RunView({
             entries={telemetry.entries}
             spanMs={telemetry.spanMs}
             loaded={telemetry.stepsLoaded}
+            notice={telemetry.stepsNotice}
             runStatus={run.status}
             selectedId={selected?.id}
             onSelect={setPicked}
