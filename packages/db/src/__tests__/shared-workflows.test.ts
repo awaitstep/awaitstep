@@ -258,4 +258,97 @@ describe.each([
       expect(there.data).toEqual([])
     })
   })
+  describe('listUnreachableCallTargets', () => {
+    const unreachable = (from: string, names: string[]) =>
+      h.adapter.listUnreachableCallTargets(from, 'org-acme', names)
+
+    beforeEach(async () => {
+      const s = h.schema
+      await h.db.insert(s.workflows).values({
+        id: 'wf-ops',
+        projectId: 'p-101',
+        workspaceId: 'ws-ops',
+        createdBy: 'u-ama',
+        name: 'Ops flow',
+        createdAt: T0,
+        updatedAt: T0,
+      })
+    })
+
+    it('lets workflows of one workspace call each other, both ways', async () => {
+      expect(await unreachable('wf-enrich', ['wf-sync', 'wf-fn', 'wf-enrich'])).toEqual([])
+      expect(await unreachable('wf-sync', ['wf-enrich'])).toEqual([])
+    })
+
+    it('refuses another workspace’s workflow until it is shared, and never the way back', async () => {
+      expect(await unreachable('wf-enrich', ['wf-ops'])).toEqual(['wf-ops'])
+      await h.adapter.setWorkflowShared('wf-ops', 'ws-ops', 'u-ama', true)
+      expect(await unreachable('wf-enrich', ['wf-ops'])).toEqual([])
+      // Shared, it still cannot call into the workspaces that call it.
+      expect(await unreachable('wf-ops', ['wf-enrich', 'wf-sync'])).toEqual([
+        'wf-enrich',
+        'wf-sync',
+      ])
+      await h.adapter.setWorkflowShared('wf-ops', 'ws-ops', 'u-ama', false)
+      expect(await unreachable('wf-enrich', ['wf-ops'])).toEqual(['wf-ops'])
+    })
+
+    it('refuses another project’s workflow, shared or not', async () => {
+      expect(await unreachable('wf-enrich', ['wf-202'])).toEqual(['wf-202'])
+      await h.adapter.setWorkflowShared('wf-202', 'ws-202', 'u-ama', true)
+      expect(await unreachable('wf-enrich', ['wf-202', 'wf-sync'])).toEqual(['wf-202'])
+      expect(await unreachable('wf-202', ['wf-enrich'])).toEqual(['wf-enrich'])
+    })
+
+    it('knows a target by what it is deployed as, not only by its id', async () => {
+      // d-2 is wf-enrich's live deployment; d-3 is wf-sync's failed one.
+      expect(await unreachable('wf-ops', ['d-2', 'd-3', 'd-2'])).toEqual(['d-2'])
+      expect(await unreachable('wf-sync', ['d-2'])).toEqual([])
+    })
+
+    it('never goes by a display name, which another project may use too', async () => {
+      await h.db
+        .update(h.schema.deployments)
+        .set({ deployedName: 'orders' })
+        .where(eq(h.schema.deployments.id, 'd-2'))
+      expect(await unreachable('wf-202', ['orders'])).toEqual([])
+    })
+
+    it('lets a name through when something within reach answers to it too', async () => {
+      // The same deployed name on a workflow of another project and on one of its own workspace.
+      await h.db.insert(h.schema.deployments).values({
+        id: 'd-far',
+        workflowId: 'wf-202',
+        serviceName: 'shared-name',
+        status: 'success',
+        createdAt: T0,
+        updatedAt: T0,
+      })
+      expect(await unreachable('wf-enrich', ['shared-name'])).toEqual(['shared-name'])
+      await h.db.insert(h.schema.deployments).values({
+        id: 'd-near',
+        workflowId: 'wf-sync',
+        serviceName: 'shared-name',
+        status: 'success',
+        createdAt: T0,
+        updatedAt: T0,
+      })
+      expect(await unreachable('wf-enrich', ['shared-name'])).toEqual([])
+    })
+
+    it('does not judge a name that is no workflow of the organization', async () => {
+      expect(await unreachable('wf-enrich', ['some-other-worker', 'wf-g'])).toEqual([])
+      expect(await unreachable('wf-enrich', [])).toEqual([])
+    })
+
+    it('refuses a name that is no workflow of the organization where calls are strict', async () => {
+      const strict = (names: string[]) =>
+        h.adapter.listUnreachableCallTargets('wf-enrich', 'org-acme', names, true)
+      // wf-g is another organization's: unknown here, as a Worker deployed elsewhere is.
+      expect(await strict(['some-other-worker', 'wf-g', 'wf-sync', 'd-2'])).toEqual([
+        'some-other-worker',
+        'wf-g',
+      ])
+    })
+  })
 })
