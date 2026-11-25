@@ -347,6 +347,8 @@ const fetch_data_result = await flow.step(
 
 Call another deployed workflow, optionally waiting for it to complete.
 
+A workflow or function can call what is in its own workspace, and what another workspace of the same project has shared. Calls never cross projects. A call to anything else saves with a warning, and is refused when you deploy, start a test session or run locally.
+
 **Config:**
 
 | Field               | Type         | Required | Default     | Description                                                                    |

@@ -18,6 +18,7 @@ import {
 import { projectWriteRuleErrors } from '../lib/project-write-rules.js'
 import { snapshotFilesOf, toWorkflowFileRows } from '../lib/project-files.js'
 import { graphHash } from '../lib/graph-hash.js'
+import { unreachableCalls, type UnreachableCall } from '../lib/call-reach.js'
 import {
   VERSION_CHANGED,
   commitProjectFiles,
@@ -52,12 +53,23 @@ const lockVersionSchema = z.object({
 const NOTHING_STORED: Pick<ArtifactIR, 'runtime'> = {}
 
 /** A save's answer: the version row with its graph hash, or the 409 with the current one. */
-function saveResponse(c: Context<AppEnv>, result: VersionSaveResult) {
+function saveResponse(
+  c: Context<AppEnv>,
+  result: VersionSaveResult,
+  warnings: readonly UnreachableCall[] = [],
+) {
   if (result.status === 409) {
     const { currentVersionId, currentGraphHash } = result
     return c.json({ error: VERSION_CHANGED, currentVersionId, currentGraphHash }, 409)
   }
-  return c.json({ ...result.version, graphHash: result.graphHash }, result.status)
+  return c.json(
+    {
+      ...result.version,
+      graphHash: result.graphHash,
+      ...(warnings.length > 0 && { warnings }),
+    },
+    result.status,
+  )
 }
 
 /** Where a version event is recorded: the workflow's workspace, under its name. */
@@ -118,7 +130,12 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
   if (!workflow) return c.json({ error: 'Workflow not found' }, 404)
   // Everything the save is judged against, in one round: the files decide
   // the seeds below, the version and deployment decide how it is written.
-  const reads = await readForSave(db, workflowId)
+  // What it calls out of its reach is said with the save, not refused: a
+  // deploy, a test session and a local run refuse it.
+  const [reads, unreachable] = await Promise.all([
+    readForSave(db, workflowId),
+    unreachableCalls(db, workflowId, c.get('organizationId'), savedIr),
+  ])
   const storedFiles = reads.files
 
   // A file snapshot or legacy trigger-code / dependencies block is honoured
@@ -207,7 +224,7 @@ versions.post('/:workflowId/versions', zValidator('json', createVersionSchema), 
     },
     reads,
   )
-  return saveResponse(c, result)
+  return saveResponse(c, result, unreachable)
 })
 
 /**

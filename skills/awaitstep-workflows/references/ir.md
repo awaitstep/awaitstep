@@ -134,6 +134,10 @@ programmatic build, set the first node explicitly.
 - A save whose latest version was never deployed overwrites it in place; once
   deployed, a save creates the next version.
 - The response is the version row plus `graphHash`.
+- The response may carry `warnings`, each `{ nodeId, nodeName, message }`: the
+  version is saved, but a deploy, a test session and a local run refuse it
+  until they are fixed. Today that is a call node naming a workflow or function
+  it cannot reach. Report them, and do not go on to deploy.
 - `400` means the IR is invalid (`details` lists the paths). `409` means the
   graph moved; re-read and ask.
 
