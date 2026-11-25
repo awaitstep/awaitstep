@@ -1031,13 +1031,16 @@ const mockDb: DatabaseAdapter = {
       }),
     }
   },
-  async hasAccountOutsideProviders(workflowId, providers) {
-    // The fake keeps no project-account rows: an account of the organization serves its projects.
+  async hasAccountOutsideProviders(workflowId, providers, connectionId) {
+    // The fake keeps no project lists: one narrowed to some projects stands for this project's alone.
     const projectId = store.workflows.get(workflowId)?.projectId
     const organizationId = projectId ? store.projects.get(projectId)?.organizationId : undefined
     return [...store.connections.values()].some(
       (connection) =>
-        connection.organizationId === organizationId && !providers.includes(connection.provider),
+        connection.organizationId === organizationId &&
+        !providers.includes(connection.provider) &&
+        (connection.projectId === projectId || !connection.allProjects) &&
+        (!connectionId || connection.id === connectionId),
     )
   },
 

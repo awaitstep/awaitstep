@@ -277,13 +277,18 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
   // Revert reproduces the target's IR as a new version. The project-file
   // table follows the snapshot, so the current version deploys the reverted
   // files rather than whatever was live.
-  const [newVersion] = await Promise.all([
+  // The reverted graph is judged as a save is: what it calls out of reach is said.
+  const revertedDoc = storedDocument(targetVersion.ir)
+  const [newVersion, unreachable] = await Promise.all([
     db.createVersion({
       id: nanoid(),
       workflowId,
       ir: targetVersion.ir,
       createdBy: c.get('userId'),
     }),
+    revertedDoc
+      ? unreachableCalls(db, workflowId, c.get('organizationId'), revertedDoc)
+      : Promise.resolve([]),
     db.replaceWorkflowFiles(
       workflowId,
       toWorkflowFileRows(workflowId, snapshotFilesOf(targetVersion.ir)),
@@ -292,7 +297,7 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
 
   // The reverted document is current now: its uses replace the ones the
   // version it replaced recorded, or the delete guard would judge the wrong code.
-  const reverted = storedDocument(targetVersion.ir)
+  const reverted = revertedDoc
   await Promise.all([
     db.advanceCurrentVersion(workflowId, newVersion),
     reverted
@@ -310,7 +315,14 @@ versions.post('/:workflowId/versions/:versionId/revert', async (c) => {
     facts: { ...audited.facts, version: targetVersion.version },
   })
 
-  return c.json({ ...newVersion, graphHash: graphHash(newVersion.ir) }, 201)
+  return c.json(
+    {
+      ...newVersion,
+      graphHash: graphHash(newVersion.ir),
+      ...(unreachable.length > 0 && { warnings: unreachable }),
+    },
+    201,
+  )
 })
 
 versions.delete('/:workflowId/versions/:versionId', async (c) => {

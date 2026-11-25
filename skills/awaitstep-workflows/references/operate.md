@@ -111,7 +111,8 @@ There are two ways, and they differ:
 
   Revert has no precondition and replaces the project files. Read `GET /full`
   first, tell the user what the current version holds, and keep the returned
-  `graphHash` for the next save.
+  `graphHash` for the next save. Like a save, it may return `warnings` for a
+  call the reverted version cannot reach; the deploy then refuses it.
 
 Either way, Library modules and custom nodes are **not** pinned: the deploy
 takes their latest published version. Say this when a user expects a rollback

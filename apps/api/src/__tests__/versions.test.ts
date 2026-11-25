@@ -152,7 +152,7 @@ describe('version routes', () => {
           expect(warned.status).toBe(200)
           expect((await warned.json()).warnings).toMatchObject([{ nodeId: 'call' }])
           expect(await (await save('wf-near')).json()).not.toHaveProperty('warnings')
-          // A project with an account of its own may call what it deployed there.
+          // A project with an account it alone uses may call what it deployed there.
           await mockDb.createConnection({
             id: 'conn-own',
             organizationId: TEST_ORG_ID,
@@ -160,11 +160,31 @@ describe('version routes', () => {
             provider: 'cloudflare',
             credentials: '{}',
             name: 'Own',
+            allProjects: false,
           })
           expect(await (await save('some-other-worker')).json()).not.toHaveProperty('warnings')
         } finally {
           useExtensionProviders([])
         }
+      })
+
+      it('warns of it when a revert brings the call back', async () => {
+        const first = await (await save('wf-far')).json()
+        // Deployed, so the next save is a new version rather than an overwrite.
+        await mockDb.createDeployment({
+          id: 'd-1',
+          workflowId: 'wf-1',
+          versionId: first.id,
+          connectionId: 'conn-1',
+          serviceName: 'svc',
+          status: 'success',
+        } as never)
+        await save('wf-near')
+        const reverted = await app.request(url(`/api/workflows/wf-1/versions/${first.id}/revert`), {
+          method: 'POST',
+        })
+        expect(reverted.status).toBe(201)
+        expect((await reverted.json()).warnings).toMatchObject([{ nodeId: 'call' }])
       })
 
       it('says nothing of a call into its own workspace', async () => {
