@@ -40,6 +40,10 @@ jobs:
       - name: Test root scripts
         run: pnpm test:scripts
 
+      # `nodes/registry.json` is generated, not committed; the IR tests read it.
+      - name: Build the node registry
+        run: pnpm nodes:build
+
       - name: Test
         run: pnpm test
 
