@@ -2,6 +2,7 @@ import {
   and,
   desc,
   eq,
+  inArray,
   isNotNull,
   isNull,
   lt,
@@ -67,6 +68,54 @@ export class SharedWorkflowsAdapter {
         )
         .returning(this.sharingReturning()),
     )
+  }
+
+  /**
+   * Which of `names` a workflow may not call. A name is a workflow's or
+   * function's id, or what one of its deployments is deployed as (never its
+   * display name, which two projects may share). One it may call is in its
+   * own workspace, or shared to the project they are both in. A name is
+   * refused only when everything it names is out of reach; a name that is no
+   * workflow of the organization is not judged here (it is not AwaitStep's)
+   * unless `strict`, where every call must name one and it is refused too.
+   * One statement for all of them.
+   */
+  async unreachableCallTargets(
+    workflowId: string,
+    organizationId: string,
+    names: readonly string[],
+    strict = false,
+  ): Promise<string[]> {
+    const asked = [...new Set(names)]
+    if (asked.length === 0) return []
+    const wf = this.t.workflows
+    const dep = this.t.deployments
+    const caller = aliasedTable(wf, 'caller')
+    const reached = sql<number>`case when ${caller.projectId} = ${wf.projectId} and (${caller.workspaceId} = ${wf.workspaceId} or ${wf.sharedAt} is not null) then 1 else 0 end`
+    const rows: { id: string; serviceName: string | null; reached: number }[] = await this.db
+      .selectDistinct({ id: wf.id, serviceName: dep.serviceName, reached })
+      .from(wf)
+      .innerJoin(this.t.projects, eq(this.t.projects.id, wf.projectId))
+      .innerJoin(caller, eq(caller.id, workflowId))
+      .leftJoin(
+        dep,
+        and(eq(dep.workflowId, wf.id), eq(dep.status, 'success'), inArray(dep.serviceName, asked)),
+      )
+      .where(
+        and(
+          eq(this.t.projects.organizationId, organizationId),
+          or(inArray(wf.id, asked), isNotNull(dep.id)),
+        ),
+      )
+    const within = new Set<string | null>()
+    const named = new Set<string | null>()
+    for (const row of rows) {
+      for (const name of [row.id, row.serviceName]) {
+        named.add(name)
+        if (Number(row.reached) === 1) within.add(name)
+      }
+    }
+    return asked.filter((name) => (strict || named.has(name)) && !within.has(name))
   }
 
   /**

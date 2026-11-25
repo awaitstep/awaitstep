@@ -533,6 +533,19 @@ export interface DatabaseAdapter {
     userId: string,
     shared: boolean,
   ): Promise<SharingRow | null>
+  /**
+   * Which of `names` (ids, or what a deployment is deployed as) a workflow may
+   * not call: another workspace's that is not shared to its project, or
+   * another project's. A name something within reach also answers to is not
+   * in the answer. A name that is no workflow of the organization is in it
+   * only when `strict`: where every call must name one.
+   */
+  listUnreachableCallTargets(
+    workflowId: string,
+    organizationId: string,
+    names: readonly string[],
+    strict?: boolean,
+  ): Promise<string[]>
   /** A project's shared workflows and functions, newest share first, in one statement. */
   listSharedWorkflows(
     filter: SharedWorkflowFilter,

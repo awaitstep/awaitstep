@@ -1101,6 +1101,14 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<SharingRow | null> {
     return this._shared.setShared(id, workspaceId, userId, shared)
   }
+  listUnreachableCallTargets(
+    workflowId: string,
+    organizationId: string,
+    names: readonly string[],
+    strict?: boolean,
+  ): Promise<string[]> {
+    return this._shared.unreachableCallTargets(workflowId, organizationId, names, strict)
+  }
   listSharedWorkflows(
     filter: SharedWorkflowFilter,
     pagination?: PaginationParams,
