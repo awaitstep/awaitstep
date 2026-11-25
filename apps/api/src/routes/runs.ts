@@ -7,6 +7,7 @@ import { zValidator } from '../lib/validation.js'
 import { coalescedMembers, parseStepManifest } from '../lib/step-manifest.js'
 import { syncRunById } from '../lib/run-sync.js'
 import { diffRunDetail } from '../lib/run-events.js'
+import { isLiveStepId, liveRunSteps, liveStepExtras } from '../lib/live-steps.js'
 import type { WorkflowProvider, WorkflowRunDetail } from '@awaitstep/codegen'
 import { RunGoneError } from '@awaitstep/codegen'
 import { runPageRecord, runStepExtrasRecord } from '../lib/run-records.js'
@@ -38,7 +39,9 @@ runs.get('/:workflowId/runs/:runId', async (c) => {
 })
 
 /**
- * Per-step telemetry for a run, synced by the background loop. Ownership is
+ * Per-step telemetry for a run, synced by the background loop, or read from
+ * the provider where its steps are live (then `notice` says why there are
+ * none, when it has none to give). Ownership is
  * enforced inside the query (steps JOIN runs filtered by workflowId), so an
  * unknown or foreign run reads as an empty list. `coalescedInto` maps each
  * node whose code ran inside a merged step to that step's leader node, from
@@ -49,6 +52,10 @@ runs.get('/:workflowId/runs/:runId/steps', async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
+
+  // A provider whose steps are read live answers for its own runs; nothing is stored of them.
+  const live = await liveRunSteps(db, c.req.param('runId'), workflow.id, c.get('organizationId'))
+  if (live) return c.json(live)
 
   const { steps, configSnapshot } = await db.listRunSteps(c.req.param('runId'), workflow.id)
   return c.json({
@@ -79,7 +86,10 @@ runs.get('/:workflowId/runs/:runId/steps/:stepId', async (c) => {
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const extras = await db.getRunStepExtras(c.req.param('stepId'), c.req.param('runId'), workflow.id)
+  const stepId = c.req.param('stepId')
+  const extras = isLiveStepId(stepId)
+    ? await liveStepExtras(db, stepId, c.req.param('runId'), workflow.id, c.get('organizationId'))
+    : await db.getRunStepExtras(stepId, c.req.param('runId'), workflow.id)
   if (!extras) return c.json({ error: 'Step not found' }, 404)
   return c.json(runStepExtrasRecord(extras))
 })
