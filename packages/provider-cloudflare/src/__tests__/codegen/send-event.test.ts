@@ -4,6 +4,7 @@ import { generateWorkflowBundle, sendsEventsItself } from '../../codegen/generat
 import { generateScriptBundle } from '../../codegen/generate-script.js'
 import { generateUniversalFunctionBundle, handlerModuleScaffold } from '@awaitstep/codegen'
 import type { ScriptIR } from '@awaitstep/ir'
+import { getSubScriptBindings } from '../../codegen/generators/sub-script.js'
 import { bundleTypeErrors } from './fixtures/type-check-bundle.js'
 import { loadBundleModule, NonRetryableError } from './fixtures/run-bundle.js'
 
@@ -162,8 +163,8 @@ describe('getInstance and sendEvent in a Cloudflare workflow', () => {
     const platform = generateWorkflowBundle(waiting).files.find(
       (file) => file.path === 'awaitstep/platform.ts',
     )!.source
-    // Every workflow call goes through the check; a function's binding is a service.
-    expect(platform).not.toMatch(/bindings\[cfBinding\(options\)\]\.(?:get|create)\(/)
+    // Every call goes through a check that names the binding it wanted.
+    expect(platform).not.toMatch(/bindings\[cf\w*Binding\(options\)\]\.(?:get|create|fetch)\(/)
   })
 })
 
@@ -321,6 +322,7 @@ describe('the platform host, run', () => {
       sendEvent(type: string, payload?: unknown): Promise<void>
     } | null>
     workflowStatus(id: string, options: Record<string, unknown>): Promise<unknown>
+    callScript(options: Record<string, unknown>): Promise<unknown>
   }
   const orders = { workflow: 'orders', exportName: 'OrdersWorkflow' }
 
@@ -362,6 +364,36 @@ describe('the platform host, run', () => {
   it('names the missing binding and how to bind it', async () => {
     await expect(platform({}).getInstance('run-1', { workflow: 'orders' })).rejects.toThrow(
       'Workflow "orders" is not bound here (no ORDERS binding): add a Call Workflow node for it and pass its exportName',
+    )
+  })
+
+  it.each([
+    ['awaitstep-email-service'],
+    ['Vx3kPq9aLmN2'],
+    ['9fGh-Zk2'],
+    ['awaitstep-4fgh'],
+    ['my_worker.v2'],
+    ['sendEmail'],
+  ])('calls a function through the binding the deploy gave it (%s)', async (script) => {
+    const [bound] = getSubScriptBindings([{ type: 'sub_script', data: { scriptId: script } }])
+    const fetch = vi.fn(async () => new Response('{"ok":true}'))
+    const env = { [bound!.binding]: { fetch } }
+    await expect(platform(env).callScript({ script })).resolves.toEqual({ ok: true })
+    expect(fetch).toHaveBeenCalledOnce()
+  })
+
+  it('uses a function’s named binding, trimmed as the deploy trims it', async () => {
+    const params = { cf: { binding: ' BILLING ' } }
+    const [bound] = getSubScriptBindings([
+      { type: 'sub_script', data: { scriptId: 'Vx3kPq9a', params } },
+    ])
+    const env = { [bound!.binding]: { fetch: async () => new Response('plain') } }
+    await expect(platform(env).callScript({ script: 'Vx3kPq9a', params })).resolves.toBe('plain')
+  })
+
+  it('names the missing binding of a function', async () => {
+    await expect(platform({}).callScript({ script: '9fGh' })).rejects.toThrow(
+      'Function "9fGh" is not bound here (no W_9FGH binding): add a Call Function node for it',
     )
   })
 

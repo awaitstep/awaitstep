@@ -66,10 +66,16 @@ export function cloudflarePlatformHelper(retention: string): string {
   return cf && typeof cf === "object" ? (cf as Record<string, unknown>) : {};
 }
 
-function cfBinding(options: { exportName?: string; workflow?: string; script?: string; params?: Record<string, unknown> }): string {
+function cfExplicitBinding(options: { params?: Record<string, unknown> }): string {
   const explicit = cfParams(options).binding;
-  if (typeof explicit === "string" && explicit.length > 0) return explicit;
-  const source = options.exportName ?? options.script ?? options.workflow ?? "";
+  return typeof explicit === "string" ? explicit.trim() : "";
+}
+
+// A workflow binding is named after the child's class, as Cloudflare names it.
+function cfWorkflowBinding(options: { exportName?: string; workflow?: string; params?: Record<string, unknown> }): string {
+  const explicit = cfExplicitBinding(options);
+  if (explicit) return explicit;
+  const source = options.exportName ?? options.workflow ?? "";
   const base = source.replace(/^awaitstep-/i, "") || source;
   return base
     .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
@@ -79,11 +85,27 @@ function cfBinding(options: { exportName?: string; workflow?: string; script?: s
     .toUpperCase();
 }
 
+// A service binding is named as the deploy names it (workerNameToBinding): the two must agree.
+function cfScriptBinding(options: { script?: string; params?: Record<string, unknown> }): string {
+  const explicit = cfExplicitBinding(options);
+  if (explicit) return explicit;
+  const name = options.script ?? "";
+  if (!name.trim()) return "";
+  const stripped = name.replace(/^awaitstep-/i, "");
+  const base = stripped.trim().length > 0 ? stripped : name;
+  const sanitized = base
+    .replace(/[^A-Za-z0-9_]/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+  if (!sanitized) return "";
+  return /^[0-9]/.test(sanitized) ? "W_" + sanitized : sanitized;
+}
+
 export function createAwaitstepPlatform(env: Env): PlatformHost {
   const bindings = env as unknown as Record<string, any>;
   // Another workflow is bound only when the graph has a Call Workflow node for it.
   const workflowBinding = (options: { workflow: string; exportName?: string; params?: Record<string, unknown> }) => {
-    const name = cfBinding(options);
+    const name = cfWorkflowBinding(options);
     const binding = bindings[name];
     if (!binding) {
       throw new Error(\`Workflow "\${options.workflow}" is not bound here (no \${name} binding): add a Call Workflow node for it and pass its exportName\`);
@@ -122,7 +144,12 @@ export function createAwaitstepPlatform(env: Env): PlatformHost {
       return status;
     },
     async callScript(options) {
-      const response = await bindings[cfBinding(options)].fetch(options.url ?? "https://invoke/", {
+      const name = cfScriptBinding(options);
+      const binding = bindings[name];
+      if (!binding) {
+        throw new Error(\`Function "\${options.script}" is not bound here (no \${name} binding): add a Call Function node for it\`);
+      }
+      const response = await binding.fetch(options.url ?? "https://invoke/", {
         method: options.method ?? "POST",
         ...(options.headers !== undefined && { headers: options.headers }),
         ...(options.body !== undefined && {
