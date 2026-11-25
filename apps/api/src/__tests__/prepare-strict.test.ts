@@ -36,7 +36,7 @@ async function prepareStoredIr(
   ir: unknown,
   provider?: string,
   options: Partial<
-    Pick<Parameters<typeof prepareWorkflow>[0], 'mode' | 'emptyRequiredFields'>
+    Pick<Parameters<typeof prepareWorkflow>[0], 'mode' | 'emptyRequiredFields' | 'connectionId'>
   > = {},
 ) {
   const version = await mockDb.createVersion({
@@ -402,14 +402,16 @@ describe('a strict prepare', () => {
           nodeProviders: ['cloudflare'],
         })
       const outside = calling('someone-elses-worker')
-      const connectOwnAccount = () =>
+      // An account this project alone uses; `shared` is one every project may deploy to.
+      const connectOwnAccount = (id = 'conn-own', shared = false) =>
         mockDb.createConnection({
-          id: 'conn-own',
+          id,
           organizationId: TEST_ORG_ID,
           createdBy: TEST_USER_ID,
           provider: 'cloudflare',
           credentials: '{}',
           name: 'Own',
+          allProjects: shared,
         })
 
       beforeEach(() => {
@@ -429,6 +431,18 @@ describe('a strict prepare', () => {
         expect(isPrepareError(await prepareStoredIr(calling('wf-near')))).toBe(false)
       })
 
+      it('does not count the instance’s own target as an account of the project’s own', async () => {
+        await mockDb.createConnection({
+          id: 'conn-hosted',
+          organizationId: TEST_ORG_ID,
+          createdBy: TEST_USER_ID,
+          provider: 'hosted',
+          credentials: '{}',
+          name: 'Hosted',
+        })
+        expect(isPrepareError(await prepareStoredIr(outside))).toBe(true)
+      })
+
       it('lets it through once the project has an account of its own, with no provider named', async () => {
         await connectOwnAccount()
         expect(isPrepareError(await prepareStoredIr(outside))).toBe(false)
@@ -440,6 +454,30 @@ describe('a strict prepare', () => {
         await connectOwnAccount()
         expect(isPrepareError(await prepareStoredIr(outside, 'hosted'))).toBe(true)
         expect(isPrepareError(await prepareStoredIr(outside, 'cloudflare'))).toBe(false)
+      })
+
+      it('does not count an account other projects deploy to as well', async () => {
+        await connectOwnAccount('conn-org', true)
+        // Another project's Worker could be named there.
+        expect(isPrepareError(await prepareStoredIr(outside))).toBe(true)
+        const onOrg = { connectionId: 'conn-org' }
+        expect(isPrepareError(await prepareStoredIr(outside, 'cloudflare', onOrg))).toBe(true)
+        // The project's own account lets it through, but only a deploy to that one.
+        await connectOwnAccount()
+        expect(isPrepareError(await prepareStoredIr(outside, 'cloudflare', onOrg))).toBe(true)
+        const onOwn = { connectionId: 'conn-own' }
+        expect(isPrepareError(await prepareStoredIr(outside, 'cloudflare', onOwn))).toBe(false)
+      })
+
+      it('refuses an unknown name deployed as AwaitStep’s, even on the project’s own account', async () => {
+        await connectOwnAccount()
+        // A deleted workflow's Worker, in any case.
+        for (const name of ['awaitstep-gone', 'AwaitStep-Gone']) {
+          const ir = calling(name)
+          expect(isPrepareError(await prepareStoredIr(ir))).toBe(true)
+          const onOwn = { connectionId: 'conn-own' }
+          expect(isPrepareError(await prepareStoredIr(ir, 'cloudflare', onOwn))).toBe(true)
+        }
       })
     })
   })

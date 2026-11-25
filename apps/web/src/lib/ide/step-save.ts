@@ -335,7 +335,8 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
       if (applied.length > 0) outcomes.set(GRAPH_EDITS_KEY, 'failed')
       return outcomes
     }
-    announceSaveWarnings(workflowId, written.warnings, notify)
+    // Not for a workspace left meanwhile: the toast and marks are this workflow's.
+    if (isCurrent()) announceSaveWarnings(workflowId, written, notify)
 
     const live = liveStore()
     for (const { path, code } of edited) {

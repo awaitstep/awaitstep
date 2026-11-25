@@ -1,4 +1,4 @@
-import { useSaveWarningsStore } from '../../lib/save-warnings'
+import { saveWarningOf, useSaveWarningsStore } from '../../lib/save-warnings'
 import { useNodeId } from '@xyflow/react'
 import { useCallback, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
@@ -92,7 +92,10 @@ export function NodeBase({
   const statusChip = runStatus ? STATUS_CHIP[runStatus] : undefined
   const validationIssue = useNodeIssue(nodeId)
   // What the last save warned of (a call it cannot reach): under the canvas's own check.
-  const saveWarning = useSaveWarningsStore((s) => (nodeId ? s.byNode.get(nodeId) : undefined))
+  const shown = useWorkflowStore(
+    useShallow((s) => ({ workflowId: s.workflowId, graphHash: s.graphHash })),
+  )
+  const saveWarning = useSaveWarningsStore((s) => saveWarningOf(s, shown, nodeId))
   const issue =
     validationIssue ?? (saveWarning ? { severity: 'warning' as const, message: saveWarning } : null)
   const badge = overlayActive

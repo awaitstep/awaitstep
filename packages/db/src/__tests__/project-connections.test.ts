@@ -113,17 +113,40 @@ describe.each([
     })
 
   describe('hasAccountOutsideProviders', () => {
-    it('is true once the workflow’s project has an account of another provider', async () => {
-      const outside = (providers: string[]) =>
-        h.adapter.hasAccountOutsideProviders('wf-enrich', providers)
+    const outside = (providers: string[], connectionId?: string) =>
+      h.adapter.hasAccountOutsideProviders('wf-enrich', providers, connectionId)
+
+    it('is true once the project has an account of another provider that it alone uses', async () => {
       expect(await outside(['managed'])).toBe(false)
-      await add(['c-prod'])
+      // Listed for this project only.
+      await add(['c-sandbox'])
       expect(await outside(['managed'])).toBe(true)
       expect(await outside([])).toBe(true)
+      expect(await outside(['managed'], 'c-sandbox')).toBe(true)
       // Its only account is one of those named.
       expect(await outside(['cloudflare'])).toBe(false)
       // Another project's account is not this one's.
       expect(await h.adapter.hasAccountOutsideProviders('wf-202', ['managed'])).toBe(false)
+    })
+
+    it('counts the project’s own account', async () => {
+      await h.adapter.createProjectConnection(owned({ id: 'c-own' }))
+      expect(await outside(['managed'])).toBe(true)
+      expect(await outside(['managed'], 'c-own')).toBe(true)
+    })
+
+    it('does not count an account other projects may use too', async () => {
+      // Serves every project.
+      await add(['c-prod'])
+      expect(await outside(['managed'])).toBe(false)
+      expect(await outside(['managed'], 'c-prod')).toBe(false)
+      // Not this one either, once it is listed for another project as well.
+      await add(['c-sandbox'])
+      await h.adapter.updateConnection('c-sandbox', {
+        organizationId: 'org-acme',
+        projectIds: ['p-101', 'p-202'],
+      })
+      expect(await outside(['managed'], 'c-sandbox')).toBe(false)
     })
   })
 

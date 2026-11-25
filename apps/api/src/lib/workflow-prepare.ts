@@ -153,6 +153,8 @@ export interface WorkflowPrepareInput {
   /** Pre-fetched version row — skips the lookup (must match versionId). */
   version?: WorkflowVersion
   provider?: string
+  /** The deploy's connection, beside its `provider`: whether a call may name an unknown Worker. */
+  connectionId?: string
   /**
    * Project files to fold instead of the stored rows — how a candidate
    * overlay reaches a version without being written first. Only the current
@@ -306,7 +308,13 @@ export async function prepareWorkflow(
 
   // What it calls must be within its reach: a save only warned of it.
   const unreachable: PrepareDiagnostic[] = (
-    await unreachableCalls(db, workflow.id, organizationId, ir, input.provider)
+    await unreachableCalls(
+      db,
+      workflow.id,
+      organizationId,
+      ir,
+      input.provider ? { provider: input.provider, connectionId: input.connectionId } : undefined,
+    )
   ).map(({ nodeId, message }) => ({ source: 'ir', message, nodeId }))
   if (unreachable.length > 0) {
     if (!lenient) {

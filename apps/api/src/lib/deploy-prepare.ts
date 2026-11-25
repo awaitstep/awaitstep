@@ -124,6 +124,7 @@ export async function prepareDeploy(
     // own 404; passing it through would claim the row was never asked for.
     ...(version && { version }),
     provider: connection.provider,
+    connectionId: connection.id,
     deploymentConfig: resolvedConfig.config,
   })
 

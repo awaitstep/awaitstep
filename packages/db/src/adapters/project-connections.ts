@@ -135,23 +135,32 @@ export class ProjectConnectionsAdapter {
   }
 
   /**
-   * Whether the workflow's project has an account, still its own to use, of a
-   * provider other than `providers`: one it connected itself where those are
-   * the instance's.
+   * Whether the workflow's project has an account of a provider other than
+   * `providers` that it alone uses: its own, or an organization account it
+   * may use and no other project may. One other projects deploy to too does
+   * not count: a Worker of theirs could be named on it. With
+   * `connectionId`, whether that account is such a one.
    */
-  async hasAccountOutside(workflowId: string, providers: readonly string[]): Promise<boolean> {
+  async hasAccountOutside(
+    workflowId: string,
+    providers: readonly string[],
+    connectionId?: string,
+  ): Promise<boolean> {
     const wf = this.t.workflows
     const c = this.t.connections
     const p = this.t.projects
+    const cp = aliasedTable(this.t.connectionProjects, 'hao')
+    const alone = sql`(${c.projectId} = ${p.id} or (${c.projectId} is null and not ${c.allProjects} and not exists (select 1 from ${aliasedFrom(cp)} where ${cp.connectionId} = ${c.id} and ${cp.projectId} <> ${p.id})))`
     const rows = await this.db
       .select({ id: c.id })
       .from(wf)
       .innerJoin(p, eq(p.id, wf.projectId))
-      .innerJoin(c, this.usable(c, p))
+      .innerJoin(c, and(this.usable(c, p), alone))
       .where(
         and(
           eq(wf.id, workflowId),
           providers.length > 0 ? notInArray(c.provider, [...providers]) : undefined,
+          connectionId ? eq(c.id, connectionId) : undefined,
         ),
       )
       .limit(1)
