@@ -332,4 +332,81 @@ describe('a strict prepare', () => {
       'Inline step "Prepare" imports `stepArgs` from "some-pkg", which generated code uses. Rename it with `as`.',
     )
   })
+  describe('a workflow that calls another', () => {
+    const calling = (target: string) => ({
+      ...validIR,
+      nodes: [
+        {
+          ...validIR.nodes[0],
+          id: 'call',
+          type: 'sub_workflow',
+          name: 'Call it',
+          data: { workflowId: target, workflowName: 'OtherWorkflow', waitForCompletion: false },
+        },
+      ],
+      entryNodeId: 'call',
+    })
+    const other = { id: 'ws-other', projectId: TEST_PROJECT_ID, slug: 'other', name: 'Other' }
+
+    beforeEach(async () => {
+      await mockDb.createWorkflow({
+        id: 'wf-near',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Near',
+      })
+      const far = (await mockDb.createWorkflow({
+        id: 'wf-far',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Far',
+      }))!
+      // Another workspace of the same project.
+      await mockDb.updateWorkflow('wf-far', { ...far, workspaceId: other.id } as never)
+    })
+
+    it('prepares a call into its own workspace', async () => {
+      expect(isPrepareError(await prepareStoredIr(calling('wf-near')))).toBe(false)
+    })
+
+    it('refuses a call into another workspace, naming the node, until the target is shared', async () => {
+      const refused = await prepareStoredIr(calling('wf-far'))
+      expect(isPrepareError(refused) && refused).toMatchObject({
+        status: 400,
+        finding: true,
+        error:
+          'This calls "wf-far", which it cannot reach. A workflow or function can call what is in its own workspace, and what another workspace of its project has shared.',
+        diagnostics: [{ source: 'ir', nodeId: 'call' }],
+      })
+      await mockDb.setWorkflowShared('wf-far', other.id, TEST_USER_ID, true)
+      expect(isPrepareError(await prepareStoredIr(calling('wf-far')))).toBe(false)
+    })
+
+    it('reports it as a diagnostic on a read, without refusing', async () => {
+      const read = await prepareStoredIr(calling('wf-far'), undefined, { mode: 'read' })
+      expect(isPrepareError(read)).toBe(false)
+      expect(!isPrepareError(read) && read.diagnostics).toEqual(
+        expect.arrayContaining([expect.objectContaining({ nodeId: 'call', source: 'ir' })]),
+      )
+    })
+
+    it('does not judge a name that is no workflow here', async () => {
+      expect(isPrepareError(await prepareStoredIr(calling('someone-elses-worker')))).toBe(false)
+    })
+
+    it('refuses a name that is no workflow here where calls are strict', async () => {
+      useExtensionProviders([{ id: 'strict', strictCallTargets: true }])
+      try {
+        const refused = await prepareStoredIr(calling('someone-elses-worker'))
+        expect(isPrepareError(refused) && refused).toMatchObject({
+          status: 400,
+          finding: true,
+          diagnostics: [{ source: 'ir', nodeId: 'call' }],
+        })
+        expect(isPrepareError(await prepareStoredIr(calling('wf-near')))).toBe(false)
+      } finally {
+        useExtensionProviders([])
+      }
+    })
+  })
 })

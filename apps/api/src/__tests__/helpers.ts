@@ -1017,6 +1017,15 @@ const mockDb: DatabaseAdapter = {
   async listSharedWorkflows() {
     return { data: [], nextCursor: null }
   },
+  async listUnreachableCallTargets(workflowId, _organizationId, names, strict) {
+    const caller = store.workflows.get(workflowId)
+    return [...new Set(names)].filter((name) => {
+      const target = store.workflows.get(name)
+      if (!target || !caller) return strict === true
+      const near = target.workspaceId === caller.workspaceId || target.sharedAt !== null
+      return !(target.projectId === caller.projectId && near)
+    })
+  },
 
   // Versions
   async createVersion(data) {
