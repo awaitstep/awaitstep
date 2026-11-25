@@ -15,6 +15,11 @@ import {
 import '@xyflow/react/dist/style.css'
 import { actionToast } from '../../lib/action-toast'
 import { isTypingTarget } from '../../lib/typing-target'
+import {
+  copyOnCanvas,
+  pasteOnCanvas,
+  type CanvasClipboard,
+} from '../../lib/canvas/clipboard-events'
 import type { NodeType } from '@awaitstep/ir'
 import { useWorkflowStore, type FlowNode } from '../../stores/workflow-store'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
@@ -60,12 +65,19 @@ interface WorkflowCanvasProps {
   versionParam?: string
 }
 
+function announcePaste(newIds: string[]) {
+  if (newIds.length === 0) return
+  actionToast.success(newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`)
+}
+
 export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: WorkflowCanvasProps) {
   // Keep Monaco's per-workflow ambient types (Env, node outputs) in sync
   // with the canvas for every editor pane on this page.
   useWorkflowTypeContext()
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  // Whether ⌘V brought a paste event; without one the clipboard API pastes.
+  const pasteEventSeen = useRef(false)
   const {
     nodes,
     edges,
@@ -79,7 +91,9 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     selectedEdgeId,
     selectedNodeId,
     duplicateNodes,
+    copyNodesText,
     copyNodesToClipboard,
+    pasteNodesFromText,
     pasteNodesFromClipboard,
     removeNode,
     readOnly,
@@ -206,13 +220,7 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         }
       } else if (action === 'paste') {
         if (!readOnly) {
-          void pasteNodesFromClipboard(contextMenu.flowPosition).then((newIds) => {
-            if (newIds.length > 0) {
-              actionToast.success(
-                newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`,
-              )
-            }
-          })
+          void pasteNodesFromClipboard(contextMenu.flowPosition).then(announcePaste)
         }
       }
       setContextMenu(null)
@@ -262,32 +270,52 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         if (newIds.length > 1) {
           actionToast.success(`Duplicated ${newIds.length} nodes`)
         }
-      } else if (key === 'c') {
-        const ids = getActiveSelection()
-        if (ids.length === 0) return
-        e.preventDefault()
-        void copyNodesToClipboard(ids).then((ok) => {
-          if (ok)
-            actionToast.success(ids.length === 1 ? 'Node copied' : `${ids.length} nodes copied`)
-        })
-      } else if (key === 'v') {
-        if (readOnly) return
-        e.preventDefault()
+      } else if (key === 'v' && !readOnly) {
+        // ⌘C and ⌘V go through the browser's own copy and paste below, which
+        // need no clipboard permission. A browser that fires no paste event
+        // here (nothing editable focused) pastes through the clipboard API.
+        pasteEventSeen.current = false
         const center = getViewportCenter()
-        void pasteNodesFromClipboard(center).then((newIds) => {
-          if (newIds.length > 0) {
-            actionToast.success(
-              newIds.length === 1 ? 'Node pasted' : `${newIds.length} nodes pasted`,
-            )
-          }
-        })
+        setTimeout(() => {
+          if (pasteEventSeen.current) return
+          void pasteNodesFromClipboard(center).then(announcePaste)
+        }, 0)
       }
     }
+
+    let copied = 0
+    const canvas: CanvasClipboard = {
+      copySelection: () => {
+        const ids = getActiveSelection()
+        copied = ids.length
+        return copyNodesText(ids)
+      },
+      paste: (text) => pasteNodesFromText(text, getViewportCenter()),
+      readOnly,
+    }
+
+    function handleCopy(e: ClipboardEvent) {
+      if (!copyOnCanvas(e, canvas, window.getSelection()?.toString() ?? '')) return
+      actionToast.success(copied === 1 ? 'Node copied' : `${copied} nodes copied`)
+    }
+
+    function handlePaste(e: ClipboardEvent) {
+      pasteEventSeen.current = true
+      announcePaste(pasteOnCanvas(e, canvas))
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('copy', handleCopy)
+    window.addEventListener('paste', handlePaste)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('copy', handleCopy)
+      window.removeEventListener('paste', handlePaste)
+    }
   }, [
     duplicateNodes,
-    copyNodesToClipboard,
+    copyNodesText,
+    pasteNodesFromText,
     pasteNodesFromClipboard,
     readOnly,
     getActiveSelection,
