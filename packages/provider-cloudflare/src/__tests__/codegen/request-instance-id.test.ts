@@ -5,6 +5,9 @@ import { generateWorkflowBundle } from '../../codegen/generate-workflow.js'
 import { loadBundleModule } from './fixtures/run-bundle.js'
 import { bundleTypeErrors } from './fixtures/type-check-bundle.js'
 
+// Each test compiles a bundle with the TypeScript compiler: past vitest's 5s default on a busy runner.
+vi.setConfig({ testTimeout: 30_000 })
+
 type Fetch = (request: Request, env: unknown) => Promise<Response>
 
 function workflowWith(files: Array<{ path: string; source: string }> | undefined): WorkflowIR {
