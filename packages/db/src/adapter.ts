@@ -546,8 +546,15 @@ export interface DatabaseAdapter {
     organizationId: string,
     names: readonly string[],
   ): Promise<CallTargetsOutOfReach>
-  /** Whether the workflow's project has an account of a provider other than `providers`. */
-  hasAccountOutsideProviders(workflowId: string, providers: readonly string[]): Promise<boolean>
+  /**
+   * Whether the workflow's project has an account of a provider other than
+   * `providers` that no other project uses (that one, with `connectionId`).
+   */
+  hasAccountOutsideProviders(
+    workflowId: string,
+    providers: readonly string[],
+    connectionId?: string,
+  ): Promise<boolean>
   /** A project's shared workflows and functions, newest share first, in one statement. */
   listSharedWorkflows(
     filter: SharedWorkflowFilter,

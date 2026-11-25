@@ -82,7 +82,9 @@ export class SharedWorkflowsAdapter {
    * own workspace, or shared to the project they are both in. A name is
    * `unreachable` only when everything it names is out of reach; a name that
    * is no workflow of the organization is `unknown` (it is not AwaitStep's:
-   * the caller decides whether that is allowed). One statement for all of them.
+   * the caller decides whether that is allowed). Names match without regard
+   * to case: a deploy lowercases the Worker name, so `AWAITSTEP-<id>` names
+   * the same Worker as `awaitstep-<id>`. One statement for all of them.
    */
   async unreachableCallTargets(
     workflowId: string,
@@ -91,6 +93,7 @@ export class SharedWorkflowsAdapter {
   ): Promise<CallTargetsOutOfReach> {
     const asked = [...new Set(names)]
     if (asked.length === 0) return { unreachable: [], unknown: [] }
+    const folded = [...new Set(asked.map((name) => name.toLowerCase()))]
     const wf = this.t.workflows
     const dep = this.t.deployments
     const caller = aliasedTable(wf, 'caller')
@@ -102,25 +105,32 @@ export class SharedWorkflowsAdapter {
       .innerJoin(caller, eq(caller.id, workflowId))
       .leftJoin(
         dep,
-        and(eq(dep.workflowId, wf.id), eq(dep.status, 'success'), inArray(dep.serviceName, asked)),
+        and(
+          eq(dep.workflowId, wf.id),
+          eq(dep.status, 'success'),
+          inArray(sql`lower(${dep.serviceName})`, folded),
+        ),
       )
       .where(
         and(
           eq(this.t.projects.organizationId, organizationId),
-          or(inArray(wf.id, asked), isNotNull(dep.id)),
+          or(inArray(sql`lower(${wf.id})`, folded), isNotNull(dep.id)),
         ),
       )
     const within = new Set<string | null>()
     const named = new Set<string | null>()
     for (const row of rows) {
       for (const name of [row.id, row.serviceName]) {
-        named.add(name)
-        if (Number(row.reached) === 1) within.add(name)
+        const key = name?.toLowerCase() ?? null
+        named.add(key)
+        if (Number(row.reached) === 1) within.add(key)
       }
     }
     return {
-      unreachable: asked.filter((name) => named.has(name) && !within.has(name)),
-      unknown: asked.filter((name) => !named.has(name)),
+      unreachable: asked.filter(
+        (name) => named.has(name.toLowerCase()) && !within.has(name.toLowerCase()),
+      ),
+      unknown: asked.filter((name) => !named.has(name.toLowerCase())),
     }
   }
 

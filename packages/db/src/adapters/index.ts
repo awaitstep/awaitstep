@@ -1109,8 +1109,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   ): Promise<CallTargetsOutOfReach> {
     return this._shared.unreachableCallTargets(workflowId, organizationId, names)
   }
-  hasAccountOutsideProviders(workflowId: string, providers: readonly string[]): Promise<boolean> {
-    return this._projectConnections.hasAccountOutside(workflowId, providers)
+  hasAccountOutsideProviders(
+    workflowId: string,
+    providers: readonly string[],
+    connectionId?: string,
+  ): Promise<boolean> {
+    return this._projectConnections.hasAccountOutside(workflowId, providers, connectionId)
   }
   listSharedWorkflows(
     filter: SharedWorkflowFilter,

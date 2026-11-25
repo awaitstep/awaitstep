@@ -336,6 +336,24 @@ describe.each([
       expect(await unreachable('wf-enrich', ['shared-name'])).toEqual([])
     })
 
+    it('knows a name in any case: the Worker a deploy names is lowercased', async () => {
+      await h.db.insert(h.schema.deployments).values({
+        id: 'd-far',
+        workflowId: 'wf-202',
+        serviceName: 'awaitstep-wf-202',
+        status: 'success',
+        createdAt: T0,
+        updatedAt: T0,
+      })
+      expect(await unreachable('wf-enrich', ['WF-202', 'AwaitStep-WF-202', 'D-2'])).toEqual([
+        'WF-202',
+        'AwaitStep-WF-202',
+      ])
+      expect(
+        (await h.adapter.listUnreachableCallTargets('wf-enrich', 'org-acme', ['WF-SYNC'])).unknown,
+      ).toEqual([])
+    })
+
     it('does not judge a name that is no workflow of the organization', async () => {
       expect(await unreachable('wf-enrich', ['some-other-worker', 'wf-g'])).toEqual([])
       expect(await unreachable('wf-enrich', [])).toEqual([])
