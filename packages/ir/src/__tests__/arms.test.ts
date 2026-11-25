@@ -322,19 +322,36 @@ describe('validateArmsIntoJoins: merges judged the way codegen follows arms', ()
   })
 
   it('stays linear on many branches sharing one long chain', () => {
-    const chain = Array.from({ length: 1000 }, (_, i) => node(`c${i}`))
-    const chainEdges = chain
-      .slice(1)
-      .map((n, i) => ({ id: `ce${i}`, source: `c${i}`, target: n.id }))
-    const gates = Array.from({ length: 600 }, (_, i) => node(`g${i}`, 'branch'))
-    const joins = Array.from({ length: 20 }, (_, i) => node(`j${i}`))
-    const gateEdges = gates.flatMap((g, i) => [
-      { id: `a${i}`, source: g.id, target: 'c0', label: 'a' },
-      ...joins.map((j, k) => ({ id: `b${i}-${k}`, source: g.id, target: j.id, label: `b${k}` })),
-    ])
-    const started = performance.now()
-    validateArmsIntoJoins(doc([...gates, ...chain, ...joins], [...chainEdges, ...gateEdges]))
-    expect(performance.now() - started).toBeLessThan(300)
+    // Gates times chain would be quadratic. Compared with a quarter of the
+    // graph, not against a clock: four times the graph takes about four times
+    // as long when linear, sixteen when quadratic, however fast the machine.
+    const graph = (scale: number) => {
+      const chain = Array.from({ length: 250 * scale }, (_, i) => node(`c${i}`))
+      const chainEdges = chain
+        .slice(1)
+        .map((n, i) => ({ id: `ce${i}`, source: `c${i}`, target: n.id }))
+      const gates = Array.from({ length: 150 * scale }, (_, i) => node(`g${i}`, 'branch'))
+      const joins = Array.from({ length: 20 }, (_, i) => node(`j${i}`))
+      const gateEdges = gates.flatMap((g, i) => [
+        { id: `a${i}`, source: g.id, target: 'c0', label: 'a' },
+        ...joins.map((j, k) => ({ id: `b${i}-${k}`, source: g.id, target: j.id, label: `b${k}` })),
+      ])
+      return doc([...gates, ...chain, ...joins], [...chainEdges, ...gateEdges])
+    }
+    // The fastest of a few runs, so a pause of the machine does not count.
+    const fastest = (ir: ReturnType<typeof graph>) => {
+      let best = Infinity
+      for (let run = 0; run < 5; run++) {
+        const started = performance.now()
+        validateArmsIntoJoins(ir)
+        best = Math.min(best, performance.now() - started)
+      }
+      return best
+    }
+    const small = graph(1)
+    const large = graph(4)
+    validateArmsIntoJoins(small)
+    expect(fastest(large) / fastest(small)).toBeLessThan(8)
   })
 })
 
