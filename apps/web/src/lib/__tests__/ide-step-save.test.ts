@@ -1,3 +1,4 @@
+import { resetSaveWarnings } from '../save-warnings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { contentHash, type ArtifactIR } from '@awaitstep/ir'
 import { ApiError, VersionConflictError, type SavedVersion } from '../api-client'
@@ -74,7 +75,7 @@ function withCode(ir: ArtifactIR, id: string, code: string): ArtifactIR {
 interface Harness {
   deps: StepSaveDeps
   createVersion: ReturnType<typeof vi.fn>
-  notify: { error: ReturnType<typeof vi.fn> }
+  notify: { error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> }
   refresh: ReturnType<typeof vi.fn>
   /** When set, the refetch after a save does not move what the workspace shows. */
   refetchFails: boolean
@@ -98,7 +99,7 @@ function harness(initial: ArtifactIR = doc, graphHash = 'g-3', isCurrent = () =>
       return row
     },
   )
-  const notify = { error: vi.fn() }
+  const notify = { error: vi.fn(), info: vi.fn() }
   const refresh = vi.fn(async () => {
     if (!h.refetchFails) full = server
   })
@@ -166,6 +167,27 @@ describe('createStepSaver', () => {
     })
     const again = await createStepSaver(h.deps).save([VALIDATE])
     expect(again.get(VALIDATE)).toBe('unchanged')
+  })
+
+  it('says what the save warned of, and the step is saved all the same', async () => {
+    resetSaveWarnings()
+    useIdeStore
+      .getState()
+      .setDraft(VALIDATE, asModule('Validate', 'return 10'), contentHash(VALIDATE_CODE))
+    const h = harness()
+    const write = h.deps.client.createVersion
+    h.deps.client.createVersion = async (id, data) => ({
+      ...(await write(id, data)),
+      warnings: [{ nodeId: 'call', nodeName: 'Call it', message: 'This calls "far".' }],
+    })
+    const outcomes = await createStepSaver(h.deps).save([VALIDATE])
+
+    expect(outcomes.get(VALIDATE)).toBe('saved')
+    expect(h.notify.error).not.toHaveBeenCalled()
+    expect(h.notify.info).toHaveBeenCalledWith(
+      'Saved with 1 warning',
+      expect.objectContaining({ description: 'Call it: This calls "far".' }),
+    )
   })
 
   it('posts the loaded document with the edited bodies written in, on its graph hash, and nothing else changed', async () => {

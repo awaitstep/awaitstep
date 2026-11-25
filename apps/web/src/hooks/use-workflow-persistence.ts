@@ -6,6 +6,7 @@ import { actionToast, failureLine } from '../lib/action-toast'
 import { useWorkflowStore } from '../stores/workflow-store'
 import { onlyBlockedByEmptyGraph, validateWorkflowForPublish } from '../lib/validate-workflow'
 import { buildIRFromState } from '../lib/build-ir'
+import { announceSaveWarnings } from '../lib/save-warnings'
 import { fixBeforeSaving, saveErrors } from '../lib/ide/save-check'
 import { VersionConflictError, type WorkflowSummary } from '../lib/api-client'
 import type { NodeRegistry } from '@awaitstep/ir'
@@ -116,6 +117,7 @@ export function useWorkflowPersistence(opts: {
       if (deployConfig) await api.updateWorkflow(created.id, { deployConfig })
       const saved = await api.createVersion(created.id, { ir })
       useWorkflowStore.setState({ graphHash: saved.graphHash })
+      announceSaveWarnings(created.id, saved.warnings, actionToast)
       return created
     }
     const id = createdId ?? workflowId
@@ -137,6 +139,7 @@ export function useWorkflowPersistence(opts: {
     })
     // Before the refetch lands, so a save that follows at once builds on it.
     useWorkflowStore.setState({ graphHash: saved.graphHash })
+    announceSaveWarnings(id, saved.warnings, actionToast)
     // After the version, so a refused save has written nothing at all.
     if (deployConfig) await api.updateWorkflow(id, { deployConfig })
     return null

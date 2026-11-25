@@ -1,3 +1,4 @@
+import type { SaveWarning } from './save-warnings'
 import type {
   ConnectionSummary as ApiConnectionSummary,
   DeployConnections,
@@ -265,7 +266,11 @@ export interface VersionRef {
 }
 
 /** A version as a save returns it, with the precondition for the next save. */
-export type SavedVersion = WorkflowVersion & { graphHash: string }
+export type SavedVersion = WorkflowVersion & {
+  graphHash: string
+  /** Saved all the same: what a deploy, a test session or a local run would refuse it for. */
+  warnings?: SaveWarning[]
+}
 
 export interface WorkflowFull {
   workflow: WorkflowSummary

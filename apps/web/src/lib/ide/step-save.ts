@@ -1,6 +1,7 @@
 import { contentHash, type ArtifactIR } from '@awaitstep/ir'
 import { applyGraphOps, normalizeStepModules } from '@awaitstep/codegen'
-import { failureLine } from '../action-toast'
+import { failureLine, type ActionToastOptions } from '../action-toast'
+import { announceSaveWarnings } from '../save-warnings'
 import { VersionConflictError, type SavedVersion } from '../api-client'
 import type { IdeSessionState } from '../../stores/ide-store'
 import { basename } from './file-tree'
@@ -26,7 +27,10 @@ export interface StepSaveClient {
 export interface StepSaveDeps {
   workflowId: string
   client: StepSaveClient
-  notify: { error(message: string, options?: { description?: string }): void }
+  notify: {
+    error(message: string, options?: { description?: string }): void
+    info(message: string, options?: ActionToastOptions): void
+  }
   getStore: () => IdeSessionState
   /** Still the workspace this saver was built for; see `ProjectActionDeps.isCurrent`. */
   isCurrent?: () => boolean
@@ -331,6 +335,7 @@ export function createStepSaver(deps: StepSaveDeps): StepSaver {
       if (applied.length > 0) outcomes.set(GRAPH_EDITS_KEY, 'failed')
       return outcomes
     }
+    announceSaveWarnings(workflowId, written.warnings, notify)
 
     const live = liveStore()
     for (const { path, code } of edited) {
