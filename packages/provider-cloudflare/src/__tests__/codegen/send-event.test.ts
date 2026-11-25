@@ -7,6 +7,9 @@ import type { ScriptIR } from '@awaitstep/ir'
 import { bundleTypeErrors } from './fixtures/type-check-bundle.js'
 import { loadBundleModule, NonRetryableError } from './fixtures/run-bundle.js'
 
+// Each test compiles a bundle with the TypeScript compiler: past vitest's 5s default on a busy runner.
+vi.setConfig({ testTimeout: 30_000 })
+
 const HANDLER = `import { getInstance, sendEvent, workflowStatus } from '#awaitstep/workflow'
 import { InstanceNotFoundError, type FetchContext } from '#awaitstep/runtime'
 import type { Env } from '#awaitstep/env'

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { ScriptIR, WorkflowIR } from '@awaitstep/ir'
 import {
   generateUniversalFunctionBundle,
@@ -8,6 +8,9 @@ import {
 import { generateScriptBundle } from '../../codegen/generate-script.js'
 import { generateWorkflowBundle } from '../../codegen/generate-workflow.js'
 import { bundleTypeErrors } from './fixtures/type-check-bundle.js'
+
+// Each test compiles a bundle with the TypeScript compiler: past vitest's 5s default on a busy runner.
+vi.setConfig({ testTimeout: 30_000 })
 
 const WORKFLOW = 'awaitstep/workflow.ts'
 const FUNCTION = 'awaitstep/function.ts'
