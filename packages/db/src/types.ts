@@ -1734,3 +1734,9 @@ export interface InlineImageRow {
   ownerId: string
   value: string
 }
+
+/** The names a workflow's call nodes use that it may not call, and those that name no workflow at all. */
+export interface CallTargetsOutOfReach {
+  unreachable: string[]
+  unknown: string[]
+}

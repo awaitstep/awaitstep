@@ -259,8 +259,8 @@ describe.each([
     })
   })
   describe('listUnreachableCallTargets', () => {
-    const unreachable = (from: string, names: string[]) =>
-      h.adapter.listUnreachableCallTargets(from, 'org-acme', names)
+    const unreachable = async (from: string, names: string[]) =>
+      (await h.adapter.listUnreachableCallTargets(from, 'org-acme', names)).unreachable
 
     beforeEach(async () => {
       const s = h.schema
@@ -341,14 +341,17 @@ describe.each([
       expect(await unreachable('wf-enrich', [])).toEqual([])
     })
 
-    it('refuses a name that is no workflow of the organization where calls are strict', async () => {
-      const strict = (names: string[]) =>
-        h.adapter.listUnreachableCallTargets('wf-enrich', 'org-acme', names, true)
+    it('says which names are no workflow of the organization, apart from those out of reach', async () => {
       // wf-g is another organization's: unknown here, as a Worker deployed elsewhere is.
-      expect(await strict(['some-other-worker', 'wf-g', 'wf-sync', 'd-2'])).toEqual([
-        'some-other-worker',
-        'wf-g',
-      ])
+      expect(
+        await h.adapter.listUnreachableCallTargets('wf-enrich', 'org-acme', [
+          'some-other-worker',
+          'wf-g',
+          'wf-sync',
+          'd-2',
+          'wf-202',
+        ]),
+      ).toEqual({ unreachable: ['wf-202'], unknown: ['some-other-worker', 'wf-g'] })
     })
   })
 })

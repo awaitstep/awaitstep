@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { createProvider, useExtensionProviders } from '../lib/provider-registry.js'
 import { isPrepareError, prepareWorkflow } from '../lib/workflow-prepare.js'
 import { resetStore, TEST_ORG_ID, TEST_USER_ID, TEST_PROJECT_ID, mockDb } from './helpers.js'
@@ -394,19 +394,53 @@ describe('a strict prepare', () => {
       expect(isPrepareError(await prepareStoredIr(calling('someone-elses-worker')))).toBe(false)
     })
 
-    it('refuses a name that is no workflow here where calls are strict', async () => {
-      useExtensionProviders([{ id: 'strict', strictCallTargets: true }])
-      try {
-        const refused = await prepareStoredIr(calling('someone-elses-worker'))
+    describe('where calls are strict', () => {
+      // `hosted` is the instance's own target; `cloudflare` is an account a project connects.
+      const hostedProvider = () =>
+        Object.assign(createProvider('cloudflare', {}), {
+          name: 'hosted',
+          nodeProviders: ['cloudflare'],
+        })
+      const outside = calling('someone-elses-worker')
+      const connectOwnAccount = () =>
+        mockDb.createConnection({
+          id: 'conn-own',
+          organizationId: TEST_ORG_ID,
+          createdBy: TEST_USER_ID,
+          provider: 'cloudflare',
+          credentials: '{}',
+          name: 'Own',
+        })
+
+      beforeEach(() => {
+        useExtensionProviders([
+          { id: 'strict', strictCallTargets: true, providers: { hosted: hostedProvider } },
+        ])
+      })
+      afterEach(() => useExtensionProviders([]))
+
+      it('refuses a name that is no workflow here, naming the node', async () => {
+        const refused = await prepareStoredIr(outside)
         expect(isPrepareError(refused) && refused).toMatchObject({
           status: 400,
           finding: true,
           diagnostics: [{ source: 'ir', nodeId: 'call' }],
         })
         expect(isPrepareError(await prepareStoredIr(calling('wf-near')))).toBe(false)
-      } finally {
-        useExtensionProviders([])
-      }
+      })
+
+      it('lets it through once the project has an account of its own, with no provider named', async () => {
+        await connectOwnAccount()
+        expect(isPrepareError(await prepareStoredIr(outside))).toBe(false)
+        // What is known and out of reach is refused all the same.
+        expect(isPrepareError(await prepareStoredIr(calling('wf-far')))).toBe(true)
+      })
+
+      it('goes by the provider a deploy names: the instance’s own refuses, a connected account does not', async () => {
+        await connectOwnAccount()
+        expect(isPrepareError(await prepareStoredIr(outside, 'hosted'))).toBe(true)
+        expect(isPrepareError(await prepareStoredIr(outside, 'cloudflare'))).toBe(false)
+      })
     })
   })
 })

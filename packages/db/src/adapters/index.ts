@@ -75,6 +75,7 @@ import type {
   ProjectConnectionRemoval,
   ProjectConnectionsRows,
   ProjectConnectionSummaryRow,
+  CallTargetsOutOfReach,
   WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
@@ -1105,9 +1106,11 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     workflowId: string,
     organizationId: string,
     names: readonly string[],
-    strict?: boolean,
-  ): Promise<string[]> {
-    return this._shared.unreachableCallTargets(workflowId, organizationId, names, strict)
+  ): Promise<CallTargetsOutOfReach> {
+    return this._shared.unreachableCallTargets(workflowId, organizationId, names)
+  }
+  hasAccountOutsideProviders(workflowId: string, providers: readonly string[]): Promise<boolean> {
+    return this._projectConnections.hasAccountOutside(workflowId, providers)
   }
   listSharedWorkflows(
     filter: SharedWorkflowFilter,

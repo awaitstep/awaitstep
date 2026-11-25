@@ -209,7 +209,8 @@ export interface AppExtension {
   /**
    * Every Call Workflow and Call Function node must name a workflow or
    * function of this instance: a name that is none (a Worker deployed some
-   * other way) is treated as one it cannot reach.
+   * other way) is treated as one it cannot reach. A project with an account
+   * of a connectable provider is left out: it may call what it deployed there.
    */
   strictCallTargets?: boolean
   /** Called as the app's own records are created; see {@link ExtensionHooks}. */

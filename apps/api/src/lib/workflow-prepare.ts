@@ -306,7 +306,7 @@ export async function prepareWorkflow(
 
   // What it calls must be within its reach: a save only warned of it.
   const unreachable: PrepareDiagnostic[] = (
-    await unreachableCalls(db, workflow.id, organizationId, ir)
+    await unreachableCalls(db, workflow.id, organizationId, ir, input.provider)
   ).map(({ nodeId, message }) => ({ source: 'ir', message, nodeId }))
   if (unreachable.length > 0) {
     if (!lenient) {
