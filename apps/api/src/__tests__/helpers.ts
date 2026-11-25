@@ -1370,16 +1370,17 @@ const mockDb: DatabaseAdapter = {
       return [{ entry, connection: sameOrg ? connection! : null }]
     })
   },
-  async getRunForSyncWithAccount(runId, workflowId, organizationId) {
+  async getRunForSyncWithAccount(runId, workflowId, organizationId, forProvider) {
     const entry = syncEntry(runId, workflowId)
     if (!entry) return null
     const connection = entry.run.connectionId
       ? store.connections.get(entry.run.connectionId)
       : undefined
-    return {
-      entry,
-      connection: connection && connection.organizationId === organizationId ? connection : null,
-    }
+    const wanted =
+      connection &&
+      connection.organizationId === organizationId &&
+      (forProvider?.(connection.provider) ?? true)
+    return { entry, connection: wanted ? connection : null }
   },
   async getWorkflowFailurePlace(workflowId, organizationId) {
     const workflow = store.workflows.get(workflowId)

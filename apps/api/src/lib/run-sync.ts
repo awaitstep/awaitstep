@@ -160,6 +160,19 @@ async function closeRun(
     log.info('Closed a run that can no longer be followed', { runId: run.id, reason: reason.name })
 }
 
+/** How the provider is asked about one run: its account, and the name it knows the workflow by. */
+export function runProviderConfig(
+  providerName: string,
+  credentials: Record<string, string>,
+  entry: Pick<ActiveRunForSync, 'deployedName' | 'workflowName'>,
+): ProviderConfig {
+  return {
+    provider: providerName,
+    credentials,
+    options: { workflowName: entry.deployedName ?? entry.workflowName },
+  }
+}
+
 async function syncRun(
   db: DatabaseAdapter,
   provider: WorkflowProvider,
@@ -168,12 +181,8 @@ async function syncRun(
   entry: ActiveRunForSync,
   emails?: AppEmails,
 ): Promise<WorkflowRunDetail> {
-  const { run, workflowName } = entry
-  const config: ProviderConfig = {
-    provider: providerName,
-    credentials,
-    options: { workflowName: entry.deployedName ?? workflowName },
-  }
+  const { run } = entry
+  const config = runProviderConfig(providerName, credentials, entry)
   const detail = await provider.getRunDetail!(run.instanceId, config)
 
   const updates: { status?: string; output?: string; error?: string; updatedAt?: string } = {}
@@ -202,7 +211,8 @@ async function syncRun(
     await db.updateRun(run.id, updates)
   }
 
-  if (detail.steps.length === 0) return detail
+  // Read from the provider each time they are shown: nothing of them is stored.
+  if (provider.liveSteps || detail.steps.length === 0) return detail
   const manifest = parseStepManifest(entry.configSnapshot)
   const rows: UpsertRunStepData[] = detail.steps.map((step) => ({
     id: nanoid(),
@@ -225,7 +235,7 @@ async function syncRun(
 /** A step's output is kept up to this many characters of JSON; past it, cut and flagged. */
 export const STEP_OUTPUT_LIMIT = 64 * 1024
 
-function storedOutput(output: unknown): { output: string | null; outputTruncated: boolean } {
+export function storedOutput(output: unknown): { output: string | null; outputTruncated: boolean } {
   if (output === undefined || output === null) return { output: null, outputTruncated: false }
   let json: string
   try {

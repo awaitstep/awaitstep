@@ -137,6 +137,16 @@ export function selfReportingProviders(): string[] {
   return providerIds().filter((id) => createProvider(id, {}).reportsRunEnds === true)
 }
 
+/** Whether any provider's steps are read live instead of stored: none on a self-hosted install. */
+export function hasLiveStepProviders(): boolean {
+  return providerIds().some(isLiveStepProvider)
+}
+
+/** Whether this provider's steps are read live instead of stored. */
+export function isLiveStepProvider(provider: string): boolean {
+  return hasProvider(provider) && createProvider(provider, {}).liveSteps !== undefined
+}
+
 export function providerCapabilities(): ProviderCapabilities[] {
   return providerIds().map((id) => {
     const provider = createProvider(id, {})
