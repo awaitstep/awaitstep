@@ -77,7 +77,7 @@ function harness(options: { canEdit?: boolean } = {}) {
   const refresh = vi.fn(async () => {
     full = server
   })
-  const notify = { error: vi.fn() }
+  const notify = { error: vi.fn(), info: vi.fn() }
   const saver = createStepSaver({
     workflowId: 'wf-1',
     client: { createVersion },
