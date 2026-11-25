@@ -9,6 +9,7 @@ import {
   mockDb,
 } from './helpers.js'
 import { graphHash } from '../lib/graph-hash.js'
+import { useExtensionProviders } from '../lib/provider-registry.js'
 
 const validIR = {
   metadata: {
@@ -86,6 +87,80 @@ describe('version routes', () => {
       expect(body.version).toBe(1)
       expect(body.workflowId).toBe('wf-1')
       expect(body.ir).toBeDefined()
+    })
+
+    describe('a call out of reach', () => {
+      const calling = (target: string) => ({
+        ...validIR,
+        nodes: [
+          {
+            ...validIR.nodes[0],
+            id: 'call',
+            type: 'sub_workflow',
+            name: 'Call it',
+            data: { workflowId: target, workflowName: 'OtherWorkflow', waitForCompletion: false },
+          },
+        ],
+        entryNodeId: 'call',
+      })
+      const save = (target: string) =>
+        app.request(url('/api/workflows/wf-1/versions'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ir: calling(target) }),
+        })
+
+      beforeEach(async () => {
+        for (const id of ['wf-near', 'wf-far']) {
+          await mockDb.createWorkflow({
+            id,
+            projectId: TEST_PROJECT_ID,
+            createdBy: TEST_USER_ID,
+            name: id,
+          })
+        }
+        const far = (await mockDb.getWorkflowById('wf-far'))!
+        // Another workspace of the same project.
+        await mockDb.updateWorkflow('wf-far', { ...far, workspaceId: 'ws-other' } as never)
+      })
+
+      it('saves and warns, naming the node, until the target is shared', async () => {
+        const warned = await save('wf-far')
+        expect(warned.status).toBe(201)
+        expect((await warned.json()).warnings).toEqual([
+          {
+            nodeId: 'call',
+            nodeName: 'Call it',
+            message:
+              'This calls "wf-far", which it cannot reach. A workflow or function can call what is in its own workspace, and what another workspace of its project has shared.',
+          },
+        ])
+        // Saved again unchanged: still said.
+        expect((await (await save('wf-far')).json()).warnings).toHaveLength(1)
+
+        const far = (await mockDb.getWorkflowById('wf-far'))!
+        await mockDb.updateWorkflow('wf-far', { ...far, sharedAt: '2026-01-01' } as never)
+        expect(await (await save('wf-far')).json()).not.toHaveProperty('warnings')
+      })
+
+      it('lets a name it does not know through, and warns of it where calls are strict', async () => {
+        expect(await (await save('some-other-worker')).json()).not.toHaveProperty('warnings')
+        useExtensionProviders([{ id: 'strict', strictCallTargets: true }])
+        try {
+          const warned = await save('some-other-worker')
+          expect(warned.status).toBe(200)
+          expect((await warned.json()).warnings).toMatchObject([{ nodeId: 'call' }])
+          expect(await (await save('wf-near')).json()).not.toHaveProperty('warnings')
+        } finally {
+          useExtensionProviders([])
+        }
+      })
+
+      it('says nothing of a call into its own workspace', async () => {
+        const saved = await save('wf-near')
+        expect(saved.status).toBe(201)
+        expect(await saved.json()).not.toHaveProperty('warnings')
+      })
     })
 
     it('seeds handlers/fetch.ts on the first save, written against the AwaitStep handler contract', async () => {

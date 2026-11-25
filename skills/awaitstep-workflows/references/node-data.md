@@ -195,6 +195,11 @@ deployed name; `workflowName` is the provider export name when it has one.
 `{ instanceId }`. Set `export: true` (optionally `exportAs`) to return the
 handle from a Function; it defaults to exported there.
 
+A call reaches what is in the caller's own workspace, and what another
+workspace of the same project has shared. It never reaches another project.
+Naming anything else saves with a warning and is refused at deploy, in a test
+session and in a local run. The same holds for `sub_script`.
+
 ### `sub_script`
 
 Calls another deployed Function. Fields: `scriptId`, `method`, `url` (a
