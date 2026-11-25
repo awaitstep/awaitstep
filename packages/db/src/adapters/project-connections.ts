@@ -1,4 +1,4 @@
-import { aliasedTable, and, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { aliasedTable, and, eq, inArray, notInArray, sql, type SQL } from 'drizzle-orm'
 import type {
   AvailableConnectionRow,
   DeployTargetRow,
@@ -132,6 +132,30 @@ export class ProjectConnectionsAdapter {
     const wc = aliasedTable(this.t.workspaceConnections, 'pwo')
     const c = aliasedTable(this.t.connections, 'pwc')
     return sql`(select ${wc.connectionId} from ${aliasedFrom(wc)} inner join ${aliasedFrom(c)} on ${c.id} = ${wc.connectionId} where ${wc.workspaceId} = ${workspaceId} and ${this.usable(c, p)})`
+  }
+
+  /**
+   * Whether the workflow's project has an account, still its own to use, of a
+   * provider other than `providers`: one it connected itself where those are
+   * the instance's.
+   */
+  async hasAccountOutside(workflowId: string, providers: readonly string[]): Promise<boolean> {
+    const wf = this.t.workflows
+    const c = this.t.connections
+    const p = this.t.projects
+    const rows = await this.db
+      .select({ id: c.id })
+      .from(wf)
+      .innerJoin(p, eq(p.id, wf.projectId))
+      .innerJoin(c, this.usable(c, p))
+      .where(
+        and(
+          eq(wf.id, workflowId),
+          providers.length > 0 ? notInArray(c.provider, [...providers]) : undefined,
+        ),
+      )
+      .limit(1)
+    return rows.length > 0
   }
 
   /** Whether the reader may open the workspace; everyone when no reader is named. */

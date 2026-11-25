@@ -12,7 +12,12 @@ import {
   aliasedTable,
   getTableName,
 } from 'drizzle-orm'
-import type { SharedWorkflowFilter, SharedWorkflowRow, SharingRow } from '../types.js'
+import type {
+  CallTargetsOutOfReach,
+  SharedWorkflowFilter,
+  SharedWorkflowRow,
+  SharingRow,
+} from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import type { Dialect } from './json-array.js'
@@ -75,19 +80,17 @@ export class SharedWorkflowsAdapter {
    * function's id, or what one of its deployments is deployed as (never its
    * display name, which two projects may share). One it may call is in its
    * own workspace, or shared to the project they are both in. A name is
-   * refused only when everything it names is out of reach; a name that is no
-   * workflow of the organization is not judged here (it is not AwaitStep's)
-   * unless `strict`, where every call must name one and it is refused too.
-   * One statement for all of them.
+   * `unreachable` only when everything it names is out of reach; a name that
+   * is no workflow of the organization is `unknown` (it is not AwaitStep's:
+   * the caller decides whether that is allowed). One statement for all of them.
    */
   async unreachableCallTargets(
     workflowId: string,
     organizationId: string,
     names: readonly string[],
-    strict = false,
-  ): Promise<string[]> {
+  ): Promise<CallTargetsOutOfReach> {
     const asked = [...new Set(names)]
-    if (asked.length === 0) return []
+    if (asked.length === 0) return { unreachable: [], unknown: [] }
     const wf = this.t.workflows
     const dep = this.t.deployments
     const caller = aliasedTable(wf, 'caller')
@@ -115,7 +118,10 @@ export class SharedWorkflowsAdapter {
         if (Number(row.reached) === 1) within.add(name)
       }
     }
-    return asked.filter((name) => (strict || named.has(name)) && !within.has(name))
+    return {
+      unreachable: asked.filter((name) => named.has(name) && !within.has(name)),
+      unknown: asked.filter((name) => !named.has(name)),
+    }
   }
 
   /**

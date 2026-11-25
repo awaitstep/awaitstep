@@ -34,6 +34,7 @@ export type {
   ProjectConnectionRow,
   ProjectConnectionsRows,
   ProjectConnectionSummaryRow,
+  CallTargetsOutOfReach,
   ProjectWorkspaceConnectionRow,
   WorkspaceConnectionChange,
   NodeUsage,

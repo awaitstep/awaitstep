@@ -112,6 +112,21 @@ describe.each([
       createdBy: 'u-ama',
     })
 
+  describe('hasAccountOutsideProviders', () => {
+    it('is true once the workflow’s project has an account of another provider', async () => {
+      const outside = (providers: string[]) =>
+        h.adapter.hasAccountOutsideProviders('wf-enrich', providers)
+      expect(await outside(['managed'])).toBe(false)
+      await add(['c-prod'])
+      expect(await outside(['managed'])).toBe(true)
+      expect(await outside([])).toBe(true)
+      // Its only account is one of those named.
+      expect(await outside(['cloudflare'])).toBe(false)
+      // Another project's account is not this one's.
+      expect(await h.adapter.hasAccountOutsideProviders('wf-202', ['managed'])).toBe(false)
+    })
+  })
+
   describe('adding organization accounts', () => {
     it('adds only accounts that serve the project, the first becoming its default', async () => {
       const result = await add(['c-sandbox', 'c-prod', 'c-data'])

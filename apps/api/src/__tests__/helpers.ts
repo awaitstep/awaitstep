@@ -1017,14 +1017,28 @@ const mockDb: DatabaseAdapter = {
   async listSharedWorkflows() {
     return { data: [], nextCursor: null }
   },
-  async listUnreachableCallTargets(workflowId, _organizationId, names, strict) {
+  async listUnreachableCallTargets(workflowId, _organizationId, names) {
     const caller = store.workflows.get(workflowId)
-    return [...new Set(names)].filter((name) => {
-      const target = store.workflows.get(name)
-      if (!target || !caller) return strict === true
-      const near = target.workspaceId === caller.workspaceId || target.sharedAt !== null
-      return !(target.projectId === caller.projectId && near)
-    })
+    const asked = [...new Set(names)]
+    const known = (name: string) => (caller ? store.workflows.get(name) : undefined)
+    return {
+      unknown: asked.filter((name) => !known(name)),
+      unreachable: asked.filter((name) => {
+        const target = known(name)
+        if (!target || !caller) return false
+        const near = target.workspaceId === caller.workspaceId || target.sharedAt !== null
+        return !(target.projectId === caller.projectId && near)
+      }),
+    }
+  },
+  async hasAccountOutsideProviders(workflowId, providers) {
+    // The fake keeps no project-account rows: an account of the organization serves its projects.
+    const projectId = store.workflows.get(workflowId)?.projectId
+    const organizationId = projectId ? store.projects.get(projectId)?.organizationId : undefined
+    return [...store.connections.values()].some(
+      (connection) =>
+        connection.organizationId === organizationId && !providers.includes(connection.provider),
+    )
   },
 
   // Versions

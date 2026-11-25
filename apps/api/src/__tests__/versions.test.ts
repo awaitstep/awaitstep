@@ -5,6 +5,7 @@ import {
   recordedAuditEvents,
   resetStore,
   TEST_USER_ID,
+  TEST_ORG_ID,
   TEST_PROJECT_ID,
   mockDb,
 } from './helpers.js'
@@ -151,6 +152,16 @@ describe('version routes', () => {
           expect(warned.status).toBe(200)
           expect((await warned.json()).warnings).toMatchObject([{ nodeId: 'call' }])
           expect(await (await save('wf-near')).json()).not.toHaveProperty('warnings')
+          // A project with an account of its own may call what it deployed there.
+          await mockDb.createConnection({
+            id: 'conn-own',
+            organizationId: TEST_ORG_ID,
+            createdBy: TEST_USER_ID,
+            provider: 'cloudflare',
+            credentials: '{}',
+            name: 'Own',
+          })
+          expect(await (await save('some-other-worker')).json()).not.toHaveProperty('warnings')
         } finally {
           useExtensionProviders([])
         }

@@ -72,6 +72,7 @@ import type {
   ProjectConnectionRemoval,
   ProjectConnectionsRows,
   ProjectConnectionSummaryRow,
+  CallTargetsOutOfReach,
   WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
@@ -536,16 +537,17 @@ export interface DatabaseAdapter {
   /**
    * Which of `names` (ids, or what a deployment is deployed as) a workflow may
    * not call: another workspace's that is not shared to its project, or
-   * another project's. A name something within reach also answers to is not
-   * in the answer. A name that is no workflow of the organization is in it
-   * only when `strict`: where every call must name one.
+   * another project's (`unreachable`), and which are no workflow of the
+   * organization at all (`unknown`). A name something within reach also
+   * answers to is in neither.
    */
   listUnreachableCallTargets(
     workflowId: string,
     organizationId: string,
     names: readonly string[],
-    strict?: boolean,
-  ): Promise<string[]>
+  ): Promise<CallTargetsOutOfReach>
+  /** Whether the workflow's project has an account of a provider other than `providers`. */
+  hasAccountOutsideProviders(workflowId: string, providers: readonly string[]): Promise<boolean>
   /** A project's shared workflows and functions, newest share first, in one statement. */
   listSharedWorkflows(
     filter: SharedWorkflowFilter,
