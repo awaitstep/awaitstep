@@ -507,6 +507,27 @@ describe.each([
         (await h.adapter.getRunForSyncWithAccount('run-s', 'wf-enrich', 'org-globex'))?.connection,
       ).toBeNull()
       expect(await h.adapter.getRunForSyncWithAccount('run-s', 'wf-sync', 'org-acme')).toBeNull()
+      // Asked for one kind of account only: another's comes back unopened, the run still does.
+      const asked: string[] = []
+      const other = await h.adapter.getRunForSyncWithAccount(
+        'run-s',
+        'wf-enrich',
+        'org-acme',
+        (p) => {
+          asked.push(p)
+          return false
+        },
+      )
+      expect(asked).toEqual([found?.connection?.provider])
+      expect(other?.entry.run.id).toBe('run-s')
+      expect(other?.connection).toBeNull()
+      const same = await h.adapter.getRunForSyncWithAccount(
+        'run-s',
+        'wf-enrich',
+        'org-acme',
+        () => true,
+      )
+      expect(same?.connection?.credentials).toBe(CREDS)
     })
 
     it('lists active runs with their accounts in one read, an account only of the workflow’s organization', async () => {
