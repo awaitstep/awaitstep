@@ -15,7 +15,7 @@
     "./shell/page-intro": "./src/components/shell/page-intro.tsx"
   },
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --host",
     "check:release-notes": "vitest run --project unit src/lib/__tests__/release-note-fragments.test.ts",
     "build": "pnpm check:release-notes && vite build",
     "build:cf": "pnpm check:release-notes && BUILD_TARGET=cf vite build",

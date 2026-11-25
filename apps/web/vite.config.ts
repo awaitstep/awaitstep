@@ -24,9 +24,17 @@ if (isCloudflare && !isTest) {
   plugins.unshift(cloudflare({ viteEnvironment: { name: 'ssr' } }))
 }
 
+/** The app's addresses besides localhost (`CORS_ORIGIN`), which the dev server must answer to. */
+const appHosts = (process.env.CORS_ORIGIN ?? '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean)
+  .map((origin) => new URL(origin).hostname)
+
 export default defineConfig({
   server: {
     port: 3000,
+    allowedHosts: appHosts,
     proxy: {
       '/api/': {
         // Override when the API dev server runs on a non-default port.
@@ -34,6 +42,16 @@ export default defineConfig({
         // point at the same API server in dev.
         target: process.env.API_PROXY_TARGET ?? process.env.API_URL ?? 'http://localhost:8080',
         changeOrigin: true,
+        // changeOrigin rewrites Host, so the API learns the address the app
+        // was opened at from these; a proxy in front (Caddy) already set them.
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (!req.headers['x-forwarded-host'] && req.headers.host) {
+              proxyReq.setHeader('x-forwarded-host', req.headers.host)
+              proxyReq.setHeader('x-forwarded-proto', 'http')
+            }
+          })
+        },
       },
     },
   },

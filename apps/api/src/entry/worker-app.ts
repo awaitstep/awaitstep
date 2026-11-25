@@ -57,6 +57,12 @@ export interface Env extends WorkerDatabaseBindings {
   WEB_URL?: string
   /** `1` logs invite links instead of sending them when RESEND_API_KEY is unset — QA only. */
   LOG_EMAIL_LINKS?: string
+  /**
+   * `1` builds sign-in links and callbacks on whichever CORS_ORIGIN address a
+   * request came through (a dev server's LAN address, a tunnel), read from the
+   * proxy's forwarding headers. Local development only: a client can set them.
+   */
+  DEV_FOLLOW_HOST?: string
   RESEND_API_KEY?: string
   RESEND_FROM_EMAIL?: string
   APP_NAME?: string
@@ -183,6 +189,9 @@ export async function buildWorkerDeps(
     onImageOwnerDeleted: (owner) => discardOwnerImages(db, imageStore, owner),
     database: database.authDatabase,
     trustedOrigins: [...new Set([baseURL, ...parseAppOrigins(env.CORS_ORIGIN)])],
+    ...(env.DEV_FOLLOW_HOST === '1' && {
+      hosts: parseAppOrigins(env.CORS_ORIGIN).map((origin) => new URL(origin).host),
+    }),
     sendMagicLink,
     github: env.GITHUB_CLIENT_ID
       ? { clientId: env.GITHUB_CLIENT_ID, clientSecret: env.GITHUB_CLIENT_SECRET! }

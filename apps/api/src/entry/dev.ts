@@ -109,6 +109,10 @@ async function start() {
     rateLimit: !isDev,
     database: sqlite,
     trustedOrigins: [...new Set([baseURL, ...corsOrigins])],
+    // The web app's addresses (a LAN address, a tunnel's name) reach the API
+    // through the dev server's proxy: sign-in links and callbacks use the one
+    // the request came through.
+    hosts: corsOrigins.map((origin) => new URL(origin).host),
     sendMagicLink,
     github: process.env['GITHUB_CLIENT_ID']
       ? {
