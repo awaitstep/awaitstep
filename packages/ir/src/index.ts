@@ -178,6 +178,7 @@ export { contentHash } from './content-hash.js'
 export { stepSourcePath } from './node-source.js'
 export { migrateArtifact } from './migrate.js'
 export { loadArtifact } from './load.js'
+export { callTargets, unreachableCallMessage, type CallTarget } from './call-targets.js'
 export {
   serializeIR,
   deserializeIR,
