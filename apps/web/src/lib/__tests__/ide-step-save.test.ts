@@ -1,4 +1,4 @@
-import { resetSaveWarnings } from '../save-warnings'
+import { resetSaveWarnings, useSaveWarningsStore } from '../save-warnings'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { contentHash, type ArtifactIR } from '@awaitstep/ir'
 import { ApiError, VersionConflictError, type SavedVersion } from '../api-client'
@@ -188,6 +188,28 @@ describe('createStepSaver', () => {
       'Saved with 1 warning',
       expect.objectContaining({ description: 'Call it: This calls "far".' }),
     )
+  })
+
+  it('says nothing of a save that finishes after the workspace was left', async () => {
+    resetSaveWarnings()
+    useIdeStore
+      .getState()
+      .setDraft(VALIDATE, asModule('Validate', 'return 10'), contentHash(VALIDATE_CODE))
+    let current = true
+    const h = harness(doc, 'g-3', () => current)
+    const write = h.deps.client.createVersion
+    h.deps.client.createVersion = async (id, data) => {
+      const row = await write(id, data)
+      current = false
+      return {
+        ...row,
+        warnings: [{ nodeId: 'call', nodeName: 'Call it', message: 'This calls "far".' }],
+      }
+    }
+    await createStepSaver(h.deps).save([VALIDATE])
+
+    expect(h.notify.info).not.toHaveBeenCalled()
+    expect(useSaveWarningsStore.getState().byNode.size).toBe(0)
   })
 
   it('posts the loaded document with the edited bodies written in, on its graph hash, and nothing else changed', async () => {

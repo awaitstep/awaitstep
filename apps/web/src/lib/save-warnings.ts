@@ -8,23 +8,50 @@ export interface SaveWarning {
   message: string
 }
 
+/** The version a save wrote: its workflow and graph hash, and what it warned of. */
+export interface WarnedSave {
+  graphHash: string
+  warnings?: readonly SaveWarning[]
+}
+
+interface SaveWarningsState {
+  /** The version the marks are about; a node shows them only while the canvas shows it. */
+  workflowId: string | null
+  graphHash: string | null
+  byNode: ReadonlyMap<string, string>
+}
+
 /**
- * What the last save warned of, by node: a node shows it as a badge until a
- * save comes back without it. One editor is open at a time, so the last save
- * is the open workflow's.
+ * What the last save warned of, by node, for the version it wrote. A node
+ * shows it as a badge while the editor shows that version: another workflow
+ * (a duplicate keeps the node ids), an older version, or a newer save does
+ * not inherit it.
  */
-export const useSaveWarningsStore = create<{ byNode: ReadonlyMap<string, string> }>(() => ({
+export const useSaveWarningsStore = create<SaveWarningsState>(() => ({
+  workflowId: null,
+  graphHash: null,
   byNode: new Map(),
 }))
 
-function mark(warnings: readonly SaveWarning[]): void {
+/** The warning a node of the version on screen carries, if its last save warned of it. */
+export function saveWarningOf(
+  state: SaveWarningsState,
+  shown: { workflowId: string | null; graphHash: string | null },
+  nodeId: string | null,
+): string | undefined {
+  if (!nodeId || state.workflowId === null) return undefined
+  if (state.workflowId !== shown.workflowId || state.graphHash !== shown.graphHash) return undefined
+  return state.byNode.get(nodeId)
+}
+
+function mark(workflowId: string, graphHash: string, warnings: readonly SaveWarning[]): void {
   const byNode = new Map<string, string>()
   for (const warning of warnings) {
     if (!byNode.has(warning.nodeId)) byNode.set(warning.nodeId, warning.message)
   }
-  const current = useSaveWarningsStore.getState().byNode
-  if (byNode.size === 0 && current.size === 0) return
-  useSaveWarningsStore.setState({ byNode })
+  const current = useSaveWarningsStore.getState()
+  if (byNode.size === 0 && current.byNode.size === 0) return
+  useSaveWarningsStore.setState({ workflowId, graphHash, byNode })
 }
 
 /** The warnings last said of each workflow, so a save that repeats them says nothing. */
@@ -42,10 +69,11 @@ export function savedWithWarnings(count: number): string {
  */
 export function announceSaveWarnings(
   workflowId: string,
-  warnings: readonly SaveWarning[] | undefined,
+  saved: WarnedSave,
   notify: { info(text: string, options?: ActionToastOptions): void },
 ): void {
-  mark(warnings ?? [])
+  const { warnings } = saved
+  mark(workflowId, saved.graphHash, warnings ?? [])
   if (!warnings?.length) {
     said.delete(workflowId)
     return
@@ -63,5 +91,5 @@ export function announceSaveWarnings(
 /** Forgets what was said (tests). */
 export function resetSaveWarnings(): void {
   said.clear()
-  useSaveWarningsStore.setState({ byNode: new Map() })
+  useSaveWarningsStore.setState({ workflowId: null, graphHash: null, byNode: new Map() })
 }
