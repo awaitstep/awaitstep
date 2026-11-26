@@ -239,6 +239,7 @@ export function useWorkspaceActions({
           newFile: actions.newFile,
           quickOpen: actions.quickOpen,
           commandPalette: () => showDialog('palette'),
+          commandPaletteAlt: () => showDialog('palette'),
           toggleExplorer,
           toggleDock,
           togglePreview,

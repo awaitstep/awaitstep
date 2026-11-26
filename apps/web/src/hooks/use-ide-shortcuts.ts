@@ -10,6 +10,36 @@ export type IdeShortcutHandlers = Partial<
 /** The only shortcuts whose handlers may decline; every other one owns its key outright. */
 const DECLINABLE: ReadonlySet<IdeShortcutId> = new Set(['run', 'nextSearchHit', 'prevSearchHit'])
 
+/** Every mounted surface's handlers, so the app's own shortcuts can give way to them. */
+const mounted = new Set<{ current: IdeShortcutHandlers }>()
+const mountedListeners = new Set<() => void>()
+
+function notifyMounted() {
+  for (const listener of mountedListeners) listener()
+}
+
+/**
+ * True when a mounted Code view or canvas toolbar binds this key. The app's
+ * dispatcher listens on the window too, and which listener runs first
+ * depends on mount order, so it asks instead of relying on that.
+ */
+export function ideBindsKey(event: KeyboardEvent): boolean {
+  const id = matchShortcut(event, isMacPlatform())
+  if (!id) return false
+  for (const ref of mounted) if (ref.current[id]) return true
+  return false
+}
+
+/** Whether any surface binds IDE shortcuts right now, for the shortcuts sheet. */
+export function isIdeMounted(): boolean {
+  return mounted.size > 0
+}
+
+export function subscribeIdeMounted(listener: () => void): () => void {
+  mountedListeners.add(listener)
+  return () => mountedListeners.delete(listener)
+}
+
 /**
  * Binds the workspace shortcuts on the window in the capture phase so they
  * win over Monaco's own keymap and the browser defaults (⌘S, ⌘P). Keys
@@ -25,6 +55,8 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
 
   useEffect(() => {
     const isMac = isMacPlatform()
+    mounted.add(handlersRef)
+    notifyMounted()
     function handleKeyDown(event: KeyboardEvent) {
       // Dialogs and the explorer's name row own their keys while open.
       const id = matchShortcut(event, isMac)
@@ -64,6 +96,10 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
       }
     }
     window.addEventListener('keydown', handleKeyDown, true)
-    return () => window.removeEventListener('keydown', handleKeyDown, true)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true)
+      mounted.delete(handlersRef)
+      notifyMounted()
+    }
   }, [])
 }

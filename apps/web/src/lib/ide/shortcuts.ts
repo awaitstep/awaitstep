@@ -1,16 +1,13 @@
-export interface ShortcutKeys {
-  /** Printable key, compared case-insensitively against `KeyboardEvent.key`. */
-  key?: string
-  /**
-   * Physical key (`KeyboardEvent.code`) for chords whose `key` changes with
-   * modifiers — Shift turns `]` into `}`, Option on macOS turns `w` into `∑`.
-   */
-  code?: string
-  /** ⌘ on macOS, Ctrl elsewhere. */
-  mod?: boolean
-  shift?: boolean
-  alt?: boolean
-}
+import { matchesShortcut, type KeyEventLike, type ShortcutKeys } from '../shortcuts/keys'
+
+// The key model is shared with the rest of the app's shortcuts; the IDE's own
+// bindings stay here. Re-exported so the IDE's importers keep one entry point.
+export {
+  formatShortcut,
+  matchesShortcut,
+  type KeyEventLike,
+  type ShortcutKeys,
+} from '../shortcuts/keys'
 
 export type IdeShortcutId =
   | 'save'
@@ -18,6 +15,7 @@ export type IdeShortcutId =
   | 'newFile'
   | 'quickOpen'
   | 'commandPalette'
+  | 'commandPaletteAlt'
   | 'toggleExplorer'
   | 'toggleDock'
   | 'togglePreview'
@@ -45,7 +43,10 @@ export const IDE_SHORTCUTS: Readonly<Record<IdeShortcutId, ShortcutKeys>> = {
   // Option rewrites the glyph on macOS (⌥N is a dead key), so match the physical key.
   newFile: { code: 'KeyN', mod: true, alt: true },
   quickOpen: { key: 'p', mod: true },
-  commandPalette: { key: 'p', mod: true, shift: true },
+  // ⌘K is the palette everywhere in the app; it takes Monaco's ⌘K chord
+  // prefix here (⌘/ still comments a line). VS Code's ⇧⌘P opens it too.
+  commandPalette: { key: 'k', mod: true },
+  commandPaletteAlt: { key: 'p', mod: true, shift: true },
   toggleExplorer: { key: 'b', mod: true },
   toggleDock: { key: 'j', mod: true },
   togglePreview: { code: 'KeyB', mod: true, alt: true },
@@ -81,29 +82,6 @@ export const REPEATING_SHORTCUTS: ReadonlySet<IdeShortcutId> = new Set([
   'prevSearchHit',
 ])
 
-export interface KeyEventLike {
-  key: string
-  code: string
-  metaKey: boolean
-  ctrlKey: boolean
-  shiftKey: boolean
-  altKey: boolean
-  /** Present on real keyboard events; lets AltGr (reported as Ctrl+Alt on Windows) be told apart. */
-  getModifierState?: (key: string) => boolean
-}
-
-export function matchesShortcut(event: KeyEventLike, keys: ShortcutKeys, isMac: boolean): boolean {
-  const mod = isMac ? event.metaKey : event.ctrlKey
-  const foreignMod = isMac ? event.ctrlKey : event.metaKey
-  if (foreignMod || Boolean(keys.mod) !== mod) return false
-  if (Boolean(keys.shift) !== event.shiftKey) return false
-  if (Boolean(keys.alt) !== event.altKey) return false
-  // AltGr types characters on many layouts (AltGr+S is "ś" in Polish); it is not a chord.
-  if (keys.alt && !isMac && event.getModifierState?.('AltGraph')) return false
-  if (keys.code) return event.code === keys.code
-  return keys.key !== undefined && event.key.toLowerCase() === keys.key
-}
-
 /** The first workspace binding the event satisfies, or null. */
 export function matchShortcut(event: KeyEventLike, isMac: boolean): IdeShortcutId | null {
   for (const id of Object.keys(IDE_SHORTCUTS) as IdeShortcutId[]) {
@@ -112,25 +90,23 @@ export function matchShortcut(event: KeyEventLike, isMac: boolean): IdeShortcutI
   return null
 }
 
-const CODE_LABELS: Record<string, string> = {
-  BracketRight: ']',
-  BracketLeft: '[',
-}
-
-function keyLabel(keys: ShortcutKeys, isMac: boolean): string {
-  if (keys.code === 'Enter') return isMac ? '⏎' : 'Enter'
-  if (keys.code) return CODE_LABELS[keys.code] ?? keys.code.replace(/^Key/, '')
-  return (keys.key ?? '').toUpperCase()
-}
-
-/** Human-readable binding, in each platform's conventional modifier order. */
-export function formatShortcut(keys: ShortcutKeys, isMac: boolean): string {
-  if (isMac) {
-    return [keys.alt && '⌥', keys.shift && '⇧', keys.mod && '⌘', keyLabel(keys, isMac)]
-      .filter(Boolean)
-      .join('')
-  }
-  return [keys.mod && 'Ctrl', keys.alt && 'Alt', keys.shift && 'Shift', keyLabel(keys, isMac)]
-    .filter(Boolean)
-    .join('+')
+/** What each binding does, for the keyboard shortcuts sheet. */
+export const IDE_SHORTCUT_LABELS: Readonly<Record<IdeShortcutId, string>> = {
+  save: 'Save file',
+  saveAll: 'Save all files',
+  newFile: 'New file',
+  quickOpen: 'Go to file',
+  commandPalette: 'Command palette',
+  commandPaletteAlt: 'Command palette',
+  toggleExplorer: 'Show or hide the side bar',
+  toggleDock: 'Show or hide the panel',
+  togglePreview: 'Show or hide the canvas preview',
+  envVars: 'Variables',
+  nextTab: 'Next tab',
+  prevTab: 'Previous tab',
+  closeTab: 'Close tab',
+  run: 'Run',
+  findInFiles: 'Search in files',
+  nextSearchHit: 'Next search result',
+  prevSearchHit: 'Previous search result',
 }
