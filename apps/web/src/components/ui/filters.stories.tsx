@@ -74,7 +74,7 @@ function OrgSearchDemo() {
         placeholder="Search projects, workspaces, workflows"
         value={query}
         onChange={setQuery}
-        shortcut={{ hint: '⌘K', keys: 'Meta+K' }}
+        pageSearch
       />
     </div>
   )

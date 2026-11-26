@@ -56,6 +56,7 @@ function YourOrgs({ orgs, lastUsed }: { orgs: OrgListing[]; lastUsed: string | n
           placeholder="Find an organization"
           value={query}
           onChange={setQuery}
+          pageSearch
         />
       </div>
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
