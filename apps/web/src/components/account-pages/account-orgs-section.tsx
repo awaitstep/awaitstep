@@ -92,7 +92,7 @@ export function AccountOrgsSection({ currentOrg, orgs }: AccountOrgsSectionProps
 
 function OnlyOwnerNote({ slug }: { slug: string }) {
   return (
-    <span className="text-2xs text-muted-foreground sm:max-w-[220px] sm:text-right">
+    <span className="ml-auto text-2xs text-muted-foreground sm:ml-0 sm:max-w-[220px] sm:text-right">
       Only owner. Transfer ownership in{' '}
       <ShellLink href={orgSettingsPath(slug, 'members')} className="text-status-success">
         Members

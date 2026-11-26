@@ -8,6 +8,8 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { timeAgoOrDay } from '../../../lib/time'
+import { cn } from '../../../lib/utils'
+import { LIST_ROW_TEXT_CLASS, listRowClass, listRowTrailingClass } from '../../ui/list-card'
 import { Badge } from '../../ui/badge'
 import { Tile } from '../../ui/tile'
 import { ScopeChip } from '../../ui/workspace-dot'
@@ -33,11 +35,11 @@ interface AuditRowProps {
 export function AuditRow({ event }: AuditRowProps) {
   const { icon: Icon, tone } = KIND_LOOK[event.kind]
   return (
-    <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3.5">
+    <li className={cn(listRowClass(true), 'gap-x-4 py-3.5 sm:gap-y-2')}>
       <Tile tone={tone} size="sm">
         <Icon />
       </Tile>
-      <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
+      <div className={cn(LIST_ROW_TEXT_CLASS, 'sm:min-w-[240px]')}>
         <p className="text-sm text-foreground">
           <strong className="font-semibold">{event.actor}</strong> {event.action}{' '}
           <strong className="font-semibold">{event.target}</strong>
@@ -48,10 +50,16 @@ export function AuditRow({ event }: AuditRowProps) {
           {event.detail && <span>{event.detail}</span>}
         </span>
       </div>
-      <AuditScope scope={event.scope} />
-      <time dateTime={event.at} className="w-24 text-right text-2xs text-muted-foreground">
-        {timeAgoOrDay(event.at)}
-      </time>
+      <div className={listRowTrailingClass(true)}>
+        <AuditScope scope={event.scope} />
+        {/* On a phone the time ends the line under the title; wider, it lines up in a column. */}
+        <time
+          dateTime={event.at}
+          className="ml-auto text-2xs text-muted-foreground sm:ml-0 sm:w-24 sm:text-right"
+        >
+          {timeAgoOrDay(event.at)}
+        </time>
+      </div>
     </li>
   )
 }

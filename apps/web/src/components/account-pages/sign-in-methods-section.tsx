@@ -146,7 +146,7 @@ function DisconnectButton({ method, label, allowed }: DisconnectButtonProps) {
         Disconnect
       </Button>
       {!allowed && (
-        <span className="text-2xs text-muted-foreground sm:max-w-[220px] sm:text-right">
+        <span className="ml-auto text-2xs text-muted-foreground sm:ml-0 sm:max-w-[220px] sm:text-right">
           {ONLY_WAY_IN}{' '}
           <ShellLink href={accountPath('profile')} className="text-status-success ">
             Your data
