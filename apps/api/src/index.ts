@@ -13,6 +13,9 @@ export type { ProviderFactory, ProviderFactoryOptions } from './lib/provider-reg
 export { requireSessionAuth } from './middleware/auth.js'
 export { requireOrganization, requireProject, requireWorkspace } from './middleware/project.js'
 export { requireOrgCan, requireProjectCan, requireWorkspaceCan } from './middleware/access.js'
+// What a deploy would resolve a workflow's variables to right now, for an
+// extension that compares it with what is deployed.
+export { placeOf, resolveWorkflowEnvVars, type WorkflowPlace } from './lib/env-resolve.js'
 // The Workers entry's factory (`buildWorkerDeps`, `createWorker`) is the
 // `@awaitstep/api/worker` export, not this barrel: it pulls in the Sandbox
 // and D1 bindings, which this Node build must not bundle.
