@@ -1,4 +1,11 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { usePhoneLayout } from '../../hooks/use-phone-layout'
 import { cn } from '../../lib/utils'
@@ -40,7 +47,7 @@ export function TopBarSlotTarget() {
 // Buttons in the strip are compact, so a search field and an action share one
 // short line above the page.
 const PHONE_STRIP = cn(
-  'sticky top-14 z-20 flex items-center justify-end gap-2 border-b border-border bg-background px-6 py-2.5 empty:hidden md:hidden',
+  'sticky top-14 z-20 flex flex-wrap items-center justify-end gap-2 border-b border-border bg-background px-6 py-2.5 empty:hidden md:hidden',
   '[&_:is(button,a)]:h-7 [&_:is(button,a)]:gap-1.5 [&_:is(button,a)]:px-2.5 [&_:is(button,a)]:text-2xs [&_:is(button,a)_svg]:size-3.5',
 )
 
@@ -53,9 +60,32 @@ export function PhoneActionsSlotTarget() {
   return <div ref={phone} className={PHONE_STRIP} />
 }
 
-/** Renders its children in the frame's top bar, or under the phone header on a phone. */
+/** A node of its own to portal into, which the layout effect moves between spots. */
+function createHost(): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  const host = document.createElement('div')
+  host.style.display = 'contents'
+  return host
+}
+
+/**
+ * Renders its children in the frame's top bar, or under the phone header on
+ * a phone. They render into a node of their own that moves between the two,
+ * so crossing the breakpoint keeps their state (an open New dialog, a typed
+ * name) rather than remounting them.
+ */
 export function TopBarContent({ children }: { children: ReactNode }) {
   const targets = useContext(Targets)
   const target = slotTargetFor(targets, usePhoneLayout())
-  return target ? createPortal(children, target) : null
+  const [host] = useState(createHost)
+
+  // Moving a DOM node is a side effect React can't express: it happens before
+  // paint, so the content never shows in the wrong spot.
+  useLayoutEffect(() => {
+    if (!host || !target) return
+    target.appendChild(host)
+    return () => host.remove()
+  }, [host, target])
+
+  return host ? createPortal(children, host) : null
 }

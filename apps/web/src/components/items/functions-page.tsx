@@ -11,7 +11,7 @@ import { useWorkspaceScope } from '../workspaces/use-workspace-scope'
 import { useEmptyView } from '../workspaces/workspace-empty-view'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { WorkspaceWelcome } from '../workspaces/workspace-welcome'
-import { ItemActions, NewItemButton } from './item-actions'
+import { ItemActions } from './item-actions'
 import { filterCounts, matchesFilter, type WorkflowFilter } from './item-format'
 import { FunctionRow } from './parts/function-row'
 import { ItemLinkRow } from './parts/item-link-row'
@@ -127,11 +127,6 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
     )
   }
 
-  const phoneNew = readOnly ? null : (
-    <span className="md:hidden">
-      <NewItemButton slugs={slugs} kind="script" disabled={loading} compact />
-    </span>
-  )
   const filterPills =
     loading || failed ? null : (
       <SegmentedFilter
@@ -148,12 +143,7 @@ export function FunctionsPage({ slugs }: FunctionsPageProps) {
         <ItemActions slugs={slugs} kind="script" readOnly={readOnly} loading={loading} />
       </TopBarContent>
       <PageBody>
-        <PageIntro
-          title="Functions"
-          description={description}
-          action={phoneNew}
-          aside={filterPills}
-        />
+        <PageIntro title="Functions" description={description} aside={filterPills} />
         {body}
       </PageBody>
     </>

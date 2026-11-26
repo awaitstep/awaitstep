@@ -189,7 +189,8 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
                         Sent {timeAgoOrDay(invitation.sentAt)}
                       </span>
                       {canManage && (
-                        <>
+                        // On a phone the buttons end the line, opposite when it was sent.
+                        <span className="ml-auto flex gap-2 sm:ml-0">
                           <Button
                             type="button"
                             variant="outline"
@@ -206,7 +207,7 @@ export function OrgMembersPage({ org, overlay, onOverlayChange }: OrgMembersPage
                           >
                             Cancel invite
                           </Button>
-                        </>
+                        </span>
                       )}
                     </>
                   }

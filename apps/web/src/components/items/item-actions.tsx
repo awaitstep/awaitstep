@@ -17,8 +17,6 @@ interface NewItemButtonProps {
   kind: ItemKind
   /** While the list loads the button shows, disabled (`LoadingState`). */
   disabled?: boolean
-  /** The phone's short "New". */
-  compact?: boolean
   variant?: 'default' | 'outline'
   size?: 'sm' | 'default'
   /** Shared by buttons side by side; its owner renders the one dialog. */
@@ -30,7 +28,6 @@ export function NewItemButton({
   slugs,
   kind,
   disabled,
-  compact,
   variant = 'default',
   size = 'sm',
   newItem: shared,
@@ -43,22 +40,13 @@ export function NewItemButton({
   }
 
   const label = newLabel(kind)
-  const accessibleName = compact ? label : undefined
-  const text = compact ? 'New' : label
   const icon = variant === 'default' ? <Plus aria-hidden="true" /> : null
 
   return (
     <>
-      <Button
-        type="button"
-        variant={variant}
-        size={size}
-        onClick={handleClick}
-        disabled={disabled}
-        aria-label={accessibleName}
-      >
+      <Button type="button" variant={variant} size={size} onClick={handleClick} disabled={disabled}>
         {icon}
-        {text}
+        {label}
       </Button>
       {!shared && own.dialog && <NewItemDialog slugs={slugs} {...own.dialog} />}
     </>

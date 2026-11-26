@@ -12,7 +12,7 @@ import { useEmptyView } from '../workspaces/workspace-empty-view'
 import { WorkspaceLoadError } from '../workspaces/workspace-load-error'
 import { WorkspaceWelcome } from '../workspaces/workspace-welcome'
 import { ImportItemDialog } from './import-item-dialog'
-import { ItemActions, NewItemButton } from './item-actions'
+import { ItemActions } from './item-actions'
 import { filterCounts, matchesFilter, type WorkflowFilter } from './item-format'
 import { ItemLinkRow } from './parts/item-link-row'
 import { ItemsPageSkeleton } from './parts/items-page-skeleton'
@@ -143,11 +143,6 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
     )
   }
 
-  const phoneNew = readOnly ? null : (
-    <span className="md:hidden">
-      <NewItemButton slugs={slugs} kind="workflow" disabled={loading} compact />
-    </span>
-  )
   const filterPills =
     loading || failed ? null : (
       <SegmentedFilter
@@ -164,12 +159,7 @@ export function WorkflowsPage({ slugs, dialog, onCloseDialog }: WorkflowsPagePro
         <ItemActions slugs={slugs} kind="workflow" readOnly={readOnly} loading={loading} />
       </TopBarContent>
       <PageBody>
-        <PageIntro
-          title="Workflows"
-          description={description}
-          action={phoneNew}
-          aside={filterPills}
-        />
+        <PageIntro title="Workflows" description={description} aside={filterPills} />
         {body}
       </PageBody>
       {importDialog}
