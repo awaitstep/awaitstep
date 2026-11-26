@@ -6,4 +6,4 @@ link: projects
 linkLabel: Open your projects
 ---
 
-In the code editor, `event.payload` no longer shows as an error. The editor reads `event` as your run's event, in workflows and functions alike.
+In the code editor, reading a step's event payload no longer shows as an error: the editor knows the event your run started with, in workflows and functions alike.
