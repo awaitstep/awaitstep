@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev --port 4100",
+    "dev": "astro dev --port 4100 --host",
     "build": "astro build",
     "preview": "astro preview --port 4100",
     "test": "vitest run",

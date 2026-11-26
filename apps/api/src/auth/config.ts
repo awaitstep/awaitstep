@@ -9,6 +9,13 @@ import { createLogger } from '../lib/logger.js'
 
 export interface AuthOptions {
   baseURL: string
+  /**
+   * Other hosts the app is opened at, through a proxy (the dev server, a
+   * tunnel): the auth URLs then follow the request's host, `baseURL`'s or one
+   * of these, read from the proxy's forwarding headers; any other host gets
+   * `baseURL`. For a dev server only: a client can set those headers.
+   */
+  hosts?: string[]
   secret: string
   database: unknown
   trustedOrigins?: string[]
@@ -161,7 +168,14 @@ export function createAuth(options: AuthOptions) {
   return betterAuth({
     basePath: '/api/auth',
     logger: betterAuthLogger,
-    baseURL: options.baseURL,
+    baseURL: options.hosts?.length
+      ? {
+          allowedHosts: [...new Set([new URL(options.baseURL).host, ...options.hosts])],
+          fallback: options.baseURL,
+          // From the request, so one cookie name serves http and https alike.
+          protocol: 'auto',
+        }
+      : options.baseURL,
     secret: options.secret,
     database: options.database as Parameters<typeof betterAuth>[0]['database'],
     trustedOrigins: options.trustedOrigins ?? [options.baseURL],
@@ -366,6 +380,8 @@ export function createAuth(options: AuthOptions) {
       ipAddress: {
         ipAddressHeaders: [CLIENT_IP_HEADER],
       },
+      // Only to tell which of `hosts` a request came through.
+      ...(options.hosts?.length && { trustedProxyHeaders: true }),
     },
     // better-auth's defaults already guard sign-in, sign-up and the
     // password/email-change paths (3 per 10s). Two need a tighter budget:

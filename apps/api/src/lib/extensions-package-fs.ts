@@ -60,6 +60,8 @@ export interface LoadedExtensions {
   disabled: readonly OssFeature[]
   /** Checked by `checkOAuthReturnPath`; absent keeps the Connections page. */
   oauthReturnPath?: string
+  /** The package runs on Postgres only (`database: 'postgres'`). */
+  postgresOnly?: boolean
 }
 
 const NONE: LoadedExtensions = { extensions: [], disabled: [] }
@@ -100,10 +102,11 @@ function packageExports(packageName: string, exported: unknown): LoadedExtension
     shape === null ||
     !Array.isArray(shape.extensions) ||
     (shape.disabled !== undefined && !Array.isArray(shape.disabled)) ||
-    (shape.oauthReturnPath !== undefined && typeof shape.oauthReturnPath !== 'string')
+    (shape.oauthReturnPath !== undefined && typeof shape.oauthReturnPath !== 'string') ||
+    (shape.database !== undefined && shape.database !== 'postgres')
   ) {
     throw new Error(
-      `${packageName}/api must export { extensions: [...], disabled?: [...], oauthReturnPath?: '/…' } as its default.`,
+      `${packageName}/api must export { extensions: [...], disabled?: [...], oauthReturnPath?: '/…', database?: 'postgres' } as its default.`,
     )
   }
   return {
@@ -112,6 +115,7 @@ function packageExports(packageName: string, exported: unknown): LoadedExtension
     ...(shape.oauthReturnPath !== undefined && {
       oauthReturnPath: checkOAuthReturnPath(shape.oauthReturnPath),
     }),
+    ...(shape.database === 'postgres' && { postgresOnly: true }),
   }
 }
 
