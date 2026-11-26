@@ -322,9 +322,11 @@ describe('validateArmsIntoJoins: merges judged the way codegen follows arms', ()
   })
 
   it('stays linear on many branches sharing one long chain', () => {
-    // Gates times chain would be quadratic. Compared with a quarter of the
-    // graph, not against a clock: four times the graph takes about four times
-    // as long when linear, sixteen when quadratic, however fast the machine.
+    // Gates times chain would be quadratic. Compared with a sixteenth of the
+    // graph, not against a clock: sixteen times the graph takes about sixteen
+    // times as long when linear, 256 when quadratic, however fast the machine.
+    // The bar sits halfway between the two (in ratio), so a busy machine that
+    // triples the larger graph's time still passes and quadratic still fails.
     const graph = (scale: number) => {
       const chain = Array.from({ length: 250 * scale }, (_, i) => node(`c${i}`))
       const chainEdges = chain
@@ -341,7 +343,7 @@ describe('validateArmsIntoJoins: merges judged the way codegen follows arms', ()
     // The fastest of a few runs, so a pause of the machine does not count.
     const fastest = (ir: ReturnType<typeof graph>) => {
       let best = Infinity
-      for (let run = 0; run < 5; run++) {
+      for (let run = 0; run < 10; run++) {
         const started = performance.now()
         validateArmsIntoJoins(ir)
         best = Math.min(best, performance.now() - started)
@@ -349,9 +351,9 @@ describe('validateArmsIntoJoins: merges judged the way codegen follows arms', ()
       return best
     }
     const small = graph(1)
-    const large = graph(4)
+    const large = graph(16)
     validateArmsIntoJoins(small)
-    expect(fastest(large) / fastest(small)).toBeLessThan(8)
+    expect(fastest(large) / fastest(small)).toBeLessThan(64)
   })
 })
 
