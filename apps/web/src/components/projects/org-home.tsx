@@ -99,13 +99,6 @@ export function OrgHome({
               </span>
             </ShellLink>
           )}
-          <SearchField
-            label="Search projects"
-            placeholder="Search projects"
-            value={query}
-            onChange={setQuery}
-            pageSearch
-          />
         </div>
         <ul
           aria-label="Projects"

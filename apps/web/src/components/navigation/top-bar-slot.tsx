@@ -44,11 +44,11 @@ export function TopBarSlotTarget() {
   return <div ref={topBar} className="flex min-w-0 flex-1 items-center justify-end gap-3" />
 }
 
-// Buttons in the strip are compact, so a search field and an action share one
-// short line above the page.
+// Buttons in the strip are compact, and a search field takes what they leave,
+// so a search and an action share one short line above the page.
 const PHONE_STRIP = cn(
-  'sticky top-14 z-20 flex flex-wrap items-center justify-end gap-2 border-b border-border bg-background px-6 py-2.5 empty:hidden md:hidden',
-  '[&_:is(button,a)]:h-7 [&_:is(button,a)]:gap-1.5 [&_:is(button,a)]:px-2.5 [&_:is(button,a)]:text-2xs [&_:is(button,a)_svg]:size-3.5',
+  'sticky top-14 z-20 flex items-center justify-end gap-2 border-b border-border bg-background px-6 py-2.5 empty:hidden md:hidden',
+  '[&_[data-search-field]]:min-w-0 [&_[data-search-field]]:flex-1 [&_:is(button,a)]:shrink-0 [&_:is(button,a)]:h-7 [&_:is(button,a)]:gap-1.5 [&_:is(button,a)]:px-2.5 [&_:is(button,a)]:text-2xs [&_:is(button,a)_svg]:size-3.5',
 )
 
 /**
