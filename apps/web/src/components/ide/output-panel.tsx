@@ -180,7 +180,7 @@ function Chip({
       className={cn(
         'inline-flex h-6 items-center gap-1 rounded border px-2 text-2xs transition-colors',
         active
-          ? 'border-primary/40 bg-primary/10 text-foreground'
+          ? 'border-primary-ink/40 bg-primary-ink/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground',
       )}
     >

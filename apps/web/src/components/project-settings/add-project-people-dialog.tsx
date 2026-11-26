@@ -45,7 +45,7 @@ function WorkspaceToggles({ workspaces, picked, onToggle }: WorkspaceTogglesProp
             className={cn(
               'h-[30px] rounded-full border px-3 text-xs font-medium transition-colors',
               on
-                ? 'border-primary/60 bg-tone-ok text-status-success'
+                ? 'border-primary-ink/60 bg-tone-ok text-status-success'
                 : 'border-border text-muted-foreground hover:text-foreground',
             )}
           >
@@ -89,7 +89,7 @@ function ScopeChoice({ value, projectName, onChange }: ScopeChoiceProps) {
             className={cn(
               'flex cursor-pointer items-start gap-2.5 rounded-[10px] border px-3 py-2.5 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
               checked
-                ? 'border-primary/50 bg-primary/5'
+                ? 'border-primary-ink/50 bg-primary-ink/5'
                 : 'border-border hover:border-foreground/20',
             )}
           >
@@ -105,7 +105,7 @@ function ScopeChoice({ value, projectName, onChange }: ScopeChoiceProps) {
               aria-hidden="true"
               className={cn(
                 'mt-0.5 size-4 shrink-0 rounded-full',
-                checked ? 'border-[5px] border-primary' : 'border border-input',
+                checked ? 'border-[5px] border-primary-ink' : 'border border-input',
               )}
             />
             <span className="flex flex-col gap-0.5">

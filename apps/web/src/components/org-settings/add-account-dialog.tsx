@@ -99,7 +99,7 @@ export function AddAccountDialog({ org, onClose }: AddAccountDialogProps) {
               type="checkbox"
               checked={all}
               onChange={handleAll}
-              className="size-4 accent-primary"
+              className="size-4 accent-primary-ink"
             />
             All projects, including new ones
           </label>

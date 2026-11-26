@@ -146,7 +146,7 @@ export function ExplorerRow(props: ExplorerRowProps) {
           : 'h-6 text-xs',
         !isSection &&
           (selected
-            ? 'bg-primary/10 text-foreground shadow-[inset_2px_0_0_var(--color-primary)]'
+            ? 'bg-primary-ink/10 text-foreground shadow-[inset_2px_0_0_var(--color-primary)]'
             : active
               ? 'bg-muted/70 text-foreground'
               : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'),

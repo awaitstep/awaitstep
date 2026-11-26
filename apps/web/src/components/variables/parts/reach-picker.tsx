@@ -76,7 +76,7 @@ export function ReachPicker({
               >
                 <input
                   type="checkbox"
-                  className="size-4 shrink-0 accent-primary"
+                  className="size-4 shrink-0 accent-primary-ink"
                   checked={isLocked || picked.includes(place.id)}
                   disabled={isLocked || isBlocked}
                   onChange={(e) => toggle(place.id, e.target.checked)}

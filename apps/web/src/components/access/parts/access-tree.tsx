@@ -140,7 +140,7 @@ export function AccessTree({
         </section>
       )}
 
-      <div className="flex flex-col gap-2 rounded border border-primary/20 bg-primary/5 px-4 py-3.5">
+      <div className="flex flex-col gap-2 rounded border border-primary-ink/20 bg-primary-ink/5 px-4 py-3.5">
         <span className="text-xs font-medium text-muted-foreground">
           {personFirstName} can work in
         </span>

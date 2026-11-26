@@ -45,7 +45,7 @@ export function SearchBox({ inputRef, onKeyDown, invalid }: SearchBoxProps) {
     <div className="shrink-0 space-y-1.5 border-b border-border p-2">
       <div
         className={cn(
-          'flex h-7 items-center rounded border bg-background pr-1 focus-within:border-primary/60',
+          'flex h-7 items-center rounded border bg-background pr-1 focus-within:border-primary-ink/60',
           invalid ? 'border-destructive/70' : 'border-border',
         )}
       >
@@ -71,7 +71,7 @@ export function SearchBox({ inputRef, onKeyDown, invalid }: SearchBoxProps) {
           type="checkbox"
           checked={includeGenerated}
           onChange={handleIncludeGenerated}
-          className="h-3 w-3 accent-primary"
+          className="h-3 w-3 accent-primary-ink"
         />
         Include generated files
       </label>
@@ -106,7 +106,7 @@ function ToggleButton({
       className={cn(
         'flex h-5 min-w-5 items-center justify-center rounded px-1 font-mono text-2xs transition-colors',
         on
-          ? 'bg-primary/20 text-foreground'
+          ? 'bg-primary-ink/20 text-foreground'
           : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
       )}
     >

@@ -61,7 +61,7 @@ export function KeyLevelCards({ current, links }: KeyLevelCardsProps) {
             aria-current={ariaCurrent}
             className={cn(
               'flex flex-col gap-3.5 rounded border p-4.5',
-              here ? 'border-primary/50 bg-primary/5' : 'border-border bg-card',
+              here ? 'border-primary-ink/50 bg-primary-ink/5' : 'border-border bg-card',
             )}
           >
             <span className="flex items-center gap-3">

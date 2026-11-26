@@ -135,7 +135,7 @@ export function ScopeMultiPicker({
           onClick={handleBoxClick}
           className={cn(
             'flex min-h-[42px] flex-wrap items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 transition-colors',
-            open ? 'border-primary ring-2 ring-primary/20' : 'border-input',
+            open ? 'border-primary-ink ring-2 ring-primary-ink/20' : 'border-input',
           )}
         >
           {picked.map((option) => (
@@ -267,8 +267,8 @@ function PickerOption({ domId, option, picked, covered, active, onToggle }: Pick
         aria-hidden="true"
         className={cn(
           'flex size-[18px] shrink-0 items-center justify-center rounded-[5px] border',
-          picked && 'border-primary bg-primary text-primary-foreground',
-          covered && 'border-primary/50 bg-primary/50 text-primary-foreground',
+          picked && 'border-primary-ink bg-primary text-primary-foreground',
+          covered && 'border-primary-ink/50 bg-primary/50 text-primary-foreground',
           !ticked && 'border-muted-foreground/60',
         )}
       >

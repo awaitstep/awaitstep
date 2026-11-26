@@ -94,7 +94,7 @@ export function EditableName({ workflowId, initialValue, className, readOnly }: 
         maxLength={255}
         autoFocus
         className={cn(
-          'w-full min-w-0 rounded-md border border-border bg-transparent px-2 py-1 font-semibold outline-none focus:border-primary/50',
+          'w-full min-w-0 rounded-md border border-border bg-transparent px-2 py-1 font-semibold outline-none focus:border-primary-ink/50',
           className ?? 'text-lg',
         )}
       />
@@ -166,7 +166,7 @@ export function EditableDescription({
         maxLength={1000}
         autoFocus
         className={cn(
-          'w-full rounded-md border border-border bg-transparent px-2 py-0.5 text-muted-foreground outline-none focus:border-primary/50',
+          'w-full rounded-md border border-border bg-transparent px-2 py-0.5 text-muted-foreground outline-none focus:border-primary-ink/50',
           className ?? 'mt-1 text-sm',
         )}
       />

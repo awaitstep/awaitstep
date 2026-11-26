@@ -196,7 +196,7 @@ export function UnifiedTopBar({
           >
             <VersionBadge version={version} />
             {nodeCount > 0 && !viewing && (
-              <span className="hidden shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary-ink @[880px]:inline-flex">
+              <span className="hidden shrink-0 rounded bg-primary-ink/10 px-1.5 py-0.5 text-xs font-medium text-primary-ink @[880px]:inline-flex">
                 {nodeLabel}
               </span>
             )}

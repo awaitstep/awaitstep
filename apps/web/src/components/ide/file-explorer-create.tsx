@@ -131,7 +131,7 @@ export function CreateRow({
         onBlur={handleBlur}
         className={cn(
           'h-6 w-full rounded border bg-background px-1.5 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground',
-          error ? 'border-status-error' : 'border-primary',
+          error ? 'border-status-error' : 'border-primary-ink',
         )}
       />
       <div role="status" aria-live="polite" className="empty:hidden">

@@ -25,7 +25,7 @@ function ScopeSketch({ org }: EmptyOrgProps) {
         <span className="flex-1 text-sm font-medium">{org.name}</span>
         <span className="text-2xs text-muted-foreground">Organization</span>
       </span>
-      <span className="ml-5 flex items-center gap-2.5 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 py-2.5">
+      <span className="ml-5 flex items-center gap-2.5 rounded-lg border border-dashed border-primary-ink/50 bg-primary-ink/5 px-3 py-2.5">
         <span className="flex size-6 items-center justify-center rounded-md bg-muted text-2xs font-semibold">
           P
         </span>
@@ -58,7 +58,7 @@ export function EmptyOrg({ org }: EmptyOrgProps) {
   const connectStep = useFeatureOn('connections.ui')
   return (
     <PageBody>
-      <section className="flex flex-wrap items-center gap-10 rounded border border-primary/20 bg-primary/5 p-8 md:p-10">
+      <section className="flex flex-wrap items-center gap-10 rounded border border-primary-ink/20 bg-primary-ink/5 p-8 md:p-10">
         <div className="flex flex-1 basis-[360px] flex-col gap-5">
           <span className="flex w-fit items-center gap-1.5 rounded-full bg-tone-ok px-2.5 py-1 text-xs text-status-success">
             <span aria-hidden="true" className="size-1.5 rounded-full bg-status-success" />

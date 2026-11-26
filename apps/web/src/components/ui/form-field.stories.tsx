@@ -105,11 +105,11 @@ export const Group: Story = {
   render: () => (
     <FieldGroup legend="Notifications" hint="Sent to the address on your account.">
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" defaultChecked className="accent-primary" />
+        <input type="checkbox" defaultChecked className="accent-primary-ink" />
         Failed runs
       </label>
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" className="accent-primary" />
+        <input type="checkbox" className="accent-primary-ink" />
         Deploys
       </label>
     </FieldGroup>

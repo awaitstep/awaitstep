@@ -63,11 +63,11 @@ export function StepRail({ layout, entry, container, ghost = false }: StepRailPr
           'absolute size-2 -translate-x-1/2 -translate-y-1/2 border bg-card',
           container ? 'rotate-45 rounded-[1px]' : 'rounded-full',
           ghost
-            ? 'border-dashed border-primary/70 bg-primary/10'
+            ? 'border-dashed border-primary-ink/70 bg-primary-ink/10'
             : entry
               ? 'border-primary-ink bg-primary-ink'
               : container
-                ? 'border-primary/60'
+                ? 'border-primary-ink/60'
                 : DOT,
         )}
         style={{ left: railX(depth), top: DOT_TOP }}
