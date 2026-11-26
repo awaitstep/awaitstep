@@ -5,7 +5,10 @@ import { runPath, type WorkspaceSlugs } from '../../lib/dashboard-paths'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { TriggerDialog } from '../canvas/trigger-dialog'
 import type { ItemDetailPage } from '../navigation/dashboard-page'
-import { RouterShellLink } from '../navigation/router-shell-link'
+import { RouterShellLink, useGoTo } from '../navigation/router-shell-link'
+import { useAppShortcuts } from '../../hooks/use-app-shortcuts'
+import { withShortcutHint } from '../../lib/shortcuts/hints'
+import { isMacPlatform } from '../../lib/platform'
 import { DeployButton } from '../overview/deploy-action'
 import { EditableDescription, EditableName } from '../overview/editable-field'
 import { Badge } from '../ui/badge'
@@ -47,6 +50,8 @@ export function ItemHeader({
   canEdit,
 }: ItemHeaderProps) {
   const links = useWorkflowLinks(workflow.id)
+  const goTo = useGoTo()
+  const isMac = isMacPlatform()
   const [triggerOpen, setTriggerOpen] = useState(false)
   const isFunction = workflow.kind === 'script'
   const locked = overview.deployedVersion?.locked === 1
@@ -54,8 +59,12 @@ export function ItemHeader({
   // A run has its own actions.
   const showActions = page !== 'run'
   const editorHref = links.editor(workflow.currentVersionId ? 'ide' : 'canvas')
-  const callTitle = overview.hasActiveDeployment ? 'Call this function' : 'Publish it first'
-  const triggerTitle = overview.hasActiveDeployment ? 'Trigger a run' : 'Deploy it first'
+  const callTitle = overview.hasActiveDeployment
+    ? withShortcutHint('Call this function', 'run', isMac)
+    : 'Publish it first'
+  const triggerTitle = overview.hasActiveDeployment
+    ? withShortcutHint('Trigger a run', 'run', isMac)
+    : 'Deploy it first'
 
   function handleOpenTrigger() {
     setTriggerOpen(true)
@@ -64,6 +73,31 @@ export function ItemHeader({
   function handleCloseTrigger() {
     setTriggerOpen(false)
   }
+
+  function handleGoOverview() {
+    goTo(links.overview)
+  }
+
+  function handleGoRuns() {
+    goTo(links.runs)
+  }
+
+  function handleGoDeployments() {
+    goTo(links.deployments)
+  }
+
+  function handleOpenEditor() {
+    goTo(editorHref)
+  }
+
+  // A run's page has its own actions, but its tabs are still a key away.
+  useAppShortcuts('workflow', {
+    goItemOverview: handleGoOverview,
+    goItemRuns: handleGoRuns,
+    goItemDeployments: handleGoDeployments,
+    openEditor: showActions ? handleOpenEditor : undefined,
+    run: showActions && overview.hasActiveDeployment ? handleOpenTrigger : undefined,
+  })
 
   function runHrefFor(runId: string) {
     return runPath(slugs, workflow, runId)
@@ -117,6 +151,7 @@ export function ItemHeader({
           <div className="flex shrink-0 items-center gap-2">
             <RouterShellLink
               href={editorHref}
+              title={withShortcutHint('Open the editor', 'openEditor', isMac)}
               className={buttonVariants({ variant: 'outline', size: 'sm', className: 'gap-1.5' })}
             >
               <Pencil aria-hidden="true" className="size-3.5" />
@@ -142,6 +177,7 @@ export function ItemHeader({
               currentVersionId={workflow.currentVersionId}
               kind={workflow.kind}
               deployBlocked={overview.deployBlocked}
+              shortcut
             />
             {!isFunction && (
               <Button

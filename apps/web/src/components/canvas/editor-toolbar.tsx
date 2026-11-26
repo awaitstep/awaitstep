@@ -98,7 +98,7 @@ export function EditorToolbar({
   const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
   const isMac = isMacPlatform()
   const hint = (id: keyof typeof IDE_SHORTCUTS) => formatShortcut(IDE_SHORTCUTS[id], isMac)
-  const saveHint = isMac ? '⌘↵' : 'Ctrl+↵'
+  const saveHint = isMac ? '⌘S' : 'Ctrl+S'
   const viewOnly = !!readOnly && !!viewOnlyReason
   // Pressed means the inspector is on screen, not merely allowed: with no
   // step selected nothing is showing, and the code preview takes the space.
