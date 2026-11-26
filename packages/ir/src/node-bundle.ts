@@ -40,6 +40,7 @@ const configFieldSchema = z
     required: z.boolean().optional(),
     default: z.unknown().optional(),
     placeholder: z.string().optional(),
+    language: z.enum(['sql']).optional(),
     options: z.array(z.string()).optional(),
     envVarName: z.string().optional(),
     validation: fieldValidationSchema.optional(),
