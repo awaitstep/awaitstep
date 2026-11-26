@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { CF_RUNTIME_DTS } from '../cf-runtime-dts'
 import { buildWorkflowContextDts } from '../context-dts'
-import { EDITOR_LIB } from '../editor-lib'
+import { EDITOR_LIB_FILES } from '../editor-lib'
 
 /** A step's code type-checked as the editor checks it: its globals, the workflow context, maybe Cloudflare's pack. */
 function diagnosticsOf(
@@ -28,7 +28,7 @@ function diagnosticsOf(
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
-    lib: EDITOR_LIB.map((name) => `lib.${name}.d.ts`),
+    lib: EDITOR_LIB_FILES,
     moduleDetection: ts.ModuleDetectionKind.Force,
     noEmit: true,
     types: [],
