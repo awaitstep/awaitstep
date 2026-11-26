@@ -67,12 +67,19 @@ export function ListRow({ leading, title, href, badge, description, trailing }: 
   ) : (
     <span className="text-sm font-semibold text-foreground">{title}</span>
   )
+  const hasLeading = hasContent(leading)
+  // On a phone the trailing line (a pill, a time) sits under the title, lined
+  // up with it, not under the icon; from `sm` the row wraps as space runs out.
   return (
     <li
-      className={cn('flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4', href && LINKED_ROW)}
+      className={cn(
+        'grid items-center gap-x-4.5 gap-y-2 px-5 py-4 sm:flex sm:flex-wrap sm:gap-y-3',
+        hasLeading ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1',
+        href && LINKED_ROW,
+      )}
     >
-      {hasContent(leading) && leading}
-      <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
+      {hasLeading && leading}
+      <div className="flex min-w-0 flex-col gap-0.5 sm:min-w-[200px] sm:flex-1">
         {hasContent(badge) ? (
           <span className="flex flex-wrap items-center gap-2">
             {heading}
@@ -86,7 +93,14 @@ export function ListRow({ leading, title, href, badge, description, trailing }: 
         )}
       </div>
       {hasContent(trailing) && (
-        <div className="flex flex-wrap items-center gap-x-4.5 gap-y-2">{trailing}</div>
+        <div
+          className={cn(
+            'flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-4.5',
+            hasLeading && 'col-start-2',
+          )}
+        >
+          {trailing}
+        </div>
       )}
     </li>
   )

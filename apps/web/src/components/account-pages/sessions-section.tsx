@@ -137,7 +137,7 @@ function SessionRow({ session, onAsk }: SessionRowProps) {
       description={sessionDetail(session)}
       trailing={
         <>
-          <span className="w-[130px] text-right text-2xs text-muted-foreground">
+          <span className="text-2xs text-muted-foreground sm:w-[130px] sm:text-right">
             {sessionActivity(session)}
           </span>
           {session.current ? (
