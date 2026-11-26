@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { copyOnCanvas, pasteOnCanvas, type CanvasClipboard } from '../clipboard-events'
+import {
+  copyOnCanvas,
+  createPasteGate,
+  pasteOnCanvas,
+  type CanvasClipboard,
+} from '../clipboard-events'
 
 /** A copy or paste event fired at `target`, with a clipboard holding `text`. */
 function clipboardEvent(target: Element, text = '') {
@@ -70,5 +75,37 @@ describe('pasteOnCanvas', () => {
     const { e, preventDefault } = clipboardEvent(element(html, '#t'), 'hello')
     expect(pasteOnCanvas(e, canvasWith(overrides))).toEqual([])
     expect(preventDefault).not.toHaveBeenCalled()
+  })
+})
+
+describe('createPasteGate', () => {
+  function gate() {
+    let t = 10_000
+    const g = createPasteGate(() => t)
+    return { g, later: (ms: number) => (t += ms) }
+  }
+
+  it('lets the paste event take ⌘V, and the clipboard API not paste it again', () => {
+    const { g } = gate()
+    g.keyPressed()
+    expect(g.takeEvent()).toBe(true)
+    expect(g.takeFallback()).toBe(false)
+  })
+
+  it('keeps a paste event that lands after the clipboard API pasted from pasting again', () => {
+    const { g, later } = gate()
+    g.keyPressed()
+    expect(g.takeFallback()).toBe(true)
+    later(30)
+    expect(g.takeEvent()).toBe(false)
+  })
+
+  it('lets a paste with no ⌘V before it paste, once the last ⌘V is past', () => {
+    const { g, later } = gate()
+    expect(g.takeEvent()).toBe(true)
+    g.keyPressed()
+    expect(g.takeFallback()).toBe(true)
+    later(5_000)
+    expect(g.takeEvent()).toBe(true)
   })
 })

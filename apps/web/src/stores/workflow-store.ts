@@ -69,6 +69,12 @@ const CLIPBOARD_FORMAT = 'awaitstep/nodes-v1'
 /** The nodes copied last in this tab, for a paste that may not read the system clipboard. */
 let lastCopiedNodes: string | null = null
 
+/** How far each paste beside the copied nodes steps down and right, as Duplicate does. */
+const PASTE_STEP = 40
+
+/** The text pasted beside its nodes last, and how many times in a row: each paste steps further. */
+let besidePastes: { text: string; count: number } | null = null
+
 interface ClipboardEdge {
   source: string
   target: string
@@ -261,7 +267,11 @@ interface WorkflowState {
   /** The nodes as clipboard text (also kept as the in-app copy); null with nothing to copy. */
   copyNodesText: (nodeIds: string[]) => string | null
   copyNodesToClipboard: (nodeIds: string[]) => Promise<boolean>
-  /** Pastes clipboard text that holds copied nodes; anything else pastes nothing. */
+  /**
+   * Pastes clipboard text that holds copied nodes; anything else pastes
+   * nothing. Centred on `centerPosition` when given (where the menu was
+   * opened), else beside the copied nodes, each paste in a row a step further.
+   */
   pasteNodesFromText: (raw: string, centerPosition?: { x: number; y: number }) => string[]
   pasteNodesFromClipboard: (centerPosition?: { x: number; y: number }) => Promise<string[]>
 
@@ -916,7 +926,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         const { nodes, edges } = get()
         const payload = buildClipboardPayload(nodes, edges, nodeIds)
         if (!payload) return []
-        const cloned = instantiateClones(payload, { x: 40, y: 40 })
+        const cloned = instantiateClones(payload, { x: PASTE_STEP, y: PASTE_STEP })
         const newIds = cloned.nodes.map((n) => n.id)
         set({
           nodes: withFollowedFunctionNames(nodes, [
@@ -938,6 +948,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         if (!payload) return null
         const text = JSON.stringify(payload)
         lastCopiedNodes = text
+        besidePastes = null
         return text
       },
 
@@ -974,7 +985,9 @@ export const useWorkflowStore = create<WorkflowState>()(
             parsed.nodes.length
           offset = { x: centerPosition.x - cx, y: centerPosition.y - cy }
         } else {
-          offset = { x: 40, y: 40 }
+          const count = besidePastes?.text === raw ? besidePastes.count + 1 : 1
+          besidePastes = { text: raw, count }
+          offset = { x: PASTE_STEP * count, y: PASTE_STEP * count }
         }
 
         const cloned = instantiateClones(parsed, offset)

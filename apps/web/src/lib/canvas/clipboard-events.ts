@@ -14,7 +14,7 @@ export interface CanvasClipboard {
 }
 
 /** Whether the event is the canvas's: not typed in a field, not in a dialog above it. */
-function isCanvasEvent(e: Event): boolean {
+export function isCanvasEvent(e: Event): boolean {
   if (isTypingTarget(e.target)) return false
   return !(e.target instanceof Element && e.target.closest('[role="dialog"]'))
 }
@@ -40,4 +40,40 @@ export function pasteOnCanvas(e: ClipboardEvent, canvas: CanvasClipboard): strin
   const newIds = canvas.paste(e.clipboardData.getData('text/plain'))
   if (newIds.length > 0) e.preventDefault()
   return newIds
+}
+
+/** How long after ⌘V a paste event is that keystroke's, ms. */
+const KEY_PASTE_WINDOW_MS = 1000
+
+/**
+ * One paste per ⌘V. The keystroke pastes either through the browser's paste
+ * event or, when none comes, through the clipboard API a tick later; the
+ * event can land after that tick, and would paste the nodes a second time.
+ * Whichever comes first takes the keystroke. A paste event with no ⌘V
+ * before it (the browser's Edit menu) always pastes.
+ */
+export function createPasteGate(now: () => number = Date.now) {
+  let keyAt = Number.NEGATIVE_INFINITY
+  let taken = true
+  return {
+    /** ⌘V was pressed: its paste is still to come. */
+    keyPressed(): void {
+      keyAt = now()
+      taken = false
+    },
+    /** Whether a paste event may paste. */
+    takeEvent(): boolean {
+      if (!taken) {
+        taken = true
+        return true
+      }
+      return now() - keyAt > KEY_PASTE_WINDOW_MS
+    },
+    /** Whether the clipboard API may paste for the ⌘V: no event took it. */
+    takeFallback(): boolean {
+      if (taken) return false
+      taken = true
+      return true
+    },
+  }
 }

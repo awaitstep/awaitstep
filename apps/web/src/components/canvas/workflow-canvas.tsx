@@ -17,6 +17,8 @@ import { actionToast } from '../../lib/action-toast'
 import { isTypingTarget } from '../../lib/typing-target'
 import {
   copyOnCanvas,
+  createPasteGate,
+  isCanvasEvent,
   pasteOnCanvas,
   type CanvasClipboard,
 } from '../../lib/canvas/clipboard-events'
@@ -76,8 +78,8 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
   useWorkflowTypeContext()
   const reactFlowInstance = useRef<ReactFlowInstance<FlowNode> | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  // Whether ⌘V brought a paste event; without one the clipboard API pastes.
-  const pasteEventSeen = useRef(false)
+  // One paste per ⌘V: its paste event, or without one the clipboard API.
+  const pasteGate = useRef(createPasteGate())
   const {
     nodes,
     edges,
@@ -235,17 +237,6 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     ],
   )
 
-  const getViewportCenter = useCallback(() => {
-    const instance = reactFlowInstance.current
-    const el = containerRef.current
-    if (!instance || !el) return undefined
-    const rect = el.getBoundingClientRect()
-    return instance.screenToFlowPosition({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-    })
-  }, [])
-
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey) return
@@ -274,11 +265,11 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         // ⌘C and ⌘V go through the browser's own copy and paste below, which
         // need no clipboard permission. A browser that fires no paste event
         // here (nothing editable focused) pastes through the clipboard API.
-        pasteEventSeen.current = false
-        const center = getViewportCenter()
+        // Pasted beside the copied nodes; the menu's Paste lands where it was opened.
+        pasteGate.current.keyPressed()
         setTimeout(() => {
-          if (pasteEventSeen.current) return
-          void pasteNodesFromClipboard(center).then(announcePaste)
+          if (!pasteGate.current.takeFallback()) return
+          void pasteNodesFromClipboard().then(announcePaste)
         }, 0)
       }
     }
@@ -290,7 +281,7 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         copied = ids.length
         return copyNodesText(ids)
       },
-      paste: (text) => pasteNodesFromText(text, getViewportCenter()),
+      paste: (text) => pasteNodesFromText(text),
       readOnly,
     }
 
@@ -300,7 +291,11 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     }
 
     function handlePaste(e: ClipboardEvent) {
-      pasteEventSeen.current = true
+      if (!pasteGate.current.takeEvent()) {
+        // The ⌘V already pasted through the clipboard API: keep the browser's own paste out too.
+        if (isCanvasEvent(e)) e.preventDefault()
+        return
+      }
       announcePaste(pasteOnCanvas(e, canvas))
     }
 
@@ -319,7 +314,6 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     pasteNodesFromClipboard,
     readOnly,
     getActiveSelection,
-    getViewportCenter,
   ])
 
   // Container edge colors only depend on graph topology (node types + edge connections).

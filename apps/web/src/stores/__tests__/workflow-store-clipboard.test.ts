@@ -66,6 +66,26 @@ describe('canvas copy and paste', () => {
     expect(state().isDirty).toBe(true)
   })
 
+  it('pastes beside the copied nodes, each paste in a row a step further, and a new copy starts over', () => {
+    seed([irNode('a', 100)])
+    const text = state().copyNodesText(['a'])!
+    const at = (id: string) => state().nodes.find((n) => n.id === id)!.position
+    const [first] = state().pasteNodesFromText(text)
+    expect(at(first!)).toEqual({ x: 140, y: 40 })
+    const [second] = state().pasteNodesFromText(text)
+    expect(at(second!)).toEqual({ x: 180, y: 80 })
+    state().copyNodesText(['a'])
+    const [again] = state().pasteNodesFromText(text)
+    expect(at(again!)).toEqual({ x: 140, y: 40 })
+  })
+
+  it('centres a paste on the place given (where the menu opened)', () => {
+    seed([irNode('a', 100)])
+    const text = state().copyNodesText(['a'])!
+    const [id] = state().pasteNodesFromText(text, { x: 500, y: 300 })
+    expect(state().nodes.find((n) => n.id === id)!.position).toEqual({ x: 500, y: 300 })
+  })
+
   it.each([
     ['plain text', 'hello'],
     ['JSON that is not copied nodes', '{"nodes":[]}'],
