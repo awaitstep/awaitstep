@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type SubmitEvent } from 'react'
+import { useState } from 'react'
 import { Mail } from 'lucide-react'
 import { actionToast, failureLine } from '../../lib/action-toast'
 import { ApiError } from '../../lib/api-client'
@@ -8,19 +8,12 @@ import { getOrigin } from '../../lib/utils'
 import { GitHubIcon, GoogleIcon } from '../icons/provider-icons'
 import { AuthCard } from '../ui/auth-card'
 import { Button } from '../ui/button'
-import { FormField } from '../ui/form-field'
-import { Input } from '../ui/input'
 import { Separator } from '../ui/separator'
 import { Tile } from '../ui/tile'
 import { AuthLayout } from '../shell/auth-layout'
+import { MagicLinkForm } from './magic-link-form'
 import { SignInAlert } from './sign-in-alert'
-import {
-  clock,
-  looksLikeEmail,
-  problemCopy,
-  problemFromCode,
-  type SignInProblem,
-} from './sign-in-problem'
+import { problemCopy, problemFromCode, type SignInProblem } from './sign-in-problem'
 import { useCountdown } from './use-countdown'
 
 const FOOTER_LINKS = [{ label: 'Docs', href: 'https://docs.awaitstep.dev' }]
@@ -57,10 +50,8 @@ interface AuthRefusal {
 export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageProps) {
   const hasOAuth = authMethods.github || authMethods.google
   const forInvite = isInvitePath(redirectPath)
-  const [email, setEmail] = useState('')
   const [sentTo, setSentTo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [emailInvalid, setEmailInvalid] = useState(false)
   const [problem, setProblem] = useState<SignInProblem | null>(() => problemFromCode(errorCode))
   const lock = useCountdown()
   // The limit lifts by itself: when the clock runs out the alert goes too.
@@ -88,24 +79,13 @@ export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageP
     if (res.error) fail(res.error)
   }
 
-  function handleEmailChange(event: ChangeEvent<HTMLInputElement>) {
-    setEmail(event.target.value)
-    setEmailInvalid(false)
-  }
-
-  function handleMagicLink(event: SubmitEvent) {
-    event.preventDefault()
-    if (locked) return
-    if (!looksLikeEmail(email)) {
-      setEmailInvalid(true)
-      return
-    }
+  function handleMagicLink(email: string) {
     setLoading(true)
     setProblem(null)
     let retryAfter: number | undefined
     authClient.signIn
       .magicLink({
-        email: email.trim(),
+        email,
         callbackURL,
         errorCallbackURL,
         fetchOptions: {
@@ -116,7 +96,7 @@ export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageP
       })
       .then((res) => {
         if (res.error) return fail(res.error, retryAfter)
-        setSentTo(email.trim())
+        setSentTo(email)
         actionToast.success('Sign-in link sent')
       })
       .catch(() => fail())
@@ -207,32 +187,11 @@ export function SignInPage({ redirectPath, authMethods, errorCode }: SignInPageP
           </div>
         )}
         {authMethods.magicLink && (
-          <form onSubmit={handleMagicLink} noValidate className="flex flex-col gap-3.5">
-            <FormField
-              label="Work email"
-              error={
-                emailInvalid ? 'Enter a valid email address, like you@company.com.' : undefined
-              }
-            >
-              <Input
-                type="email"
-                value={email}
-                onChange={handleEmailChange}
-                placeholder="you@company.com"
-                required
-              />
-            </FormField>
-            <Button type="submit" disabled={loading || locked || !email} className="w-full">
-              {locked
-                ? `Try again in ${clock(lock.remaining)}`
-                : loading
-                  ? 'Sending…'
-                  : 'Email me a sign-in link'}
-            </Button>
-            <p className="text-2xs text-center text-muted-foreground">
-              New here? Signing in creates your account.
-            </p>
-          </form>
+          <MagicLinkForm
+            sending={loading}
+            lockedFor={locked ? lock.remaining : 0}
+            onSend={handleMagicLink}
+          />
         )}
         {!hasOAuth && !authMethods.magicLink && (
           <p className="text-sm text-muted-foreground">
