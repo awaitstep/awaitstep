@@ -12,6 +12,7 @@ import { NotFoundView } from '../ui/not-found-view'
 import { Bone, LoadingRegion } from '../ui/skeletons'
 import { PageBody } from '../shell/page-intro'
 import { DashboardOverlays } from '../inbox/dashboard-overlays'
+import { GlobalShortcuts } from '../shortcuts/global-shortcuts'
 import { useFramedPage } from '../workflow-detail/use-framed-page'
 import { useDisabledFeatures } from '../../lib/feature-switches'
 import { useEnabledExtensions } from '../../extensions/registry'
@@ -103,7 +104,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
 
   // The editor fills the screen itself once its scope is found; sample items
   // get the framed placeholder instead.
-  if (found && declaredPage?.kind === 'editor') return children
+  if (found && declaredPage?.kind === 'editor')
+    return (
+      <>
+        {children}
+        <GlobalShortcuts slugs={slugs} overlayBase={orgPath(slugs.org)} />
+      </>
+    )
 
   let content: ReactNode
   if (scope.isPending) content = <ScopeLoading />
@@ -132,6 +139,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       onToggleTheme={handleToggleTheme}
     >
       {content}
+      <GlobalShortcuts slugs={slugs} overlayBase={href} />
       {found && (
         <DashboardOverlays org={slugs.org} open={search.open} onClose={handleCloseOverlay} />
       )}

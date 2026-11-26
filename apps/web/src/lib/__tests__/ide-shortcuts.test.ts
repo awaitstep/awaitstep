@@ -29,10 +29,13 @@ describe('matchShortcut', () => {
     expect(matchShortcut(key({ key: 'p', code: 'KeyP', metaKey: true }), false)).toBeNull()
   })
 
-  it('distinguishes the command palette from quick open by Shift', () => {
+  it('opens the command palette on ⌘K, as everywhere in the app, and on VS Code’s ⇧⌘P', () => {
+    expect(matchShortcut(key({ key: 'k', code: 'KeyK', metaKey: true }), true)).toBe(
+      'commandPalette',
+    )
     expect(
       matchShortcut(key({ key: 'P', code: 'KeyP', metaKey: true, shiftKey: true }), true),
-    ).toBe('commandPalette')
+    ).toBe('commandPaletteAlt')
   })
 
   it('matches the canvas preview on the physical key, since Option rewrites the glyph', () => {
@@ -115,10 +118,10 @@ describe('matchShortcut', () => {
 
 describe('formatShortcut', () => {
   it('renders macOS glyphs in ⌥⇧⌘ order and Ctrl+ chords elsewhere', () => {
-    expect(formatShortcut(IDE_SHORTCUTS.commandPalette, true)).toBe('⇧⌘P')
+    expect(formatShortcut(IDE_SHORTCUTS.commandPaletteAlt, true)).toBe('⇧⌘P')
     expect(formatShortcut(IDE_SHORTCUTS.closeTab, true)).toBe('⌥⌘W')
     expect(formatShortcut(IDE_SHORTCUTS.closeTab, false)).toBe('Ctrl+Alt+W')
-    expect(formatShortcut(IDE_SHORTCUTS.commandPalette, false)).toBe('Ctrl+Shift+P')
+    expect(formatShortcut(IDE_SHORTCUTS.commandPaletteAlt, false)).toBe('Ctrl+Shift+P')
     expect(formatShortcut(IDE_SHORTCUTS.nextTab, true)).toBe('⇧⌘]')
     expect(formatShortcut(IDE_SHORTCUTS.nextTab, false)).toBe('Ctrl+Shift+]')
   })

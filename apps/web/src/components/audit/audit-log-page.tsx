@@ -160,6 +160,7 @@ function AuditLog({ org }: AuditLogPageProps) {
         placeholder="Search people, actions, targets"
         value={search}
         onChange={handleSearch}
+        pageSearch
       />
       <SegmentedFilter label="Level" options={LEVEL_OPTIONS} value={level} onChange={handleLevel} />
 

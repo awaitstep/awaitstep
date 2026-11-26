@@ -218,6 +218,7 @@ export function RunsPage({ slugs }: RunsPageProps) {
             placeholder="Search by workflow or run ID"
             value={search}
             onChange={handleSearch}
+            pageSearch
           />
           <SegmentedFilter
             label="Result"

@@ -4,7 +4,7 @@ import { EnvVarsDialog } from '../workflows/env-vars-dialog'
 import { Button } from '../ui/button'
 import { useTemporalStore, useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
-import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
+import { useIdeShortcuts, type IdeShortcutListing } from '../../hooks/use-ide-shortcuts'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
 import { useSwitchView } from '../../hooks/use-switch-view'
 import type { EditorView } from '../workflows/view-switch'
@@ -17,6 +17,15 @@ import { SaveStatusIndicator } from './save-status-indicator'
 import { EditorExtensions } from '../../extensions/editor-extensions'
 import { readOnlyReason } from '../../lib/workflows/read-only-reason'
 import { BLANK_DEPLOY_REASON, canvasMenuGroups, canvasTopBarVersion } from './canvas-toolbar-menu'
+
+/** The canvas's IDE chords, as the shortcuts sheet words them. */
+const CANVAS_SHORTCUT_LISTING: IdeShortcutListing = {
+  heading: 'Canvas',
+  labels: {
+    toggleExplorer: 'Show or hide the nodes',
+    toggleDock: 'Show or hide the inspector',
+  },
+}
 
 export interface EditorToolbarProps {
   workflowId: string
@@ -98,7 +107,7 @@ export function EditorToolbar({
   const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
   const isMac = isMacPlatform()
   const hint = (id: keyof typeof IDE_SHORTCUTS) => formatShortcut(IDE_SHORTCUTS[id], isMac)
-  const saveHint = isMac ? '⌘↵' : 'Ctrl+↵'
+  const saveHint = isMac ? '⌘S' : 'Ctrl+S'
   const viewOnly = !!readOnly && !!viewOnlyReason
   // Pressed means the inspector is on screen, not merely allowed: with no
   // step selected nothing is showing, and the code preview takes the space.
@@ -122,12 +131,15 @@ export function EditorToolbar({
   }
 
   // The same chords the Code surface uses for its side bar and panel.
-  useIdeShortcuts({
-    toggleExplorer: readOnly ? undefined : togglePalette,
-    toggleDock: handleToggleInspector,
-    // Nothing is stored for an unsaved canvas, so there are no variables to open.
-    envVars: isNew ? undefined : handleOpenEnvVars,
-  })
+  useIdeShortcuts(
+    {
+      toggleExplorer: readOnly ? undefined : togglePalette,
+      toggleDock: handleToggleInspector,
+      // Nothing is stored for an unsaved canvas, so there are no variables to open.
+      envVars: isNew ? undefined : handleOpenEnvVars,
+    },
+    CANVAS_SHORTCUT_LISTING,
+  )
 
   // ?version= is carried only while actually viewing an older version. On
   // an editable canvas it names the version that is current *right now*,
@@ -156,8 +168,8 @@ export function EditorToolbar({
       pressed: paletteOpen && !readOnly,
       disabled: !!readOnly,
       title: readOnly
-        ? 'Steps (nothing to add while read-only)'
-        : `Steps (${hint('toggleExplorer')})`,
+        ? 'Nodes (nothing to add while read-only)'
+        : `Nodes (${hint('toggleExplorer')})`,
       onClick: togglePalette,
     },
     {

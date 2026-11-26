@@ -129,6 +129,7 @@ export function NodesTab({ org, nodes, canManage, reason, asDialog }: NodesTabPr
           placeholder="Search nodes"
           value={search}
           onChange={setSearch}
+          pageSearch
         />
         <div className="shrink-0">
           <SegmentedFilter label="Show" options={showOptions} value={show} onChange={setShow} />

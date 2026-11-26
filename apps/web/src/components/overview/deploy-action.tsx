@@ -8,6 +8,9 @@ import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { useGoTo } from '../navigation/router-shell-link'
 import { useApi } from '../../contexts/api-client-context'
 import { useEditorAccess } from '../../contexts/editor-scope-context'
+import { useAppShortcuts } from '../../hooks/use-app-shortcuts'
+import { withShortcutHint } from '../../lib/shortcuts/hints'
+import { isMacPlatform } from '../../lib/platform'
 
 /** Validator messages side by side in one toast: each one a sentence, so their own commas never blur. */
 export function issuesLine(messages: string[]): string {
@@ -23,6 +26,8 @@ interface DeployButtonProps {
   deployBlocked?: boolean
   /** The button's words; "Deploy" unless a caller says otherwise. */
   label?: string
+  /** `d` deploys too: for the one Deploy button on a workflow's page. */
+  shortcut?: boolean
 }
 
 /**
@@ -35,6 +40,7 @@ export function DeployButton({
   kind,
   deployBlocked,
   label = 'Deploy',
+  shortcut,
 }: DeployButtonProps) {
   const api = useApi()
   const goTo = useGoTo()
@@ -98,6 +104,14 @@ export function DeployButton({
     goTo(links.deploy)
   }
 
+  function handleDeployShortcut() {
+    void handleDeploy()
+  }
+
+  useAppShortcuts('workflow', {
+    deploy: shortcut && canDeploy && !deployBlocked ? handleDeployShortcut : undefined,
+  })
+
   if (!canDeploy) return null
 
   return (
@@ -105,7 +119,13 @@ export function DeployButton({
       size="sm"
       className="gap-1.5"
       disabled={deployBlocked}
-      title={deployBlocked ? 'Deployed version is locked' : undefined}
+      title={
+        deployBlocked
+          ? 'Deployed version is locked'
+          : shortcut
+            ? withShortcutHint(label, 'deploy', isMacPlatform())
+            : undefined
+      }
       onClick={handleDeploy}
     >
       <Rocket className="h-3.5 w-3.5" />

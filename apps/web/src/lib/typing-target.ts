@@ -5,5 +5,6 @@ const TYPING_TARGET =
 
 /** True when a page-wide shortcut must leave the key to the field it was typed in. */
 export function isTypingTarget(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest(TYPING_TARGET) !== null
+  const element = target as Element | null
+  return typeof element?.closest === 'function' && element.closest(TYPING_TARGET) !== null
 }

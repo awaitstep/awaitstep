@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { orgPath, projectWorkspacesPath, workspacePath } from '../../lib/dashboard-paths'
 import { currentFirst } from '../../lib/current-first'
@@ -32,19 +32,6 @@ function failingHref(org: string, item: FailingItem): string {
   return workspacePath({ org, project: item.project.slug, workspace: item.workspace.slug }, 'runs')
 }
 
-/** ⌘K / Ctrl+K focuses the search field, as its hint says. */
-function useFocusShortcut(target: RefObject<HTMLInputElement | null>) {
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return
-      event.preventDefault()
-      target.current?.focus()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [target])
-}
-
 /** The org home: what's here, how it's doing, and what happened lately. */
 export function OrgHome({
   org,
@@ -55,8 +42,6 @@ export function OrgHome({
   canCreateProject,
 }: OrgHomeProps) {
   const [query, setQuery] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
-  useFocusShortcut(searchRef)
 
   const shown = filterProjects(projects, query)
   const deployed = projects.reduce((sum, project) => sum + project.health.deployed, 0)
@@ -74,12 +59,11 @@ export function OrgHome({
     <>
       <TopBarContent>
         <SearchField
-          ref={searchRef}
           label="Search projects and workspaces"
           placeholder="Search projects and workspaces"
           value={query}
           onChange={setQuery}
-          shortcut={{ hint: '⌘K', keys: 'Meta+K' }}
+          pageSearch
         />
         {newProjectButton}
       </TopBarContent>
@@ -123,6 +107,7 @@ export function OrgHome({
             placeholder="Search projects"
             value={query}
             onChange={setQuery}
+            pageSearch
           />
         </div>
         <ul

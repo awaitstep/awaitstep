@@ -6,6 +6,7 @@ import { withOverlay } from '../../lib/dashboard-paths'
 import { useThemeStore } from '../../stores/theme-store'
 import type { Organization } from '../../stores/org-store'
 import { DashboardOverlays } from '../inbox/dashboard-overlays'
+import { GlobalShortcuts } from '../shortcuts/global-shortcuts'
 import { DashboardFrame, type FrameScope } from './dashboard-frame'
 import { useDisabledFeatures } from '../../lib/feature-switches'
 import { pageSwitchedOff } from './dashboard-page'
@@ -72,6 +73,7 @@ export function OrgLessShell({ children }: { children: ReactNode }) {
       onToggleTheme={handleToggleTheme}
     >
       {switchedOff ? <PageNotFoundIn org={org.slug} /> : children}
+      <GlobalShortcuts slugs={{ org: org.slug }} overlayBase={href} />
       <DashboardOverlays org={org.slug} open={search.open} onClose={handleCloseOverlay} />
     </DashboardFrame>
   )

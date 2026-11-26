@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ComponentType } from 'react'
+import { OPEN_LAYER_ATTRIBUTE } from '../../lib/shortcuts/key-context'
 import { Copy, Files, Trash2, ClipboardPaste } from 'lucide-react'
 import { isMacPlatform } from '../../lib/platform'
 
@@ -35,6 +36,7 @@ export function CanvasContextMenu({ x, y, type, onAction, onClose }: CanvasConte
   return (
     <div
       ref={ref}
+      {...{ [OPEN_LAYER_ATTRIBUTE]: '' }}
       style={{ left: x, top: y }}
       className="fixed z-50 min-w-[180px] rounded-md border border-border bg-card py-1 shadow-lg"
       onContextMenu={(e) => e.preventDefault()}

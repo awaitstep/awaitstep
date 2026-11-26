@@ -1,0 +1,74 @@
+import { describe, expect, it } from 'vitest'
+import { goTargets, paletteModel, type PaletteInput } from '../palette-model'
+
+const ORG: PaletteInput = {
+  slugs: { org: 'acme' },
+  overlayBase: '/acme/audit',
+  theme: 'dark',
+  bound: [],
+}
+const WORKSPACE: PaletteInput = {
+  ...ORG,
+  slugs: { org: 'acme', project: 'shop', workspace: 'prod' },
+}
+
+describe('palette model', () => {
+  it('sends each g key where the rail item goes, overlays opening over the page', () => {
+    const targets = goTargets(paletteModel(ORG))
+    expect(targets).toMatchObject({
+      goProjects: '/acme/projects',
+      goResources: '/acme/resources',
+      goAudit: '/acme/audit',
+      goApiKeys: '/acme/api-keys',
+      goInbox: '/acme/audit?open=inbox',
+      goWhatsNew: '/acme/audit?open=whats-new',
+    })
+    expect(targets.goSettings).toMatch(/^\/acme\/settings/)
+  })
+
+  it('binds the workspace keys only inside a workspace', () => {
+    expect(goTargets(paletteModel(ORG)).goWorkflows).toBeUndefined()
+    expect(goTargets(paletteModel(WORKSPACE))).toMatchObject({
+      goWorkflows: '/acme/shop/prod/workflows',
+      goFunctions: '/acme/shop/prod/functions',
+      goRuns: '/acme/shop/prod/runs',
+    })
+  })
+
+  it('drops a page the instance switches off, with its key', () => {
+    const on = paletteModel(ORG).flatMap((g) => g.items.map((i) => i.id))
+    const off = paletteModel({ ...ORG, disabled: ['playground', 'docs'] }).flatMap((g) =>
+      g.items.map((i) => i.id),
+    )
+    expect(on).toEqual(expect.arrayContaining(['org:playground', 'org:docs']))
+    expect(off).not.toContain('org:playground')
+    expect(off).not.toContain('org:docs')
+  })
+
+  it('never sends a g key off to an external page', () => {
+    const groups = paletteModel(ORG)
+    const docs = groups.flatMap((g) => g.items).find((i) => i.id === 'org:docs')
+    expect(docs?.target).toMatchObject({ kind: 'href', external: true })
+    expect(Object.values(goTargets(groups))).not.toContain(
+      docs?.target.kind === 'href' && docs.target.href,
+    )
+  })
+
+  it('lists the page’s own actions under their group, and names the theme it switches to', () => {
+    const groups = paletteModel({
+      ...WORKSPACE,
+      theme: 'light',
+      bound: ['deploy', 'palette', 'canvasFit'],
+    })
+    const headings = groups.map((g) => g.heading)
+    expect(headings).toEqual([
+      'Go to',
+      'This workspace',
+      'This workflow or function',
+      'Canvas',
+      'General',
+    ])
+    const general = groups.at(-1)!.items.map((i) => i.label)
+    expect(general).toContain('Switch to the dark theme')
+  })
+})

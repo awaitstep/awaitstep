@@ -1,4 +1,5 @@
 import { useBlocker, useLocation, useNavigate } from '@tanstack/react-router'
+import { useAppShortcuts } from '../../hooks/use-app-shortcuts'
 import { lazy, Suspense, useRef, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { actionToast } from '../../lib/action-toast'
@@ -242,8 +243,16 @@ export function CanvasView({
     })
   }
 
+  // ⌘S saves too, as in the Code view, instead of the browser's Save Page.
+  function handleSaveKey() {
+    if (isReadOnly || isSaving || saveConflict) return
+    handleSave()
+  }
+
+  useAppShortcuts('canvas', { canvasSave: handleSaveKey })
+
   // ⌘↵ saves from anywhere on the canvas, including while typing in a
-  // config field (the only shortcut that deliberately fires in inputs).
+  // config field (chords fire in fields; plain keys never do).
   useEffect(() => {
     function handleSaveShortcut(e: KeyboardEvent) {
       if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) return

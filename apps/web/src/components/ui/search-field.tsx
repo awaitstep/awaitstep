@@ -1,5 +1,7 @@
 import { useId, type ChangeEvent, type KeyboardEvent, type Ref } from 'react'
 import { Search } from 'lucide-react'
+import { PAGE_SEARCH_ATTRIBUTE } from '../../lib/shortcuts/page-search'
+import { Kbd } from './kbd'
 
 interface SearchFieldProps {
   /** Read by screen readers; the placeholder is not a label. */
@@ -8,11 +10,10 @@ interface SearchFieldProps {
   value: string
   onChange: (value: string) => void
   /**
-   * A keyboard hint shown at the right, e.g. "⌘K", with its `aria-keyshortcuts`
-   * value, e.g. "Meta+K". Display only: whoever owns the shortcut binds it.
+   * The page's own search, which `/` focuses (see `focusPageSearch`): it
+   * shows the key at the right.
    */
-  shortcut?: { hint: string; keys: string }
-  /** The input, for whoever binds the shortcut to focus it. */
+  pageSearch?: boolean
   ref?: Ref<HTMLInputElement>
 }
 
@@ -28,7 +29,7 @@ export function SearchField({
   placeholder,
   value,
   onChange,
-  shortcut,
+  pageSearch,
   ref,
 }: SearchFieldProps) {
   const id = useId()
@@ -59,17 +60,11 @@ export function SearchField({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        aria-keyshortcuts={shortcut?.keys}
+        aria-keyshortcuts={pageSearch ? '/' : undefined}
+        {...(pageSearch && { [PAGE_SEARCH_ATTRIBUTE]: '' })}
         className="h-full min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
       />
-      {shortcut && (
-        <kbd
-          aria-hidden="true"
-          className="shrink-0 rounded border border-border px-1.5 text-2xs font-sans"
-        >
-          {shortcut.hint}
-        </kbd>
-      )}
+      {pageSearch && <Kbd aria-hidden="true">/</Kbd>}
     </div>
   )
 }

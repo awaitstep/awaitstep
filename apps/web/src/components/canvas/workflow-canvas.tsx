@@ -17,6 +17,12 @@ import { actionToast } from '../../lib/action-toast'
 import { nodeClickEffect } from '../../lib/canvas/node-click'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { isTypingTarget } from '../../lib/typing-target'
+import { useAppShortcuts } from '../../hooks/use-app-shortcuts'
+import {
+  clearSelectionChanges,
+  escapeOutcome,
+  selectAllChanges,
+} from '../../lib/canvas/selection-keys'
 import {
   copyOnCanvas,
   createPasteGate,
@@ -56,6 +62,8 @@ const edgeTypes = { smoothstep: LabeledEdge }
 // Fitting a small workflow never zooms past 100%, so nodes open at their own
 // size instead of blown up to fill the screen.
 const FIT_VIEW_OPTIONS = { maxZoom: 1 }
+/** How long fit and zoom from the keyboard animate. */
+const VIEW_DURATION_MS = 150
 
 // The grid the + places new nodes on, so dragged and added nodes line up.
 const SNAP_GRID: [number, number] = [CANVAS_GRID, CANVAS_GRID]
@@ -336,6 +344,60 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
     readOnly,
     getActiveSelection,
   ])
+
+  function handleSelectAll() {
+    const { nodes: current, onNodesChange: apply } = useWorkflowStore.getState()
+    const changes = selectAllChanges(current)
+    if (changes.length > 0) apply(changes)
+  }
+
+  // Declines with nothing to let go of, so Esc stays with whoever else wants it.
+  function handleClearSelection() {
+    const {
+      nodes: current,
+      onNodesChange: apply,
+      selectedNodeId: open,
+      selectedEdgeId,
+    } = useWorkflowStore.getState()
+    const changes = clearSelectionChanges(current)
+    const outcome = escapeOutcome({
+      selectedSteps: changes.length,
+      openStep: !!open,
+      selectedEdge: !!selectedEdgeId,
+      // As a click on the pane: a step with errors stays open, and says why.
+      canLeave: () => canLeaveSelectedNode(null),
+    })
+    if (outcome === 'decline') return false
+    if (outcome === 'stay') return
+    if (changes.length > 0) apply(changes)
+    if (open) selectNode(null)
+    if (selectedEdgeId) selectEdge(null)
+  }
+
+  function handleFit() {
+    void reactFlowInstance.current?.fitView({ ...FIT_VIEW_OPTIONS, duration: VIEW_DURATION_MS })
+  }
+
+  function handleZoomIn() {
+    void reactFlowInstance.current?.zoomIn({ duration: VIEW_DURATION_MS })
+  }
+
+  function handleZoomOut() {
+    void reactFlowInstance.current?.zoomOut({ duration: VIEW_DURATION_MS })
+  }
+
+  function handleZoomReset() {
+    void reactFlowInstance.current?.zoomTo(1, { duration: VIEW_DURATION_MS })
+  }
+
+  useAppShortcuts('canvas', {
+    canvasSelectAll: handleSelectAll,
+    canvasDeselect: handleClearSelection,
+    canvasFit: handleFit,
+    canvasZoomIn: handleZoomIn,
+    canvasZoomOut: handleZoomOut,
+    canvasZoomReset: handleZoomReset,
+  })
 
   // Container edge colors only depend on graph topology (node types + edge connections).
   // Position drags change node references but not edge references — use edges array

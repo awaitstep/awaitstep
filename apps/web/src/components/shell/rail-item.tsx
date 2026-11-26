@@ -1,4 +1,6 @@
 import type { ComponentProps } from 'react'
+import { withShortcutHint } from '../../lib/shortcuts/hints'
+import { isMacPlatform } from '../../lib/platform'
 import { Moon, Sun, type LucideIcon } from 'lucide-react'
 import type { Theme } from '../../lib/theme'
 import { cn } from '../../lib/utils'
@@ -125,6 +127,8 @@ export function ThemeButton({ theme, onToggle }: ThemeButtonProps) {
       type="button"
       onClick={onToggle}
       aria-label={ariaLabel}
+      aria-keyshortcuts="Alt+Shift+L"
+      title={withShortcutHint(ariaLabel, 'theme', isMacPlatform())}
       className={cn(railItemClass(false), 'cursor-pointer')}
     >
       <Icon size={18} aria-hidden="true" />
