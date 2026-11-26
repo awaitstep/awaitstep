@@ -11,8 +11,9 @@ interface ExtensionPanelOverlayProps {
 export function ExtensionPanelOverlay({ panel, org, onClose }: ExtensionPanelOverlayProps) {
   const Body = panel.component
   return (
-    <RailOverlay title={panel.label} onClose={onClose}>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+    // As tall as what the extension draws: a short panel (Help) leaves no empty card.
+    <RailOverlay title={panel.label} onClose={onClose} fit>
+      <div className="min-h-0 overflow-y-auto pb-2">
         <Body org={org} onClose={onClose} />
       </div>
     </RailOverlay>

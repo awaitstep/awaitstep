@@ -11,6 +11,8 @@ interface LoadedQueryProps<T> {
   filters?: boolean
   /** What a failure says, when it can say more than "took too long". */
   errorDetail?: (error: unknown) => string | undefined
+  /** Around the error card and the skeleton only, e.g. padding where the list draws its own edges. */
+  stateClassName?: string
   children: (data: T) => ReactNode
 }
 
@@ -20,6 +22,7 @@ export function LoadedQuery<T>({
   what,
   filters,
   errorDetail,
+  stateClassName,
   children,
 }: LoadedQueryProps<T>) {
   function handleRetry() {
@@ -27,7 +30,7 @@ export function LoadedQuery<T>({
   }
 
   if (query.isError) {
-    return (
+    const card = (
       <WorkspaceLoadError
         what={what}
         error={query.error}
@@ -36,15 +39,17 @@ export function LoadedQuery<T>({
         detail={errorDetail?.(query.error)}
       />
     )
+    return stateClassName ? <div className={stateClassName}>{card}</div> : card
   }
   if (query.data === undefined) {
-    return (
+    const skeleton = (
       <LoadingRegion label={`Loading ${what}`}>
         {filters && <FilterSkeleton count={3} />}
         <ListCardSkeleton rows={2} trailing={2} />
         <ListCardSkeleton rows={2} trailing={2} />
       </LoadingRegion>
     )
+    return stateClassName ? <div className={stateClassName}>{skeleton}</div> : skeleton
   }
   return children(query.data)
 }
