@@ -17,7 +17,10 @@ describe('isPhoneLayout', () => {
     expect(isPhoneLayout(windowAt(width))).toBe(phone)
   })
 
-  it('is never the phone layout without a window', () => {
-    expect(isPhoneLayout(undefined)).toBe(false)
+  it.each([
+    ['without a window', undefined],
+    ['where media queries are not read', {}],
+  ])('is never the phone layout %s', (_name, win) => {
+    expect(isPhoneLayout(win)).toBe(false)
   })
 })

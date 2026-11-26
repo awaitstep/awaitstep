@@ -16,7 +16,7 @@ import { useDisabledFeatures } from '../../lib/feature-switches'
 import type { DashboardPage } from './dashboard-page'
 import { DashboardAccountMenu } from './account-menu-container'
 import { MobileProjectMenu } from './mobile-project-menu'
-import { TopBarSlotTarget } from './top-bar-slot'
+import { PhoneActionsSlotTarget, TopBarSlotTarget } from './top-bar-slot'
 import { OrgSwitcher } from './org-switcher'
 import { ProjectSwitcher } from './project-switcher'
 import { WorkspaceSwitcher } from './workspace-switcher'
@@ -144,6 +144,7 @@ export function DashboardFrame({
       <TopBar breadcrumbs={crumbs}>
         <TopBarSlotTarget />
       </TopBar>
+      <PhoneActionsSlotTarget />
       {children}
     </AppShell>
   )
