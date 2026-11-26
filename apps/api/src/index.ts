@@ -5,7 +5,7 @@ export type { Auth, AuthOptions } from './auth/config.js'
 export { createLogger } from './lib/logger.js'
 export type { Logger } from './lib/logger.js'
 export { buildNodeRegistry, createMergedNodeRegistry } from './lib/node-registry.js'
-export type { AppNodeRegistry, RegistryFile } from './lib/node-registry.js'
+export type { AppNodeRegistry, ExtensionNode, RegistryFile } from './lib/node-registry.js'
 export type { AppEnv, AppExtension, ExtensionHooks, ExtensionsPackage } from './types.js'
 export type { ProviderFactory, ProviderFactoryOptions } from './lib/provider-registry.js'
 // The core's scope and role gates, for an extension's routes to compose:

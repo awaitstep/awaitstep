@@ -14,7 +14,7 @@ import type { ImageStore } from '@awaitstep/storage'
 import type { TestSessionLimits } from './lib/test-session-policy.js'
 import type { ProviderFactory } from './lib/provider-registry.js'
 import type { CloudflareOAuthRuntime } from './lib/cloudflare-oauth-config.js'
-import type { AppNodeRegistry } from './lib/node-registry.js'
+import type { AppNodeRegistry, ExtensionNode } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type {
   AccountProviders,
@@ -215,6 +215,14 @@ export interface AppExtension {
   strictCallTargets?: boolean
   /** Called as the app's own records are created; see {@link ExtensionHooks}. */
   hooks?: ExtensionHooks
+  /**
+   * Nodes this extension adds to the instance's registry: listed in the
+   * palette, validated and generated like the built-in ones. A node's
+   * `providers` name where it can deploy, and its templates are keyed by the
+   * provider that generates them. An id that is built in or added by another
+   * extension is refused at startup.
+   */
+  nodes?: readonly ExtensionNode[]
 }
 
 /**
