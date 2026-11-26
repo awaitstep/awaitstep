@@ -4,7 +4,7 @@ import type { ExtensionsPackage } from '../types.js'
 // The Sandbox SDK imports `cloudflare:workers`, which only workerd provides.
 vi.mock('@cloudflare/sandbox', () => ({ getSandbox: vi.fn(), Sandbox: class {} }))
 
-const { createWorker, workerAppOptions } = await import('../entry/worker-app.js')
+const { createWorker, publicRunUrlFrom, workerAppOptions } = await import('../entry/worker-app.js')
 const { hasProvider, providerIds, useExtensionProviders } =
   await import('../lib/provider-registry.js')
 
@@ -48,6 +48,17 @@ describe('createWorker', () => {
     expect(() => createWorker({ oauthReturnPath: 'https://evil.test/{org}' })).toThrow(
       /is not valid/,
     )
+  })
+})
+
+describe('publicRunUrlFrom', () => {
+  it('lets the deployment set its own run address over the package’s, checked', () => {
+    expect(publicRunUrlFrom({ PUBLIC_RUN_URL: 'https://stg-run.example.test/run/' })).toEqual({
+      publicRunUrl: 'https://stg-run.example.test/run',
+    })
+    expect(publicRunUrlFrom({})).toEqual({})
+    expect(publicRunUrlFrom({ PUBLIC_RUN_URL: '' })).toEqual({})
+    expect(() => publicRunUrlFrom({ PUBLIC_RUN_URL: 'stg-run' })).toThrow(/absolute URL/)
   })
 })
 
