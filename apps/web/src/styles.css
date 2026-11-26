@@ -237,7 +237,9 @@ html.light {
   --foreground: oklch(0.15 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.15 0 0);
-  --primary: #e1ff41;
+  /* A deeper lime than dark mode's: #e1ff41 on white barely shows as a
+     toggle, a selected node's border or a chart bar. */
+  --primary: #bddb00;
   --primary-foreground: #0a0a0a;
   --primary-ink: #5b6b00;
   --secondary: oklch(0.965 0.008 285);

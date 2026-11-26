@@ -30,8 +30,8 @@ export function HourBars({ hours, label, className }: HourBarsProps) {
               data-part="ok"
               className={
                 bar.failedHeight > 0
-                  ? 'rounded-b-[2px] bg-primary/45'
-                  : 'min-h-[3px] rounded-[2px] bg-primary/45'
+                  ? 'rounded-b-[2px] bg-primary dark:bg-primary/45'
+                  : 'min-h-[3px] rounded-[2px] bg-primary dark:bg-primary/45'
               }
               style={{ height: `${(bar.height - bar.failedHeight) * 100}%` }}
             />
