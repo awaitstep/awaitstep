@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
+import { renderToString } from 'react-dom/server'
+import { hydrateRoot } from 'react-dom/client'
 import userEvent from '@testing-library/user-event'
 import type * as Utils from '../../../lib/utils'
 import { SignInPage } from '../sign-in-page'
@@ -202,16 +204,40 @@ describe('SignInPage', () => {
     )
   })
 
-  it('marks an address that is not an email, under the field, and sends nothing', async () => {
+  it('keeps the button off until the address is an email, and says why once you leave the field', async () => {
     render(<SignInPage redirectPath={null} authMethods={ALL} />)
     const field = screen.getByRole('textbox', { name: /Work email/ })
+    const button = screen.getByRole('button', { name: 'Email me a sign-in link' })
+    expect(button).toBeDisabled()
     await userEvent.type(field, 'daniel@acme')
-    await userEvent.click(screen.getByRole('button', { name: 'Email me a sign-in link' }))
+    expect(button).toBeDisabled()
+    await userEvent.tab()
     expect(screen.getByText('Enter a valid email address, like you@company.com.')).toBeVisible()
     expect(field).toHaveAttribute('aria-invalid', 'true')
-    expect(auth.magicLink).not.toHaveBeenCalled()
     await userEvent.type(field, '.test')
     expect(field).not.toHaveAttribute('aria-invalid', 'true')
+    await waitFor(() => expect(button).toBeEnabled())
+    await userEvent.clear(field)
+    await userEvent.type(field, 'arbta.ap')
+    await waitFor(() => expect(button).toBeDisabled())
+    expect(auth.magicLink).not.toHaveBeenCalled()
+  })
+
+  it('counts an address typed or autofilled before the page finished loading', async () => {
+    const container = document.createElement('div')
+    container.innerHTML = renderToString(<SignInPage redirectPath={null} authMethods={ALL} />)
+    document.body.appendChild(container)
+    container.querySelector('input')!.value = 'daniel@acme.test'
+    await act(async () => {
+      hydrateRoot(container, <SignInPage redirectPath={null} authMethods={ALL} />)
+    })
+    const button = screen.getByRole('button', { name: 'Email me a sign-in link' })
+    await waitFor(() => expect(button).toBeEnabled())
+    await userEvent.click(button)
+    expect(auth.magicLink).toHaveBeenCalledWith(
+      expect.objectContaining({ email: 'daniel@acme.test' }),
+    )
+    container.remove()
   })
 
   it('locks the button with a countdown when too many links were asked for', async () => {
