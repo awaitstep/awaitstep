@@ -1093,65 +1093,6 @@ export function createApiClient(scope: () => ApiScope) {
       })
     },
 
-    // Local dev
-    startLocalDev(
-      workflowId: string,
-      mode: 'canvas' | 'ide' = 'canvas',
-    ): Promise<{
-      status: string
-      port: number
-      url: string
-      pid: number
-      mode: 'canvas' | 'ide'
-      warnings: string[]
-    }> {
-      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/start`), {
-        method: 'POST',
-        body: JSON.stringify({ mode }),
-      })
-    },
-
-    getLocalDevSession(workflowId: string): Promise<{
-      status: 'running'
-      mode: 'canvas' | 'ide'
-      port: number | null
-      url: string | null
-      pid: number | null
-      startedAt: string
-      warnings: string[]
-    }> {
-      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev`))
-    },
-
-    stopLocalDev(workflowId: string): Promise<{ status: string }> {
-      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/stop`), {
-        method: 'POST',
-      })
-    },
-
-    triggerLocalDev(workflowId: string, params?: unknown): Promise<unknown> {
-      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/trigger`), {
-        method: 'POST',
-        body: JSON.stringify(params ?? {}),
-      })
-    },
-
-    getLocalDevInstance(workflowId: string, instanceId: string): Promise<unknown> {
-      return request(
-        withProject(
-          `/workflows/${pathSegment(workflowId)}/local-dev/instance/${pathSegment(instanceId)}`,
-        ),
-      )
-    },
-
-    getLocalDevLogs(
-      workflowId: string,
-      since?: number,
-    ): Promise<{ timestamp: number; stream: 'stdout' | 'stderr'; text: string }[]> {
-      const params = since ? `?since=${encodeURIComponent(since)}` : ''
-      return request(withProject(`/workflows/${pathSegment(workflowId)}/local-dev/logs${params}`))
-    },
-
     listApiKeys(
       opts?: PaginationOptions & { projectId?: string },
     ): Promise<PaginatedResponse<ApiKeySummary>> {

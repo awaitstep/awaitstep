@@ -480,7 +480,7 @@ export function BindingsPanel() {
               )
             })}
             <p className="pt-1 text-2xs text-muted-foreground/60">
-              Map resources when you deploy. Local test uses local emulation and needs no account.
+              Map resources when you deploy. A test run emulates them and needs no account.
             </p>
           </div>
         )}

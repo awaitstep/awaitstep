@@ -55,7 +55,7 @@ vi.mock('../../../lib/api-client', async (importOriginal) => ({
 }))
 vi.mock('../../../hooks/use-workspace-session', () => ({
   useWorkspaceSession: () => ({
-    testSession: null,
+    testSession: { session: null, starting: false },
     runAction: { intent: { label: 'Run', kind: 'ready' }, confirm: null },
     status: null,
     commands: { canStart: true, canStop: false, canTrigger: false },

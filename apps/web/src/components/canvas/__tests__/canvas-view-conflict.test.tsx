@@ -21,7 +21,10 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 vi.mock('../../../contexts/api-client-context', () => ({
-  useApi: () => ({ getWorkflowFull: full.get }),
+  useApi: () => ({
+    getWorkflowFull: full.get,
+    getTestSession: () => Promise.resolve({ session: null }),
+  }),
   useApiReady: () => true,
 }))
 vi.mock('../../../contexts/node-registry-context', () => ({
@@ -119,7 +122,7 @@ async function mount() {
         <EditorAccessProvider
           value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
         >
-          <CanvasView workflowId="wf_1" marketplaceOpen={false} localDevEnabled={false} />
+          <CanvasView workflowId="wf_1" marketplaceOpen={false} />
         </EditorAccessProvider>
       </EditorScopeProvider>
     </QueryClientProvider>,
