@@ -4,6 +4,7 @@ import { remeasureWhenCodeFontLoads } from './code-font'
 import { keepKeysInEditors } from './key-isolation'
 import type { LanguageHosts } from './project-libs'
 import { defineAwaitstepThemes } from './theme'
+import { EDITOR_LIB } from './editor-lib'
 
 /**
  * Diagnostics stay ON (v1 disabled them wholesale); these codes are muted
@@ -46,6 +47,7 @@ let configured = false
 function baseCompilerOptions() {
   return {
     target: ES2022_TARGET,
+    lib: [...EDITOR_LIB],
     module: ESNEXT_MODULE,
     // ts.ModuleResolutionKind.Bundler (numeric: monaco's typings lag the
     // enum) — what wrangler's esbuild does: package.json `exports` and

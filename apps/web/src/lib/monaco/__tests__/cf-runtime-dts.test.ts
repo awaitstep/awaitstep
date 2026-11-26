@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { CF_RUNTIME_DTS } from '../cf-runtime-dts'
+import { EDITOR_LIB } from '../editor-lib'
 
-/** The diagnostics of `source` type-checked against the editor's Cloudflare declarations. */
+/** The diagnostics of `source` type-checked as the editor checks it, with its Cloudflare declarations. */
 function diagnosticsOf(source: string): string[] {
   const files = new Map([
     ['/cf-runtime.d.ts', CF_RUNTIME_DTS],
@@ -11,7 +12,9 @@ function diagnosticsOf(source: string): string[] {
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
-    lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'],
+    // The editor's own globals, so a clash with them shows here too.
+    lib: EDITOR_LIB.map((name) => `lib.${name}.d.ts`),
+    moduleDetection: ts.ModuleDetectionKind.Force,
     strict: true,
     noEmit: true,
     types: [],
