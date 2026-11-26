@@ -820,7 +820,11 @@ export const endpoints: EndpointDef[] = [
     path: '/api/workflows/:workflowId/runs',
     label: 'List workflow runs',
     permission: 'runs:read',
-    params: [{ name: 'workflowId', in: 'path', required: true }, ...paginationParams],
+    params: [
+      { name: 'workflowId', in: 'path', required: true },
+      { name: 'result', in: 'query', required: false },
+      ...paginationParams,
+    ],
     hasBody: false,
   },
   {

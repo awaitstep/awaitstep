@@ -76,6 +76,7 @@ import type {
   WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
+  RunsByWorkflowFilter,
   WorkflowRun,
   RunStepsResult,
   UpsertRunStepData,
@@ -888,9 +889,11 @@ export interface DatabaseAdapter {
     workflowId: string,
     organizationId: string,
   ): Promise<RunControlTarget | null>
+  /** Newest first; with `filter.failed`, only the runs that failed. */
   listRunsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
+    filter?: RunsByWorkflowFilter,
   ): Promise<PaginatedResult<WorkflowRun>>
   /** Writes `data` to the run; throws when there is no such run. */
   updateRun(

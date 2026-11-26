@@ -470,6 +470,11 @@ export class SummaryAdapter {
       succeeded: sql`(select count(*) from ${aliasedFrom(r)} where ${r.workflowId} = ${wf.id} and ${r.createdAt} >= ${since} and ${r.status} = 'complete')`,
       failed: sql`(select count(*) from ${aliasedFrom(r)} where ${r.workflowId} = ${wf.id} and ${r.createdAt} >= ${since} and ${r.status} in ('errored', 'terminated'))`,
     }
+    // A run's time in the day, by nearest rank over the runs that finished well:
+    // a failed run's time says how soon it failed, not how long it takes.
+    const timed = sql`(select ${r.durationMs} as ms, row_number() over (order by ${r.durationMs}) as rn, count(*) over () as n from ${aliasedFrom(r)} where ${r.workflowId} = ${wf.id} and ${r.createdAt} >= ${since} and ${r.status} = 'complete' and ${r.durationMs} is not null) t`
+    const percentile = (q: number) =>
+      sql`(select t.ms from ${timed} where t.rn = (t.n * ${sql.raw(String(q))} + 99) / 100)`
     const rows = await this.db
       .select({
         libraryUpdates: this.libraryUpdates(wf, p),
@@ -483,6 +488,8 @@ export class SummaryAdapter {
         runFailed: counts.failed,
         runTotal: sql`(select count(*) from ${aliasedFrom(r)} where ${r.workflowId} = ${wf.id})`,
         byHour: this.fields.runsByHour(w.id, now, wf.id),
+        p50Ms: percentile(50),
+        p95Ms: percentile(95),
       })
       .from(wf)
       .innerJoin(w, eq(w.id, wf.workspaceId))
@@ -508,6 +515,7 @@ export class SummaryAdapter {
         counts: { all, succeeded, failed, running: Math.max(0, all - succeeded - failed) },
         total: Number(row.runTotal),
         byHour: readJsonArray(row.byHour),
+        took: { p50Ms: msOrNull(row.p50Ms), p95Ms: msOrNull(row.p95Ms) },
       },
       libraryUpdates: readJsonArray<WorkflowLibraryUpdate>(row.libraryUpdates),
     }
@@ -562,4 +570,8 @@ export class SummaryAdapter {
       variables: Number(row?.variables ?? 0),
     }
   }
+}
+
+function msOrNull(value: unknown): number | null {
+  return value === null || value === undefined ? null : Number(value)
 }

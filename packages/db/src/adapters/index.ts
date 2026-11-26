@@ -79,6 +79,7 @@ import type {
   WorkspaceConnectionChange,
   NodeUsage,
   ProjectSetupCounts,
+  RunsByWorkflowFilter,
   WorkflowRun,
   RunStepsResult,
   UpsertRunStepData,
@@ -1487,8 +1488,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   listRunsByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
+    filter?: RunsByWorkflowFilter,
   ): Promise<PaginatedResult<WorkflowRun>> {
-    return this._runs.listByWorkflow(workflowId, pagination)
+    return this._runs.listByWorkflow(workflowId, pagination, filter)
   }
   updateRun(id: string, data: { status?: string; output?: string; error?: string }): Promise<void> {
     return this._runs.update(id, data)

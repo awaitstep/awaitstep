@@ -2576,13 +2576,16 @@ the last 24 hours, oldest first, as `{ runs, complete, failed }` — whatever th
 
 ### `GET /workflows/:workflowId/runs`
 
-List runs for a specific workflow.
+List runs for a specific workflow, newest first.
 
 **Permission:** `runs:read`
 
-| Param        | In   | Required | Description |
-| ------------ | ---- | -------- | ----------- |
-| `workflowId` | path | yes      | Workflow ID |
+| Param        | In    | Required | Description                                                 |
+| ------------ | ----- | -------- | ----------------------------------------------------------- |
+| `workflowId` | path  | yes      | Workflow ID                                                 |
+| `result`     | query | no       | `failed`: only the runs that failed (errored or terminated) |
+| `cursor`     | query | no       | Cursor from the previous page's `nextCursor`                |
+| `limit`      | query | no       | Page size                                                   |
 
 ### `GET /workflows/:workflowId/runs/:runId`
 

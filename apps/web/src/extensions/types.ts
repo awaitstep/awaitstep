@@ -144,7 +144,7 @@ export interface WebExtensionSlots {
   'canvas.toolbar'?: ComponentType<EditorSlotProps>
   /** The Code editor's top bar, left of Save. It owns whatever it opens. */
   'ide.toolbar'?: ComponentType<EditorSlotProps>
-  /** A workflow's or function's Overview, between the status band and the cards. */
+  /** A workflow's or function's Overview, below the Versions and Recent runs cards. */
   'workflow.overview'?: ComponentType<EditorSlotProps>
 }
 

@@ -185,6 +185,7 @@ export type {
   ImageOwnerKind,
   InlineImageRow,
   ServableImage,
+  RunsByWorkflowFilter,
 } from './types.js'
 export type {
   DatabaseAdapter,

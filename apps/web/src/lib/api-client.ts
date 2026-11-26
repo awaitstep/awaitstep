@@ -973,13 +973,13 @@ export function createApiClient(scope: () => ApiScope) {
       return request(withPagination(withProject('/deployments'), opts))
     },
 
+    /** A workflow's runs, newest first; with `failed`, only those that failed. */
     listWorkflowRuns(
       workflowId: string,
-      opts?: PaginationOptions,
+      opts?: PaginationOptions & { failed?: boolean },
     ): Promise<PaginatedResponse<RunSummary>> {
-      return request(
-        withPagination(withProject(`/workflows/${pathSegment(workflowId)}/runs`), opts),
-      )
+      const path = `/workflows/${pathSegment(workflowId)}/runs${opts?.failed ? '?result=failed' : ''}`
+      return request(withPagination(withProject(path), opts))
     },
 
     getWorkflowRun(workflowId: string, runId: string): Promise<RunSummary> {
