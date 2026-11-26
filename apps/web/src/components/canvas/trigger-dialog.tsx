@@ -200,7 +200,7 @@ export function TriggerDialog({
 
         {connections && connections.length > 0 && (
           <FormField label="From another system" hint="POST with an API key that can run it.">
-            <CopyCommand command={curl} label="Copy the curl command" />
+            <CopyCommand command={curl} label="curl command" />
           </FormField>
         )}
 

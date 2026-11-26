@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import { runCurl } from '../../lib/workflows/run-endpoint'
+import { runEndpoint } from '../../lib/workflows/run-endpoint'
 import { CopyCommand } from '../ui/copy-command'
 
 interface LiveLinksProps {
@@ -12,17 +12,17 @@ interface LiveLinksProps {
 }
 
 /**
- * How it runs now (25e): the curl that runs it through the API with a key
+ * How it runs now (25e): the address that runs it through the API with a key
  * (D-8), recorded in Runs, and the provider's page for the worker.
  */
 export function LiveLinks({ workflowId, dashboardUrl, kind, providerName }: LiveLinksProps) {
   return (
     <div className="flex flex-col gap-2.5 border-t border-border px-5 py-3.5">
-      <CopyCommand command={runCurl(workflowId)} label="Copy the curl command" />
+      <CopyCommand command={runEndpoint(workflowId)} label="run URL" full />
       <span className="text-xs text-muted-foreground">
         {kind === 'script'
-          ? 'Answers with the function’s own response. Each call shows in Runs.'
-          : 'Answers with the run it started. Each run shows in Runs.'}
+          ? 'POST with an API key that can run it. Answers with the function’s own response. Each call shows in Runs.'
+          : 'POST with an API key that can run it. Answers with the run it started. Each run shows in Runs.'}
       </span>
       {dashboardUrl && (
         <a
