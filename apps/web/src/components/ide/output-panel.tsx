@@ -8,6 +8,7 @@ import {
 } from '../../lib/ide/session-log'
 import { cn } from '../../lib/utils'
 import { useTestSessionStore, type SessionLogLine } from '../../stores/test-session-store'
+import { PANE_HEADER } from './session-bars'
 
 const NEAR_BOTTOM_PX = 40
 
@@ -91,7 +92,8 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 pb-1.5">
+      <div className={PANE_HEADER}>
+        <span className="mr-1 shrink-0 text-2xs font-medium text-foreground">Output</span>
         <Chip active={stream === 'all'} onClick={handleAll}>
           All
         </Chip>
@@ -122,7 +124,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
           onClick={handleClear}
           disabled={shown.length === 0}
           title="Clears this view. The session keeps logging."
-          className="inline-flex h-6 items-center gap-1 rounded border border-border px-2 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="inline-flex h-6 shrink-0 whitespace-nowrap items-center gap-1 rounded border border-border px-2 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
           <Eraser className="h-3 w-3" />
           Clear view
@@ -133,7 +135,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
         onScroll={handleScroll}
         role="log"
         aria-label="Test session output"
-        className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-editor p-2 font-mono text-xs"
+        className="min-h-0 flex-1 overflow-auto bg-editor p-3 font-mono text-xs"
       >
         {empty ? (
           <p className="font-sans text-2xs text-muted-foreground">{empty}</p>
@@ -178,7 +180,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={pressed ?? active}
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded border px-2 text-2xs transition-colors',
+        'inline-flex h-6 shrink-0 whitespace-nowrap items-center gap-1 rounded border px-2 text-2xs transition-colors',
         active
           ? 'border-primary-ink/40 bg-primary-ink/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground',

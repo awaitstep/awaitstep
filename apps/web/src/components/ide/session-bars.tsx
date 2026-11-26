@@ -1,5 +1,9 @@
 import { Button } from '../ui/button'
 
+/** The strip that names each pane of the session panel and holds its controls. One fixed height, so the panes' rules meet in a line. */
+export const PANE_HEADER =
+  'flex h-9 shrink-0 items-center gap-1.5 overflow-hidden border-b border-border px-3'
+
 /** A warning strip about the session being behind, with the one thing that fixes it. */
 export function StalenessLine({
   text,
