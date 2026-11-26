@@ -1,15 +1,28 @@
-import { eq, desc, and, or, lt, isNull, notInArray, sql, type AnyColumn } from 'drizzle-orm'
+import {
+  eq,
+  desc,
+  and,
+  or,
+  lt,
+  inArray,
+  isNull,
+  notInArray,
+  sql,
+  type AnyColumn,
+} from 'drizzle-orm'
 import type {
   ActiveRunForSync,
   Connection,
   CreateRunData,
   RunDetail,
+  RunsByWorkflowFilter,
   RunTrigger,
   WorkflowRun,
 } from '../types.js'
 import type { PaginationParams, PaginatedResult } from '../pagination.js'
 import { clampLimit, decodeCursor, paginateResults } from '../pagination.js'
 import { latestDeployedName, latestDeploymentSnapshot } from './deployment-snapshot.js'
+import { FAILED_RUN_STATUSES } from './overview-fields.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTable = any
@@ -128,9 +141,11 @@ export class RunsAdapter {
   async listByWorkflow(
     workflowId: string,
     pagination?: PaginationParams,
+    filter?: RunsByWorkflowFilter,
   ): Promise<PaginatedResult<WorkflowRun>> {
     const limit = clampLimit(pagination?.limit)
     const conditions = [eq(this.table.workflowId, workflowId)]
+    if (filter?.failed) conditions.push(inArray(this.table.status, [...FAILED_RUN_STATUSES]))
     if (pagination?.cursor) {
       const { id: cursorId, timestamp } = decodeCursor(pagination.cursor)
       conditions.push(

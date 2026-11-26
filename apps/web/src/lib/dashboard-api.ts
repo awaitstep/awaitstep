@@ -373,6 +373,11 @@ export interface ApiWorkflowPageSummary {
     counts: { all: number; succeeded: number; failed: number; running: number }
     total: number
     byHour: RunHour[]
+    /**
+     * How long the day's runs that finished well took: the median and the
+     * slowest 5%, in ms; null with none.
+     */
+    took: { p50Ms: number | null; p95Ms: number | null }
   }
   /** Library items an account runs behind their latest published version. */
   libraryUpdates: ApiWorkflowLibraryUpdate[]

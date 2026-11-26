@@ -1,6 +1,7 @@
 import { timeAgo } from '../../../lib/time'
+import { tookLabel } from '../../runs/run-format'
 import { cn } from '../../../lib/utils'
-import { runCurl } from '../../../lib/workflows/run-endpoint'
+import { runEndpoint } from '../../../lib/workflows/run-endpoint'
 import type { RunHour } from '../../../types/dashboard/workspaces'
 import { CopyCommand } from '../../ui/copy-command'
 import { NOT_CALLABLE } from '../function-call'
@@ -28,6 +29,8 @@ interface StatusBandProps {
   latest: { version: number; at: string } | undefined
   /** Runs in the last 24 hours, by result and hour by hour, and whether it ever ran; when known. */
   runs24h?: { all: number; failed: number; byHour: RunHour[]; ranEver?: boolean }
+  /** How long the day's runs that finished well took, in ms; when known. */
+  took?: { p50Ms: number | null; p95Ms: number | null }
   /** Library items an account runs behind their latest published version. */
   libraryUpdates?: ApiWorkflowLibraryUpdate[]
   /** Where Redeploy goes for an account; absent for someone who can't deploy. */
@@ -39,8 +42,8 @@ const COLUMN = 'flex min-w-0 flex-col gap-2 px-5 py-4'
 
 /**
  * The band across a workflow's or function's Overview (`WorkflowDetail`,
- * 24a/24f): what is live, how the API runs it, and the day's runs hour by
- * hour. Both kinds read the same.
+ * 24a/24f): what is live, how long the day's runs took, the day's runs hour
+ * by hour, and the address the API runs it at. Both kinds read the same.
  */
 export function StatusBand({
   workflowId,
@@ -48,6 +51,7 @@ export function StatusBand({
   live,
   latest,
   runs24h,
+  took,
   libraryUpdates = [],
   redeployHref,
 }: StatusBandProps) {
@@ -61,13 +65,23 @@ export function StatusBand({
           <LiveColumn live={live} latest={latest} />
         </div>
         <div className={cn(COLUMN, 'basis-[240px] grow')}>
-          <span className={LABEL}>Trigger</span>
-          <TriggerColumn workflowId={workflowId} live={live.length > 0} notCallable={notCallable} />
+          <span className={LABEL}>Run time, 24h</span>
+          <TookColumn took={took} />
         </div>
         <div className={cn(COLUMN, 'basis-[240px] grow')}>
           <RunsColumn runs24h={runs24h} />
         </div>
       </div>
+      {live.length > 0 && (
+        <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
+          <span className={LABEL}>Run URL</span>
+          {notCallable ? (
+            <span className="text-xs text-muted-foreground">{NOT_CALLABLE}</span>
+          ) : (
+            <CopyCommand command={runEndpoint(workflowId)} label="run URL" full />
+          )}
+        </div>
+      )}
       <LibraryUpdates updates={libraryUpdates} {...(redeployHref && { redeployHref })} />
     </section>
   )
@@ -128,28 +142,24 @@ function LiveAccounts({ live }: { live: BandLive[] }) {
   )
 }
 
-interface TriggerColumnProps {
-  workflowId: string
-  live: boolean
-  notCallable?: boolean
+/** The median and the slowest 5% of the day's runs that finished well; dashes with none. */
+function TookColumn({ took }: Pick<StatusBandProps, 'took'>) {
+  // Nothing until the summary is in.
+  if (!took) return null
+  return (
+    <span className="flex flex-wrap gap-x-6 gap-y-1">
+      <TookFigure ms={took.p50Ms} label="Typical" />
+      <TookFigure ms={took.p95Ms} label="Slowest 5%" />
+    </span>
+  )
 }
 
-function TriggerColumn({ workflowId, live, notCallable }: TriggerColumnProps) {
-  if (live && notCallable) {
-    return <span className="text-xs text-muted-foreground">{NOT_CALLABLE}</span>
-  }
-  if (!live) {
-    return (
-      <span className="text-xs text-muted-foreground">Runs from the API once it’s deployed.</span>
-    )
-  }
+function TookFigure({ ms, label }: { ms: number | null; label: string }) {
   return (
-    <>
-      <CopyCommand command={runCurl(workflowId)} label="Copy the curl command" />
-      <span className="text-xs text-muted-foreground">
-        POST with an API key that can run it. Each call shows in Runs.
-      </span>
-    </>
+    <span className="flex items-baseline gap-1.5">
+      <span className="text-sm font-semibold tabular-nums text-foreground">{tookLabel(ms)}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </span>
   )
 }
 

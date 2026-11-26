@@ -1256,6 +1256,11 @@ export interface WorkflowLibraryUpdate {
   accountName: string
 }
 
+/** Which of a workflow's runs its Runs tab lists: all, or only the failed ones. */
+export interface RunsByWorkflowFilter {
+  failed?: boolean
+}
+
 /** A workflow's page summary: current version, deploys and runs, one statement. */
 export interface WorkflowPageSummary {
   currentVersion: { id: string; version: number; locked: number; createdAt: string } | null
@@ -1267,6 +1272,11 @@ export interface WorkflowPageSummary {
     counts: { all: number; succeeded: number; failed: number; running: number }
     total: number
     byHour: RunHour[]
+    /**
+     * How long the day's runs that finished well took: the median and the
+     * slowest 5%, in ms; null with none.
+     */
+    took: { p50Ms: number | null; p95Ms: number | null }
   }
   /** Library items whose latest published version some account does not run yet. */
   libraryUpdates: WorkflowLibraryUpdate[]

@@ -1440,9 +1440,12 @@ const mockDb: DatabaseAdapter = {
       connection: connection && connection.organizationId === organizationId ? connection : null,
     }
   },
-  async listRunsByWorkflow(workflowId) {
+  async listRunsByWorkflow(workflowId, _pagination, filter) {
+    const failed = new Set(['errored', 'terminated'])
     return {
-      data: [...store.runs.values()].filter((r) => r.workflowId === workflowId),
+      data: [...store.runs.values()].filter(
+        (r) => r.workflowId === workflowId && (!filter?.failed || failed.has(r.status)),
+      ),
       nextCursor: null,
     }
   },

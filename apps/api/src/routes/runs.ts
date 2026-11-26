@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono'
+import { z } from 'zod'
 import { streamSSE } from 'hono/streaming'
 import { resolveProvider } from '../lib/provider-resolver.js'
 import type { AppEnv } from '../types.js'
@@ -14,13 +15,22 @@ import { runPageRecord, runStepExtrasRecord } from '../lib/run-records.js'
 
 export const runs = new Hono<AppEnv>()
 
-runs.get('/:workflowId/runs', zValidator('query', paginationQuerySchema), async (c) => {
+/** `result=failed` lists only the runs that failed (its Runs tab's Failed). */
+const workflowRunsQuerySchema = paginationQuerySchema.extend({
+  result: z.enum(['failed']).optional(),
+})
+
+runs.get('/:workflowId/runs', zValidator('query', workflowRunsQuerySchema), async (c) => {
   const db = c.get('db')
   const workflow = c.get('workflow')
   if (!workflow) return c.json({ error: 'Not found' }, 404)
 
-  const { cursor, limit } = c.req.valid('query')
-  const result = await db.listRunsByWorkflow(workflow.id, { cursor, limit })
+  const { cursor, limit, result: only } = c.req.valid('query')
+  const result = await db.listRunsByWorkflow(
+    workflow.id,
+    { cursor, limit },
+    { failed: only === 'failed' },
+  )
   return c.json(runPageRecord(result))
 })
 

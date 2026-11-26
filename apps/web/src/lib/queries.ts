@@ -94,11 +94,20 @@ export function createQueries(client: ApiClient) {
     },
 
     runs: {
-      byWorkflow: (workflowId: string, opts?: { limit?: number }) =>
+      byWorkflow: (workflowId: string, opts?: { limit?: number; failed?: boolean }) =>
         infiniteQueryOptions({
-          queryKey: ['workflow-runs', workflowId, opts?.limit ?? null] as const,
+          queryKey: [
+            'workflow-runs',
+            workflowId,
+            opts?.limit ?? null,
+            opts?.failed ?? false,
+          ] as const,
           queryFn: ({ pageParam }) =>
-            client.listWorkflowRuns(workflowId, { cursor: pageParam, limit: opts?.limit }),
+            client.listWorkflowRuns(workflowId, {
+              cursor: pageParam,
+              limit: opts?.limit,
+              failed: opts?.failed,
+            }),
           ...infiniteDefaults,
         }),
     },

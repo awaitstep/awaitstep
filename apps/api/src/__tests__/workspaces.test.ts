@@ -425,6 +425,41 @@ describe('workspace routes', () => {
     })
   })
 
+  describe('GET /api/workflows/:workflowId/runs', () => {
+    it('lists only the failed runs with result=failed, and refuses another result', async () => {
+      const wf = (await mockDb.createWorkflow({
+        id: 'wf-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'A',
+      }))!
+      for (const [id, status] of [
+        ['r-1', 'complete'],
+        ['r-2', 'errored'],
+        ['r-3', 'terminated'],
+      ] as const) {
+        await mockDb.createRun({
+          id,
+          workflowId: wf.id,
+          versionId: 'v',
+          versionNumber: 1,
+          connectionId: 'c',
+          instanceId: id,
+          status,
+        })
+      }
+      const ids = async (query: string) => {
+        const res = await app.request(`${byId('/api/workflows/wf-1/runs')}${query}`)
+        expect(res.status).toBe(200)
+        return ((await res.json()).data as { id: string }[]).map((r) => r.id).sort()
+      }
+      expect(await ids('')).toEqual(['r-1', 'r-2', 'r-3'])
+      expect(await ids('&result=failed')).toEqual(['r-2', 'r-3'])
+      const other = await app.request(`${byId('/api/workflows/wf-1/runs')}&result=running`)
+      expect(other.status).toBe(422)
+    })
+  })
+
   describe('API keys', () => {
     const PROJECT_KEY = 'ask_ws-project'
     const ORG_KEY = 'ask_ws-org'
