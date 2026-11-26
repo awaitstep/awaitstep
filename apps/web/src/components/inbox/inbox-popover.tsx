@@ -109,7 +109,7 @@ export function InboxPopover({ org, onClose }: InboxPopoverProps) {
         </p>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
-        <LoadedQuery query={notifications} what="notifications">
+        <LoadedQuery query={notifications} what="notifications" stateClassName="p-4">
           {(data) => {
             const list = filterInbox(data.list, show, answered)
             if (list.length === 0) {
