@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import ts from 'typescript'
 import { CF_RUNTIME_DTS } from '../cf-runtime-dts'
-import { EDITOR_LIB } from '../editor-lib'
+import { EDITOR_LIB_FILES } from '../editor-lib'
 
 /** The diagnostics of `source` type-checked as the editor checks it, with its Cloudflare declarations. */
 function diagnosticsOf(source: string): string[] {
@@ -13,7 +13,7 @@ function diagnosticsOf(source: string): string[] {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
     // The editor's own globals, so a clash with them shows here too.
-    lib: EDITOR_LIB.map((name) => `lib.${name}.d.ts`),
+    lib: EDITOR_LIB_FILES,
     moduleDetection: ts.ModuleDetectionKind.Force,
     strict: true,
     noEmit: true,
