@@ -22,7 +22,6 @@ const ACCOUNT = {
   name: DANIEL.name,
   email: DANIEL.email,
   image: null,
-  href: '#account',
 }
 
 function noop() {}
@@ -91,10 +90,10 @@ export const YourOrganizations: Story = {
   ),
 }
 
-/** 17b: signed in, in no organization yet; the avatar has no account page to open. */
+/** 17b: signed in, in no organization yet; the avatar still opens your account. */
 export const NoOrganization: Story = {
   render: () => (
-    <EntryFrame account={{ ...ACCOUNT, href: null }} onSignOut={noop}>
+    <EntryFrame account={ACCOUNT} onSignOut={noop}>
       <div className="flex flex-col gap-1.5">
         <h1 className="text-3xl font-semibold text-foreground">Welcome to AwaitStep, Daniel</h1>
         <p className="text-sm text-muted-foreground">Signed in as daniel@acme.test.</p>

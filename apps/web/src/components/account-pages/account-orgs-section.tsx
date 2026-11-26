@@ -12,8 +12,8 @@ import { useGoTo } from '../navigation/router-shell-link'
 import { orgMeta } from './account-format'
 
 interface AccountOrgsSectionProps {
-  /** The org in the URL: leaving it lands on /dashboard. */
-  currentOrg: string
+  /** The org framing the page, if any: leaving it lands on /dashboard. */
+  currentOrg: string | null
   orgs: AccountOrg[]
 }
 

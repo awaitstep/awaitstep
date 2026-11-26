@@ -80,7 +80,7 @@ export function useUpdateProfile() {
  * Leave an organization. Leaving the one in the URL marks its pages stale
  * without refetching them, since the page leaves for /dashboard.
  */
-export function useLeaveOrg(currentOrg: string) {
+export function useLeaveOrg(currentOrg: string | null) {
   const client = useQueryClient()
   return useMutation({
     meta: {
@@ -95,7 +95,7 @@ export function useLeaveOrg(currentOrg: string) {
 }
 
 /** Delete account: every membership goes, the org in the URL with them. */
-export function useDeleteAccount(currentOrg: string) {
+export function useDeleteAccount(currentOrg: string | null) {
   const client = useQueryClient()
   return useMutation({
     meta: { toast: { success: 'Account deleted', error: 'Couldn’t delete your account' } },
@@ -112,7 +112,8 @@ export function useDeleteAccount(currentOrg: string) {
       announceSignOut()
       useAuthStore.getState().clear()
     },
-    onSuccess: () => invalidateAll(client, [EVERYTHING], { org: currentOrg }),
+    onSuccess: () =>
+      invalidateAll(client, [EVERYTHING], currentOrg ? { org: currentOrg } : undefined),
   })
 }
 

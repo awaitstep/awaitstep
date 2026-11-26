@@ -91,6 +91,35 @@ function phoneItems(
   ]
 }
 
+function signOutItem(): AccountMenuItem {
+  return {
+    key: 'sign-out',
+    label: 'Sign out',
+    icon: LogOut,
+    tone: 'danger',
+    onSelect: () => void handleSignOut(),
+  }
+}
+
+/**
+ * The avatar's menu in the frame with no org rail (/dashboard, and your account
+ * with no organization): your account's pages and sign out.
+ */
+export function EntryAccountMenu({
+  trigger,
+  user,
+}: Pick<DashboardAccountMenuProps, 'trigger' | 'user'>) {
+  return (
+    <AccountMenu
+      trigger={trigger}
+      user={user}
+      groups={[accountItems(), [signOutItem()]]}
+      side="bottom"
+      align="end"
+    />
+  )
+}
+
 /** The account avatar's menu in the dashboard, with its links and sign out. */
 export function DashboardAccountMenu({
   trigger,
@@ -104,9 +133,6 @@ export function DashboardAccountMenu({
   const playground = useFeatureOn('playground')
   const docs = useFeatureOn('docs')
   const extensions = useEnabledExtensions()
-  function handleSignOutSelect() {
-    void handleSignOut()
-  }
 
   const groups: AccountMenuItem[][] = [accountItems()]
   if (placement === 'phone') {
@@ -118,15 +144,7 @@ export function DashboardAccountMenu({
     ].map(({ key, href, icon, label, external }) => ({ key, href, icon, label, external }))
     groups.push(phoneItems(here, theme, onToggleTheme, { playground, docs }, extensionLinks))
   }
-  groups.push([
-    {
-      key: 'sign-out',
-      label: 'Sign out',
-      icon: LogOut,
-      tone: 'danger',
-      onSelect: handleSignOutSelect,
-    },
-  ])
+  groups.push([signOutItem()])
 
   return (
     <AccountMenu

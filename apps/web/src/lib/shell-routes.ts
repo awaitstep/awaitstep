@@ -53,3 +53,17 @@ export function isCanvasRoute(
     return parseSurface(search?.view) === 'canvas'
   })
 }
+
+/**
+ * How an org-less page (your account, the API Playground) is framed: in the
+ * dashboard rail of the org it borrows; with no organization at all, your
+ * account in /dashboard's frame (it is yours, org or not), and anything else
+ * sent to /dashboard, which offers to make an organization.
+ */
+export function orgLessFrame(
+  hasOrg: boolean,
+  pageKind: string | undefined,
+): 'rail' | 'entry' | 'to-dashboard' {
+  if (hasOrg) return 'rail'
+  return pageKind === 'account' ? 'entry' : 'to-dashboard'
+}
