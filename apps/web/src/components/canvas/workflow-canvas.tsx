@@ -18,7 +18,11 @@ import { nodeClickEffect } from '../../lib/canvas/node-click'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { isTypingTarget } from '../../lib/typing-target'
 import { useAppShortcuts } from '../../hooks/use-app-shortcuts'
-import { clearSelectionChanges, selectAllChanges } from '../../lib/canvas/selection-keys'
+import {
+  clearSelectionChanges,
+  escapeOutcome,
+  selectAllChanges,
+} from '../../lib/canvas/selection-keys'
 import {
   copyOnCanvas,
   createPasteGate,
@@ -356,7 +360,15 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
       selectedEdgeId,
     } = useWorkflowStore.getState()
     const changes = clearSelectionChanges(current)
-    if (changes.length === 0 && !open && !selectedEdgeId) return false
+    const outcome = escapeOutcome({
+      selectedSteps: changes.length,
+      openStep: !!open,
+      selectedEdge: !!selectedEdgeId,
+      // As a click on the pane: a step with errors stays open, and says why.
+      canLeave: () => canLeaveSelectedNode(null),
+    })
+    if (outcome === 'decline') return false
+    if (outcome === 'stay') return
     if (changes.length > 0) apply(changes)
     if (open) selectNode(null)
     if (selectedEdgeId) selectEdge(null)

@@ -1,4 +1,5 @@
 import { fallbackPosition } from '../../lib/hydrate-workflow'
+import { OWN_KEYS_ATTRIBUTE } from '../../lib/shortcuts/key-context'
 import { Plus, X } from 'lucide-react'
 import {
   workflowTemplates,
@@ -73,6 +74,7 @@ export function TemplatePicker({ onDismiss }: { onDismiss: () => void }) {
       aria-label="Templates"
       tabIndex={-1}
       onKeyDown={handleKeyDown}
+      {...{ [OWN_KEYS_ATTRIBUTE]: '' }}
       className="absolute inset-0 z-30 flex items-center justify-center bg-background/90 outline-none"
     >
       {/* A fixed height, so switching tabs never resizes the dialog. */}

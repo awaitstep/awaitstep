@@ -151,12 +151,14 @@ describe('shortcut dispatcher', () => {
     expect(openEditor).toHaveBeenCalledTimes(1)
   })
 
-  it('matches the theme on the physical key, whatever Option types', () => {
+  it('matches the theme on the physical key, whatever Option types, but never in a field', () => {
     const { dispatcher } = setup()
     const theme = vi.fn()
     dispatcher.register('global', () => ({ theme }))
 
-    dispatcher.handle(press('¬', { code: 'KeyL', shiftKey: true, altKey: true }), PAGE)
+    const chord = press('Ò', { code: 'KeyL', shiftKey: true, altKey: true })
+    expect(dispatcher.handle(chord, FIELD)).toBe(false)
+    dispatcher.handle(chord, PAGE)
     expect(theme).toHaveBeenCalledTimes(1)
   })
 

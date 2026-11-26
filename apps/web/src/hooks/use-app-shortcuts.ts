@@ -6,7 +6,7 @@ import {
 } from '../lib/shortcuts/dispatcher'
 import type { AppShortcutId, ShortcutScope } from '../lib/shortcuts/registry'
 import { isMacPlatform } from '../lib/platform'
-import { isTypingTarget } from '../lib/typing-target'
+import { keyContext } from '../lib/shortcuts/key-context'
 import { ideBindsKey } from './use-ide-shortcuts'
 
 let dispatcher: ShortcutDispatcher | null = null
@@ -17,22 +17,16 @@ function appDispatcher(): ShortcutDispatcher {
   return dispatcher
 }
 
-function closestIn(target: EventTarget | null, selector: string): boolean {
-  return target instanceof Element && target.closest(selector) !== null
-}
-
 function handleKeyDown(event: KeyboardEvent) {
   // The Code view and the canvas toolbar own their bindings (⌘K opens the
   // Code view's own palette), whichever listener the browser runs first.
   if (event.defaultPrevented || ideBindsKey(event)) return
-  const used = appDispatcher().handle(event, {
-    typing: isTypingTarget(event.target) || closestIn(event.target, '[data-ide-text-input]'),
-    inDialog: closestIn(event.target, '[role="dialog"], [role="alertdialog"]'),
-  })
-  if (used) {
-    event.preventDefault()
-    event.stopPropagation()
-  }
+  const used = appDispatcher().handle(event, keyContext(event.target, document))
+  if (!used) return
+  event.preventDefault()
+  // A chord is ours outright (⌘K must not also reach Monaco). A single key
+  // still travels on, so a handler further down never misses it.
+  if (event.metaKey || event.ctrlKey || event.altKey) event.stopPropagation()
 }
 
 /**

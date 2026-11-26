@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { OWN_KEYS_ATTRIBUTE } from '../../lib/shortcuts/key-context'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { NodeConfigPanel } from './node-config-panel'
@@ -55,6 +56,7 @@ function SlideIn({
       aria-label={label}
       tabIndex={panel ? -1 : undefined}
       onKeyDown={handleKeyDown}
+      {...{ [OWN_KEYS_ATTRIBUTE]: '' }}
       className={cn(
         'h-full border-l outline-none border-border bg-card shadow-lg transition-transform duration-200 ease-out',
         width,

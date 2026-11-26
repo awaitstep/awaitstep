@@ -63,6 +63,8 @@ export const APP_SHORTCUTS = {
     group: 'general',
     label: 'Switch light or dark theme',
     keys: { code: 'KeyL', shift: true, alt: true },
+    // On a Mac ⌥⇧L types "Ò": a field keeps it.
+    notWhileTyping: true,
   },
   goProjects: go('global', 'p', 'Projects'),
   goResources: go('global', 'r', 'Resources'),
