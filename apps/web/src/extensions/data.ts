@@ -10,6 +10,7 @@ export {
   useStartCloudflareOAuth,
   useUpdateConnection,
 } from '../data/dashboard/org-settings'
+export { useProjects } from '../data/dashboard/projects'
 export type { Connection } from '../types/dashboard/org-settings'
 export type { ConnectionAccount } from '@awaitstep/ir'
 export { useExtensionMutation, useExtensionQuery, type ExtensionWrite } from './extension-api'
