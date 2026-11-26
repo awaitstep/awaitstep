@@ -328,6 +328,18 @@ html.light {
     @apply bg-background text-foreground antialiased;
     overflow-x: clip;
   }
+  /*
+   * A dialog's scroll lock (Radix) sets overflow: hidden on body. With html
+   * clipped, that makes body its own scroll box and the sticky rail jumps
+   * out of view; lock the page on html instead and leave body as it is.
+   */
+  html:has(> body[data-scroll-locked]) {
+    overflow-y: hidden;
+  }
+  html > body[data-scroll-locked] {
+    overflow: visible !important;
+    overflow-x: clip !important;
+  }
   /* Spinners, pulses and skeletons stand still; state changes still show, without motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
