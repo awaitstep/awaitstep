@@ -456,8 +456,7 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
           variant={BackgroundVariant.Dots}
           gap={CANVAS_GRID}
           size={1}
-          color="var(--muted-foreground)"
-          style={{ opacity: 0.3 }}
+          color="var(--canvas-dot)"
         />
         <Controls
           showInteractive={false}
