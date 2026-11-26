@@ -518,7 +518,7 @@ describe('DeployPage progress', () => {
     expect(screen.getByRole('button', { name: 'Change' })).toBeDisabled()
   })
 
-  it('shows the API curl and the next places to go once live', async () => {
+  it('shows the run URL and the next places to go once live', async () => {
     getDeployConnections.mockResolvedValue(TWO)
     Object.assign(stream, {
       state: 'success',
@@ -535,9 +535,8 @@ describe('DeployPage progress', () => {
     expect(card).toHaveTextContent('v13 is live')
     expect(card).toHaveTextContent('Deployed just now · 38s')
     // The API runs it with a key (D-8); the deploy's own URL isn't the way in.
-    expect(card).toHaveTextContent(
-      /curl -X POST '.*\/api\/run\/wf-1' -H 'Authorization: Bearer <your key>'/,
-    )
+    expect(within(card).getByText(/^https?:\/\/.*\/api\/run\/wf-1$/)).toBeVisible()
+    expect(card).toHaveTextContent('POST with an API key that can run it.')
     expect(card).not.toHaveTextContent('workers.dev')
     expect(card).toHaveTextContent('Answers with the run it started.')
     expect(
@@ -549,7 +548,7 @@ describe('DeployPage progress', () => {
 
     renderPage({ kind: 'script' })
     card = await screen.findByRole('region', { name: 'Deploy progress' })
-    expect(card).toHaveTextContent(/curl -X POST '.*\/api\/run\/wf-1'/)
+    expect(within(card).getByText(/^https?:\/\/.*\/api\/run\/wf-1$/)).toBeVisible()
     expect(card).toHaveTextContent('Answers with the function’s own response.')
   })
 

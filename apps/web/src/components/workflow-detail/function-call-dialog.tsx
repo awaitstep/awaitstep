@@ -187,7 +187,7 @@ export function FunctionCallDialog({ workflowId, runHref, onClose }: FunctionCal
             {error}
           </p>
         )}
-        {curl && <CopyCommand command={curl} label="Copy the curl command" />}
+        {curl && <CopyCommand command={curl} label="curl command" />}
       </div>
     </ModalDialog>
   )
