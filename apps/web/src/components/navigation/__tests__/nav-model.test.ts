@@ -74,8 +74,18 @@ describe('rail', () => {
     expect(quiet.secondary[1]!.badge).toMatchObject({ value: 0 })
   })
 
+  it('opens the phone’s Inbox as a page, where the rail opens it over the page', () => {
+    const rail = railModel(
+      'acme',
+      { kind: 'org', page: 'audit' },
+      { ...QUIET, here: '/acme/audit' },
+    )
+    expect(rail.secondary.find((e) => e.key === 'inbox')?.href).toBe('/acme/audit?open=inbox')
+    expect(tabBarEntries(rail, 'acme').find((e) => e.key === 'inbox')?.href).toBe('/acme/inbox')
+  })
+
   it('gives the phone tab bar five of the rail’s entries', () => {
-    const tabs = tabBarEntries(railModel('acme', { kind: 'org', page: 'projects' }, QUIET))
+    const tabs = tabBarEntries(railModel('acme', { kind: 'org', page: 'projects' }, QUIET), 'acme')
     expect(tabs.map((e) => e.label)).toEqual([
       'Projects',
       'Resources',
@@ -392,7 +402,7 @@ describe('switched-off features', () => {
 
   it('keeps the phone tab bar whole with everything off', () => {
     const rail = railModel('acme', { kind: 'org', page: 'projects' }, QUIET, { disabled: ALL })
-    expect(tabBarEntries(rail).map((entry) => entry.key)).toEqual([
+    expect(tabBarEntries(rail, 'acme').map((entry) => entry.key)).toEqual([
       'projects',
       'resources',
       'audit',

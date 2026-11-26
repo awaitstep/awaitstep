@@ -256,9 +256,17 @@ function railExtensionEntry(id: string, link: ExtensionRailLink, i: number): Rai
 /** The phone tab bar: the rail's main destinations plus Inbox. */
 export const TAB_BAR_KEYS = ['projects', 'resources', 'audit', 'inbox', 'settings'] as const
 
-export function tabBarEntries(rail: RailModel): RailEntry[] {
+/**
+ * The tab bar's entries. Its Inbox is a page of its own, in the frame like
+ * the other tabs, not the rail's overlay, which on a phone covers the whole
+ * screen, tab bar included.
+ */
+export function tabBarEntries(rail: RailModel, org: string): RailEntry[] {
   const all = [...rail.primary, ...rail.secondary]
-  return TAB_BAR_KEYS.map((key) => all.find((entry) => entry.key === key)!)
+  return TAB_BAR_KEYS.map((key) => {
+    const entry = all.find((e) => e.key === key)!
+    return key === 'inbox' ? { ...entry, href: orgPath(org, 'inbox') } : entry
+  })
 }
 
 function railActiveKey(page: DashboardPage): string {

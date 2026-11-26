@@ -135,7 +135,10 @@ export function DashboardFrame({
         />
       }
       tabBar={
-        <MobileTabBar items={tabBarEntries(rail)} activeKey={page ? rail.activeKey : undefined} />
+        <MobileTabBar
+          items={tabBarEntries(rail, scope.slugs.org)}
+          activeKey={page ? rail.activeKey : undefined}
+        />
       }
     >
       <TopBar breadcrumbs={crumbs}>

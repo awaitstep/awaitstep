@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { LIST_ROW_TEXT_CLASS, listRowClass, listRowTrailingClass } from './list-card'
 
 export function Bone({ className, style }: { className?: string; style?: CSSProperties }) {
   return (
@@ -95,10 +96,10 @@ export function ListCardSkeleton({ rows = 4, trailing = 3, tile = true }: ListCa
   return (
     <div className="flex flex-col divide-y divide-border overflow-hidden rounded border border-border bg-card">
       {Array.from({ length: rows }, (_, row) => (
-        <div key={row} className="flex flex-wrap items-center gap-x-4.5 gap-y-3 px-5 py-4">
+        <div key={row} className={listRowClass(tile)}>
           {tile && <Bone className="size-10 rounded" />}
           {/* Line boxes match ListRow: text-sm (20px) title, text-xs (18px) description. */}
-          <div className="flex min-w-[200px] flex-1 flex-col gap-0.5">
+          <div className={LIST_ROW_TEXT_CLASS}>
             <div className="flex h-5 items-center">
               <Bone className="h-3.5 w-40" />
             </div>
@@ -106,9 +107,13 @@ export function ListCardSkeleton({ rows = 4, trailing = 3, tile = true }: ListCa
               <Bone className="h-3 w-64 bg-muted/25" />
             </div>
           </div>
-          {Array.from({ length: trailing }, (_, slot) => (
-            <Bone key={slot} className="h-6 w-[120px] bg-muted/25" />
-          ))}
+          {trailing > 0 && (
+            <div className={listRowTrailingClass(tile)}>
+              {Array.from({ length: trailing }, (_, slot) => (
+                <Bone key={slot} className="h-6 w-[120px] bg-muted/25" />
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
