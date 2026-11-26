@@ -27,7 +27,8 @@ export function SegmentedFilter<Id extends string>({
     <div
       role="group"
       aria-label={label}
-      className="flex flex-wrap gap-1 rounded border border-border bg-card p-1"
+      // On a phone the pills scroll sideways on one line; wider, they wrap.
+      className="flex max-w-full gap-1 overflow-x-auto rounded border border-border bg-card p-1 scrollbar-none sm:flex-wrap sm:overflow-visible"
     >
       {options.map((option) => (
         <FilterPill
@@ -58,7 +59,7 @@ function FilterPill<Id extends string>({ option, pressed, onPick }: FilterPillPr
       aria-pressed={pressed}
       onClick={handleClick}
       className={cn(
-        'flex h-[30px] items-center gap-1.5 rounded-lg px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex h-[30px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         pressed ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >
