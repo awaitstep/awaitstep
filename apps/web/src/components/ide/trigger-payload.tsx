@@ -4,7 +4,7 @@ import type { TestSessionState } from '../../hooks/use-test-session'
 import { MAX_TRIGGER_PAYLOAD_BYTES, canTrigger } from '../../lib/ide/session-log'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
-import { formatBody } from './session-bars'
+import { PANE_HEADER, formatBody } from './session-bars'
 
 const LIMIT = `up to ${MAX_TRIGGER_PAYLOAD_BYTES / 1024} KB`
 
@@ -39,11 +39,21 @@ export function TriggerPayload({
   const ok = lastResult !== null && lastResult.status >= 200 && lastResult.status < 300
 
   return (
-    <div className="flex min-h-0 flex-col gap-1.5">
-      <div className="flex items-baseline justify-between gap-2">
+    <div className="flex min-h-0 flex-col">
+      <div className={PANE_HEADER}>
         <label htmlFor="trigger-payload" className="text-2xs font-medium text-foreground">
           Trigger payload <span className="font-normal text-muted-foreground">· {LIMIT}</span>
         </label>
+        <Button
+          size="sm"
+          variant="outline"
+          className="ml-auto h-6 px-2 text-2xs"
+          disabled={!triggerable}
+          onClick={onTrigger}
+        >
+          <Send className="h-3 w-3" />
+          {triggering ? 'Running…' : 'Trigger'}
+        </Button>
       </div>
       <textarea
         id="trigger-payload"
@@ -53,27 +63,24 @@ export function TriggerPayload({
         spellCheck={false}
         aria-invalid={payloadError !== null}
         aria-describedby={payloadError ? 'trigger-payload-error' : undefined}
-        className={cn(
-          'min-h-14 flex-1 resize-none rounded-md border border-input bg-editor p-2 font-mono text-xs',
-          payloadError && 'border-destructive',
-        )}
+        className="min-h-14 flex-1 resize-none bg-editor p-3 font-mono text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
       />
-      <div className="flex items-center justify-between gap-2">
-        <span id="trigger-payload-error" role="alert" className="text-2xs text-destructive">
+      {payloadError && (
+        <p
+          id="trigger-payload-error"
+          role="alert"
+          className="shrink-0 border-t border-destructive/40 px-3 py-1 text-2xs text-destructive"
+        >
           {payloadError}
-        </span>
-        <Button size="sm" variant="outline" disabled={!triggerable} onClick={onTrigger}>
-          <Send className="h-3.5 w-3.5" />
-          {triggering ? 'Running…' : 'Trigger'}
-        </Button>
-      </div>
+        </p>
+      )}
       {lastResult && (
-        <div className="min-h-0 shrink-0 overflow-auto rounded-md border border-border bg-card">
+        <div className="min-h-0 shrink-0 overflow-auto border-t border-border bg-card">
           <button
             type="button"
             onClick={handleToggleResponse}
             aria-expanded={responseOpen}
-            className="flex w-full items-center gap-1 px-2 py-1 text-left text-2xs text-muted-foreground hover:text-foreground"
+            className="flex w-full items-center gap-1 px-3 py-1.5 text-left text-2xs text-muted-foreground hover:text-foreground"
           >
             {responseOpen ? (
               <ChevronDown className="h-3 w-3" />
@@ -86,7 +93,7 @@ export function TriggerPayload({
             </span>
           </button>
           {responseOpen && (
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words border-t border-border p-2 font-mono text-xs">
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words border-t border-border px-3 py-2 font-mono text-xs">
               {formatBody(lastResult.body)}
             </pre>
           )}

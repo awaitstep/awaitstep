@@ -52,7 +52,7 @@ export function SessionHeader({ state }: { state: TestSessionState }) {
       : 'Runs your saved files, not unsaved edits. Nothing is deployed.'
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2">
       <Button
         size="sm"
         variant={action.kind === 'start' ? 'default' : 'outline'}
@@ -91,7 +91,7 @@ export function SessionHeader({ state }: { state: TestSessionState }) {
           </span>
         )}
       </span>
-      <span className="text-2xs text-muted-foreground">{scope}</span>
+      <span className="ml-auto text-2xs text-muted-foreground">{scope}</span>
     </div>
   )
 }
