@@ -14,6 +14,8 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { actionToast } from '../../lib/action-toast'
+import { nodeClickEffect } from '../../lib/canvas/node-click'
+import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { isTypingTarget } from '../../lib/typing-target'
 import {
   copyOnCanvas,
@@ -120,6 +122,25 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
   const validatedSelectNode = useCallback(
     (nodeId: string | null) => {
       if (canLeaveSelectedNode(nodeId)) selectNode(nodeId)
+    },
+    [selectNode],
+  )
+
+  // A click on the selected node shows or hides its settings; another node's selects it.
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: FlowNode) => {
+      const layout = useCanvasLayoutStore.getState()
+      const effect = nodeClickEffect({
+        clickedId: node.id,
+        selectedId: useWorkflowStore.getState().selectedNodeId,
+        inspectorOpen: layout.inspectorOpen,
+        codePreviewOpen: layout.codePreviewOpen,
+      })
+      if (effect.select) {
+        if (!canLeaveSelectedNode(node.id)) return
+        selectNode(node.id)
+      }
+      if (effect.inspectorOpen !== null) layout.setInspectorOpen(effect.inspectorOpen)
     },
     [selectNode],
   )
@@ -409,7 +430,7 @@ export function WorkflowCanvas({ focusNodeId, workflowId, versionParam }: Workfl
         onDragOver={onDragOver}
         onDrop={onDrop}
         onDragLeave={onDragLeave}
-        onNodeClick={(_event, node) => validatedSelectNode(node.id)}
+        onNodeClick={handleNodeClick}
         onEdgeClick={(_event, edge) => selectEdge(edge.id)}
         onPaneClick={() => validatedSelectNode(null)}
         onNodeContextMenu={onNodeContextMenu}
