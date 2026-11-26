@@ -63,6 +63,11 @@ export interface Env extends WorkerDatabaseBindings {
    * proxy's forwarding headers. Local development only: a client can set them.
    */
   DEV_FOLLOW_HOST?: string
+  /**
+   * Where workflows run from outside, as the dashboard shows it: replaces the
+   * extensions package's `publicRunUrl` (a staging address, say).
+   */
+  PUBLIC_RUN_URL?: string
   RESEND_API_KEY?: string
   RESEND_FROM_EMAIL?: string
   APP_NAME?: string
@@ -358,6 +363,11 @@ export function workerAppOptions(options: WorkerOptions): {
   }
 }
 
+/** The run address the deployment sets for itself, over the extensions package's. */
+export function publicRunUrlFrom(env: Pick<Env, 'PUBLIC_RUN_URL'>): { publicRunUrl?: string } {
+  return env.PUBLIC_RUN_URL ? { publicRunUrl: checkPublicRunUrl(env.PUBLIC_RUN_URL) } : {}
+}
+
 /**
  * The Worker's handlers. The public Worker is `createWorker()`; an entry that
  * plugs features in exports `createWorker(extensionsPackage)` as its default
@@ -380,7 +390,12 @@ export function createWorker(options: WorkerOptions = {}) {
       const baseURL = env.BETTER_AUTH_URL ?? new URL(request.url).origin
       if (!cached || cached.env !== env || cached.baseURL !== baseURL) {
         const { deps, database } = await buildWorkerDeps(env, baseURL)
-        cached = { env, baseURL, app: createApp({ ...deps, ...appOptions }), database }
+        cached = {
+          env,
+          baseURL,
+          app: createApp({ ...deps, ...appOptions, ...publicRunUrlFrom(env) }),
+          database,
+        }
       }
       const { app, database } = cached
       // Everything the request starts, a streamed body included, runs on its own connections.
