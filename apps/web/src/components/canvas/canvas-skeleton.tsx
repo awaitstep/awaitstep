@@ -61,7 +61,7 @@ function TopBarSkeleton() {
         <div className="h-5 w-px bg-muted/70" />
         <Bone className="h-8 w-16 rounded-md" />
         <Bone className="h-8 w-8 rounded-md" />
-        <Bone className="h-8 w-[5.5rem] rounded-md bg-primary/20" />
+        <Bone className="h-8 w-[5.5rem] rounded-md bg-primary-ink/20" />
       </div>
     </header>
   )

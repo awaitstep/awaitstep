@@ -240,7 +240,9 @@ export function LocalTestPanel({ workflowId }: LocalTestPanelProps) {
                   onChange={(e) => setTriggerInput(e.target.value)}
                   className={cn(
                     'h-44 w-full resize-none rounded-lg border bg-muted/20 p-3 font-mono text-sm leading-6 text-foreground outline-none',
-                    inputError ? 'border-destructive/50' : 'border-border focus:border-primary/50',
+                    inputError
+                      ? 'border-destructive/50'
+                      : 'border-border focus:border-primary-ink/50',
                   )}
                   spellCheck={false}
                   placeholder="{}"

@@ -205,7 +205,7 @@ function ResultRowView({ row, tabbable, current, onActivate, onFocusRow }: Resul
       title={`${row.path}:${row.hit.line}`}
       className={cn(
         'flex h-6 cursor-pointer items-center gap-2 pl-7 pr-2 text-xs outline-none hover:bg-muted/50 focus-visible:bg-muted/70',
-        current && 'bg-primary/10',
+        current && 'bg-primary-ink/10',
       )}
     >
       <span className="w-6 shrink-0 text-right tabular-nums text-muted-foreground">
@@ -223,7 +223,9 @@ function HitText({ hit }: { hit: SearchHit }) {
   return (
     <span className="truncate whitespace-pre font-mono text-2xs text-foreground/80">
       {hit.text.slice(0, start)}
-      <mark className="rounded-sm bg-primary/25 text-foreground">{hit.text.slice(start, end)}</mark>
+      <mark className="rounded-sm bg-primary-ink/25 text-foreground">
+        {hit.text.slice(start, end)}
+      </mark>
       {hit.text.slice(end)}
     </span>
   )

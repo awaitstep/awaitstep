@@ -137,7 +137,7 @@ export function RenameRow({
           onBlur={handleBlur}
           className={cn(
             'h-6 min-w-0 flex-1 rounded border bg-background px-1.5 font-mono text-xs text-foreground outline-none',
-            error ? 'border-status-error' : 'border-primary',
+            error ? 'border-status-error' : 'border-primary-ink',
           )}
         />
       </div>

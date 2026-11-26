@@ -6,4 +6,4 @@ link: projects
 linkLabel: Open your projects
 ---
 
-In the light theme, borders around cards and panels, the dots on the canvas, and the lime of toggles, selected steps, buttons and run charts are all easier to see.
+In the light theme, borders around cards and panels, the dots on the canvas, toggles, selected steps, highlighted text and outlines, buttons and run charts are all easier to see.

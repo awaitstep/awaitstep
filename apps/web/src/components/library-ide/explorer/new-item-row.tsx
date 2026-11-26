@@ -87,7 +87,7 @@ export function NewItemRow({ kind, onSubmit, onCancel }: NewItemRowProps) {
           onBlur={handleBlur}
           className={cn(
             'h-6 min-w-0 flex-1 rounded border bg-background px-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground',
-            refusal ? 'border-status-error' : 'border-primary',
+            refusal ? 'border-status-error' : 'border-primary-ink',
           )}
         />
       </div>

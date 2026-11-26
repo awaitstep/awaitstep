@@ -96,4 +96,4 @@ export function ViewToggle({
 
 const chipClass =
   'inline-flex h-6 items-center rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-const chipOnClass = 'border-primary/40 bg-primary/10 text-foreground'
+const chipOnClass = 'border-primary-ink/40 bg-primary-ink/10 text-foreground'

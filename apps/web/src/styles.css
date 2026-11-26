@@ -254,7 +254,7 @@ html.light {
   /* Darker than in dark mode: faint dots vanish on white. */
   --canvas-dot: oklch(0 0 0 / 35%);
   --input: oklch(0 0 0 / 45%);
-  --control-track: oklch(0 0 0 / 10%);
+  --control-track: oklch(0 0 0 / 18%);
   --ring: #5b6b00;
   --surface-overlay: oklch(1 0 0);
   /* Backdrop behind Monaco: matches the editor theme, not the app card. */

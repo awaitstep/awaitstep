@@ -435,7 +435,7 @@ export function BindingsPanel() {
                           type="button"
                           onClick={() => setMapTarget(binding)}
                           disabled={readOnly}
-                          className="rounded px-1.5 py-0.5 text-2xs text-primary-ink hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded px-1.5 py-0.5 text-2xs text-primary-ink hover:bg-primary-ink/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Mapped
                         </button>
@@ -444,7 +444,7 @@ export function BindingsPanel() {
                           type="button"
                           onClick={() => setMapTarget(binding)}
                           disabled={readOnly}
-                          className="rounded px-1.5 py-0.5 text-2xs text-primary-ink hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded px-1.5 py-0.5 text-2xs text-primary-ink hover:bg-primary-ink/10 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           Map
                         </button>
@@ -463,7 +463,7 @@ export function BindingsPanel() {
                       <button
                         onClick={() => handleConsumeClick(binding)}
                         disabled={!canConsume}
-                        className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-primary-ink hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-primary-ink hover:bg-primary-ink/10 disabled:cursor-not-allowed disabled:opacity-50"
                         title={
                           canConsume
                             ? `Create ${HANDLER_QUEUE_DIR}${queue}.ts`

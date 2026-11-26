@@ -36,7 +36,7 @@ export function AvailableList({
             <label
               className={cn(
                 'flex items-center gap-3 rounded border px-3.5 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring',
-                open && on ? 'border-primary bg-primary/5' : 'border-input bg-background',
+                open && on ? 'border-primary-ink bg-primary-ink/5' : 'border-input bg-background',
                 open
                   ? 'cursor-pointer hover:border-foreground/60'
                   : 'cursor-not-allowed opacity-70',
@@ -47,7 +47,7 @@ export function AvailableList({
                 checked={on}
                 disabled={!open}
                 onChange={() => onToggle(account.id)}
-                className="size-4 shrink-0 accent-primary"
+                className="size-4 shrink-0 accent-primary-ink"
               />
               <Tile tone="warn" size="sm">
                 <Cloud />

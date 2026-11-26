@@ -153,23 +153,23 @@ export function StepFlowMap({
     return (
       <div
         key={key}
-        className="my-1 flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-dashed border-primary/70 bg-primary/10 px-3 py-2"
+        className="my-1 flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-dashed border-primary-ink/70 bg-primary-ink/10 px-3 py-2"
       >
         <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary-ink"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary-ink/10 text-primary-ink"
           aria-hidden
         >
           {getNodeVisuals('step', registry.get('step')?.icon).icon}
         </span>
         {arm && (
-          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-2xs text-primary-ink">
+          <span className="rounded border border-primary-ink/40 bg-primary-ink/10 px-1 py-px text-2xs text-primary-ink">
             {arm}
           </span>
         )}
         <span className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">
           {name.trim() || 'new_step'}
         </span>
-        <span className="shrink-0 rounded bg-primary/15 px-1 py-px text-2xs text-primary-ink">
+        <span className="shrink-0 rounded bg-primary-ink/15 px-1 py-px text-2xs text-primary-ink">
           New
         </span>
         {!compact && <span className="shrink-0 text-2xs text-primary-ink">lands here</span>}
@@ -183,7 +183,7 @@ export function StepFlowMap({
     if (!arm) return null
     return (
       <span
-        className="block truncate rounded border border-primary/40 bg-primary/10 px-1 py-px text-center text-2xs text-primary-ink"
+        className="block truncate rounded border border-primary-ink/40 bg-primary-ink/10 px-1 py-px text-center text-2xs text-primary-ink"
         title={arm}
       >
         {arm}
@@ -204,7 +204,7 @@ export function StepFlowMap({
           onClick={() => onSelect(choice.placement)}
           aria-label={choice.label}
           title={choice.label}
-          className="h-6 w-6 rounded-full bg-card text-muted-foreground hover:border-primary/60 hover:text-primary-ink"
+          className="h-6 w-6 rounded-full bg-card text-muted-foreground hover:border-primary-ink/60 hover:text-primary-ink"
         >
           <Plus className="h-3 w-3" />
         </Button>
@@ -225,7 +225,7 @@ export function StepFlowMap({
         onClick={() => onSelect(choice.placement)}
         aria-label={choice.label}
         title={choice.label}
-        className="h-6 w-6 shrink-0 rounded-full bg-card text-muted-foreground hover:border-primary/60 hover:text-primary-ink"
+        className="h-6 w-6 shrink-0 rounded-full bg-card text-muted-foreground hover:border-primary-ink/60 hover:text-primary-ink"
       >
         <Plus className="h-3 w-3" />
       </Button>

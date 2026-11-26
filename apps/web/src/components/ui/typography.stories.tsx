@@ -82,7 +82,7 @@ function Typography() {
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Dense chrome</h2>
         <div className="flex flex-wrap items-center gap-2 rounded border border-border p-4">
-          <span className="rounded border border-primary/40 bg-primary/10 px-1 py-px text-2xs text-primary-ink">
+          <span className="rounded border border-primary-ink/40 bg-primary-ink/10 px-1 py-px text-2xs text-primary-ink">
             Entry
           </span>
           <span className="rounded bg-muted px-1 py-px text-2xs text-muted-foreground">Retry</span>

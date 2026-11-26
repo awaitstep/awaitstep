@@ -8,7 +8,7 @@ const CARD_CLASS =
 
 function cardTone(picked: boolean): string {
   return picked
-    ? 'border-primary-ink bg-primary/5'
+    ? 'border-primary-ink bg-primary-ink/5'
     : 'border-input bg-background hover:border-foreground/60'
 }
 

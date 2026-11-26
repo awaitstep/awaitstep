@@ -214,7 +214,7 @@ export function FieldRenderer({
                 className={cn(
                   'rounded-md border px-2 py-1 text-xs transition-colors',
                   isSelected
-                    ? 'border-primary/40 bg-primary/10 text-primary-ink'
+                    ? 'border-primary-ink/40 bg-primary-ink/10 text-primary-ink'
                     : 'border-border bg-transparent text-muted-foreground hover:bg-muted/60',
                 )}
               >

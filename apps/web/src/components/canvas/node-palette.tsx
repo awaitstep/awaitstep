@@ -51,7 +51,7 @@ export function NodePalette({ onAddNode, onBrowseMarketplace }: NodePaletteProps
               aria-label="Add node"
               className={cn(
                 'flex h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 shadow-lg transition-colors hover:bg-muted hover:border-border',
-                open && 'bg-primary border-primary/60 hover:bg-primary/90',
+                open && 'bg-primary border-primary-ink/60 hover:bg-primary/90',
               )}
             >
               {open ? (

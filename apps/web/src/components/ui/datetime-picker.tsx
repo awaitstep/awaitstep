@@ -120,7 +120,7 @@ export function DateTimePicker({
                 value={hours}
                 onChange={(e) => handleTimeChange(e.target.value.slice(0, 2), minutes)}
                 placeholder="HH"
-                className="flex-1 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
+                className="flex-1 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary-ink/50"
               />
               <span className="text-muted-foreground/60">:</span>
               <input
@@ -130,7 +130,7 @@ export function DateTimePicker({
                 value={minutes}
                 onChange={(e) => handleTimeChange(hours, e.target.value.slice(0, 2))}
                 placeholder="MM"
-                className="flex-1 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary/50"
+                className="flex-1 rounded-md border border-border bg-muted/50 px-2 py-1.5 text-center text-sm text-foreground outline-none focus:border-primary-ink/50"
               />
             </div>
           </div>

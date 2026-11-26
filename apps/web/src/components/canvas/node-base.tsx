@@ -114,7 +114,7 @@ export function NodeBase({
       className={cn(
         'group relative w-[220px] rounded-[12px] border border-border bg-card transition-[border-color,box-shadow,opacity] duration-150 hover:shadow-[0_8px_24px_rgb(0_0_0/0.45)]',
         runStatus && !selected && STATUS_BORDER[runStatus],
-        selected && 'border-primary ring-[3px] ring-primary/20',
+        selected && 'border-primary-ink ring-[3px] ring-primary-ink/20',
         // A run overlay owns the border while it is active; outside a run,
         // validation errors take precedence over the selected border.
         !overlayActive && issue?.severity === 'error' && 'border-status-error/70',

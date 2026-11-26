@@ -226,7 +226,7 @@ function SideHandle({
         <span
           aria-hidden
           className={cn(
-            'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-primary bg-card text-primary opacity-0 shadow-[0_0_0_3px_var(--background)] transition-opacity duration-100 group-hover:opacity-100',
+            'flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-primary-ink bg-card text-primary-ink opacity-0 shadow-[0_0_0_3px_var(--background)] transition-opacity duration-100 group-hover:opacity-100',
             showPlus && 'opacity-100',
           )}
         >

@@ -146,7 +146,7 @@ export function PeoplePicker({
 
   return (
     <>
-      <div className="mx-6 mt-4 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-[9px] border border-input bg-card px-3 py-[3px] focus-within:border-primary/60">
+      <div className="mx-6 mt-4 flex min-h-9 flex-wrap items-center gap-x-2 gap-y-1.5 rounded-[9px] border border-input bg-card px-3 py-[3px] focus-within:border-primary-ink/60">
         <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         {picks.map((pick) => (
           <PickChip key={pickKey(pick)} pick={pick} onRemove={onRemove} />

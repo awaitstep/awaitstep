@@ -156,7 +156,7 @@ export function AddConnectionDialog({
             type="checkbox"
             checked={makeDefault}
             onChange={handleMakeDefault}
-            className="size-4 accent-primary"
+            className="size-4 accent-primary-ink"
           />
           Make it {projectName}’s default
         </label>

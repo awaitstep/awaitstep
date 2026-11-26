@@ -161,7 +161,7 @@ function GridCell({ resource, action, value, onToggle }: GridCellProps) {
       checked={hasGrant(value, resource.id, action)}
       onChange={handleChange}
       aria-label={`${resource.label}: ${KEY_ACTION_LABEL[action]}`}
-      className="size-4 cursor-pointer align-middle accent-primary"
+      className="size-4 cursor-pointer align-middle accent-primary-ink"
     />
   )
 }

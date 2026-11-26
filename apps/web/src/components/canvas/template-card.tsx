@@ -23,12 +23,12 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
     <button
       type="button"
       onClick={handleClick}
-      className="group flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-4 text-left transition-colors hover:border-primary/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="group flex flex-col gap-3 rounded-md border border-border bg-muted/30 p-4 text-left transition-colors hover:border-primary-ink/30 hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span className="flex items-center gap-2.5">
         <Tile
           size="sm"
-          className="bg-primary/10 text-primary-ink transition-colors group-hover:bg-primary/20"
+          className="bg-primary-ink/10 text-primary-ink transition-colors group-hover:bg-primary-ink/20"
         >
           <Icon />
         </Tile>
