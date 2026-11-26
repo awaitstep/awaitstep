@@ -77,8 +77,10 @@ export function fieldTakesId(field: ConfigField): boolean {
       return field.validation?.format !== 'date-time'
     case 'number':
     case 'select':
-    case 'textarea':
       return true
+    case 'textarea':
+      // Highlighted text is in the code editor, which has no single control to label.
+      return field.language === undefined
     case 'expression':
       return false
     case 'boolean':
@@ -309,6 +311,18 @@ export function FieldRenderer({
       )
 
     case 'textarea':
+      if (field.language) {
+        return (
+          <CodeEditor
+            value={stringValue}
+            onChange={(v) => onChange(v)}
+            debounceMs={300}
+            language={field.language}
+            height="160px"
+            readOnly={readOnly}
+          />
+        )
+      }
       return (
         <textarea
           id={id}

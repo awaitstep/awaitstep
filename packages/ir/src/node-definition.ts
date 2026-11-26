@@ -10,6 +10,9 @@ export type FieldType =
   | 'expression'
   | 'textarea'
 
+/** The languages a text field can say it holds. */
+export type FieldLanguage = 'sql'
+
 export interface FieldValidation {
   min?: number
   max?: number
@@ -26,6 +29,8 @@ export interface ConfigField {
   required?: boolean
   default?: unknown
   placeholder?: string
+  /** What a `textarea`'s text is written in: the editor highlights it. The value stays plain text. */
+  language?: FieldLanguage
   options?: string[]
   envVarName?: string
   validation?: FieldValidation

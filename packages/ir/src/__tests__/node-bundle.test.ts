@@ -66,6 +66,17 @@ describe('nodeDefinitionSchema', () => {
       })
     }
   })
+
+  it.each([
+    ['sql', true],
+    ['cobol', false],
+  ])('takes a text field written in a language it knows: %s', (language, taken) => {
+    const result = nodeDefinitionSchema.safeParse({
+      ...definition,
+      configSchema: { query: { type: 'textarea', label: 'SQL', language } },
+    })
+    expect(result.success).toBe(taken)
+  })
 })
 
 describe('stableStringify', () => {

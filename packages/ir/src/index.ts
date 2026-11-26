@@ -54,6 +54,7 @@ export {
 
 export type {
   FieldType,
+  FieldLanguage,
   FieldValidation,
   ConfigField,
   OutputFieldType,
