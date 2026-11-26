@@ -51,6 +51,22 @@ interface ListRowProps {
   trailing?: ReactNode
 }
 
+// A row's layout, shared with `ListCardSkeleton` so nothing jumps as rows load.
+// On a phone the trailing line (a pill, a time) sits under the title, lined up
+// with it, not under the leading tile; from `sm` the row wraps as space runs out.
+export function listRowClass(hasLeading: boolean): string {
+  return cn(
+    'grid items-center gap-x-4.5 gap-y-2 px-5 py-4 sm:flex sm:flex-wrap sm:gap-y-3',
+    hasLeading ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1',
+  )
+}
+
+export const LIST_ROW_TEXT_CLASS = 'flex min-w-0 flex-col gap-0.5 sm:min-w-[200px] sm:flex-1'
+
+export function listRowTrailingClass(hasLeading: boolean): string {
+  return cn('flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-4.5', hasLeading && 'col-start-2')
+}
+
 /**
  * One row of a `ListCard`. With `href` the whole row opens it: the title is the
  * row's one link, stretched over the row (see `linked-row`), and the controls in
@@ -68,18 +84,10 @@ export function ListRow({ leading, title, href, badge, description, trailing }: 
     <span className="text-sm font-semibold text-foreground">{title}</span>
   )
   const hasLeading = hasContent(leading)
-  // On a phone the trailing line (a pill, a time) sits under the title, lined
-  // up with it, not under the icon; from `sm` the row wraps as space runs out.
   return (
-    <li
-      className={cn(
-        'grid items-center gap-x-4.5 gap-y-2 px-5 py-4 sm:flex sm:flex-wrap sm:gap-y-3',
-        hasLeading ? 'grid-cols-[auto_minmax(0,1fr)]' : 'grid-cols-1',
-        href && LINKED_ROW,
-      )}
-    >
+    <li className={cn(listRowClass(hasLeading), href && LINKED_ROW)}>
       {hasLeading && leading}
-      <div className="flex min-w-0 flex-col gap-0.5 sm:min-w-[200px] sm:flex-1">
+      <div className={LIST_ROW_TEXT_CLASS}>
         {hasContent(badge) ? (
           <span className="flex flex-wrap items-center gap-2">
             {heading}
@@ -92,16 +100,7 @@ export function ListRow({ leading, title, href, badge, description, trailing }: 
           <span className="text-xs text-muted-foreground">{description}</span>
         )}
       </div>
-      {hasContent(trailing) && (
-        <div
-          className={cn(
-            'flex flex-wrap items-center gap-x-3 gap-y-2 sm:gap-x-4.5',
-            hasLeading && 'col-start-2',
-          )}
-        >
-          {trailing}
-        </div>
-      )}
+      {hasContent(trailing) && <div className={listRowTrailingClass(hasLeading)}>{trailing}</div>}
     </li>
   )
 }
