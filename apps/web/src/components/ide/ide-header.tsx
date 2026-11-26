@@ -1,15 +1,5 @@
-import {
-  Command,
-  Download,
-  PanelBottom,
-  PanelLeft,
-  PanelRight,
-  Search,
-  Terminal,
-  Variable,
-} from 'lucide-react'
+import { Command, Download, Search, Variable } from 'lucide-react'
 import { useState } from 'react'
-import { useShallow } from 'zustand/react/shallow'
 import { EnvVarsDialog } from '../workflows/env-vars-dialog'
 import { IDE_SHORTCUTS, formatShortcut, type IdeShortcutId } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
@@ -17,7 +7,6 @@ import { exportWorkflowFile } from '../../lib/export-workflow'
 import { deployBadge as buildDeployBadge, type DeployBadge } from '../../lib/workflows/deploy-badge'
 import { useIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { useSwitchView } from '../../hooks/use-switch-view'
-import { useIdeLayoutStore } from '../../stores/ide-layout-store'
 import { useIdeStore } from '../../stores/ide-store'
 import { useWorkflowStore } from '../../stores/workflow-store'
 import type { TopBarMenuItem } from '../workflows/top-bar-menu'
@@ -48,6 +37,8 @@ interface IdeHeaderProps {
   onSave: () => void
   /** Saves any unsaved files, then opens the Deploy page. */
   onDeploy: () => void
+  /** The test run button: starts a run, or shows the one that is live. */
+  testRun: TopBarToggle
 }
 
 export function IdeHeader({
@@ -64,18 +55,8 @@ export function IdeHeader({
   saving,
   onSave,
   onDeploy,
+  testRun,
 }: IdeHeaderProps) {
-  const { explorerOpen, dockOpen, previewOpen, toggleExplorer, toggleDock, togglePreview } =
-    useIdeLayoutStore(
-      useShallow((s) => ({
-        explorerOpen: s.explorerOpen,
-        dockOpen: s.dockOpen,
-        previewOpen: s.previewOpen,
-        toggleExplorer: s.toggleExplorer,
-        toggleDock: s.toggleDock,
-        togglePreview: s.togglePreview,
-      })),
-    )
   const showDialog = useIdeStore((s) => s.showDialog)
   const nodeCount = useWorkflowStore((s) => s.nodes.length)
   const isMac = isMacPlatform()
@@ -94,10 +75,6 @@ export function IdeHeader({
 
   function handleEnvVars() {
     setEnvOpen(true)
-  }
-
-  function handleLocalTest() {
-    useIdeLayoutStore.getState().showDock('session')
   }
 
   useIdeShortcuts({ envVars: handleEnvVars })
@@ -133,41 +110,11 @@ export function IdeHeader({
     return 'Deploy'
   }
 
-  const toggles: TopBarToggle[] = [
-    {
-      id: 'side-bar',
-      icon: PanelLeft,
-      pressed: explorerOpen,
-      title: `${explorerOpen ? 'Hide' : 'Show'} side bar (${hint('toggleExplorer')})`,
-      onClick: toggleExplorer,
-    },
-    {
-      id: 'dock',
-      icon: PanelBottom,
-      pressed: dockOpen,
-      title: `${dockOpen ? 'Hide' : 'Show'} panel (${hint('toggleDock')})`,
-      onClick: toggleDock,
-    },
-    // The third pane takes the third panel icon, and a label: "preview of
-    // what?" is not answerable from an icon.
-    {
-      id: 'preview',
-      label: 'Preview Canvas',
-      icon: PanelRight,
-      pressed: previewOpen,
-      title: `${previewOpen ? 'Hide' : 'Show'} canvas preview (${hint('togglePreview')})`,
-      onClick: togglePreview,
-    },
-  ]
+  // The panes' own toggles are in the status bar; the bar keeps the one that starts something.
+  const toggles: TopBarToggle[] = [testRun]
 
   const workflowActions: TopBarMenuItem[] = [
     // Variables belong to the workflow: a Viewer can look, and an older version has them too.
-    {
-      id: 'local-test',
-      label: 'Local test',
-      icon: Terminal,
-      onSelect: handleLocalTest,
-    },
     {
       id: 'env-vars',
       label: 'Environment variables…',

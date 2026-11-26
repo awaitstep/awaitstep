@@ -1,17 +1,17 @@
 import { useState } from 'react'
-import { Code2, Undo2, Redo2, PanelLeft, PanelRight } from 'lucide-react'
+import { Undo2, Redo2 } from 'lucide-react'
 import { EnvVarsDialog } from '../workflows/env-vars-dialog'
 import { Button } from '../ui/button'
-import { useTemporalStore, useWorkflowStore } from '../../stores/workflow-store'
+import { useTemporalStore } from '../../stores/workflow-store'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
 import { useIdeShortcuts, type IdeShortcutListing } from '../../hooks/use-ide-shortcuts'
 import { redoWithFeedback, undoWithFeedback } from './time-travel'
 import { useSwitchView } from '../../hooks/use-switch-view'
+import { useInspectorToggle } from '../../hooks/use-inspector-toggle'
 import type { EditorView } from '../workflows/view-switch'
 import { UnifiedTopBar, type TopBarToggle } from '../workflows/unified-top-bar'
 import { useWorkflowLinks } from '../../lib/workflows/detail-links'
 import { deployBadge } from '../../lib/workflows/deploy-badge'
-import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { SaveStatusIndicator } from './save-status-indicator'
 import { EditorExtensions } from '../../extensions/editor-extensions'
@@ -50,7 +50,8 @@ export interface EditorToolbarProps {
   onDeploy: () => void
   /** Runs the client-side check; its result opens in the canvas's bottom panel. */
   onCheck: () => void
-  onTestLocally?: () => void
+  /** The test run button: starts a run, or shows the one that is live. */
+  testRun: TopBarToggle
   /** Offered only while the workflow has nothing saved (`offersTemplates`). */
   onOpenTemplatePicker?: () => void
   onExport?: () => void
@@ -85,7 +86,7 @@ export function EditorToolbar({
   reloading,
   onDeploy,
   onCheck,
-  onTestLocally,
+  testRun,
   onOpenTemplatePicker,
   onExport,
   readOnly,
@@ -96,39 +97,14 @@ export function EditorToolbar({
 }: EditorToolbarProps) {
   const switchView = useSwitchView(workflowId)
   const links = useWorkflowLinks(workflowId)
-  const paletteOpen = useCanvasLayoutStore((s) => s.paletteOpen)
-  const inspectorOpen = useCanvasLayoutStore((s) => s.inspectorOpen)
-  const codePreviewOpen = useCanvasLayoutStore((s) => s.codePreviewOpen)
   const togglePalette = useCanvasLayoutStore((s) => s.togglePalette)
-  const toggleCodePreview = useCanvasLayoutStore((s) => s.toggleCodePreview)
-  const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId)
   const [envOpen, setEnvOpen] = useState(false)
   const canUndo = useTemporalStore((t) => t.pastStates.length > 0)
   const canRedo = useTemporalStore((t) => t.futureStates.length > 0)
   const isMac = isMacPlatform()
-  const hint = (id: keyof typeof IDE_SHORTCUTS) => formatShortcut(IDE_SHORTCUTS[id], isMac)
   const saveHint = isMac ? '⌘S' : 'Ctrl+S'
   const viewOnly = !!readOnly && !!viewOnlyReason
-  // Pressed means the inspector is on screen, not merely allowed: with no
-  // step selected nothing is showing, and the code preview takes the space.
-  const inspectorVisible = inspectorOpen && !!selectedNodeId && !codePreviewOpen
-
-  // Asking for the inspector brings it back; asking again hides it. With
-  // nothing selected there is nothing to hide, so it only arms the panel.
-  // While the code preview is up, the inspector is behind it: this closes the
-  // preview and brings the selected step's settings back into view.
-  function handleToggleInspector() {
-    if (codePreviewOpen) {
-      useCanvasLayoutStore.getState().setCodePreviewOpen(false)
-      useCanvasLayoutStore.getState().setInspectorOpen(true)
-      return
-    }
-    if (inspectorVisible) {
-      useCanvasLayoutStore.getState().setInspectorOpen(false)
-      return
-    }
-    useCanvasLayoutStore.getState().setInspectorOpen(true)
-  }
+  const { toggle: handleToggleInspector } = useInspectorToggle()
 
   // The same chords the Code surface uses for its side bar and panel.
   useIdeShortcuts(
@@ -161,35 +137,8 @@ export function EditorToolbar({
     void switchView('canvas')
   }
 
-  const toggles: TopBarToggle[] = [
-    {
-      id: 'steps',
-      icon: PanelLeft,
-      pressed: paletteOpen && !readOnly,
-      disabled: !!readOnly,
-      title: readOnly
-        ? 'Nodes (nothing to add while read-only)'
-        : `Nodes (${hint('toggleExplorer')})`,
-      onClick: togglePalette,
-    },
-    {
-      id: 'inspector',
-      icon: PanelRight,
-      pressed: inspectorVisible,
-      title: `Inspector (${hint('toggleDock')})`,
-      onClick: handleToggleInspector,
-    },
-    // The preview takes the side panel while it is open; the graph, and the
-    // code it generates, are the two things worth seeing here.
-    {
-      id: 'code-preview',
-      label: 'Preview Code',
-      icon: Code2,
-      pressed: codePreviewOpen,
-      title: `${codePreviewOpen ? 'Hide' : 'Show'} generated code preview`,
-      onClick: toggleCodePreview,
-    },
-  ]
+  // The panes' own toggles are in the status bar; the bar keeps the one that starts something.
+  const toggles: TopBarToggle[] = [testRun]
 
   const blank = nodeCount === 0 && (isNew || currentVersion === 0)
   const reason = readOnlyReason({ viewOnlyReason, olderVersion })
@@ -277,7 +226,6 @@ export function EditorToolbar({
           isNew,
           onOpenTemplatePicker,
           onExport,
-          onTestLocally,
           onCheck,
         })}
       />

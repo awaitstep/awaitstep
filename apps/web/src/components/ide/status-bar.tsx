@@ -3,6 +3,7 @@ import { fileLanguage } from '../../lib/ide/file-tree'
 import { unsavedLabel, type SessionStatus, type StatusTone } from '../../lib/ide/status-bar'
 import { cn } from '../../lib/utils'
 import { useIdeStore } from '../../stores/ide-store'
+import { LayoutToggles } from './layout-toggles'
 
 const DOT: Record<StatusTone, string> = {
   idle: 'bg-muted-foreground',
@@ -136,6 +137,7 @@ export function StatusBar({
           </span>
         </>
       )}
+      <LayoutToggles />
     </div>
   )
 }

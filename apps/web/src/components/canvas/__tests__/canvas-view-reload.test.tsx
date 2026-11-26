@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   getWorkflowFull: vi.fn(),
   createVersion: vi.fn(),
   updateWorkflow: vi.fn(() => Promise.resolve({})),
+  getTestSession: vi.fn(() => Promise.resolve({ session: null })),
 }))
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn() }))
 
@@ -113,7 +114,7 @@ async function mount() {
         <EditorAccessProvider
           value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
         >
-          <CanvasView workflowId="wf_1" marketplaceOpen={false} localDevEnabled={false} />
+          <CanvasView workflowId="wf_1" marketplaceOpen={false} />
         </EditorAccessProvider>
       </EditorScopeProvider>
     </QueryClientProvider>,

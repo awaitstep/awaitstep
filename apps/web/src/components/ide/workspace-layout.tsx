@@ -12,6 +12,7 @@ import type { useWorkspaceActions } from '../../hooks/use-workspace-actions'
 import type { WorkspaceData } from '../../hooks/use-workspace-data'
 import { HANDLER_SCHEDULED_PATH } from '@awaitstep/ir'
 import { scheduleMissing } from '../../lib/ide/schedule-gap'
+import { testRunToggle } from '../../lib/workflows/test-run-toggle'
 import { fetchHandlerSkipped } from '../../lib/ide/fetch-skipped'
 import { useProviderCapabilities } from '../../hooks/use-provider-capabilities'
 import type { ProjectFilesController } from '../../hooks/use-project-files'
@@ -195,6 +196,22 @@ export function WorkspaceLayout({
     openDeploy(workflowId)
   }
 
+  function handleToggleTestRun() {
+    const layout = useIdeLayoutStore.getState()
+    if (layout.dockOpen && layout.dockTab === 'session') layout.toggleDock()
+    else layout.showDock('session')
+  }
+
+  const sessionShown = useIdeLayoutStore((s) => s.dockOpen && s.dockTab === 'session')
+  const testRun = testRunToggle({
+    status: testSession.session?.status ?? null,
+    starting: testSession.starting,
+    open: sessionShown,
+    blockedReason: canEdit ? session.blockedReason : (access.reason ?? 'View only'),
+    onStart: sessionActions.startSession,
+    onToggle: handleToggleTestRun,
+  })
+
   const view = (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
       <SearchRunner files={files} projectPaths={projectPaths} libraryPaths={data.libraryPaths} />
@@ -212,6 +229,7 @@ export function WorkspaceLayout({
         saving={projectFiles.busy}
         onSave={actions.saveAll}
         onDeploy={handleDeploy}
+        testRun={testRun}
       />
       <div className="relative min-h-0 flex-1">
         <Group
