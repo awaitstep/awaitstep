@@ -11,6 +11,8 @@ import {
   UserRound,
 } from 'lucide-react'
 import { handleSignOut } from '../../lib/auth-client'
+import { runAppShortcut } from '../../hooks/use-app-shortcuts'
+import { usePhoneLayout } from '../../hooks/use-phone-layout'
 import { accountPath } from '../../lib/dashboard-paths'
 import type { Theme } from '../../lib/theme'
 import { AccountMenu, type AccountMenuItem } from '../shell/account-menu'
@@ -33,7 +35,19 @@ interface DashboardAccountMenuProps {
   onToggleTheme: () => void
 }
 
-function accountItems(): AccountMenuItem[] {
+function openShortcutsSheet() {
+  runAppShortcut('help')
+}
+
+/** Your account's pages, and the shortcuts sheet where there is a keyboard (not on a phone). */
+function accountItems(keyboard: boolean): AccountMenuItem[] {
+  const shortcuts: AccountMenuItem = {
+    key: 'shortcuts',
+    label: 'Keyboard shortcuts',
+    icon: Keyboard,
+    shortcut: '?',
+    onSelect: openShortcutsSheet,
+  }
   return [
     { key: 'profile', label: 'Profile', href: accountPath('profile'), icon: UserRound },
     {
@@ -42,13 +56,7 @@ function accountItems(): AccountMenuItem[] {
       href: accountPath('sessions'),
       icon: Shield,
     },
-    {
-      key: 'shortcuts',
-      label: 'Keyboard shortcuts',
-      icon: Keyboard,
-      shortcut: '?',
-      disabledReason: 'Coming later',
-    },
+    ...(keyboard ? [shortcuts] : []),
   ]
 }
 
@@ -109,11 +117,12 @@ export function EntryAccountMenu({
   trigger,
   user,
 }: Pick<DashboardAccountMenuProps, 'trigger' | 'user'>) {
+  const phone = usePhoneLayout()
   return (
     <AccountMenu
       trigger={trigger}
       user={user}
-      groups={[accountItems(), [signOutItem()]]}
+      groups={[accountItems(!phone), [signOutItem()]]}
       side="bottom"
       align="end"
     />
@@ -134,7 +143,7 @@ export function DashboardAccountMenu({
   const docs = useFeatureOn('docs')
   const extensions = useEnabledExtensions()
 
-  const groups: AccountMenuItem[][] = [accountItems()]
+  const groups: AccountMenuItem[][] = [accountItems(placement === 'rail')]
   if (placement === 'phone') {
     // The rail's extension entries, as the rail draws them: the phone has no rail.
     // Their org pages (Integrations) too: the tab bar has no room for them.

@@ -72,19 +72,16 @@ export function OrgHome({
           title="Projects"
           description="Open a project to work in its workspaces."
           aside={
-            <>
-              <span className="hidden flex-wrap gap-2.5 md:flex">
-                <StatTile value={projects.length} label="Projects" />
-                <StatTile value={deployed} label="Workflows deployed" />
-                <StatTile
-                  value={failing.count}
-                  label="Failing now"
-                  tone={failing.count > 0 ? 'danger' : undefined}
-                  href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
-                />
-              </span>
-              <span className="md:hidden">{newProjectButton}</span>
-            </>
+            <span className="hidden flex-wrap gap-2.5 md:flex">
+              <StatTile value={projects.length} label="Projects" />
+              <StatTile value={deployed} label="Workflows deployed" />
+              <StatTile
+                value={failing.count}
+                label="Failing now"
+                tone={failing.count > 0 ? 'danger' : undefined}
+                href={firstFailing ? failingHref(org.slug, firstFailing) : undefined}
+              />
+            </span>
           }
         />
         <div className="flex flex-col gap-3 md:hidden">

@@ -47,7 +47,7 @@ export function SearchField({
   }
 
   return (
-    <div className="flex h-10 w-full min-w-[min(200px,100%)] sm:max-w-full lg:max-w-[320px] items-center gap-2 rounded-[9px] border border-input bg-card px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring max-sm:max-w-none">
+    <div className="flex h-9 w-full sm:h-10 min-w-[min(200px,100%)] sm:max-w-full lg:max-w-[320px] items-center gap-2 rounded-[9px] border border-input bg-card px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring max-sm:max-w-none">
       <Search className="size-3.5 shrink-0" aria-hidden="true" />
       <label htmlFor={id} className="sr-only">
         {label}
