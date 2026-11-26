@@ -62,8 +62,7 @@ declare class NonRetryableError extends Error {
 /** The workflow step object — step.do(), step.sleep(), step.sleepUntil(), step.waitForEvent() */
 declare const step: WorkflowStep;
 
-/** The workflow event with trigger payload, timestamp, and instanceId */
-declare const event: WorkflowEvent;
+// A step's event is declared by the workflow context, on any provider.
 
 /** Step callback context with retry attempt info */
 declare const ctx: StepContext;
@@ -205,18 +204,5 @@ declare module "cloudflare:workers" {
   }
 }
 
-// ── Web Platform APIs (available in Workers runtime) ──
-
-declare function fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
-
-declare function atob(data: string): string;
-declare function btoa(data: string): string;
-
-declare function setTimeout(callback: (...args: any[]) => void, ms?: number): number;
-declare function clearTimeout(id: number): void;
-declare function setInterval(callback: (...args: any[]) => void, ms?: number): number;
-declare function clearInterval(id: number): void;
-
-declare const crypto: Crypto;
-declare const console: Console;
+// Web APIs (fetch, crypto, console, timers) come from the editor's worker lib.
 `

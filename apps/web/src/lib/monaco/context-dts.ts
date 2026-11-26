@@ -71,6 +71,19 @@ export function buildWorkflowContextDts(input: WorkflowTypeContextInput): string
   lines.push('/** Environment bindings and variables for this workflow. */')
   lines.push('declare const env: Env;')
   lines.push('')
+  // Every step has the run's event in scope, on any provider: a workflow's
+  // from its run, a function's from runGraph. Declared here so it never
+  // falls through to another global of that name.
+  if (input.kind === 'script') {
+    lines.push('/** What the function was called with. */')
+    lines.push('declare const event: { payload: any };')
+  } else {
+    lines.push('/** The run: what it was started with, when, and its instance id. */')
+    lines.push(
+      'declare const event: { readonly payload: any; timestamp: Date; instanceId: string };',
+    )
+  }
+  lines.push('')
 
   const varNames = computeVarNames(input.nodes)
   for (const node of input.nodes) {
