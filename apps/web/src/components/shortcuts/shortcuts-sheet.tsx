@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from 'react'
 import { useActiveShortcutScopes, boundAppShortcuts } from '../../hooks/use-app-shortcuts'
-import { isIdeMounted, subscribeIdeMounted } from '../../hooks/use-ide-shortcuts'
+import {
+  isIdeMounted,
+  listedIdeShortcuts,
+  subscribeIdeMounted,
+} from '../../hooks/use-ide-shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { useShortcutsStore } from '../../stores/shortcuts-store'
 import { Button } from '../ui/button'
@@ -17,10 +21,16 @@ export function ShortcutsSheet() {
   const open = useShortcutsStore((s) => s.dialog === 'help')
   const close = useShortcutsStore((s) => s.close)
   const scopes = useActiveShortcutScopes()
-  const ideMounted = useSyncExternalStore(subscribeIdeMounted, isIdeMounted, serverIdeMounted)
+  // Re-renders as a surface mounts or unmounts; what each binds is read below.
+  useSyncExternalStore(subscribeIdeMounted, isIdeMounted, serverIdeMounted)
   // Read on open: which handlers the page binds changes with its state.
   const sections = open
-    ? sheetSections({ bound: boundAppShortcuts(), scopes, ideMounted, isMac: isMacPlatform() })
+    ? sheetSections({
+        bound: boundAppShortcuts(),
+        scopes,
+        ide: listedIdeShortcuts(),
+        isMac: isMacPlatform(),
+      })
     : []
 
   function handleOpenChange(next: boolean) {

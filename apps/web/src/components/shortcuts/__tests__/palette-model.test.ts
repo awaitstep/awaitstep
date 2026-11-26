@@ -79,7 +79,7 @@ describe('shortcuts sheet', () => {
     const sections = sheetSections({
       bound: ['help', 'goProjects', 'canvasSave'],
       scopes: new Set(['global', 'canvas']),
-      ideMounted: false,
+      ide: [],
       isMac: true,
     })
     expect(sections.map((s) => s.heading)).toEqual(['General', 'Go to', 'Canvas'])
@@ -89,15 +89,38 @@ describe('shortcuts sheet', () => {
     expect(sections[1]!.rows).toEqual([{ label: 'Projects', keys: [['G', 'P']] }])
   })
 
-  it('leaves out a scope nobody mounted, and adds the Code view’s keys when it is open', () => {
+  it('lists only the Code view keys that are bound, once each, merged with their alternatives', () => {
     const sections = sheetSections({
       bound: ['help'],
       scopes: new Set(['global']),
-      ideMounted: true,
+      ide: [
+        { heading: 'Code view', ids: ['commandPalette', 'commandPaletteAlt', 'envVars'] },
+        { heading: 'Code view', ids: ['envVars'] },
+      ],
       isMac: false,
     })
     expect(sections.map((s) => s.heading)).toEqual(['General', 'Code view'])
-    const palette = sections[1]!.rows.find((r) => r.label === 'Command palette')
-    expect(palette?.keys).toEqual([['Ctrl+K'], ['Ctrl+Shift+P']])
+    expect(sections[1]!.rows).toEqual([
+      { label: 'Command palette', keys: [['Ctrl+K'], ['Ctrl+Shift+P']] },
+      { label: 'Variables', keys: [['Ctrl+Alt+V']] },
+    ])
+  })
+
+  it('puts the canvas toolbar’s chords in the Canvas section, in its own words', () => {
+    const sections = sheetSections({
+      bound: ['canvasFit'],
+      scopes: new Set(['canvas']),
+      ide: [
+        {
+          heading: 'Canvas',
+          labels: { toggleExplorer: 'Show or hide the nodes' },
+          ids: ['toggleExplorer'],
+        },
+      ],
+      isMac: true,
+    })
+    expect(sections.map((s) => s.heading)).toEqual(['Canvas'])
+    expect(sections[0]!.rows).toContainEqual({ label: 'Show or hide the nodes', keys: [['⌘B']] })
+    expect(sections[0]!.rows.map((r) => r.label)).not.toContain('Show or hide the side bar')
   })
 })

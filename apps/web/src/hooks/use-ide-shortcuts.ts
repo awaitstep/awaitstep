@@ -10,8 +10,30 @@ export type IdeShortcutHandlers = Partial<
 /** The only shortcuts whose handlers may decline; every other one owns its key outright. */
 const DECLINABLE: ReadonlySet<IdeShortcutId> = new Set(['run', 'nextSearchHit', 'prevSearchHit'])
 
+/**
+ * How a surface's keys read in the shortcuts sheet: its heading, and wording
+ * of its own where the Code view's would be wrong (⌘B shows the canvas's
+ * nodes, not a side bar).
+ */
+export interface IdeShortcutListing {
+  heading: string
+  labels?: Partial<Record<IdeShortcutId, string>>
+}
+
+/** A mounted surface's keys as the sheet lists them: only the ones it binds right now. */
+export interface ListedIdeShortcuts extends IdeShortcutListing {
+  ids: IdeShortcutId[]
+}
+
+const CODE_VIEW: IdeShortcutListing = { heading: 'Code view' }
+
+interface MountedSurface {
+  handlers: { current: IdeShortcutHandlers }
+  listing: IdeShortcutListing
+}
+
 /** Every mounted surface's handlers, so the app's own shortcuts can give way to them. */
-const mounted = new Set<{ current: IdeShortcutHandlers }>()
+const mounted = new Set<MountedSurface>()
 const mountedListeners = new Set<() => void>()
 
 function notifyMounted() {
@@ -26,8 +48,16 @@ function notifyMounted() {
 export function ideBindsKey(event: KeyboardEvent): boolean {
   const id = matchShortcut(event, isMacPlatform())
   if (!id) return false
-  for (const ref of mounted) if (ref.current[id]) return true
+  for (const surface of mounted) if (surface.handlers.current[id]) return true
   return false
+}
+
+/** What each mounted surface binds now, for the shortcuts sheet. */
+export function listedIdeShortcuts(): ListedIdeShortcuts[] {
+  return [...mounted].map(({ handlers, listing }) => ({
+    ...listing,
+    ids: (Object.keys(handlers.current) as IdeShortcutId[]).filter((id) => handlers.current[id]),
+  }))
 }
 
 /** Whether any surface binds IDE shortcuts right now, for the shortcuts sheet. */
@@ -49,13 +79,25 @@ export function subscribeIdeMounted(listener: () => void): () => void {
  * key to Monaco's reference peek; Run leaves ⌥⏎ to Monaco's find widget and
  * to fields of their own).
  */
-export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
+export function useIdeShortcuts(
+  handlers: IdeShortcutHandlers,
+  listing: IdeShortcutListing = CODE_VIEW,
+): void {
   const handlersRef = useRef(handlers)
   handlersRef.current = handlers
+  const listingRef = useRef(listing)
+  listingRef.current = listing
 
   useEffect(() => {
     const isMac = isMacPlatform()
-    mounted.add(handlersRef)
+    // Read through the refs, so the sheet sees this render's handlers and wording.
+    const surface: MountedSurface = {
+      handlers: handlersRef,
+      get listing() {
+        return listingRef.current
+      },
+    }
+    mounted.add(surface)
     notifyMounted()
     function handleKeyDown(event: KeyboardEvent) {
       // Dialogs and the explorer's name row own their keys while open.
@@ -98,7 +140,7 @@ export function useIdeShortcuts(handlers: IdeShortcutHandlers): void {
     window.addEventListener('keydown', handleKeyDown, true)
     return () => {
       window.removeEventListener('keydown', handleKeyDown, true)
-      mounted.delete(handlersRef)
+      mounted.delete(surface)
       notifyMounted()
     }
   }, [])

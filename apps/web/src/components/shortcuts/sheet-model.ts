@@ -1,4 +1,5 @@
 import { IDE_SHORTCUT_LABELS, IDE_SHORTCUTS, type IdeShortcutId } from '../../lib/ide/shortcuts'
+import type { ListedIdeShortcuts } from '../../hooks/use-ide-shortcuts'
 import { formatShortcut } from '../../lib/shortcuts/keys'
 import { shortcutPresses, type KeyPresses } from '../../lib/shortcuts/hints'
 import {
@@ -39,38 +40,44 @@ function rowsByLabel(entries: { label: string; presses: KeyPresses }[]): SheetRo
 /**
  * What the `?` sheet lists: exactly what works here. A shortcut shows when
  * the page binds it now, or, for keys a component binds on its own (the
- * canvas's ⌘Z), when its scope is mounted; the Code view's when it is open.
+ * canvas's ⌘Z), when its scope is mounted. Each surface on the IDE's keymap
+ * adds only the keys it binds, in its own words, under its own heading: the
+ * canvas's ⌘B joins the Canvas section as "Show or hide the nodes".
  */
 export function sheetSections(input: {
   bound: readonly AppShortcutId[]
   scopes: ReadonlySet<ShortcutScope>
-  ideMounted: boolean
+  ide: readonly ListedIdeShortcuts[]
   isMac: boolean
 }): SheetSection[] {
   const bound = new Set(input.bound)
   const entries = Object.entries(APP_SHORTCUTS) as [AppShortcutId, AppShortcut][]
-  const sections: SheetSection[] = GROUP_ORDER.map((group) => ({
-    heading: SHORTCUT_GROUP_LABELS[group],
-    rows: rowsByLabel(
-      entries
-        .filter(
-          ([id, s]) =>
-            s.group === group && (s.listedOnly ? input.scopes.has(s.scope) : bound.has(id)),
-        )
-        .map(([, s]) => ({ label: s.label, presses: shortcutPresses(s, input.isMac) })),
+  const byHeading = new Map<string, { label: string; presses: KeyPresses }[]>()
+  function add(heading: string, label: string, presses: KeyPresses) {
+    const rows = byHeading.get(heading) ?? []
+    rows.push({ label, presses })
+    byHeading.set(heading, rows)
+  }
+  for (const group of GROUP_ORDER)
+    for (const [id, s] of entries)
+      if (s.group === group && (s.listedOnly ? input.scopes.has(s.scope) : bound.has(id)))
+        add(SHORTCUT_GROUP_LABELS[group], s.label, shortcutPresses(s, input.isMac))
+  const order = Object.keys(IDE_SHORTCUTS) as IdeShortcutId[]
+  for (const surface of input.ide)
+    for (const id of order)
+      if (surface.ids.includes(id))
+        add(surface.heading, surface.labels?.[id] ?? IDE_SHORTCUT_LABELS[id], [
+          formatShortcut(IDE_SHORTCUTS[id], input.isMac),
+        ])
+  return [...byHeading].map(([heading, rows]) => ({ heading, rows: dedupe(rowsByLabel(rows)) }))
+}
+
+/** Two surfaces binding the same key (the Code view's header and body both bind ⌥⌘V) list it once. */
+function dedupe(rows: SheetRow[]): SheetRow[] {
+  return rows.map((row) => ({
+    ...row,
+    keys: row.keys.filter(
+      (presses, at) => row.keys.findIndex((p) => p.join() === presses.join()) === at,
     ),
   }))
-  if (input.ideMounted) {
-    const ide = Object.keys(IDE_SHORTCUTS) as IdeShortcutId[]
-    sections.push({
-      heading: 'Code view',
-      rows: rowsByLabel(
-        ide.map((id) => ({
-          label: IDE_SHORTCUT_LABELS[id],
-          presses: [formatShortcut(IDE_SHORTCUTS[id], input.isMac)],
-        })),
-      ),
-    })
-  }
-  return sections.filter((section) => section.rows.length > 0)
 }
