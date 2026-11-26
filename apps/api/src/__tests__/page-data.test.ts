@@ -144,7 +144,7 @@ describe('page summaries', () => {
       'runs',
       'versionCount',
     ])
-    expect(keys(body.runs)).toEqual(['byHour', 'counts', 'total'])
+    expect(keys(body.runs)).toEqual(['byHour', 'counts', 'took', 'total'])
     expect(keys(body.runs.counts)).toEqual(['all', 'failed', 'running', 'succeeded'])
   })
 
