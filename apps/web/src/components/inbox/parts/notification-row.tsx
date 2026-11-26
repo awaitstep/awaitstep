@@ -83,8 +83,11 @@ export function NotificationRow({
         >
           {notification.title}
         </p>
-        <span className="text-2xs text-muted-foreground">
-          {notification.where} · {timeAgoOrDay(notification.at)}
+        <span className="flex flex-wrap items-baseline justify-between gap-x-3 text-2xs text-muted-foreground">
+          <span className="min-w-0">{notification.where}</span>
+          <time dateTime={notification.at} className="ml-auto">
+            {timeAgoOrDay(notification.at)}
+          </time>
         </span>
         {request?.status === 'pending' && (
           <span className="flex gap-2 pt-1">

@@ -64,7 +64,7 @@ export function RecentActivity({ org, items }: RecentActivityProps) {
                   <StatusPill status={item.kind} />
                   <time
                     dateTime={item.at}
-                    className="text-2xs text-muted-foreground sm:w-24 sm:text-right"
+                    className="ml-auto text-2xs text-muted-foreground sm:ml-0 sm:w-24 sm:text-right"
                   >
                     {timeAgoOrDay(item.at)}
                   </time>
