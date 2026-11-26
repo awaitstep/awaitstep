@@ -13,8 +13,12 @@ export function getOrigin(): string {
 
 export async function copyToClipboard(text: string): Promise<void> {
   if (navigator.clipboard) {
-    await navigator.clipboard.writeText(text)
-    return
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      // Refused (no permission, the page not focused): the older way below.
+    }
   }
   const textarea = document.createElement('textarea')
   textarea.value = text

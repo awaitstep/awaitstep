@@ -40,6 +40,7 @@ import {
   type NodeSide,
 } from '../lib/canvas/node-sides'
 import { placeBeside } from '../lib/canvas/place-beside'
+import { copyToClipboard } from '../lib/utils'
 
 const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyz0123456789_', 12)
 
@@ -64,6 +65,15 @@ export function toFlowType(irType: string): string {
 }
 
 const CLIPBOARD_FORMAT = 'awaitstep/nodes-v1'
+
+/** The nodes copied last in this tab, for a paste that may not read the system clipboard. */
+let lastCopiedNodes: string | null = null
+
+/** How far each paste beside the copied nodes steps down and right, as Duplicate does. */
+const PASTE_STEP = 40
+
+/** The text pasted beside its nodes last, and how many times in a row: each paste steps further. */
+let besidePastes: { text: string; count: number } | null = null
 
 interface ClipboardEdge {
   source: string
@@ -254,7 +264,15 @@ interface WorkflowState {
   selectNode: (nodeId: string | null) => void
   selectEdge: (edgeId: string | null) => void
   duplicateNodes: (nodeIds: string[]) => string[]
+  /** The nodes as clipboard text (also kept as the in-app copy); null with nothing to copy. */
+  copyNodesText: (nodeIds: string[]) => string | null
   copyNodesToClipboard: (nodeIds: string[]) => Promise<boolean>
+  /**
+   * Pastes clipboard text that holds copied nodes; anything else pastes
+   * nothing. Centred on `centerPosition` when given (where the menu was
+   * opened), else beside the copied nodes, each paste in a row a step further.
+   */
+  pasteNodesFromText: (raw: string, centerPosition?: { x: number; y: number }) => string[]
   pasteNodesFromClipboard: (centerPosition?: { x: number; y: number }) => Promise<string[]>
 
   setKind: (kind: 'workflow' | 'script') => void
@@ -908,7 +926,7 @@ export const useWorkflowStore = create<WorkflowState>()(
         const { nodes, edges } = get()
         const payload = buildClipboardPayload(nodes, edges, nodeIds)
         if (!payload) return []
-        const cloned = instantiateClones(payload, { x: 40, y: 40 })
+        const cloned = instantiateClones(payload, { x: PASTE_STEP, y: PASTE_STEP })
         const newIds = cloned.nodes.map((n) => n.id)
         set({
           nodes: withFollowedFunctionNames(nodes, [
@@ -923,28 +941,32 @@ export const useWorkflowStore = create<WorkflowState>()(
         return newIds
       },
 
-      copyNodesToClipboard: async (nodeIds) => {
-        if (nodeIds.length === 0) return false
+      copyNodesText: (nodeIds) => {
+        if (nodeIds.length === 0) return null
         const { nodes, edges } = get()
         const payload = buildClipboardPayload(nodes, edges, nodeIds)
-        if (!payload) return false
-        try {
-          await navigator.clipboard.writeText(JSON.stringify(payload))
-          return true
-        } catch {
-          return false
-        }
+        if (!payload) return null
+        const text = JSON.stringify(payload)
+        lastCopiedNodes = text
+        besidePastes = null
+        return text
       },
 
-      pasteNodesFromClipboard: async (centerPosition) => {
-        if (get().readOnly) return []
-        let raw: string
+      copyNodesToClipboard: async (nodeIds) => {
+        const text = get().copyNodesText(nodeIds)
+        if (!text) return false
+        // Kept here too: Paste from the menu falls back on it where the page
+        // may not read the system clipboard (plain http, a refused permission).
         try {
-          raw = await navigator.clipboard.readText()
+          await copyToClipboard(text)
         } catch {
-          return []
+          // The in-app copy still pastes.
         }
-        if (!raw) return []
+        return true
+      },
+
+      pasteNodesFromText: (raw, centerPosition) => {
+        if (get().readOnly || !raw) return []
         let parsed: unknown
         try {
           parsed = JSON.parse(raw)
@@ -963,7 +985,9 @@ export const useWorkflowStore = create<WorkflowState>()(
             parsed.nodes.length
           offset = { x: centerPosition.x - cx, y: centerPosition.y - cy }
         } else {
-          offset = { x: 40, y: 40 }
+          const count = besidePastes?.text === raw ? besidePastes.count + 1 : 1
+          besidePastes = { text: raw, count }
+          offset = { x: PASTE_STEP * count, y: PASTE_STEP * count }
         }
 
         const cloned = instantiateClones(parsed, offset)
@@ -981,6 +1005,18 @@ export const useWorkflowStore = create<WorkflowState>()(
           isDirty: true,
         })
         return newIds
+      },
+
+      pasteNodesFromClipboard: async (centerPosition) => {
+        if (get().readOnly) return []
+        // The system clipboard when the page may read it; else what was copied here.
+        let raw: string | null
+        try {
+          raw = await navigator.clipboard.readText()
+        } catch {
+          raw = lastCopiedNodes
+        }
+        return raw ? get().pasteNodesFromText(raw, centerPosition) : []
       },
 
       setKind: (kind) => {
