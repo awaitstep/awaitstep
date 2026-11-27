@@ -1,7 +1,8 @@
 import type { AnyRouteMatch } from '@tanstack/react-router'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DynamicFields } from '../../components/canvas/dynamic-fields'
 import { OrgSettingsIntro } from '../../components/org-settings/org-settings-intro'
 import { EditorScopeProvider } from '../../contexts/editor-scope-context'
 import { useInstanceStore } from '../../stores/instance-store'
@@ -104,6 +105,44 @@ describe('editor top bar slot', () => {
       <EditorExtensions slot="canvas.toolbar" workflowId="wf_1" canEdit />,
     )
     expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('node field control slot', () => {
+  const schema = {
+    account: { type: 'string', label: 'Account', control: 'account-picker' },
+    unknown: { type: 'string', label: 'Other', control: 'nobody-has-this' },
+  } as const
+  const fields = (onChange = vi.fn()) => (
+    <DynamicFields
+      configSchema={schema}
+      data={{ account: 'main', unknown: 'x' }}
+      onChange={onChange}
+    />
+  )
+
+  it('draws a field with the enabled extension’s control, which sets the field’s value', () => {
+    enable('test-ext')
+    const onChange = vi.fn()
+    render(inWorkspace(fields(onChange)))
+    // The field's own label names the control.
+    const control = screen.getByLabelText('Account')
+    expect(control).toHaveTextContent('Account main of acme')
+    expect(control).toHaveAttribute('data-project-id', 'prj_1')
+    fireEvent.click(control)
+    expect(onChange).toHaveBeenCalledWith('account', 'picked')
+    // A control no extension has: the field's plain input.
+    expect(screen.getByLabelText('Other')).toHaveValue('x')
+  })
+
+  it.each([
+    ['the extension is not enabled', () => undefined, true],
+    ['the workspace’s ids are not known', () => ((itemIds = null), enable('test-ext')), true],
+    ['there is no workspace', () => enable('test-ext'), false],
+  ])('draws the plain input while %s', (_why, arrange, scoped) => {
+    arrange()
+    render(scoped ? inWorkspace(fields()) : fields())
+    expect(screen.getByLabelText('Account')).toHaveValue('main')
   })
 })
 

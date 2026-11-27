@@ -120,6 +120,22 @@ export interface EditorSlotProps {
   kind?: 'workflow' | 'script'
 }
 
+/**
+ * What a node field's control is handed: the field's value and where the
+ * editor is open, so it can offer what that workspace reaches.
+ */
+export interface NodeFieldControlProps {
+  /** For the one element the field's label names. */
+  id: string
+  value: unknown
+  onChange: (value: unknown) => void
+  readOnly: boolean
+  org: string
+  project: string
+  workspace: string
+  ids: Required<ExtensionScopeIds>
+}
+
 /** The places in the dashboard an extension can add to. */
 export interface WebExtensionSlots {
   /** Workspace side panel, after the built-in pages: links to `workspace` pages. */
@@ -146,6 +162,12 @@ export interface WebExtensionSlots {
   'ide.toolbar'?: ComponentType<EditorSlotProps>
   /** A workflow's or function's Overview, below the Versions and Recent runs cards. */
   'workflow.overview'?: ComponentType<EditorSlotProps>
+  /**
+   * Controls for node fields, by the name a field's `control` asks for: drawn
+   * in place of the field's own input wherever a node is configured in a
+   * workspace's editor. The first enabled extension with the name wins.
+   */
+  'node.controls'?: Readonly<Record<string, ComponentType<NodeFieldControlProps>>>
 }
 
 export type SlotName = keyof WebExtensionSlots

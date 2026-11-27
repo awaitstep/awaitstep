@@ -42,6 +42,7 @@ const configFieldSchema = z
     placeholder: z.string().optional(),
     language: z.enum(['sql']).optional(),
     options: z.array(z.string()).optional(),
+    control: z.string().max(64).optional(),
     envVarName: z.string().optional(),
     validation: fieldValidationSchema.optional(),
   })

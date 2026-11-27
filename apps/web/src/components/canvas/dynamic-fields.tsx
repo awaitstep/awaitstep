@@ -9,6 +9,7 @@ import { ExpressionEditor } from './expression-editor'
 import { DateTimePicker } from '../ui/datetime-picker'
 import { cn } from '../../lib/utils'
 import { useNodeExpressionErrors } from '../../hooks/use-node-expression-errors'
+import { useNodeFieldControl } from '../../extensions/node-field-control'
 
 interface DynamicFieldsProps {
   configSchema: Record<string, ConfigField>
@@ -96,7 +97,9 @@ export function fieldTakesId(field: ConfigField): boolean {
 
 function DynamicField({ field, value, onChange, nodeId, readOnly, error }: DynamicFieldProps) {
   const id = useId()
-  const controlId = fieldTakesId(field) ? id : undefined
+  // An extension's control for the field, when one is installed for it.
+  const drawControl = useNodeFieldControl(field.control)
+  const controlId = drawControl || fieldTakesId(field) ? id : undefined
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -105,14 +108,18 @@ function DynamicField({ field, value, onChange, nodeId, readOnly, error }: Dynam
           {field.required && <span className="ml-0.5 text-destructive">*</span>}
         </Label>
       </div>
-      <FieldRenderer
-        field={field}
-        value={value}
-        onChange={onChange}
-        nodeId={nodeId}
-        id={controlId}
-        readOnly={readOnly}
-      />
+      {drawControl ? (
+        drawControl({ id, value, onChange, readOnly: readOnly === true })
+      ) : (
+        <FieldRenderer
+          field={field}
+          value={value}
+          onChange={onChange}
+          nodeId={nodeId}
+          id={controlId}
+          readOnly={readOnly}
+        />
+      )}
       {error && (
         <p role="alert" className="text-xs text-destructive">
           {error}

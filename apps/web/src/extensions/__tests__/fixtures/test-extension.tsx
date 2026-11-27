@@ -3,6 +3,7 @@ import type {
   EditorSlotProps,
   ExtensionPageProps,
   ExtensionPanelProps,
+  NodeFieldControlProps,
   WebExtension,
 } from '../../types'
 
@@ -68,6 +69,20 @@ function SupportPanel({ org, onClose }: ExtensionPanelProps) {
   )
 }
 
+function AccountPicker({ id, value, onChange, readOnly, org, ids }: NodeFieldControlProps) {
+  return (
+    <button
+      type="button"
+      id={id}
+      disabled={readOnly}
+      data-project-id={ids.projectId}
+      onClick={() => onChange('picked')}
+    >
+      Account {String(value)} of {org}
+    </button>
+  )
+}
+
 /** A stand-in for a package plugged in from outside the repo. */
 export const testExtension: WebExtension = {
   id: 'test-ext',
@@ -83,6 +98,7 @@ export const testExtension: WebExtension = {
     'canvas.toolbar': ToolbarButton,
     'ide.toolbar': ToolbarButton,
     'workflow.overview': ToolbarButton,
+    'node.controls': { 'account-picker': AccountPicker },
   },
   pages: [
     {
