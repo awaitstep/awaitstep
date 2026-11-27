@@ -322,38 +322,39 @@ describe('validateArmsIntoJoins: merges judged the way codegen follows arms', ()
   })
 
   it('stays linear on many branches sharing one long chain', () => {
-    // Gates times chain would be quadratic. Compared with a sixteenth of the
-    // graph, not against a clock: sixteen times the graph takes about sixteen
-    // times as long when linear, 256 when quadratic, however fast the machine.
-    // The bar sits halfway between the two (in ratio), so a busy machine that
-    // triples the larger graph's time still passes and quadratic still fails.
+    // Gates times chain would be quadratic. Counted, not timed: how often the
+    // check follows a chain connection, which a clock on a busy machine
+    // cannot skew. Four times the graph reads about four times as many when
+    // linear, sixteen when quadratic.
     const graph = (scale: number) => {
+      const reads = { n: 0 }
       const chain = Array.from({ length: 250 * scale }, (_, i) => node(`c${i}`))
-      const chainEdges = chain
-        .slice(1)
-        .map((n, i) => ({ id: `ce${i}`, source: `c${i}`, target: n.id }))
-      const gates = Array.from({ length: 150 * scale }, (_, i) => node(`g${i}`, 'branch'))
+      const chainEdges = chain.slice(1).map((n, i) => ({
+        id: `ce${i}`,
+        source: `c${i}`,
+        get target() {
+          reads.n++
+          return n.id
+        },
+      }))
       const joins = Array.from({ length: 20 }, (_, i) => node(`j${i}`))
+      const labels = ['a', ...joins.map((_, k) => `b${k}`)]
+      const gates = Array.from({ length: 150 * scale }, (_, i) =>
+        withConditions(node(`g${i}`, 'branch'), labels),
+      )
       const gateEdges = gates.flatMap((g, i) => [
         { id: `a${i}`, source: g.id, target: 'c0', label: 'a' },
         ...joins.map((j, k) => ({ id: `b${i}-${k}`, source: g.id, target: j.id, label: `b${k}` })),
       ])
-      return doc([...gates, ...chain, ...joins], [...chainEdges, ...gateEdges])
+      return { ir: doc([...gates, ...chain, ...joins], [...chainEdges, ...gateEdges]), reads }
     }
-    // The fastest of a few runs, so a pause of the machine does not count.
-    const fastest = (ir: ReturnType<typeof graph>) => {
-      let best = Infinity
-      for (let run = 0; run < 10; run++) {
-        const started = performance.now()
-        validateArmsIntoJoins(ir)
-        best = Math.min(best, performance.now() - started)
-      }
-      return best
+    const readsFor = (scale: number) => {
+      const { ir, reads } = graph(scale)
+      reads.n = 0
+      validateArmsIntoJoins(ir)
+      return reads.n
     }
-    const small = graph(1)
-    const large = graph(16)
-    validateArmsIntoJoins(small)
-    expect(fastest(large) / fastest(small)).toBeLessThan(64)
+    expect(readsFor(4) / readsFor(1)).toBeLessThan(8)
   })
 })
 
