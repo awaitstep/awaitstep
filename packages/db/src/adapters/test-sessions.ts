@@ -149,7 +149,8 @@ export class TestSessionsAdapter {
   }
 
   /**
-   * Publishes where the worker ended up. Only a session still inside its
+   * Publishes where the worker ended up (nothing, for a runner with no
+   * process or port). Only a session still inside its
    * start timeout can activate: a slow start the reaper already wrote off
    * must not come back after the user retried, or they hold two live sessions
    * against a cap of one. Scoped to the owner so the caller needs no separate
@@ -158,8 +159,8 @@ export class TestSessionsAdapter {
   async activate(
     id: string,
     userId: string,
-    processId: string,
-    port: number,
+    processId: string | null,
+    port: number | null,
     cutoffs: TestSessionCutoffs,
   ): Promise<TestSession | null> {
     const rows = await this.db

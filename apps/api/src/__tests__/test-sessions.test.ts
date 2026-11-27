@@ -15,6 +15,7 @@ import { reapTestSessions, resolveTestSession } from '../lib/test-sessions.js'
 import { resolveTestSessionLimits, testSessionCutoffs } from '../lib/test-session-policy.js'
 import { hashApiKey } from '../lib/api-key-hash.js'
 import { BundleEscapeError } from '@awaitstep/provider-cloudflare'
+import { TestSessionRefusal } from '@awaitstep/codegen'
 
 const validIR = {
   metadata: {
@@ -176,6 +177,47 @@ describe('test session routes', () => {
       })
     })
 
+    it('holds a runner to the cap on everyone’s sessions only when its sessions share a pool', async () => {
+      const one = createTestApp({
+        testSessionRunner: runner,
+        testSessionLimits: { maxConcurrentTotal: 1 },
+      })
+      await mockDb.reserveTestSession(
+        {
+          id: 'theirs',
+          workflowId: 'wf-1',
+          userId: 'someone-else',
+          runtime: 'node',
+          containerId: 'fake-theirs',
+        },
+        {
+          cutoffs: testSessionCutoffs(LIMITS),
+          projectId: TEST_PROJECT_ID,
+          maxConcurrentPerUser: 5,
+          maxConcurrentTotal: 10,
+          maxPerWindowPerProject: 50,
+          quotaWindowStart: '2000-01-01T00:00:00.000Z',
+        },
+      )
+      const post = (app: typeof one) =>
+        app.request(url('/api/workflows/wf-1/test-sessions'), { method: 'POST' })
+
+      // Zero stops every start, whatever the runner.
+      const off = createTestApp({
+        testSessionRunner: runner,
+        testSessionLimits: { maxConcurrentTotal: 0 },
+      })
+      runner.pooled = false
+      expect((await post(off)).status).toBe(503)
+      runner.pooled = undefined
+
+      // Containers: the one there is, is taken.
+      expect((await post(one)).status).toBe(429)
+      // No container is held by a session of this runner.
+      runner.pooled = false
+      expect((await post(one)).status).toBe(201)
+    })
+
     it('says so when this deployment cannot run sessions at all', async () => {
       const without = createTestApp()
       const res = await without.request(url('/api/workflows/wf-1/test-sessions'), {
@@ -206,6 +248,47 @@ describe('test session routes', () => {
 
       expect(res.status).toBe(422)
       expect(((await res.json()) as { error: string }).error).toContain('host-secret')
+    })
+
+    it('answers a start the runner turned away with the runner’s own status and words', async () => {
+      runner.failStart = new TestSessionRefusal('Ada is testing this workflow', 409)
+      const res = await start(app)
+
+      expect(res.status).toBe(409)
+      expect(await res.json()).toEqual({ error: 'Ada is testing this workflow' })
+      // Turned away is still a start that did not happen: nothing is left live.
+      expect(runner.stopped).toHaveLength(1)
+      expect(await mockDb.listExpiredTestSessions(FUTURE, 10)).toHaveLength(0)
+    })
+
+    it('tells the runner whose session it starts', async () => {
+      await start(app)
+
+      expect(runner.targets[0]).toMatchObject({
+        organizationId: TEST_ORG_ID,
+        projectId: TEST_PROJECT_ID,
+        userId: TEST_USER_ID,
+        workflowId: 'wf-1',
+      })
+    })
+
+    it('runs a session whose runner has no process or port', async () => {
+      runner.startResult = () => ({})
+      const res = await start(app)
+
+      expect(res.status).toBe(201)
+      expect(((await res.json()) as { session: { status: string } }).session.status).toBe('running')
+    })
+
+    it('prepares the workflow for the provider the runner runs', async () => {
+      // The workflow is written for cloudflare; a runner of another provider's
+      // deployments is checked the way a deploy to that provider would be.
+      runner.provider = 'not-a-provider'
+      const res = await start(app)
+
+      expect(res.status).toBe(400)
+      expect(((await res.json()) as { error: string }).error).toContain('not-a-provider')
+      expect(runner.started).toHaveLength(0)
     })
 
     it('refuses a workflow with no version', async () => {
@@ -307,6 +390,29 @@ describe('test session routes', () => {
       expect(body.reused).toBe(false)
       expect(body.session.id).not.toBe(first.session.id)
       expect(runner.stopped).toContain(first.session.id)
+    })
+
+    it('leaves the old session to a runner that replaces it at start', async () => {
+      runner.replaces = true
+      const first = (await (await start(app)).json()) as { session: { id: string } }
+      const write = await app.request(url('/api/workflows/wf-1/files/lib/format.ts'), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'If-None-Match': '*' },
+        body: JSON.stringify({ source: 'export const format = (n: number) => `${n}`\n' }),
+      })
+      expect(write.status).toBe(201)
+
+      const body = (await (await start(app)).json()) as { session: { id: string } }
+      expect(body.session.id).not.toBe(first.session.id)
+      // Recorded as stopped, and the runner was not asked to stop it.
+      expect(runner.stopped).not.toContain(first.session.id)
+      const old = await app.request(url(`/api/test-sessions/${first.session.id}/trigger`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: {} }),
+      })
+      expect(old.status).toBe(410)
+      expect(runner.triggers).toHaveLength(0)
     })
 
     it('starts again after a workflow variable changes', async () => {
@@ -474,6 +580,41 @@ describe('test session routes', () => {
         body: { instanceId: 'inst-1' },
       })
       expect(runner.triggers).toEqual([{ sessionId: session.id, payload: { email: 'a@b.c' } }])
+    })
+
+    it('answers a trigger the runner turned away with its status and when to retry', async () => {
+      const { session } = (await (await start(app)).json()) as { session: { id: string } }
+      runner.failTrigger = new TestSessionRefusal('No test runs left today', 429, {
+        retryAfterSeconds: 90,
+      })
+      const res = await app.request(url(`/api/test-sessions/${session.id}/trigger`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: {} }),
+      })
+
+      expect(res.status).toBe(429)
+      expect(res.headers.get('Retry-After')).toBe('90')
+      expect(await res.json()).toEqual({ error: 'No test runs left today' })
+    })
+
+    it('ends a session the runner says it no longer has, so the next start is a new one', async () => {
+      const { session } = (await (await start(app)).json()) as { session: { id: string } }
+      runner.failTrigger = new TestSessionRefusal('This test session has ended.', 410)
+      const res = await app.request(url(`/api/test-sessions/${session.id}/trigger`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: {} }),
+      })
+      expect(res.status).toBe(410)
+
+      runner.failTrigger = null
+      const next = (await (await start(app)).json()) as {
+        session: { id: string }
+        reused: boolean
+      }
+      expect(next.reused).toBe(false)
+      expect(next.session.id).not.toBe(session.id)
     })
 
     it('refuses a session that belongs to someone else', async () => {

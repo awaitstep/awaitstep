@@ -55,7 +55,7 @@ export type {
   TestSessionResponse,
   TestSessionLogPage,
 } from './test-session.js'
-export { TEST_SESSION_RUNTIMES } from './test-session.js'
+export { TEST_SESSION_RUNTIMES, TestSessionRefusal } from './test-session.js'
 export type { CodeGenerator, GenerateMode } from './code-generator.js'
 export type { TemplateResolver } from './template-resolver.js'
 

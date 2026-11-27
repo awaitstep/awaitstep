@@ -276,4 +276,10 @@ export interface ExtensionsPackage {
   publicRunUrl?: string
   /** The only database the app runs on: `'postgres'` refuses to start without `DATABASE_URL`. */
   database?: 'postgres'
+  /**
+   * What runs test sessions on a Worker entry, in place of the container
+   * runner. Built with no bindings, as a provider is. The Node entries keep
+   * `wrangler dev` on the host whatever is set here.
+   */
+  testSessionRunner?: TestSessionRunner
 }

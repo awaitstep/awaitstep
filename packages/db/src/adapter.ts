@@ -960,12 +960,15 @@ export interface DatabaseAdapter {
     data: ReserveTestSessionData,
     limits: ReserveTestSessionLimits,
   ): Promise<TestSession | null>
-  /** Publishes the worker's process and port; null unless still `starting` and in time. */
+  /**
+   * Publishes the session as running, with the worker's process and port when
+   * its runner has them; null unless still `starting` and in time.
+   */
   activateTestSession(
     id: string,
     userId: string,
-    processId: string,
-    port: number,
+    processId: string | null,
+    port: number | null,
     cutoffs: TestSessionCutoffs,
   ): Promise<TestSession | null>
   /** Session + workflow + expiry, scoped to its owner, project and (when given) workspace in one statement. */

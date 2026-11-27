@@ -35,6 +35,7 @@ import {
   type FailedCall,
   type RecordedRun,
 } from '../lib/run-settle.js'
+import type { TestSessionRunner } from '@awaitstep/codegen'
 import { SandboxWranglerDeployer, SandboxTestSessionRunner } from '@awaitstep/provider-cloudflare'
 import { testSessionLimitsFromEnv } from '../lib/test-session-env.js'
 import { reapTestSessions } from '../lib/test-sessions.js'
@@ -345,6 +346,7 @@ export function workerAppOptions(options: WorkerOptions): {
   oauthReturnPath?: string
   acceptedAuth?: ExtensionsPackage['acceptedAuth']
   publicRunUrl?: string
+  testSessionRunner?: TestSessionRunner
 } {
   const extensions = options.extensions ?? []
   checkExtensions(extensions)
@@ -359,6 +361,9 @@ export function workerAppOptions(options: WorkerOptions): {
     ...(options.acceptedAuth !== undefined && { acceptedAuth: options.acceptedAuth }),
     ...(options.publicRunUrl !== undefined && {
       publicRunUrl: checkPublicRunUrl(options.publicRunUrl),
+    }),
+    ...(options.testSessionRunner !== undefined && {
+      testSessionRunner: options.testSessionRunner,
     }),
   }
 }
@@ -431,7 +436,8 @@ export function createWorker(options: WorkerOptions = {}) {
               : Promise.resolve(),
             reapTestSessions({
               db,
-              runner: testSessionRunnerFor(env, sleepAfter),
+              // The entry's own runner when it brings one: it is what started them.
+              runner: appOptions.testSessionRunner ?? testSessionRunnerFor(env, sleepAfter),
               limits,
             }),
           ]),

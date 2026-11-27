@@ -1,9 +1,13 @@
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
-import type { StartedTestSessionHandle, TestSessionRunner } from '@awaitstep/codegen'
-import type { TestSession } from '@awaitstep/db'
+import {
+  TestSessionRefusal,
+  type StartedTestSessionHandle,
+  type TestSessionRunner,
+} from '@awaitstep/codegen'
 import type { FileManifest } from '@awaitstep/ir'
+import type { TestSession } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
 import { zValidator } from '../lib/validation.js'
 import { testSessionCutoffs, type TestSessionLimits } from '../lib/test-session-policy.js'
@@ -166,6 +170,18 @@ testSessions.post(
       )
       return c.json({ status: response.status, body: response.body })
     } catch (err) {
+      // A limit, or a session that is no longer the runner's: said as the runner put it.
+      if (err instanceof TestSessionRefusal) {
+        if (err.retryAfterSeconds !== undefined) {
+          c.header('Retry-After', String(Math.max(1, Math.ceil(err.retryAfterSeconds))))
+        }
+        // The runner no longer has it: the record says so too, or the next
+        // start would hand this session back as live.
+        if (err.status === 410) {
+          await stopTestSession(context, session, 'stopped', { error: err.message })
+        }
+        return c.json({ error: err.message }, err.status as 429)
+      }
       const message = err instanceof Error ? err.message : 'Could not reach the test session'
       return c.json({ error: message }, 502)
     }

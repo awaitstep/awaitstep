@@ -2620,10 +2620,21 @@ export { mockDb, mockAuth }
  */
 export class FakeTestSessionRunner implements TestSessionRunner {
   readonly runtime = 'node' as const
+  /** Set to make the runner one that runs a provider's deployments. */
+  provider?: string
+  /** Set false for a runner whose sessions hold no container. */
+  pooled?: boolean
+  /** Set for a runner whose start ends the workflow's earlier session itself. */
+  replaces?: boolean
   started: string[] = []
+  /** What each start was told about whose session it is. */
+  targets: TestSessionTarget[] = []
   stopped: string[] = []
   triggers: { sessionId: string; payload: unknown }[] = []
   failStart: string | Error | null = null
+  failTrigger: Error | null = null
+  /** What a start reports back; a runner with no process or port reports nothing. */
+  startResult: ((sessionId: string) => { processId?: string; port?: number }) | null = null
   logs_: ProcessLogEntry[] = []
 
   containerId(sessionId: string) {
@@ -2635,10 +2646,13 @@ export class FakeTestSessionRunner implements TestSessionRunner {
       throw typeof this.failStart === 'string' ? new Error(this.failStart) : this.failStart
     }
     this.started.push(target.sessionId)
+    this.targets.push(target)
+    if (this.startResult) return this.startResult(target.sessionId)
     return { processId: `pid-${target.sessionId}`, port: 8800 }
   }
 
   async trigger(handle: StartedTestSessionHandle, payload: unknown) {
+    if (this.failTrigger) throw this.failTrigger
     this.triggers.push({ sessionId: handle.sessionId, payload })
     return { status: 200, body: { instanceId: 'inst-1' } }
   }
