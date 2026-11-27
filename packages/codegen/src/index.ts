@@ -173,7 +173,9 @@ export type { ExpressionScopes, NodeExpressionProblem } from './expression-scope
 export type { ImportBinding, ImportSource } from './imports.js'
 export {
   MAX_STEP_CODE_LENGTH,
+  LEGACY_STEP_MODULE_SIGNATURE,
   STEP_MODULE_PARAMS,
+  nestedStepProblem,
   STEP_MODULE_SIGNATURE,
   isStepModule,
   stepFunctionName,

@@ -7,6 +7,7 @@ import {
   normalizeStepModule,
   normalizeStepModules,
   renameStepFunction,
+  nestedStepProblem,
   stepBodyFromModule,
   stepFunctionName,
   stepModuleProblem,
@@ -15,7 +16,7 @@ import {
   stepReturnsValue,
 } from '../step-module.js'
 
-const MODULE = `export default async function fetch_user({ env, event, inputs, step, ctx }) {
+const MODULE = `export default async function fetch_user({ env, event, inputs, ctx }) {
   return { id: 1 };
 }
 `
@@ -52,7 +53,7 @@ describe('isStepModule / stepFunctionName', () => {
 describe('stepModuleTemplate', () => {
   it('opens a new step with the documented body inside the signature', () => {
     expect(stepModuleTemplate('New_step')).toBe(
-      'export default async function New_step({ env, event, inputs, step, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
+      'export default async function New_step({ env, event, inputs, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
     )
   })
 })
@@ -62,7 +63,7 @@ describe('normalizeStepModule', () => {
     const body =
       "import { z } from 'zod'\nconst parsed = z.string().parse(fetch_user.id);\nreturn { parsed, at: event.timestamp };"
     expect(normalizeStepModule(body, 'check', ['fetch_user', 'other'])).toBe(
-      "import { z } from 'zod'\n\nexport default async function check({ env, event, inputs, step, ctx }) {\n  const { fetch_user } = inputs;\n  const parsed = z.string().parse(fetch_user.id);\n  return { parsed, at: event.timestamp };\n}\n",
+      "import { z } from 'zod'\n\nexport default async function check({ env, event, inputs, ctx }) {\n  const { fetch_user } = inputs;\n  const parsed = z.string().parse(fetch_user.id);\n  return { parsed, at: event.timestamp };\n}\n",
     )
   })
 
@@ -92,7 +93,7 @@ describe('normalizeStepModule', () => {
       'fetch_user',
     ])
     expect(out).toBe(
-      'export default async function x({ env, event, inputs, step, ctx }) {\n  const { fetch_user } = inputs;\n  return await (async () => {\n    const ctx = 1;\n    return ctx + fetch_user.id;\n  })();\n}\n',
+      'export default async function x({ env, event, inputs, ctx }) {\n  const { fetch_user } = inputs;\n  return await (async () => {\n    const ctx = 1;\n    return ctx + fetch_user.id;\n  })();\n}\n',
     )
     expect(normalizeStepModule('return ctx.attempt;', 'x', [])).not.toContain('async () =>')
   })
@@ -120,7 +121,7 @@ describe('stepBodyFromModule', () => {
     )
     expect(
       stepBodyFromModule(
-        'export default async function x({ env, event, inputs, step, ctx }) {\n  return inputs.item.price + inputs.error.message;\n}\n',
+        'export default async function x({ env, event, inputs, ctx }) {\n  return inputs.item.price + inputs.error.message;\n}\n',
         { item: 'item', error: 'err' },
       ),
     ).toBe('return item.price + err.message;\n')
@@ -178,7 +179,7 @@ describe('normalizeStepModules', () => {
 describe('followStepFunctionNames', () => {
   const step = (id: string, name: string, fn: string) =>
     node(id, name, {
-      code: `export default async function ${fn}({ env, event, inputs, step, ctx }) {}`,
+      code: `export default async function ${fn}({ env, event, inputs, ctx }) {}`,
     })
 
   it('renames the functions of steps whose variable names moved, and a new step’s to its own', () => {
@@ -300,13 +301,86 @@ describe('reading a module without parsing it (security review round 1)', () => 
 describe('stepBodyFromModule leaves alone what it cannot unwrap faithfully', () => {
   it('a helper declared beside the function, or a destructure that renames or defaults', () => {
     const withHelper =
-      'export default async function x({ env, event, inputs, step, ctx }) {\n  return helper();\n}\nfunction helper() { return 1; }\n'
+      'export default async function x({ env, event, inputs, ctx }) {\n  return helper();\n}\nfunction helper() { return 1; }\n'
     expect(stepBodyFromModule(withHelper)).toBe(withHelper)
     const renames =
-      'export default async function x({ env, event, inputs, step, ctx }) {\n  const { a: b } = inputs;\n  return b;\n}\n'
+      'export default async function x({ env, event, inputs, ctx }) {\n  const { a: b } = inputs;\n  return b;\n}\n'
     expect(stepBodyFromModule(renames)).toBe(renames)
     const defaults =
-      'export default async function x({ env, event, inputs, step, ctx }) {\n  const { a = 1 } = inputs;\n  return a;\n}\n'
+      'export default async function x({ env, event, inputs, ctx }) {\n  const { a = 1 } = inputs;\n  return a;\n}\n'
     expect(stepBodyFromModule(defaults)).toBe(defaults)
+  })
+})
+
+describe('a step is handed no `step`', () => {
+  const stepNode = (code: string, inline = false) =>
+    ({ id: 's1', type: 'step', name: 'Check', data: { code, inline } }) as unknown as WorkflowNode
+  const current = (body: string) =>
+    `export default async function Check({ env, event, inputs, ctx }) {\n  ${body}\n}\n`
+  const legacy = (body: string) =>
+    `export default async function Check({ env, event, inputs, step, ctx }) {\n  ${body}\n}\n`
+
+  it('opens a new step, and wraps a body, without it in the signature', () => {
+    expect(stepModuleTemplate('Check', 'return 1;')).toBe(current('return 1;'))
+    expect(normalizeStepModule('return 1;', 'Check', [], {})).toBe(current('return 1;'))
+    for (const kind of ['script', undefined]) {
+      const ir = { ...(kind && { kind }), nodes: [stepNode('return 1;')] }
+      expect(normalizeStepModules(ir).nodes[0]!.data.code).toBe(current('return 1;'))
+    }
+  })
+
+  it('drops the parameter from a module written when a step had one', () => {
+    expect(normalizeStepModule(legacy('return 1;'), 'Check', [], {})).toBe(current('return 1;'))
+    // One that still uses it is left for the check to name.
+    const calling = legacy('return step.do("x", async () => 1);')
+    expect(normalizeStepModule(calling, 'Check', [], {})).toBe(calling)
+    expect(nestedStepProblem(stepNode(calling))).toContain('`step.do`')
+  })
+
+  it('reads a module that is mostly spaces without slowing down', () => {
+    const code = 'export default async function' + ' '.repeat(240_000)
+    const started = performance.now()
+    expect(normalizeStepModule(code, 'Check', [], {})).toBe(code)
+    expect(performance.now() - started).toBeLessThan(1_000)
+  })
+
+  it('turns a module of either signature back into inline statements', () => {
+    for (const module of [current('return 1;'), legacy('return 1;')]) {
+      expect(stepBodyFromModule(module)).toBe('return 1;\n')
+    }
+  })
+
+  it.each([
+    ['await step.do("x", async () => 1)', 'do'],
+    ['await step.sleep("nap", "1 second")', 'sleep'],
+    ['return step?.waitForEvent("e", { type: "t" })', 'waitForEvent'],
+  ])('refuses %s, as a module or inline, in a workflow and a function', (body, method) => {
+    for (const node of [stepNode(current(body)), stepNode(legacy(body)), stepNode(body, true)]) {
+      for (const kind of ['script', undefined]) {
+        expect(stepModuleProblems({ ...(kind && { kind }), nodes: [node] })).toEqual([
+          {
+            path: 'nodes.s1.data.code',
+            nodeId: 's1',
+            message: `\`step.${method}\` cannot be called from a step’s code: a step does not start another step. Move it into its own node.`,
+          },
+        ])
+      }
+    }
+  })
+
+  it.each([
+    ['a module that only names it in its signature', legacy('return 1;')],
+    ['a comment or a string', current('// step.do("x")\n  return "step.do(";')],
+    [
+      'a `step` the code declares itself',
+      current('const step = { do: (n) => n };\n  return step.do(1);'),
+    ],
+    ['another object’s method', current('return inputs.step.do(1) + my_step.do(2);')],
+    ['an arrow parameter', current('return list.map((step) => step.do());')],
+    ['a bare arrow parameter', current('return list.map(step => step.do());')],
+    ['a later parameter', current('return list.map(function (a, step) { return step.do() });')],
+    ['an import', 'import { step } from "./lib";\n' + current('return step.do();')],
+  ])('lets through %s', (_what, module) => {
+    expect(stepModuleProblems({ nodes: [stepNode(module)] })).toEqual([])
   })
 })

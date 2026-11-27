@@ -146,7 +146,7 @@ describe('validateWorkflowForPublish', () => {
       expect(result.issues).toContainEqual(
         expect.objectContaining({
           severity: 'error',
-          message: 'This code calls a step inside a step. Move the inner call into its own node.',
+          message: expect.stringContaining('cannot be called from a step’s code'),
         }),
       )
     })

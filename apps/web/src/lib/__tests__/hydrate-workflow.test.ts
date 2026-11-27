@@ -93,10 +93,10 @@ describe('buildWorkflowStoreState', () => {
     const nodes = state.nodes as { data: { irNode: { data: { code: string } } } }[]
     const codes = nodes.map((n) => n.data.irNode.data.code)
     expect(codes[0]).toBe(
-      'export default async function Step_1({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n',
+      'export default async function Step_1({ env, event, inputs, ctx }) {\n  return 1;\n}\n',
     )
     expect(codes[1]).toBe(
-      'export default async function Step_2({ env, event, inputs, step, ctx }) {\n  const { Step_1 } = inputs;\n  return Step_1 + 1;\n}\n',
+      'export default async function Step_2({ env, event, inputs, ctx }) {\n  const { Step_1 } = inputs;\n  return Step_1 + 1;\n}\n',
     )
   })
 

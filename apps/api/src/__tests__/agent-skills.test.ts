@@ -61,7 +61,7 @@ describe('agent skill examples', () => {
       // The try/catch arms keep their values local; the continuation has no
       // inputs, which is what the example's report step says.
       if (name === 'try-catch.json') {
-        expect(source).toContain('$report(stepArgs({ env, event, inputs: {}, step, ctx }))')
+        expect(source).toContain('$report(stepArgs({ env, event, inputs: {}, ctx }))')
       }
     },
   )

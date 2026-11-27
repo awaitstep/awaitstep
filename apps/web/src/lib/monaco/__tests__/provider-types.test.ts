@@ -24,6 +24,14 @@ function fakeMonaco() {
 afterEach(() => resetProviderTypePacks())
 
 describe('provider type packs', () => {
+  it('offers no `step` global: a step does not start another', () => {
+    const { libs, monaco } = fakeMonaco()
+    setProviderTypePackFor('canvas', monaco, 'cloudflare')
+    const pack = [...libs.values()][0]!
+    expect(pack).not.toContain('declare const step')
+    expect(pack).toContain('interface WorkflowStep')
+  })
+
   it('keeps the provider pack while another owner is neutral', () => {
     const { libs, monaco } = fakeMonaco()
     setProviderTypePackFor('canvas', monaco, 'cloudflare')

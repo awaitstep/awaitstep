@@ -375,6 +375,34 @@ describe('test session routes', () => {
       expect(runner.stopped).toContain(first.session.id)
     })
 
+    it('refuses a function whose step still calls `step`, naming the step', async () => {
+      // Stored before functions lost `step`: a save refuses it now, a stored one is met here.
+      const legacy = structuredClone(validIR) as typeof validIR & { kind: string }
+      legacy.kind = 'script'
+      legacy.nodes[0]!.data = {
+        code: 'export default async function Hello({ env, event, inputs, step, ctx }) {\n  return step.do("x", async () => 1);\n}\n',
+      }
+      await mockDb.createWorkflow({
+        id: 'fn-1',
+        projectId: TEST_PROJECT_ID,
+        createdBy: TEST_USER_ID,
+        name: 'Legacy',
+        kind: 'script',
+      } as Parameters<typeof mockDb.createWorkflow>[0])
+      const version = await mockDb.createVersion({
+        id: 'v-fn-1',
+        workflowId: 'fn-1',
+        ir: JSON.stringify(legacy),
+      })
+      await mockDb.updateWorkflow('fn-1', { currentVersionId: version.id })
+
+      const res = await app.request(url('/api/workflows/fn-1/test-sessions'), { method: 'POST' })
+      expect(res.status).toBe(400)
+      expect(((await res.json()) as { error: string }).error).toContain(
+        '`step.do` cannot be called from a step',
+      )
+    })
+
     it('starts again after a project file changes', async () => {
       const first = (await (await start(app)).json()) as { session: { id: string } }
 

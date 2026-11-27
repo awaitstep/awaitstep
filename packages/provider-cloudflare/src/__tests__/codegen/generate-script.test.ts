@@ -205,7 +205,7 @@ describe('generateScript', () => {
     const { files } = generateScriptBundle(ir)
     const worker = files.find((f) => f.path === 'awaitstep/function.ts')!.source
     expect(worker).toMatch(/let shared[;,]/)
-    expect(worker).toContain('$after(stepArgs({ env, event, inputs: { shared }, step, ctx }))')
+    expect(worker).toContain('$after(stepArgs({ env, event, inputs: { shared }, ctx }))')
     expect(files.find((f) => f.path === 'steps/after.ts')!.source).toContain(
       'const { shared } = inputs;',
     )
@@ -387,9 +387,7 @@ describe('generateScript', () => {
     // `consumer` names `producer`, so the consumer module receives it as an
     // input and the producer's const survives in the body.
     expect(code).toMatch(/const producer = await flow\.step\("producer \(producer\)"/)
-    expect(code).toMatch(
-      /\$consumer\(stepArgs\(\{ env, event, inputs: \{ producer \}, step, ctx \}\)\)/,
-    )
+    expect(code).toMatch(/\$consumer\(stepArgs\(\{ env, event, inputs: \{ producer \}, ctx \}\)\)/)
     expect(bundle.files.find((f) => f.path === 'steps/consumer.ts')!.source).toContain(
       'const { producer } = inputs;',
     )
@@ -445,7 +443,7 @@ describe('generateScript', () => {
     const bundle = generateScriptBundle(ir)
     const worker = bundle.files.find((f) => f.path === 'awaitstep/function.ts')!.source
     expect(worker).toContain(
-      'import { createInlineHost, createWorkflowContext, durableStep, stepArgs } from "#awaitstep/runtime";',
+      'import { createInlineHost, createWorkflowContext, stepArgs } from "#awaitstep/runtime";',
     )
     expect(worker).toContain('import $New_step from "#app/steps/new-step.js";')
     // The context's event is a run's: the request payload plus a timestamp
@@ -464,11 +462,12 @@ describe('generateScript', () => {
         '  });',
       ].join('\n'),
     )
-    expect(worker).toContain('const step = durableStep(flow);')
+    // No `step` object in a function: nothing in it is durable.
+    expect(worker).not.toContain('durableStep')
     // Not exported and not referenced, so the value is dropped at the call;
     // the step still runs, and runGraph carries on into the try/catch.
     expect(worker).toMatch(
-      /await flow\.step\("New step \(new-step\)", \{ retries: [\s\S]*?\(ctx\) =>\n\s+\$New_step\(stepArgs\(\{ env, event, inputs: \{\}, step, ctx \}\)\),\n\s+\);\n\s+try \{\n\s+return;\n\s+\} catch \(err\) \{\n\s+return;\n\s+\}\n\s+return \{\};/,
+      /await flow\.step\("New step \(new-step\)", \{ retries: [\s\S]*?\(ctx\) =>\n\s+\$New_step\(stepArgs\(\{ env, event, inputs: \{\}, ctx \}\)\),\n\s+\);\n\s+try \{\n\s+return;\n\s+\} catch \(err\) \{\n\s+return;\n\s+\}\n\s+return \{\};/,
     )
     // The body lives in its module, where its return is the step's value.
     const module = bundle.files.find((f) => f.path === 'steps/new-step.ts')!
@@ -503,8 +502,8 @@ describe('generateScript', () => {
       { id: 'e3', source: 'user', target: 'last' },
     ]
     const code = generateScript(ir)
-    expect(code).toMatch(/\$next\(stepArgs\(\{ env, event, inputs: \{\}, step, ctx \}\)\)/)
-    expect(code).toMatch(/\$last\(stepArgs\(\{ env, event, inputs: \{ user \}, step, ctx \}\)\)/)
+    expect(code).toMatch(/\$next\(stepArgs\(\{ env, event, inputs: \{\}, ctx \}\)\)/)
+    expect(code).toMatch(/\$last\(stepArgs\(\{ env, event, inputs: \{ user \}, ctx \}\)\)/)
   })
 
   it('does not hand a body an input it declares itself', () => {
@@ -523,7 +522,7 @@ describe('generateScript', () => {
     const ir = makeScript([stepNode('s1', 'return 1;', 'step'), stepNode('s2', 'return 2;', 'env')])
     ir.edges = [{ id: 'e1', source: 's1', target: 's2' }]
     const code = generateScript(ir)
-    expect(code).toContain('const step = durableStep(flow);')
+    expect(code).not.toContain('durableStep(flow)')
     expect(code).not.toMatch(/const step = await flow\.step/)
     expect(code).not.toMatch(/const env = await flow\.step/)
     expect(code).toContain('import $step_node from "#app/steps/s1.js";')
@@ -566,9 +565,7 @@ describe('generateScript', () => {
     expect(worker).toMatch(
       /try \{\n\s+Risky = await flow\.step\("EXPORT_Risky \(risky\)", \{ retries: [\s\S]*?\(ctx\) =>/,
     )
-    expect(worker).toContain(
-      '$fallback(stepArgs({ env, event, inputs: { error: err }, step, ctx }))',
-    )
+    expect(worker).toContain('$fallback(stepArgs({ env, event, inputs: { error: err }, ctx }))')
     expect(worker).toMatch(/let Risky;/)
     expect(worker).toMatch(/return \{\s*Risky\s*\}/)
     expect(bundle.files.map((f) => f.path)).toContain('steps/risky.ts')
@@ -642,7 +639,7 @@ describe('generateScript', () => {
     ]
     const code = generateScript(ir)
     expect(code).toMatch(/let blocked;/)
-    expect(code).toContain('$after(stepArgs({ env, event, inputs: { blocked }, step, ctx }))')
+    expect(code).toContain('$after(stepArgs({ env, event, inputs: { blocked }, ctx }))')
   })
 
   it('keeps a node called crypto clear of the header’s own globals', () => {
@@ -758,7 +755,7 @@ describe('generateScript', () => {
       /flow\.step\("Ping \(ping\)", \{ retries: [\s\S]*?async \(\) => flow\.http\(\{ url: "https:\/\/example\.com\/ping" \}\)/,
     )
     expect(worker).toContain('createInlineHost')
-    expect(worker).toContain('durableStep')
+    expect(worker).not.toContain('durableStep')
     expect(worker).toContain('host:')
   })
 
@@ -976,7 +973,7 @@ describe('generateScript', () => {
     expect(code).toMatch(
       /const FirstMatch = await \(async \(\) => \{[\s\S]*let _output;[\s\S]*return _output;\s*\}\)\(\);/,
     )
-    expect(code).toContain('$check(stepArgs({ env, event, inputs: { item }, step, ctx }))')
+    expect(code).toContain('$check(stepArgs({ env, event, inputs: { item }, ctx }))')
     expect(code).toContain('if (check !== undefined) _output = check;')
   })
 
@@ -1470,7 +1467,7 @@ describe('generateScript — code review round 1 of the step-module batch', () =
       stepNode('a', 'return { ok: true };', 'Fetch data'),
       stepNode(
         'b',
-        'export default async function b({ env, event, inputs, step, ctx }) {\n  return { ok: {{a.ok}} };\n}\n',
+        'export default async function b({ env, event, inputs, ctx }) {\n  return { ok: {{a.ok}} };\n}\n',
         'b',
       ),
     ])
@@ -1480,7 +1477,7 @@ describe('generateScript — code review round 1 of the step-module batch', () =
       const module = bundle.files.find((f) => f.path === 'steps/b.ts')!.source
       expect(module).toContain('return { ok: inputs.Fetch_data.ok };')
       expect(workerOf(ir).source).toContain(
-        '$b(stepArgs({ env, event, inputs: { Fetch_data }, step, ctx }))',
+        '$b(stepArgs({ env, event, inputs: { Fetch_data }, ctx }))',
       )
     }
   })
@@ -1529,10 +1526,8 @@ describe('generateScript — code review round 1 of the step-module batch', () =
     expect(fallback).toContain('const { error: err } = inputs;')
     const graph = workerOf(ir).source
     // One `item` key, bound to the loop's item, not the step called item.
-    expect(graph).toContain('$price(stepArgs({ env, event, inputs: { item }, step, ctx }))')
-    expect(graph).toContain(
-      '$fallback(stepArgs({ env, event, inputs: { error: err }, step, ctx }))',
-    )
+    expect(graph).toContain('$price(stepArgs({ env, event, inputs: { item }, ctx }))')
+    expect(graph).toContain('$fallback(stepArgs({ env, event, inputs: { error: err }, ctx }))')
   })
 
   it('nests a body that declares a parameter name instead of redeclaring it', () => {
@@ -1551,7 +1546,7 @@ describe('generateScript — code review round 1 of the step-module batch', () =
     ir.edges = [{ id: 'e1', source: 'a', target: 'b' }]
     const graph = workerOf(ir).source
     expect(graph).not.toContain('const a =')
-    expect(graph).toContain('$b(stepArgs({ env, event, inputs: {}, step, ctx }))')
+    expect(graph).toContain('$b(stepArgs({ env, event, inputs: {}, ctx }))')
   })
 
   it('gives a loop no value when the returning step sits in a branch inside its body', () => {
@@ -1596,9 +1591,7 @@ describe('generateScript — code review round 1 of the step-module batch', () =
       { id: 'e1', source: 'a', target: 'b' },
       { id: 'e2', source: 'b', target: 'c' },
     ]
-    expect(workerOf(ir).source).toContain(
-      '$c(stepArgs({ env, event, inputs: { a, b }, step, ctx }))',
-    )
+    expect(workerOf(ir).source).toContain('$c(stepArgs({ env, event, inputs: { a, b }, ctx }))')
   })
 
   it('refuses a bundle whose project file sits at a step’s module path, naming the step', () => {
