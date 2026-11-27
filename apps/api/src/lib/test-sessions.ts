@@ -8,7 +8,7 @@ import {
   type TestSessionRunner,
   type TestSessionStart,
 } from '@awaitstep/codegen'
-import { buildFileManifest } from '@awaitstep/ir'
+import { readSessionManifest, sessionManifest } from './test-session-manifest.js'
 import { splitEnvVars } from '@awaitstep/codegen'
 import type { AppNodeRegistry } from './node-registry.js'
 import { prepareWorkflow, isPrepareError } from './workflow-prepare.js'
@@ -215,7 +215,13 @@ export async function startTestSession(
     testSessionCutoffs(limits),
   )
   if (existing) {
-    const current = existing.versionId === prepared.versionId && existing.sourceHash === sourceHash
+    // The same graph as stored too: the editor compares the session's with
+    // the saved one, and a session handed back must not read as behind.
+    const builtFrom = readSessionManifest(existing.files).graphHash
+    const current =
+      existing.versionId === prepared.versionId &&
+      existing.sourceHash === sourceHash &&
+      (builtFrom === null || builtFrom === prepared.graphHash)
     if (!current && existing.createdAt > requestedAt) {
       // Another start reserved it while this one prepared, from code that
       // differs. Stopping it could put older code back, and handing it back
@@ -246,7 +252,7 @@ export async function startTestSession(
       userId,
       runtime: runner.runtime,
       containerId: runner.containerId(id),
-      files: buildFileManifest(prepared.projectFileRows),
+      files: sessionManifest(prepared.projectFileRows, prepared.graphHash),
       sourceHash,
     },
     {

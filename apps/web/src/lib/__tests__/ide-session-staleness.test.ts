@@ -134,3 +134,33 @@ describe('review regressions', () => {
     expect(isBehind(result)).toBe(false)
   })
 })
+
+describe('a save that keeps the version id', () => {
+  const built = (graphHash: string | null) => ({ ...session({}), graphHash })
+  const now = (s: TestSession, graphHash: string | null) =>
+    sessionStaleness({
+      session: s,
+      versionId: 'v1',
+      currentHashes: null,
+      unsavedCount: 0,
+      graphHash,
+    })
+
+  it('leaves the session behind until it is restarted', () => {
+    const result = now(built('g1'), 'g2')
+    expect(isBehind(result)).toBe(true)
+    expect(result.signature).toBe('g:g2|v:v1')
+  })
+
+  it('asks again after the next save', () => {
+    expect(now(built('g1'), 'g2').signature).not.toBe(now(built('g1'), 'g3').signature)
+  })
+
+  it.each([
+    ['the same graph', 'g1', 'g1'],
+    ['a session from before the graph was recorded', null, 'g2'],
+    ['a graph not read yet', 'g1', null],
+  ])('is up to date with %s', (_name, sessionGraph, current) => {
+    expect(isBehind(now(built(sessionGraph), current))).toBe(false)
+  })
+})

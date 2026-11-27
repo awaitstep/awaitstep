@@ -33,7 +33,7 @@ export function TestSessionPanel({
   const savedLine = session && running ? describeSavedChanges(stale, session.createdAt) : null
   const versionLine =
     running && stale.version && !savedLine
-      ? 'A newer version was saved after this session started.'
+      ? 'Changes were saved after this session started. Restart to run them.'
       : null
   const unsavedLine = running && stale.unsaved > 0 ? (unsavedWords ?? describeUnsaved(stale)) : null
 
