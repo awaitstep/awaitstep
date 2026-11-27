@@ -20,7 +20,7 @@ describe('test session runtime enum', () => {
   it('is the same set on both sides of the seam', () => {
     expect(aligned).toBe(true)
     // A value-level copy of the same guard, so the list itself is pinned.
-    const stored: StoredRuntime[] = ['sandbox', 'node']
+    const stored: StoredRuntime[] = ['sandbox', 'node', 'managed']
     expect([...TEST_SESSION_RUNTIMES].sort()).toEqual([...stored].sort())
   })
 })

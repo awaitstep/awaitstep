@@ -630,7 +630,7 @@ export const testSessions = pgTable(
       onDelete: 'set null',
     }),
     userId: text('user_id').notNull(),
-    runtime: text('runtime', { enum: ['sandbox', 'node'] }).notNull(),
+    runtime: text('runtime', { enum: ['sandbox', 'node', 'managed'] }).notNull(),
     containerId: text('container_id').notNull(),
     processId: text('process_id'),
     port: integer('port'),

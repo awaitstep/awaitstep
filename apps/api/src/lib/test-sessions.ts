@@ -3,8 +3,10 @@ import { NO_VERSION_MESSAGE } from './blank-source.js'
 import type { DatabaseAdapter, TestSession, Workflow } from '@awaitstep/db'
 import {
   GenerateInputError,
+  TestSessionRefusal,
   type TestSessionHandle,
   type TestSessionRunner,
+  type TestSessionStart,
 } from '@awaitstep/codegen'
 import { buildFileManifest } from '@awaitstep/ir'
 import { splitEnvVars } from '@awaitstep/codegen'
@@ -37,6 +39,20 @@ export interface StartTestSessionInput extends TestSessionDeps {
 export type StartTestSessionResult =
   | { ok: true; session: TestSession; reused: boolean }
   | { ok: false; status: number; error: string; details?: unknown }
+
+/** As good as no cap, and still a number the reservation's query can compare with. */
+const NO_TOTAL_CAP = 1_000_000
+
+/**
+ * The limits a start is held to with this runner. The cap on everyone's live
+ * sessions together protects a pool of containers; a runner whose sessions
+ * hold none is not held to it. Zero stays zero: that is the switch that
+ * stops every start.
+ */
+function limitsFor(runner: TestSessionRunner, limits: TestSessionLimits): TestSessionLimits {
+  if (runner.pooled !== false || limits.maxConcurrentTotal === 0) return limits
+  return { ...limits, maxConcurrentTotal: NO_TOTAL_CAP }
+}
 
 const OVERLAPPING_START =
   'Another test session started while this one was being built. Start it again.'
@@ -138,7 +154,8 @@ export async function stopWorkflowTestSessions(
 export async function startTestSession(
   input: StartTestSessionInput,
 ): Promise<StartTestSessionResult> {
-  const { db, runner, limits, workflow, projectId, userId } = input
+  const { db, runner, workflow, projectId, userId } = input
+  const limits = limitsFor(runner, input.limits)
   // A session reserved after this moment came from a start that overlapped
   // this one; which of the two read the newer code is not known.
   const requestedAt = new Date().toISOString()
@@ -161,6 +178,9 @@ export async function startTestSession(
     organizationId: input.organizationId,
     projectId,
     ...(input.nodeRegistry && { nodeRegistry: input.nodeRegistry }),
+    // A runner that runs one provider's deployments tests what a deploy to it
+    // would build: its nodes, its checks.
+    ...(runner.provider !== undefined && { provider: runner.provider }),
     // A test run goes on with a required field empty; only Deploy refuses.
     emptyRequiredFields: 'allow',
   })
@@ -210,10 +230,11 @@ export async function startTestSession(
       await db.touchTestSession(existing.id, userId, testSessionCutoffs(limits))
       return { ok: true, session: { ...existing, lastUsedAt: usedAt }, reused: true }
     }
-    await stopTestSession({ db, runner, limits }, existing, 'stopped', {
-      error: 'Replaced by newer code',
-      userId,
-    })
+    const replaced = { error: 'Replaced by newer code', userId }
+    // A runner that replaces a workflow's session at start is left to: what
+    // the old one built may be what the new one runs.
+    if (runner.replaces) await db.markTestSessionStopped(existing.id, 'stopped', replaced)
+    else await stopTestSession({ db, runner, limits }, existing, 'stopped', replaced)
   }
 
   const id = nanoid()
@@ -250,10 +271,13 @@ export async function startTestSession(
       })
     : { vars: {}, secrets: {} }
 
-  let started: { processId: string; port: number }
+  let started: TestSessionStart
   try {
     started = await runner.start(prepared.bundle, {
       sessionId: id,
+      organizationId: input.organizationId,
+      projectId,
+      userId,
       workflowId: workflow.id,
       workflowName: workflow.name,
       kind,
@@ -265,16 +289,18 @@ export async function startTestSession(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Could not start the test session'
     await stopTestSession({ db, runner, limits }, reserved, 'failed', { error: message })
-    // The workflow refused (its imports reach outside it) is the caller's to
-    // fix; anything else is the runner failing.
+    // The runner turning the start away says how itself. The workflow refused
+    // (its imports reach outside it) is the caller's to fix; anything else is
+    // the runner failing.
+    if (err instanceof TestSessionRefusal) return { ok: false, status: err.status, error: message }
     return { ok: false, status: err instanceof GenerateInputError ? 422 : 502, error: message }
   }
 
   const session = await db.activateTestSession(
     id,
     userId,
-    started.processId,
-    started.port,
+    started.processId ?? null,
+    started.port ?? null,
     testSessionCutoffs(limits),
   )
   if (!session) {
