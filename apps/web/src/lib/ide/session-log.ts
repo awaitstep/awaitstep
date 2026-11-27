@@ -1,4 +1,5 @@
 import type { TestSession } from '../api-client'
+import type { ProcessLogEntry } from '@awaitstep/codegen'
 import type { SessionLogLine } from '../../stores/test-session-store'
 
 export type RunAction =
@@ -67,7 +68,14 @@ export function sessionSummary(
   // Stale beats healthy: the user is looking at code this session is not
   // running, and Run is what fixes it.
   if (options.stale) return 'Running an older version of this workflow.'
-  return `Running on ${session.runtime === 'sandbox' ? 'a container' : 'this machine'}`
+  return RUNNING_ON[session.runtime]
+}
+
+/** Where a running session runs, by runtime. `managed` has no machine to name: it runs as a deployment does. */
+const RUNNING_ON: Record<TestSession['runtime'], string> = {
+  sandbox: 'Running on a container',
+  node: 'Running on this machine',
+  managed: 'Running as a deployment would',
 }
 
 export type StartPhase = 'preparing' | 'starting'
@@ -89,7 +97,8 @@ export function startPhase(
 /** The line shown while a session starts. */
 export function startPhaseLabel(phase: StartPhase, runtime: TestSession['runtime'] | null): string {
   if (phase === 'preparing') return 'Preparing your files…'
-  return runtime === 'node' ? 'Starting on this machine…' : 'Starting the container…'
+  if (runtime === 'node') return 'Starting on this machine…'
+  return runtime === 'managed' ? 'Building your test…' : 'Starting the container…'
 }
 
 /** Whole seconds from `sinceMs` to `nowMs`, never negative (clocks drift). */
@@ -156,4 +165,33 @@ export function parseTriggerPayload(text: string): TriggerPayload {
     }
   }
   return { ok: true, value }
+}
+
+/**
+ * A worker can answer with anything. A string is shown as it came — an HTML
+ * error page or a stack trace put through JSON.stringify becomes one escaped
+ * line, which is exactly when it matters most.
+ */
+export function formatBody(body: unknown): string {
+  if (body === null || body === undefined) return ''
+  if (typeof body === 'string') return body
+  return JSON.stringify(body, null, 2)
+}
+
+/**
+ * What a trigger answered, as a line of the session's output: the status,
+ * then the body under it. Anything but a 2xx goes to stderr, so it is red
+ * and counted there.
+ */
+export function responseLine(
+  result: { status: number; body: unknown },
+  timestamp: number,
+): ProcessLogEntry {
+  const ok = result.status >= 200 && result.status < 300
+  const body = formatBody(result.body)
+  return {
+    timestamp,
+    stream: ok ? 'stdout' : 'stderr',
+    text: body ? `Response ${result.status}\n${body}` : `Response ${result.status}`,
+  }
 }

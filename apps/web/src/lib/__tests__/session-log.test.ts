@@ -13,6 +13,7 @@ import {
   sessionSummary,
   startPhase,
   startPhaseLabel,
+  responseLine,
 } from '../ide/session-log'
 
 const IDLE = { starting: false, stopping: false }
@@ -94,6 +95,7 @@ describe('sessionSummary', () => {
   it('says where a running session is', () => {
     expect(sessionSummary(session())).toContain('this machine')
     expect(sessionSummary(session({ runtime: 'sandbox' }))).toContain('container')
+    expect(sessionSummary(session({ runtime: 'managed' }))).toBe('Running as a deployment would')
   })
 
   it('reports a lost stream above everything else', () => {
@@ -147,6 +149,7 @@ describe('startPhase', () => {
     expect(startPhaseLabel('preparing', null)).toBe('Preparing your files…')
     expect(startPhaseLabel('starting', 'sandbox')).toBe('Starting the container…')
     expect(startPhaseLabel('starting', 'node')).toBe('Starting on this machine…')
+    expect(startPhaseLabel('starting', 'managed')).toBe('Building your test…')
   })
 
   it('counts elapsed whole seconds and never goes negative', () => {
@@ -234,5 +237,22 @@ describe('parseTriggerPayload', () => {
     // Lots of whitespace in the text must not count against the limit.
     const spaced = `{ "a" :${' '.repeat(MAX_TRIGGER_PAYLOAD_BYTES * 2)}1 }`
     expect(parseTriggerPayload(spaced).ok).toBe(true)
+  })
+})
+
+describe('responseLine', () => {
+  it.each([
+    [{ status: 200, body: { ok: true } }, 'stdout', 'Response 200\n{\n  "ok": true\n}'],
+    [{ status: 204, body: null }, 'stdout', 'Response 204'],
+    // A string is shown as it came, not as an escaped JSON string.
+    [{ status: 200, body: 'plain\ntext' }, 'stdout', 'Response 200\nplain\ntext'],
+    [
+      { status: 500, body: { message: 'dayOfTheWeek is not defined' } },
+      'stderr',
+      'Response 500\n{\n  "message": "dayOfTheWeek is not defined"\n}',
+    ],
+    [{ status: 302, body: '' }, 'stderr', 'Response 302'],
+  ])('puts %j in the output on %s', (result, stream, text) => {
+    expect(responseLine(result, 1_000)).toEqual({ timestamp: 1_000, stream, text })
   })
 })

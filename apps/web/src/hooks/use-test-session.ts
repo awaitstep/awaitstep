@@ -5,6 +5,7 @@ import { actionToast, failureLine } from '../lib/action-toast'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
 import { ApiError } from '../lib/api-client'
 import type { TestSession } from '../lib/api-client'
+import { responseLine } from '../lib/ide/session-log'
 import { sessionStaleness, type SessionStaleness } from '../lib/ide/session-staleness'
 import { readSseStream, reconnectDelay } from '../lib/sse-stream'
 import {
@@ -12,7 +13,6 @@ import {
   sessionView,
   useTestSessionStore,
   type SessionLogLine,
-  type SessionTriggerResult,
 } from '../stores/test-session-store'
 import { useApi } from '../contexts/api-client-context'
 import { pathSegment } from '../lib/api-path'
@@ -41,7 +41,6 @@ interface UseTestSessionOptions {
 export interface TestSessionState {
   session: TestSession | null
   logs: SessionLogLine[]
-  lastResult: SessionTriggerResult | null
   /** The trigger payload text for this workflow; remembered across reloads. */
   payload: string
   /** Why the last trigger attempt was refused (invalid JSON, too large); cleared by an edit. */
@@ -122,11 +121,11 @@ export function useTestSession({
 
   const sessionId = session?.id ?? null
   const view = useTestSessionStore(useShallow((s) => sessionView(s.views, sessionId)))
-  const { appendLogs, setResult, setStreamError, storePayload, storePayloadError, reset } =
+  const { appendLogs, appendLocal, setStreamError, storePayload, storePayloadError, reset } =
     useTestSessionStore(
       useShallow((s) => ({
         appendLogs: s.appendLogs,
-        setResult: s.setResult,
+        appendLocal: s.appendLocal,
         setStreamError: s.setStreamError,
         storePayload: s.setPayload,
         storePayloadError: s.setPayloadError,
@@ -310,7 +309,7 @@ export function useTestSession({
         const result = await api.triggerTestSession(sessionId, payload, {
           timeoutMs: TRIGGER_TIMEOUT_MS,
         })
-        setResult(sessionId, result)
+        appendLocal(sessionId, [responseLine(result, Date.now())])
         actionToast.success('Workflow triggered')
       } catch (err) {
         if (err instanceof ApiError && (err.status === 410 || err.status === 404)) {
@@ -323,7 +322,7 @@ export function useTestSession({
         setTriggering(false)
       }
     },
-    [api, sessionId, setResult, refetchSession],
+    [api, sessionId, appendLocal, refetchSession],
   )
 
   const restart = useCallback(async (): Promise<boolean> => {
@@ -383,7 +382,7 @@ export function useTestSession({
               const result = await api.triggerTestSession(current.id, payload, {
                 timeoutMs: TRIGGER_TIMEOUT_MS,
               })
-              setResult(current.id, result)
+              appendLocal(current.id, [responseLine(result, Date.now())])
               actionToast.success('Workflow triggered')
             } catch (err) {
               actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
@@ -412,7 +411,7 @@ export function useTestSession({
         restartTriggerRef.current = false
       }
     },
-    [api, sessionId, restart, workflowId, setSession, setResult],
+    [api, sessionId, restart, workflowId, setSession, appendLocal],
   )
 
   const acceptStale = useCallback(
@@ -434,7 +433,6 @@ export function useTestSession({
   return {
     session,
     logs: view.logs,
-    lastResult: view.lastResult,
     payload,
     payloadError,
     setPayloadError,
