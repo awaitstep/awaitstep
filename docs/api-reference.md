@@ -319,7 +319,7 @@ Scripts run inside an `async fetch(request, env)` handler with no durable runtim
 A function's steps are steps: every `step` node — top level or inside a branch, try, loop, parallel or race arm — is a module, `steps/<id>.ts`, exactly the file a workflow's step gets, and `runGraph` runs it through the AwaitStep step primitive. The call goes through `stepArgs`, a pass-through, so a module may type its parameter with only what it reads:
 
 ```ts
-import { createInlineHost, createWorkflowContext, durableStep, stepArgs } from "#awaitstep/runtime";
+import { createInlineHost, createWorkflowContext, stepArgs } from "#awaitstep/runtime";
 import $Fetch_user from "#app/steps/k3j9x_a1b2c3.js";
 
 export async function runGraph(env: Env, event: { payload: unknown }) {
@@ -332,15 +332,14 @@ export async function runGraph(env: Env, event: { payload: unknown }) {
     },
     host: createInlineHost(),
   });
-  const step = durableStep(flow);
   const Fetch_user = await flow.step("k3j9x_a1b2c3", (ctx) =>
-    $Fetch_user(stepArgs({ env, event, inputs: {}, step, ctx })),
+    $Fetch_user(stepArgs({ env, event, inputs: {}, ctx })),
   );
   …
 }
 ```
 
-The host is the in-request one: a step's body runs right there, in the request, with `ctx.attempt`, the node's retries (`retryLimit` counts retries after the first attempt, as on Cloudflare; delay and backoff between them) and its per-attempt timeout — but nothing is persisted, and **nothing retries or times out unless the node sets it** (a durable workflow step retries by default; a request cannot wait minutes). The host caps what a node can ask for: at most 10 attempts, and at most 30 seconds for any one backoff pause or attempt timeout. A timed-out attempt is abandoned, not aborted: with retries, the next attempt may run while it still does, so a body that is not idempotent should not combine the two. The body's `return` is the step's value; a later step that names it receives it as an input, and the node's **Return this value** switch (`data.export`) puts it in the response (below). The `step` object is in scope for parity with a workflow's modules; the canvas refuses a step written inside a step in both kinds, and the host does not police one. `step.sleep`, `step.sleepUntil` and `step.waitForEvent` throw, since a function has no durable runtime to park in. The names the generated body binds or uses — `flow`, `step`, `env`, `event`, `ctx`, `inputs`, `runGraph`, `workflow`, `_output`, `err`, the runtime's own exports — and the runtime's globals (`fetch`, `console`, `crypto`, `Date`, `Response`, `JSON`, `URL`, …) are reserved: a node called one of them gets a `_node` suffix in generated code. A step marked `inline` is the exception: its code is pasted raw into `runGraph`, owns the surrounding scope, and has no retries or timeout.
+The host is the in-request one: a step's body runs right there, in the request, with `ctx.attempt`, the node's retries (`retryLimit` counts retries after the first attempt, as on Cloudflare; delay and backoff between them) and its per-attempt timeout — but nothing is persisted, and **nothing retries or times out unless the node sets it** (a durable workflow step retries by default; a request cannot wait minutes). The host caps what a node can ask for: at most 10 attempts, and at most 30 seconds for any one backoff pause or attempt timeout. A timed-out attempt is abandoned, not aborted: with retries, the next attempt may run while it still does, so a body that is not idempotent should not combine the two. The body's `return` is the step's value; a later step that names it receives it as an input, and the node's **Return this value** switch (`data.export`) puts it in the response (below). A step's code is handed no `step` object, in a function as in a workflow: it already runs inside a step, and a step does not start another (Cloudflare's rules of Workflows: avoid nested steps). Code that calls `step.do`, `step.sleep`, `step.sleepUntil` or `step.waitForEvent`, as a module or inline, is refused on save (`400 Invalid IR`, on the step) and on deploy or test start, with ``\`step.do\` cannot be called from a step’s code: a step does not start another step. Move it into its own node.`` A module saved with the older `({ env, event, inputs, step, ctx })` signature still runs (its `step` is `undefined`) and loses the parameter on its next save. The names the generated body binds or uses — `flow`, `step`, `env`, `event`, `ctx`, `inputs`, `runGraph`, `workflow`, `_output`, `err`, the runtime's own exports — and the runtime's globals (`fetch`, `console`, `crypto`, `Date`, `Response`, `JSON`, `URL`, …) are reserved: a node called one of them gets a `_node` suffix in generated code. A step marked `inline` is the exception: its code is pasted raw into `runGraph`, owns the surrounding scope, and has no retries or timeout.
 
 `GET /source` therefore lists a function's `steps/*.ts` modules and `awaitstep/runtime.ts` beside `worker.ts`, and its `manifest.steps` names each top-level node and each step inside a container, with `filePath` for every step module. Other node kinds (`http_request`, `sub_script`, custom nodes, containers) run in a function without a step boundary, as before.
 
@@ -349,7 +348,7 @@ The host is the in-request one: a step's body runs right there, in the request, 
 A step's `data.code` is the module the worker imports, verbatim:
 
 ```ts
-export default async function sample_step({ env, event, inputs, step, ctx }) {
+export default async function sample_step({ env, event, inputs, ctx }) {
   // Write your business logic here
 
   return { result: 'ok' }
@@ -364,7 +363,7 @@ export default async function sample_step({ env, event, inputs, step, ctx }) {
 - **A step is not named after a global.** The function would shadow it inside its own body (`function fetch() { await fetch() }` calls itself), so a step called `fetch`, `Response`, `console`, `JSON`, `URL` and the other runtime globals gets `_node` (`fetch_node`), as a keyword does.
 - **A body is still accepted.** Code without `export default` (an older version, an older client, an agent writing statements) is wrapped into the module on save and on load — imports to the top, `const { … } = inputs;` for the earlier steps and the container bindings (`item`, `index: _loop_i`, `error: err`) it named bare — so the version is stored in module form from its next save and generates as it always did. A body that declares one of the module's own parameter names (`const ctx = …`) runs nested inside the function, so the declaration cannot clash. Re-posting an old body-shaped document unchanged is still a no-op save.
 - **Inline is the exception**: `inline: true` keeps raw statements pasted into the surrounding scope, no signature, no module; an inline step holding a module is refused. Because it shares that scope, an inline step may not declare or import at its top level a name the generated code binds beside it (`env`, `event`, `flow`, `step`, `stepArgs`, `durableStep`, `waitForEventOrTimeout`, `createWorkflowContext`, `createInlineHost`, `createAwaitstepPlatform`, `platform`): Check lists it on the step and a deploy answers `400` with ``Inline step "<name>" declares `step`, which generated code uses. Rename it.`` (or ``… imports `stepArgs` from "<module>", which generated code uses. Rename it with `as`.``). A declaration inside a block or a nested function, or in a comment or string, doesn't count. Importing a runtime name from `#awaitstep/runtime` under its own name is fine: imports of one module are merged into one statement in the generated file, and a name bound to two different modules is refused (two type-only imports are let through; they are erased at build).
-- `event.payload` is the request body and `ctx.attempt` the attempt number; `step` is the step adapter.
+- `event.payload` is the request body and `ctx.attempt` the attempt number. There is no `step`.
 
 ### The HTTP entry: `handlers/fetch.ts`
 

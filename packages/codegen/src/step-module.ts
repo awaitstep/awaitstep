@@ -15,8 +15,15 @@ import {
 } from './code-text.js'
 
 /** What a step module's function receives, in the order the worker passes it. */
-export const STEP_MODULE_PARAMS = ['env', 'event', 'inputs', 'step', 'ctx'] as const
-export const STEP_MODULE_SIGNATURE = '{ env, event, inputs, step, ctx }'
+export const STEP_MODULE_PARAMS = ['env', 'event', 'inputs', 'ctx'] as const
+/**
+ * No `step`: a step's code already runs inside one, and a step does not
+ * start another (in a function there is none to start). The node's retries
+ * and timeout come from the call around it.
+ */
+export const STEP_MODULE_SIGNATURE = '{ env, event, inputs, ctx }'
+/** The signature of modules written when a step was still handed `step`; still read, never written. */
+export const LEGACY_STEP_MODULE_SIGNATURE = '{ env, event, inputs, step, ctx }'
 /** The most characters one step's code may hold: a module is read on every save, load and generation. */
 export const MAX_STEP_CODE_LENGTH = 250_000
 
@@ -24,7 +31,11 @@ const EXPORT_DEFAULT_RE = /\bexport\s+default\b/
 const RETURN_RE = /\breturn\b/
 const DECLARATION_RE = /\b(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g
 const PARAMS = new Set<string>(STEP_MODULE_PARAMS)
-const SIGNATURE_COMPACT = STEP_MODULE_SIGNATURE.replace(/\s+/g, '')
+const SIGNATURES_COMPACT = new Set(
+  [STEP_MODULE_SIGNATURE, LEGACY_STEP_MODULE_SIGNATURE].map((signature) =>
+    signature.replace(/\s+/g, ''),
+  ),
+)
 
 /** A step's code in module form: it has a default export. A body (statements) has none. Strings and comments do not count. */
 export function isStepModule(code: string): boolean {
@@ -87,7 +98,7 @@ export function normalizeStepModule(
   upstreamNames: Iterable<string>,
   bindings: Readonly<Record<string, string>> = {},
 ): string {
-  if (isStepModule(code)) return code
+  if (isStepModule(code)) return withoutStepParameter(code)
   const { imports, body } = extractImports(code)
   const masked = maskNonCode(body)
   const words = identifierWords(masked)
@@ -113,6 +124,24 @@ export function normalizeStepModule(
     : body.trim()
   const importBlock = imports.length > 0 ? imports.join('\n') + '\n\n' : ''
   return `${importBlock}export default async function ${varName}(${STEP_MODULE_SIGNATURE}) {\n${indent(destructure + statements, 2)}\n}\n`
+}
+
+// The name is required: with an optional one, the spaces around it are matched
+// two ways and a long run of them costs the square of its length.
+const LEGACY_FUNCTION_HEADER_RE =
+  /(export\s+default\s+async\s+function\s+[\w$]+\s*\(\s*)\{\s*env\s*,\s*event\s*,\s*inputs\s*,\s*step\s*,\s*ctx\s*\}(\s*\))/
+
+/**
+ * A step module written when steps were still handed a `step`:
+ * its header loses the parameter, which is never passed now. Left as it is
+ * when the code still mentions `step`, so the save check can name the call.
+ */
+function withoutStepParameter(code: string): string {
+  const header = LEGACY_FUNCTION_HEADER_RE.exec(code)
+  if (!header) return code
+  const rest = code.slice(0, header.index) + code.slice(header.index + header[0].length)
+  if (identifierWords(maskNonCode(rest)).has('step')) return code
+  return code.replace(LEGACY_FUNCTION_HEADER_RE, `$1${STEP_MODULE_SIGNATURE}$2`)
 }
 
 /**
@@ -277,9 +306,8 @@ export function stepBodyFromModule(
   if (!header || header.name === null || masked.slice(0, header.start).trim() !== '') return code
   const paramsClose = matchingBracket(masked, header.paramsOpen, '(', ')')
   if (paramsClose === -1) return code
-  if (masked.slice(header.paramsOpen + 1, paramsClose).replace(/\s+/g, '') !== SIGNATURE_COMPACT) {
-    return code
-  }
+  const params = masked.slice(header.paramsOpen + 1, paramsClose).replace(/\s+/g, '')
+  if (!SIGNATURES_COMPACT.has(params)) return code
   const open = skipWhitespace(masked, paramsClose + 1)
   if (masked[open] !== '{') return code
   const close = matchingBracket(masked, open, '{', '}')
@@ -335,12 +363,38 @@ export function stepModuleProblem(
   return `The function must be named \`${expectedName}\`, the step’s name as code reads it${actual ? ` (it is \`${actual}\`)` : ''}.`
 }
 
-/** `stepModuleProblem` over a graph, as validation errors with the node's id. */
+const STEP_OBJECT_CALL_RE = /(?<![.\w$])step\s*\??\.\s*(do|sleep|sleepUntil|waitForEvent)\s*\(/
+/** `step` as a parameter of the code's own: `(step) =>`, `step =>`, `function (a, step)`. */
+const STEP_PARAMETER_RE = /\(\s*step\s*[,)]|,\s*step\s*\)|(?<![.\w$])step\s*=>/
+
+/**
+ * What a step's code may not do, or null: call the `step` object. The code
+ * already runs inside a step, and a step started from inside another is
+ * neither cached nor resumed on its own (Cloudflare's rules of Workflows:
+ * "Avoid nested steps"); a function has no `step` at all. Inline code is held
+ * to the same rule. Strings and comments do not count, nor does a `step` the
+ * code declares, imports or takes as a parameter.
+ */
+export function nestedStepProblem(node: Pick<WorkflowNode, 'type' | 'data'>): string | null {
+  if (node.type !== 'step') return null
+  const { imports, body } = extractImports(String(node.data.code ?? ''))
+  const masked = maskNonCode(body)
+  const call = STEP_OBJECT_CALL_RE.exec(masked)
+  if (!call) return null
+  const own =
+    declaredNames(masked).has('step') ||
+    STEP_PARAMETER_RE.test(masked) ||
+    imports.some((line) => identifierWords(maskNonCode(line)).has('step'))
+  if (own) return null
+  return `\`step.${call[1]}\` cannot be called from a step’s code: a step does not start another step. Move it into its own node.`
+}
+
+/** `stepModuleProblem` and `nestedStepProblem` over a graph, as validation errors with the node's id. */
 export function stepModuleProblems(ir: { nodes: WorkflowNode[] }): ValidationError[] {
   const names = computeVarNames(ir.nodes)
   const problems: ValidationError[] = []
   for (const node of ir.nodes) {
-    const message = stepModuleProblem(node, names.get(node.id)!)
+    const message = stepModuleProblem(node, names.get(node.id)!) ?? nestedStepProblem(node)
     if (message) problems.push({ path: `nodes.${node.id}.data.code`, nodeId: node.id, message })
   }
   return problems

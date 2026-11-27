@@ -29,7 +29,7 @@ vi.mock('../../ui/code-editor', () => ({
 }))
 
 const CHARGE_MODULE =
-  'export default async function Charge_card({ env, event, inputs, step, ctx }) {\n  return { result: "ok" };\n}\n'
+  'export default async function Charge_card({ env, event, inputs, ctx }) {\n  return { result: "ok" };\n}\n'
 
 function step(data: Record<string, unknown> = {}) {
   return {

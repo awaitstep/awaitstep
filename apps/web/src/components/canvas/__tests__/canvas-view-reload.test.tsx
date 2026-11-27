@@ -160,7 +160,7 @@ describe('CanvasView: a refused save, then Reload', () => {
     expect(state.isDirty).toBe(false)
     // The stored body opens as the step's module.
     expect(state.nodes[0]!.data.irNode.data.code).toBe(
-      'export default async function Step_1({ env, event, inputs, step, ctx }) {\n  return 3;\n}\n',
+      'export default async function Step_1({ env, event, inputs, ctx }) {\n  return 3;\n}\n',
     )
 
     api.createVersion.mockResolvedValueOnce({ id: 'v4', graphHash: 'g4' })

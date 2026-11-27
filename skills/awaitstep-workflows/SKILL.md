@@ -125,7 +125,10 @@ Rules that matter:
   `onEvent`, `onTimeout`); see `references/node-data.md`. Get these labels wrong
   and codegen silently runs the wrong arm.
 - `data.code` on a step is a **module** —
-  `export default async function <var>({ env, event, inputs, step, ctx })`.
+  `export default async function <var>({ env, event, inputs, ctx })`.
+  There is no `step`: a step's code runs inside a step and may not start
+  another (`step.do`, `step.sleep`, `step.sleepUntil`, `step.waitForEvent` are
+  refused on save); use a node for each.
   A bare body is normalized on save only when it is unambiguous; write the
   module shape. See `references/step-code.md`.
 - A step that reads `env.NAME` needs a workflow variable of that name; nothing

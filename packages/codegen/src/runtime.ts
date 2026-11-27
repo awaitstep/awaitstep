@@ -81,7 +81,6 @@ export function functionRuntimeImport(options: {
   return runtimeImport([
     'createInlineHost',
     'createWorkflowContext',
-    'durableStep',
     ...(options.callsStepModules ? [STEP_ARGS] : []),
     ...(options.hasSubCalls ? ['type PlatformHost'] : []),
   ])

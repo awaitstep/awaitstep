@@ -97,9 +97,11 @@ Rules:
 - `export` / `exportAs` on a node put its value in the response object. See
   `references/script-ir.md`.
 
-The step-module contract is the workflow one: `export default async function
-<var>({ env, event, inputs, step, ctx })`, function name exactly the step's
-variable name. The full contract is the workflow skill's
+The step-module contract is the workflow one: `export default
+async function <var>({ env, event, inputs, ctx })`, function name exactly the
+step's variable name. As in a workflow, code that calls
+`step.do`, `step.sleep`, `step.sleepUntil` or `step.waitForEvent` is refused
+on save; run the code directly. The full contract is the workflow skill's
 [step code reference](https://docs.awaitstep.dev/skills/awaitstep-workflows/references/step-code.md);
 read it from there when `awaitstep-workflows` is not installed.
 

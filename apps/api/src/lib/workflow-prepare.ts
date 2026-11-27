@@ -10,6 +10,7 @@ import { NO_VERSION_MESSAGE } from './blank-source.js'
 import { unreachableCalls } from './call-reach.js'
 import {
   GenerateInputError,
+  nestedStepProblem,
   generatedNameProblems,
   bundleCodeFiles,
   bundleDeployFiles,
@@ -286,7 +287,15 @@ export async function prepareWorkflow(
   // A workflow name that the generated code also binds — a loop item hiding a
   // step inside it, inline code declaring `step` — breaks the generated file
   // with an error that doesn't say why; refuse it here with one that does.
-  const nameClashes: PrepareDiagnostic[] = generatedNameProblems(ir).map((problem) => ({
+  // So is a step whose code calls `step`: one saved while a step was still
+  // handed it would fail at run time, on `undefined`.
+  const nameClashes: PrepareDiagnostic[] = [
+    ...generatedNameProblems(ir),
+    ...ir.nodes.flatMap((node) => {
+      const message = nestedStepProblem(node)
+      return message ? [{ nodeId: node.id, message }] : []
+    }),
+  ].map((problem) => ({
     source: 'ir',
     message: problem.message,
     ...(problem.nodeId && { nodeId: problem.nodeId }),

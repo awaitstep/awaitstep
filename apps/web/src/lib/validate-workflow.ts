@@ -10,7 +10,7 @@ import {
   type NodeRegistry,
   type WorkflowNode,
 } from '@awaitstep/ir'
-import { generatedNameProblems } from '@awaitstep/codegen'
+import { generatedNameProblems, nestedStepProblem } from '@awaitstep/codegen'
 import type { FlowNode, WorkflowEnvVar } from '../stores/workflow-store'
 import { findEntryNodeId } from './build-ir'
 import { computeUpstreamSets, nodeIdsByVarName } from './expressions/upstream'
@@ -55,7 +55,6 @@ export const workflowSettingsSchema = z.object({
   workflowEnvVars: z.array(workflowEnvVarSchema),
 })
 
-const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
 const EVENT_TYPE_PATTERN = /^[a-zA-Z0-9_-]+$/
 
 const UNIT_TO_SECONDS: Record<string, number> = {
@@ -323,14 +322,8 @@ export function validateWorkflowForPublish(
         if (!ir.name.trim()) add('error', id, name, 'Step name is empty')
         const code = String(ir.data.code ?? '')
         if (!code.trim()) add('error', id, name, 'Step code is empty')
-        if (NESTED_STEP_PATTERN.test(code)) {
-          add(
-            'error',
-            id,
-            name,
-            'This code calls a step inside a step. Move the inner call into its own node.',
-          )
-        }
+        const nested = nestedStepProblem(ir)
+        if (nested) add('error', id, name, nested)
         break
       }
 

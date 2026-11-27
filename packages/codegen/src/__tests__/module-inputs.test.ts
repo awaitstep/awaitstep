@@ -5,7 +5,7 @@ const names = (code: string) => [...moduleInputReads(code).names].sort()
 
 describe('moduleInputReads', () => {
   it('finds member, index and destructured reads of inputs, not comments', () => {
-    const code = `export default async function a({ env, event, inputs, step, ctx }) {
+    const code = `export default async function a({ env, event, inputs, ctx }) {
   const { a, b: alias, c = 1 } = inputs;
   const x = inputs.d + inputs?.e + inputs["f"] + inputs['g'];
   // inputs.commented and inputs
@@ -73,7 +73,7 @@ describe('moduleInputReads scans once, whatever the code looks like (security re
 
   it('does not read inputs mentioned in a string or a comment', () => {
     const code =
-      'export default async function x({ env, event, inputs, step, ctx }) {\n  // inputs.commented\n  const s = "inputs.quoted";\n  return inputs["real"] + s;\n}\n'
+      'export default async function x({ env, event, inputs, ctx }) {\n  // inputs.commented\n  const s = "inputs.quoted";\n  return inputs["real"] + s;\n}\n'
     const reads = moduleInputReads(code)
     expect([...reads.names]).toEqual(['real'])
     expect(reads.all).toBe(false)

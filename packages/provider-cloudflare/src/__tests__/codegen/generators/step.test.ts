@@ -22,7 +22,7 @@ describe('generateStep', () => {
   it('calls the step’s module and keeps its value, with the default policy', () => {
     const code = generateStep(makeNode())
     expect(code).toBe(
-      'const step_1 = await flow.step("Do work (step-1)", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, (ctx) => $step_1(stepArgs({ env, event, inputs: {}, step, ctx })));',
+      'const step_1 = await flow.step("Do work (step-1)", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, (ctx) => $step_1(stepArgs({ env, event, inputs: {}, ctx })));',
     )
   })
 
@@ -36,7 +36,7 @@ describe('generateStep', () => {
         role: 'module',
         binding: '$step_1',
         source:
-          'export default async function step_1({ env, event, inputs, step, ctx }) {\n  const x = 1;\n  return x + 1;\n}\n',
+          'export default async function step_1({ env, event, inputs, ctx }) {\n  const x = 1;\n  return x + 1;\n}\n',
       },
     ])
   })

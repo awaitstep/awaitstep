@@ -51,7 +51,7 @@ function codeOf(ir: ArtifactIR, id: string): string {
 }
 
 const TEMPLATE = (name: string) =>
-  `export default async function ${name}({ env, event, inputs, step, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n`
+  `export default async function ${name}({ env, event, inputs, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n`
 
 describe('insertStep — splicing into an edge', () => {
   it('gives each half the canvas side of the old edge’s end it still has', () => {
@@ -332,7 +332,7 @@ describe('insertStep — names and positions', () => {
 
   it('produces a document the API accepts', () => {
     const module = (fn: string) =>
-      `export default async function ${fn}({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n`
+      `export default async function ${fn}({ env, event, inputs, ctx }) {\n  return 1;\n}\n`
     const base = graph([node('a', 'A'), node('b', 'B')], [{ id: 'e1', source: 'a', target: 'b' }])
     const ir: ArtifactIR = {
       ...base,

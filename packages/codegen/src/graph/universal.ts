@@ -383,7 +383,10 @@ function generateFunction(
   const upstream = upstreamVarNames(irAsWorkflow, boundVarNames(ir, names), (node) =>
     plan.has(node.id),
   )
-  const ctx = createGenerationContext(ir.nodes, { emitModules: true, upstream })
+  const ctx = createGenerationContext(ir.nodes, {
+    emitModules: true,
+    upstream,
+  })
   const useStateTracking = hasTemplateExpressions(ir.nodes)
   const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
   const resolvedIR: ScriptIR = useStateTracking
@@ -460,16 +463,14 @@ function generateFunction(
   const usesFlow =
     hasSubCalls ||
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|getInstance|sendEvent|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|getInstance|sendEvent|callScript))\(/.test(
       withoutComments(graphBody),
     )
   // A host is only needed where something runs through it: a step, a wait or
   // another artifact. A context that only makes HTTP calls goes without.
   const needsHost =
     hasSubCalls ||
-    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
-      withoutComments(graphBody),
-    )
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent))\(/.test(withoutComments(graphBody))
   const contextLines = usesFlow
     ? [
         '  const flow = createWorkflowContext({',
@@ -487,7 +488,6 @@ function generateFunction(
             ]
           : []),
         '  });',
-        ...(needsHost ? ['  const step = durableStep(flow);'] : []),
         '',
       ].join('\n')
     : ''
