@@ -12,6 +12,9 @@ export const EXTENSIONS_MODULE = 'virtual:awaitstep/extensions'
  */
 export const EXTENSIONS_PACKAGE = '@awaitstep/extensions'
 
+/** A stylesheet that brings Tailwind in: the one its rules are generated into. */
+const TAILWIND_ENTRY = /@import\s+['"]tailwindcss['"]/
+
 export interface ExtensionsPluginOptions {
   /** Absolute path of the empty stub used when the package is not installed. */
   stub: string
@@ -38,6 +41,10 @@ export interface ExtensionsPluginOptions {
  * resolution walks up to `/`, so a copy installed from a registry — in a
  * parent folder, the home folder, or hoisted in as someone's dependency —
  * would otherwise run in every page and in the server bundle; that is refused.
+ *
+ * The package's folder is outside the app's, so Tailwind would never read it:
+ * a class only an extension uses would have no rule. The app's stylesheet is
+ * therefore told to read the linked package's source too.
  */
 export function extensionsPlugin({
   stub,
@@ -78,6 +85,16 @@ export function extensionsPlugin({
         logger?.info(`Extensions: ${installed.id}`)
       }
       return installed.id
+    },
+    async transform(code, id) {
+      if (!TAILWIND_ENTRY.test(code) || !id.split('?')[0]!.endsWith('.css')) return null
+      const packageDir = await findPackageDir(stub, packageName)
+      // The rule the package is loaded by, so a folder that is not a linked
+      // package (an installed copy, a filesystem root) is never handed to Tailwind to read.
+      if (!packageDir || !isLinkedPackageEntry(packageDir, `${packageDir}/package.json`)) {
+        return null
+      }
+      return { code: `${code}\n@source ${JSON.stringify(packageDir)};\n`, map: null }
     },
   }
 }
