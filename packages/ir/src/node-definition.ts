@@ -32,6 +32,12 @@ export interface ConfigField {
   /** What a `textarea`'s text is written in: the editor highlights it. The value stays plain text. */
   language?: FieldLanguage
   options?: string[]
+  /**
+   * A control an installed web extension draws this field with, by name (its
+   * `node.controls` slot). The value it holds is still of the field's `type`;
+   * where no extension has the control, the field is drawn by its `type`.
+   */
+  control?: string
   envVarName?: string
   validation?: FieldValidation
 }
