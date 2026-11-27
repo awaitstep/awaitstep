@@ -161,6 +161,7 @@ function Workspace({ workflowId, versionParam, fileParam }: IdeWorkspaceProps) {
   const session = useWorkspaceSession({
     workflowId,
     currentVersionId: fullData?.workflow.currentVersionId ?? null,
+    graphHash: fullData?.graphHash ?? null,
     historical: data.isHistorical,
     storedHashes: data.storedHashes,
     activeFile,

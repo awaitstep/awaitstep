@@ -107,11 +107,15 @@ describe('test session routes', () => {
       const stored = await mockDb.getLiveTestSessionForWorkflow('wf-1', TEST_USER_ID, {
         ...testSessionCutoffs(LIMITS),
       })
+      // The graph the session was built from is stored beside the files and
+      // reported apart from them, so a later save can be told from it.
       expect(JSON.parse(stored!.files!)).toEqual({
         'lib/a.ts': 'hash-a',
         'lib/b.ts': 'hash-b',
         'handlers/fetch.ts': expect.any(String),
+        '#graph': (session as { graphHash?: string }).graphHash,
       })
+      expect((session as { graphHash?: string }).graphHash).toEqual(expect.any(String))
 
       const again = await app.request(url('/api/workflows/wf-1/test-sessions'))
       const body = (await again.json()) as { session: { files: unknown } }
@@ -350,8 +354,16 @@ describe('test session routes', () => {
 
     it('starts again after a save onto the same, undeployed version', async () => {
       const first = (await (await start(app)).json()) as {
-        session: { id: string; versionId: string }
+        session: { id: string; versionId: string; graphHash: string }
       }
+      const savedGraph = async () =>
+        (
+          (await (await app.request(url('/api/workflows/wf-1/full'))).json()) as {
+            graphHash: string
+          }
+        ).graphHash
+      // What the editor compares: the session's graph is the saved one's.
+      expect(first.session.graphHash).toBe(await savedGraph())
 
       // An undeployed version is overwritten in place: same id, new code.
       const changed = structuredClone(validIR)
@@ -365,11 +377,14 @@ describe('test session routes', () => {
 
       const res = await start(app)
       expect(res.status).toBe(201)
+      // The save is what the old session is behind by, though the id stayed.
+      expect(await savedGraph()).not.toBe(first.session.graphHash)
       const body = (await res.json()) as {
-        session: { id: string; versionId: string }
+        session: { id: string; versionId: string; graphHash: string }
         reused: boolean
       }
       expect(body.reused).toBe(false)
+      expect(body.session.graphHash).toBe(await savedGraph())
       expect(body.session.versionId).toBe(first.session.versionId)
       expect(body.session.id).not.toBe(first.session.id)
       expect(runner.stopped).toContain(first.session.id)

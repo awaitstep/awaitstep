@@ -82,6 +82,8 @@ export function CanvasView({
     })),
   )
   const { addNode, reset: resetWorkflowStore, runSimulation, setWorkflowId } = useWorkflowStore()
+  // The store's, not the read's: a save moves it at once, the read only once refetched.
+  const savedGraphHash = useWorkflowStore((s) => s.graphHash)
 
   // Cleanup on unmount
   useEffect(() => {
@@ -311,6 +313,7 @@ export function CanvasView({
       <CanvasTestRun
         workflowId={workflowId}
         versionId={fullData.workflow?.currentVersionId ?? null}
+        graphHash={isOlderVersion ? null : savedGraphHash}
         viewingOlder={isOlderVersion}
         isDirty={isDirty}
         viewOnlyReason={access.canEdit ? null : (access.reason ?? 'View only')}

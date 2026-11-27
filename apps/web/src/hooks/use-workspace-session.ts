@@ -10,6 +10,8 @@ interface UseWorkspaceSessionOptions {
   workflowId: string
   /** The workflow's current version: the one a session runs, whatever the editor shows. */
   currentVersionId: string | null
+  /** The saved graph's hash, as the workflow's read reports it. */
+  graphHash: string | null
   /** The editor shows an older version than the current one. */
   historical: boolean
   /** `{ path: hash }` of the stored project files shown now. */
@@ -38,6 +40,7 @@ type SessionActions = Pick<
 export function useWorkspaceSession({
   workflowId,
   currentVersionId,
+  graphHash,
   historical,
   storedHashes,
   activeFile,
@@ -51,6 +54,7 @@ export function useWorkspaceSession({
     // An older version's hashes are a snapshot's, not the live project's.
     currentHashes: historical ? null : storedHashes,
     unsavedCount,
+    graphHash: historical ? null : graphHash,
   })
   const hasVersion = currentVersionId !== null
   const runAction = useRunAction({ workflowId, hasVersion, testSession, activeFile, onSaveAll })

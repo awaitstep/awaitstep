@@ -3,7 +3,10 @@ import type { TestSession } from '../api-client'
 
 /** How far a running test session is behind what the editor shows. */
 export interface SessionStaleness {
-  /** The editor shows a different version than the session was built from. */
+  /**
+   * The session was built from a different version, or from the same one
+   * before a save changed it (a save onto an undeployed version keeps its id).
+   */
   version: boolean
   /** Project files saved, deleted or added since the session started. */
   saved: number
@@ -38,8 +41,11 @@ export function sessionStaleness(input: {
   /** Null when the editor shows an older version, whose file hashes are not the live project's. */
   currentHashes: Readonly<Record<string, string>> | null
   unsavedCount: number
+  /** The saved graph's hash now; null when unknown or an older version is shown. */
+  graphHash?: string | null
 }): SessionStaleness {
   const { session, versionId, currentHashes, unsavedCount } = input
+  const graphNow = input.graphHash ?? null
   // Only a running session can be behind; the unsaved count still matters
   // with none, because starting one is when unsaved files are left out.
   if (!session || session.status !== 'running') return { ...UP_TO_DATE, unsaved: unsavedCount }
@@ -47,9 +53,11 @@ export function sessionStaleness(input: {
   const changes = currentHashes
     ? compareFileManifest(session.files, { ...currentHashes })
     : { saved: [], deleted: [], added: [] }
-  const version = Boolean(versionId && session.versionId !== versionId)
+  const resaved = Boolean(session.graphHash && graphNow && session.graphHash !== graphNow)
+  const version = Boolean(versionId && session.versionId !== versionId) || resaved
   const signature = [
     ...(version ? [`v:${versionId}`] : []),
+    ...(resaved ? [`g:${graphNow}`] : []),
     ...changes.saved.map((path) => `s:${path}:${hashes[path]}`),
     ...changes.added.map((path) => `a:${path}:${hashes[path]}`),
     ...changes.deleted.map((path) => `d:${path}`),
@@ -112,7 +120,12 @@ export function askDescription(
   version: boolean,
   unsaved: number,
 ): string {
-  const why = savedCount > 0 && savedLine ? savedLine : version ? 'A newer version was saved.' : ''
+  const why =
+    savedCount > 0 && savedLine
+      ? savedLine
+      : version
+        ? 'Changes were saved after this session started.'
+        : ''
   const files = unsaved === 1 ? '1 unsaved file' : `${unsaved} unsaved files`
   const save = unsaved > 0 ? ` Restarting saves ${files} first.` : ''
   return `${why} Triggering now tests the old code.${save}`.trim()

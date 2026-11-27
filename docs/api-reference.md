@@ -3473,6 +3473,11 @@ started before manifests were stored. Compare it with the hashes from
 `GET /workflows/:workflowId/source` to tell whether files were saved, deleted
 or added since the session started.
 
+And `graphHash`: the hash of the saved graph it was built from (`null` for a
+session started before it was recorded). Compare it with `graphHash` from
+`GET /workflows/:workflowId/full`: a save onto an undeployed version keeps the
+version's id and changes this.
+
 Refusals: `400` no saved version to run, `409` the user already has a session
 running (stop it first; a key counts as the person who made it), another start
 overlapped (start again) or the session was stopped while starting, `429` the instance's capacity or the project's quota, `503`

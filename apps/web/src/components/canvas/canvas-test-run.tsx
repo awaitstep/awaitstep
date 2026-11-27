@@ -24,6 +24,8 @@ interface CanvasTestRunProps {
   workflowId: string
   /** The workflow's current version, which a session runs; null when nothing is saved. */
   versionId: string | null
+  /** The saved graph's hash; null when an older version is shown. */
+  graphHash: string | null
   /** The canvas shows an older version than the one sessions run. */
   viewingOlder: boolean
   /** The graph has edits Save would write. */
@@ -43,6 +45,7 @@ interface CanvasTestRunProps {
 export function CanvasTestRun({
   workflowId,
   versionId,
+  graphHash,
   viewingOlder,
   isDirty,
   viewOnlyReason,
@@ -58,6 +61,7 @@ export function CanvasTestRun({
     // The canvas does not hold the stored files' hashes: a save is a new version, which is compared.
     currentHashes: null,
     unsavedCount: isDirty ? 1 : 0,
+    graphHash,
   })
   const hasVersion = versionId !== null
 

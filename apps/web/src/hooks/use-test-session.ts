@@ -36,6 +36,8 @@ interface UseTestSessionOptions {
   currentHashes?: Readonly<Record<string, string>> | null
   /** Files with unsaved edits; they are never part of a session. */
   unsavedCount?: number
+  /** The saved graph's hash now; null when unknown or an older version is shown. */
+  graphHash?: string | null
 }
 
 export interface TestSessionState {
@@ -94,6 +96,7 @@ export function useTestSession({
   viewingOlder = false,
   currentHashes = NO_HASHES,
   unsavedCount = 0,
+  graphHash = null,
 }: UseTestSessionOptions): TestSessionState {
   const api = useApi()
   const queryClient = useQueryClient()
@@ -446,6 +449,7 @@ export function useTestSession({
       versionId: versionId ?? null,
       currentHashes,
       unsavedCount,
+      graphHash,
     }),
     streamError: view.streamError,
     actionError,

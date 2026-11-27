@@ -316,6 +316,8 @@ export interface TestSession {
    * session started before manifests were stored: it cannot say what changed.
    */
   files: Record<string, string> | null
+  /** The hash of the saved graph the session was built from; null for an older session. */
+  graphHash?: string | null
 }
 
 export interface StartTestSessionResponse {

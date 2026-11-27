@@ -51,6 +51,7 @@ import {
   escapingImports,
   unresolvedAppImports,
 } from './import-check.js'
+import { graphHash } from './graph-hash.js'
 import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
@@ -58,6 +59,8 @@ export interface WorkflowContext {
   bundle: GeneratedBundle
   ir: ArtifactIR
   versionId: string
+  /** The stored graph's hash: what a save changes even when the version id stays. */
+  graphHash: string
   /** The version's number, for the audit log's "Lead enrichment v12". */
   versionNumber: number
   nodeRegistry: AppNodeRegistry
@@ -697,6 +700,7 @@ export async function prepareWorkflow(
     bundle,
     ir,
     versionId,
+    graphHash: graphHash(version.ir),
     versionNumber: version.version,
     nodeRegistry,
     envVars: envResult.envVars,
