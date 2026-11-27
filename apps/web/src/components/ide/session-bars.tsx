@@ -27,14 +27,3 @@ export function StalenessLine({
     </div>
   )
 }
-
-/**
- * A worker can answer with anything. A string is shown as it came — an HTML
- * error page or a stack trace put through JSON.stringify becomes one escaped
- * line, which is exactly when it matters most.
- */
-export function formatBody(body: unknown): string {
-  if (body === null || body === undefined) return ''
-  if (typeof body === 'string') return body
-  return JSON.stringify(body, null, 2)
-}

@@ -72,16 +72,26 @@ describe('test session store', () => {
     expect(view('b').logs.map((l) => l.text)).toEqual(['from b'])
   })
 
+  it('adds a trigger’s response after the lines already there, leaving the stream’s cursor where it was', () => {
+    const store = useTestSessionStore.getState()
+    store.appendLogs(SESSION, [line('from the worker')], '7')
+    store.appendLocal(SESSION, [line('Response 200')])
+    expect(view().logs.map((l) => [l.id, l.text])).toEqual([
+      [1, 'from the worker'],
+      [2, 'Response 200'],
+    ])
+    expect(view().cursor).toBe('7')
+  })
+
   it('forgets a session entirely on reset', () => {
     const store = useTestSessionStore.getState()
     store.appendLogs(SESSION, [line('a')], '1')
-    store.setResult(SESSION, { status: 200, body: {} })
+    store.appendLocal(SESSION, [line('Response 200')])
     store.reset(SESSION)
 
     // A new session must not inherit the cursor, or the server replays
     // every line it already sent.
     expect(view().logs).toEqual([])
-    expect(view().lastResult).toBeNull()
     expect(view().cursor).toBeUndefined()
   })
 
