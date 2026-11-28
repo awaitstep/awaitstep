@@ -101,6 +101,19 @@ describe('test session instance routes', () => {
     app = createTestApp({ testSessionRunner: runner })
   })
 
+  it('takes one trigger a second per user, and the next once the second is up', async () => {
+    const session = await startSession(app)
+    const trigger = () => post(app, `/api/test-sessions/${session.id}/trigger`, { payload: {} })
+    // A refused trigger (here, for a session that isn't theirs) spends nothing.
+    expect((await post(app, '/api/test-sessions/nope/trigger', { payload: {} })).status).toBe(404)
+    expect((await trigger()).status).toBe(200)
+    const refused = await trigger()
+    expect(refused.status).toBe(429)
+    expect(await refused.json()).toEqual({ error: 'Too many requests. Try again within a second.' })
+    await new Promise((resolve) => setTimeout(resolve, 1_100))
+    expect((await trigger()).status).toBe(200)
+  })
+
   it('cuts a session off once its owner can no longer edit there, and still lets them stop it', async () => {
     const session = await startSession(app)
     loseTestSessionEdit(TEST_USER_ID)

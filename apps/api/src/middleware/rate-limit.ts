@@ -3,8 +3,12 @@ import type { Context, MiddlewareHandler } from 'hono'
 import type { AppEnv } from '../types.js'
 import { rateLimitKey } from '../lib/client-ip.js'
 
-/** How long a window is, in words: "a minute", "15 minutes", "an hour". */
+/** How long a window is, in words: "a second", "a minute", "15 minutes", "an hour". */
 function windowWords(windowMs: number): string {
+  if (windowMs < 60_000) {
+    const seconds = Math.max(1, Math.round(windowMs / 1000))
+    return seconds === 1 ? 'a second' : `${seconds} seconds`
+  }
   const minutes = Math.max(1, Math.round(windowMs / 60_000))
   if (minutes === 1) return 'a minute'
   if (minutes < 60) return `${minutes} minutes`
@@ -28,6 +32,8 @@ export function createRateLimiter(config: {
   windowMs: number
   max: number
   keyGenerator?: (c: Context<AppEnv>) => string
+  /** A request answered 4xx/5xx gives its count back: only what went through is limited. */
+  skipFailedRequests?: boolean
 }): MiddlewareHandler<AppEnv> {
   // Built on the first request: its store starts a cleanup timer, and a
   // Worker refuses timers in global scope, where a route module creates it.
@@ -42,6 +48,7 @@ export function createRateLimiter(config: {
       // JSON like every other refusal, with a reason the page can show as it is.
       message: { error: tooManyRequests(config.windowMs) },
       keyGenerator: config.keyGenerator ?? ((c) => rateLimitKey(c.get('clientIp'))),
+      skipFailedRequests: config.skipFailedRequests ?? false,
     })
     return limiter(c, next)
   }

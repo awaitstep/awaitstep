@@ -3502,6 +3502,10 @@ Invokes the session's `fetch` handler, the way a deployed worker would be
 invoked. Body: `{ "payload": { ... } }`, under 100 KB. Returns the worker's
 own `{ status, body }`.
 
+One trigger a second per user: a faster one answers `429` "Too many
+requests. Try again within a second." Only triggers that went through count,
+so a refused one doesn't hold the next one back.
+
 **Permission:** `workflows:run`
 
 ### `GET /test-sessions/:sessionId/stream`
