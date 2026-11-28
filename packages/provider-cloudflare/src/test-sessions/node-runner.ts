@@ -137,6 +137,20 @@ export class NodeTestSessionRunner implements TestSessionRunner {
     )
   }
 
+  /** The worker's own send-event request, which it has when the workflow has a wait. */
+  async sendEvent(
+    handle: StartedTestSessionHandle,
+    instanceId: string,
+    type: string,
+    payload: unknown,
+  ): Promise<TestSessionResponse> {
+    return request(`http://localhost:${handle.port}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send-event', instanceId, type, payload }),
+    })
+  }
+
   async logs(handle: StartedTestSessionHandle, after?: string): Promise<TestSessionLogPage> {
     const entries = await readLogEntries(handle.containerId)
     return logPageFromEntries(entries, entries.length, after)
