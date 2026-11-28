@@ -13,6 +13,7 @@ import { firstName } from '../invites/invite-format'
 import { CreateOrgDialog } from './create-org-dialog'
 import { EntryFrame } from './parts/entry-frame'
 import { EntryAccountMenu } from '../navigation/account-menu-container'
+import { EntryShortcuts } from '../shortcuts/entry-shortcuts'
 import { NoOrgState } from './parts/no-org-state'
 import { OrgCard } from './parts/org-card'
 import { filterOrgs, orderOrgs } from './org-cards'
@@ -179,6 +180,7 @@ export function DashboardPage({ dialog, onCloseDialog }: DashboardPageProps) {
   return (
     <EntryFrame account={account} accountMenu={renderAccountMenu} onSignOut={handleSignOutClick}>
       {body}
+      {account && <EntryShortcuts />}
       {/* Keyed on open: each opening starts with an empty name and no old error. */}
       <CreateOrgDialog
         key={dialog === 'org' ? 'open' : 'closed'}

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useState, useSyncExternalStore, type ChangeEvent } from 'react'
 import { useActiveShortcutScopes, boundAppShortcuts } from '../../hooks/use-app-shortcuts'
 import {
   isIdeMounted,
@@ -7,67 +7,107 @@ import {
 } from '../../hooks/use-ide-shortcuts'
 import { isMacPlatform } from '../../lib/platform'
 import { useShortcutsStore } from '../../stores/shortcuts-store'
-import { Button } from '../ui/button'
 import { Kbd } from '../ui/kbd'
-import { ModalDialog } from '../ui/modal-dialog'
-import { sheetSections, type KeyPresses, type SheetRow } from './sheet-model'
+import {
+  SPOTLIGHT_HEADING_CLASS,
+  SPOTLIGHT_INPUT_CLASS,
+  SPOTLIGHT_ROW_CLASS,
+  SpotlightDialog,
+  SpotlightEmpty,
+  SpotlightResults,
+  SpotlightSearchRow,
+} from '../ui/spotlight'
+import { filterSheetSections, sheetSections, type KeyPresses, type SheetRow } from './sheet-model'
 
 function serverIdeMounted() {
   return false
 }
 
-/** The `?` sheet: every shortcut that works on this page, grouped. */
+/** The `?` sheet: every shortcut that works on this page, grouped, with a search on top. */
 export function ShortcutsSheet() {
   const open = useShortcutsStore((s) => s.dialog === 'help')
   const close = useShortcutsStore((s) => s.close)
   const scopes = useActiveShortcutScopes()
+  const [query, setQuery] = useState('')
+  const [wasOpen, setWasOpen] = useState(open)
   // Re-renders as a surface mounts or unmounts; what each binds is read below.
   useSyncExternalStore(subscribeIdeMounted, isIdeMounted, serverIdeMounted)
+
+  // Each opening starts with an empty search, however the sheet was last closed.
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setQuery('')
+  }
+
   // Read on open: which handlers the page binds changes with its state.
   const sections = open
-    ? sheetSections({
-        bound: boundAppShortcuts(),
-        scopes,
-        ide: listedIdeShortcuts(),
-        isMac: isMacPlatform(),
-      })
+    ? filterSheetSections(
+        sheetSections({
+          bound: boundAppShortcuts(),
+          scopes,
+          ide: listedIdeShortcuts(),
+          isMac: isMacPlatform(),
+        }),
+        query,
+      )
     : []
 
   function handleOpenChange(next: boolean) {
     if (!next) close()
   }
 
+  function handleQueryChange(event: ChangeEvent<HTMLInputElement>) {
+    setQuery(event.target.value)
+  }
+
+  // Escape empties the search first, then closes, as Spotlight does.
+  function handleEscape() {
+    if (!query) return false
+    setQuery('')
+    return true
+  }
+
   return (
-    <ModalDialog
+    <SpotlightDialog
       open={open}
       onOpenChange={handleOpenChange}
       title="Keyboard shortcuts"
-      description="What works on this page. Single keys don’t fire while you type in a field."
-      size="md"
-      actions={<Button onClick={close}>Done</Button>}
+      onEscape={handleEscape}
     >
-      <div className="flex flex-col gap-5">
-        {sections.map((section) => (
-          <section key={section.heading} aria-label={section.heading}>
-            <h3 className="mb-1.5 text-2xs font-semibold text-muted-foreground">
-              {section.heading}
-            </h3>
-            <dl className="flex flex-col">
-              {section.rows.map((row) => (
-                <ShortcutRow key={row.label} row={row} />
-              ))}
-            </dl>
-          </section>
-        ))}
-      </div>
-    </ModalDialog>
+      <SpotlightSearchRow>
+        <input
+          autoFocus
+          aria-label="Search shortcuts"
+          placeholder="Search shortcuts"
+          value={query}
+          onChange={handleQueryChange}
+          className={SPOTLIGHT_INPUT_CLASS}
+        />
+      </SpotlightSearchRow>
+      <SpotlightResults>
+        {sections.length === 0 ? (
+          <SpotlightEmpty>No shortcut matches “{query.trim()}”</SpotlightEmpty>
+        ) : (
+          sections.map((section) => (
+            <section key={section.heading} aria-label={section.heading}>
+              <h3 className={SPOTLIGHT_HEADING_CLASS}>{section.heading}</h3>
+              <dl>
+                {section.rows.map((row) => (
+                  <ShortcutRow key={row.label} row={row} />
+                ))}
+              </dl>
+            </section>
+          ))
+        )}
+      </SpotlightResults>
+    </SpotlightDialog>
   )
 }
 
 function ShortcutRow({ row }: { row: SheetRow }) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-border/60 py-1.5 text-xs last:border-b-0">
-      <dt className="text-foreground/85">{row.label}</dt>
+    <div className={`${SPOTLIGHT_ROW_CLASS} hover:bg-muted/50`}>
+      <dt className="truncate">{row.label}</dt>
       <dd className="flex shrink-0 items-center gap-2">
         {row.keys.map((presses) => (
           <KeyCaps key={presses.join(' ')} presses={presses} />
@@ -80,11 +120,11 @@ function ShortcutRow({ row }: { row: SheetRow }) {
 /** One way to press it: `G` then `P` reads as two caps with "then" between. */
 export function KeyCaps({ presses }: { presses: KeyPresses }) {
   return (
-    <span className="flex items-center gap-1 text-2xs text-muted-foreground">
+    <span className="flex items-center gap-1.5 text-2xs text-muted-foreground">
       {presses.map((press, at) => (
-        <span key={`${at}-${press}`} className="flex items-center gap-1">
+        <span key={`${at}-${press}`} className="flex items-center gap-1.5">
           {at > 0 && <span>then</span>}
-          <Kbd>{press}</Kbd>
+          <Kbd className="h-5 min-w-5 justify-center">{press}</Kbd>
         </span>
       ))}
     </span>

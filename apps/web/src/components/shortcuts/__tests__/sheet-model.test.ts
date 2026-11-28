@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sheetSections } from '../sheet-model'
+import { filterSheetSections, sheetSections, type SheetSection } from '../sheet-model'
 
 describe('shortcuts sheet', () => {
   it('lists what is bound, plus a mounted scope’s own keys, merging keys that do the same', () => {
@@ -49,5 +49,35 @@ describe('shortcuts sheet', () => {
     expect(sections.map((s) => s.heading)).toEqual(['Canvas'])
     expect(sections[0]!.rows).toContainEqual({ label: 'Show or hide the nodes', keys: [['⌘B']] })
     expect(sections[0]!.rows.map((r) => r.label)).not.toContain('Show or hide the side bar')
+  })
+})
+
+describe('shortcuts sheet search', () => {
+  const sections: SheetSection[] = [
+    {
+      heading: 'General',
+      rows: [
+        { label: 'Command palette', keys: [['⌘K']] },
+        { label: 'Keyboard shortcuts', keys: [['?']] },
+      ],
+    },
+    { heading: 'Go to', rows: [{ label: 'Projects', keys: [['G', 'P']] }] },
+  ]
+
+  it.each([
+    ['', ['Command palette', 'Keyboard shortcuts', 'Projects']],
+    ['   ', ['Command palette', 'Keyboard shortcuts', 'Projects']],
+    ['PALETTE', ['Command palette']],
+    ['⌘', ['Command palette']],
+    ['go to', ['Projects']],
+    ['key short', ['Keyboard shortcuts']],
+    ['palette projects', []],
+  ])('“%s” keeps %j', (query, labels) => {
+    const rows = filterSheetSections(sections, query).flatMap((s) => s.rows.map((r) => r.label))
+    expect(rows).toEqual(labels)
+  })
+
+  it('drops a section with no matching row', () => {
+    expect(filterSheetSections(sections, 'projects').map((s) => s.heading)).toEqual(['Go to'])
   })
 })

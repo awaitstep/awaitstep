@@ -81,3 +81,21 @@ function dedupe(rows: SheetRow[]): SheetRow[] {
     ),
   }))
 }
+
+/**
+ * The sections whose rows match every word typed, in the sheet's search: a
+ * word matches a row's label, its keys (`⌘`, `G`) or its section's heading.
+ */
+export function filterSheetSections(sections: SheetSection[], query: string): SheetSection[] {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return sections
+  return sections
+    .map((section) => ({
+      ...section,
+      rows: section.rows.filter((row) => {
+        const text = [section.heading, row.label, ...row.keys.flat()].join(' ').toLowerCase()
+        return words.every((word) => text.includes(word))
+      }),
+    }))
+    .filter((section) => section.rows.length > 0)
+}

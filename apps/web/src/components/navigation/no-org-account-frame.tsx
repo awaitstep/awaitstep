@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react'
 import { useViewer } from '../../data/dashboard/session'
 import { handleSignOut } from '../../lib/auth-client'
 import { EntryFrame } from '../orgs/parts/entry-frame'
+import { EntryShortcuts } from '../shortcuts/entry-shortcuts'
 import { EntryAccountMenu } from './account-menu-container'
 import { TopBarSlotProvider, TopBarSlotTarget } from './top-bar-slot'
 
@@ -30,6 +31,7 @@ export function NoOrgAccountFrame({ children }: { children: ReactNode }) {
         onSignOut={handleSignOutClick}
       >
         {children}
+        {viewer.data && <EntryShortcuts />}
       </EntryFrame>
     </TopBarSlotProvider>
   )

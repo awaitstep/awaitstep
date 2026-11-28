@@ -4,7 +4,13 @@ import { APP_SHORTCUTS } from '../../lib/shortcuts/registry'
 import { isMacPlatform } from '../../lib/platform'
 import { cn } from '../../lib/utils'
 import { useShortcutsStore } from '../../stores/shortcuts-store'
-import { Dialog, DialogContent, DialogTitle } from '../ui/dialog'
+import {
+  SPOTLIGHT_INPUT_CLASS,
+  SPOTLIGHT_ROW_CLASS,
+  SpotlightDialog,
+  SpotlightResults,
+  SpotlightSearchRow,
+} from '../ui/spotlight'
 import type { PaletteGroup, PaletteItem } from './palette-model'
 import { KeyCaps } from './shortcuts-sheet'
 
@@ -31,28 +37,22 @@ export function GlobalPalette({ groups, onSelect }: GlobalPaletteProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className="top-[20%] w-[560px] -translate-y-0 overflow-hidden p-0"
-        aria-describedby={undefined}
-      >
-        <DialogTitle className="sr-only">Command palette</DialogTitle>
-        <Command loop className="flex flex-col">
+    <SpotlightDialog open={open} onOpenChange={handleOpenChange} title="Command palette">
+      <Command loop className="flex flex-col">
+        <SpotlightSearchRow>
           <CommandInput
             autoFocus
-            placeholder="Go to a page or run a command…"
-            className="h-11 w-full border-b border-border bg-transparent px-4 text-sm outline-none placeholder:text-muted-foreground"
+            placeholder="Go to a page or run a command"
+            className={SPOTLIGHT_INPUT_CLASS}
           />
-          <CommandList className="max-h-[360px] overflow-y-auto p-1.5">
-            <CommandEmpty className="px-3 py-6 text-center text-xs text-muted-foreground">
+        </SpotlightSearchRow>
+        <CommandList>
+          <SpotlightResults>
+            <CommandEmpty className="px-3 py-10 text-center text-sm text-muted-foreground">
               Nothing matches
             </CommandEmpty>
             {groups.map((group) => (
-              <CommandGroup
-                key={group.heading}
-                heading={group.heading}
-                className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground"
-              >
+              <CommandGroup key={group.heading} heading={group.heading} className={HEADING_CLASS}>
                 {group.items.map((item) => (
                   <PaletteRow
                     key={item.id}
@@ -64,12 +64,16 @@ export function GlobalPalette({ groups, onSelect }: GlobalPaletteProps) {
                 ))}
               </CommandGroup>
             ))}
-          </CommandList>
-        </Command>
-      </DialogContent>
-    </Dialog>
+          </SpotlightResults>
+        </CommandList>
+      </Command>
+    </SpotlightDialog>
   )
 }
+
+/** cmdk draws its own group heading: the Spotlight heading's look (`SPOTLIGHT_HEADING_CLASS`), written out for Tailwind. */
+const HEADING_CLASS =
+  '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:text-2xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-muted-foreground/80'
 
 function PaletteRow({
   item,
@@ -92,7 +96,8 @@ function PaletteRow({
       keywords={[item.label, ...keywords]}
       onSelect={handleSelect}
       className={cn(
-        'flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs text-foreground/80 outline-none',
+        SPOTLIGHT_ROW_CLASS,
+        'cursor-pointer outline-none',
         'data-[selected=true]:bg-muted/70 data-[selected=true]:text-foreground',
       )}
     >
