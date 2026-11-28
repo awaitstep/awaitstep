@@ -325,6 +325,7 @@ export function WorkspaceLayout({
                       activeFile={activeFile}
                       onSaveAll={projectFiles.saveAll}
                       onTrigger={sessionActions.triggerSession}
+                      kind={fullData.workflow.kind === 'script' ? 'script' : 'workflow'}
                     />
                   </Panel>
                 </>

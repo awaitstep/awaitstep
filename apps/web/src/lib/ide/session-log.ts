@@ -1,3 +1,4 @@
+import { isInstanceId } from '@awaitstep/codegen'
 import type { TestSession } from '../api-client'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
 import type { SessionLogLine } from '../../stores/test-session-store'
@@ -254,5 +255,6 @@ export function triggeredInstanceId(result: { status: number; body: unknown }): 
   const body = result.body
   if (!body || typeof body !== 'object') return null
   const id = (body as { instanceId?: unknown }).instanceId
-  return typeof id === 'string' && id.length > 0 ? id : null
+  // Only an id the API takes: the stream refuses any other, and would be asked again and again.
+  return typeof id === 'string' && isInstanceId(id) ? id : null
 }

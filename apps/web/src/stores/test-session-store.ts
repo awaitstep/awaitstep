@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
 import { MAX_TRIGGER_PAYLOAD_BYTES } from '../lib/ide/session-log'
+import { rememberInstance, type InstanceView, type KnownInstance } from '../lib/ide/test-instance'
 import { boundPersistedText } from './bounded-persist'
 import {
   isRememberedStateUsable,
@@ -34,6 +35,8 @@ interface SessionView {
    * stream sends again adds no second line.
    */
   instance?: WatchedInstance
+  /** Instances this session started or was asked about here, newest first, as last seen. This tab only. */
+  instances: KnownInstance[]
 }
 
 export interface WatchedInstance {
@@ -60,12 +63,17 @@ interface TestSessionState {
   setPayloadError: (workflowId: string, error: string | null) => void
   /** Follows the instance a trigger started; replaces the one followed before. */
   watchInstance: (sessionId: string, instanceId: string) => void
+  /** Follows an instance picked or pasted in the Instance pane, as a trigger's would be. */
+  selectInstance: (sessionId: string, instanceId: string) => void
+  /** Reads the followed instance again after acting on it; ignored once another was picked. */
+  refollowInstance: (sessionId: string, instanceId: string) => void
   /** Records what the stream said about the followed instance; ignored for any other. */
   noteInstance: (
     sessionId: string,
     instanceId: string,
     status: string | undefined,
     done: boolean,
+    view?: InstanceView,
   ) => void
   /** Hides the lines logged so far from the Output view. */
   clearView: (sessionId: string) => void
@@ -79,6 +87,7 @@ const EMPTY: SessionView = {
   clearedBefore: 0,
   streamError: null,
   nextLineId: 1,
+  instances: [],
 }
 
 export const EMPTY_SESSION_VIEW: SessionView = EMPTY
@@ -106,7 +115,7 @@ function withLines(view: SessionView, entries: readonly ProcessLogEntry[]): Sess
  */
 export const useTestSessionStore = create<TestSessionState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       views: {},
       payloads: {},
       payloadErrors: {},
@@ -146,24 +155,60 @@ export const useTestSessionStore = create<TestSessionState>()(
         }),
 
       watchInstance: (sessionId, instanceId) =>
-        set((state) => ({
-          views: {
-            ...state.views,
-            [sessionId]: {
-              ...(state.views[sessionId] ?? EMPTY),
-              instance: { id: instanceId, done: false },
+        set((state) => {
+          const view = state.views[sessionId] ?? EMPTY
+          return {
+            views: {
+              ...state.views,
+              [sessionId]: {
+                ...view,
+                instance: { id: instanceId, done: false },
+                instances: rememberInstance(view.instances, instanceId),
+              },
             },
-          },
-        })),
+          }
+        }),
 
-      noteInstance: (sessionId, instanceId, status, done) =>
+      selectInstance: (sessionId, instanceId) =>
+        set((state) => {
+          const view = state.views[sessionId] ?? EMPTY
+          const known = view.instances.find((instance) => instance.id === instanceId)
+          // What was last seen of it: the stream says a status only when it differs.
+          const status = known?.view?.status
+          return {
+            views: {
+              ...state.views,
+              [sessionId]: {
+                ...view,
+                instance: { id: instanceId, done: false, ...(status !== undefined && { status }) },
+                instances: known ? view.instances : rememberInstance(view.instances, instanceId),
+              },
+            },
+          }
+        }),
+
+      refollowInstance: (sessionId, instanceId) => {
+        if (get().views[sessionId]?.instance?.id === instanceId) {
+          get().selectInstance(sessionId, instanceId)
+        }
+      },
+
+      noteInstance: (sessionId, instanceId, status, done, seen) =>
         set((state) => {
           const view = state.views[sessionId]
           if (view?.instance?.id !== instanceId) return state
           return {
             views: {
               ...state.views,
-              [sessionId]: { ...view, instance: { id: instanceId, status, done } },
+              [sessionId]: {
+                ...view,
+                instance: { id: instanceId, status, done },
+                instances: seen
+                  ? view.instances.map((known) =>
+                      known.id === instanceId ? { ...known, view: seen } : known,
+                    )
+                  : view.instances,
+              },
             },
           }
         }),

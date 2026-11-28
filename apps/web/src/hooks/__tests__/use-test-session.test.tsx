@@ -318,10 +318,13 @@ describe('a triggered workflow instance', () => {
     const fetchMock = vi.fn(async (url: string) => {
       urls.push(url)
       if (url.includes('instanceId=i1')) {
-        return sse([
-          { event: 'instance', data: { status: 'running' } },
-          { event: 'instance', data: { status: 'complete', output: { n: 42 } } },
-        ])
+        return sse(
+          [
+            { event: 'instance', data: { status: 'running' } },
+            { event: 'instance', data: { status: 'complete', output: { n: 42 } } },
+          ],
+          true,
+        )
       }
       // Without an instance: an empty stream that the hook reconnects to.
       return new Promise<Response>(() => {})
@@ -354,7 +357,7 @@ describe('a triggered workflow instance', () => {
       vi.fn(async (url: string) => {
         urls.push(url)
         if (url.includes('instanceId=mine')) {
-          return sse([{ event: 'instance', data: { error: 'instance.not_found' } }])
+          return sse([{ event: 'instance', data: { error: 'instance.not_found' } }], true)
         }
         return new Promise<Response>(() => {})
       }),
@@ -369,6 +372,60 @@ describe('a triggered workflow instance', () => {
       expect(result.current.logs.map((l) => l.text)).toEqual([
         'Response 200\n{\n  "instanceId": "mine"\n}',
       ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('follows an instance picked in the Instance pane, and keeps its steps for the pane', async () => {
+    const { useTestSessionStore } = await import('../../stores/test-session-store')
+    useTestSessionStore.getState().reset('old')
+    const urls: string[] = []
+    const steps = [{ name: 'a', kind: 'do', index: 1, status: 'complete', attemptCount: 1 }]
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url)
+        // Once, then held open: a waiting instance is followed until the server closes.
+        if (
+          url.includes('instanceId=picked') &&
+          !urls.slice(0, -1).some((u) => u.includes('picked'))
+        ) {
+          return sse([{ event: 'instance', data: { status: 'waiting', steps } }], true)
+        }
+        return new Promise<Response>(() => {})
+      }),
+    )
+    useOrgStore.setState({ activeProjectId: 'p1' })
+    try {
+      const { result } = await setup()
+      await waitFor(() => expect(urls.length).toBeGreaterThan(0))
+      const sessionId = result.current.session!.id
+      act(() => useTestSessionStore.getState().selectInstance(sessionId, 'picked'))
+      await waitFor(() => {
+        const known = useTestSessionStore.getState().views[sessionId]?.instances[0]
+        expect(known).toMatchObject({ id: 'picked', view: { status: 'waiting', steps } })
+      })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('backs off from a stream that keeps ending without its close, instead of a hot loop', async () => {
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url)
+        return sse([])
+      }),
+    )
+    useOrgStore.setState({ activeProjectId: 'p1' })
+    try {
+      await setup()
+      await waitFor(() => expect(urls.length).toBeGreaterThan(0))
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      expect(urls).toHaveLength(1)
     } finally {
       vi.unstubAllGlobals()
     }
