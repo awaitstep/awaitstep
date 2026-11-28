@@ -7,7 +7,7 @@ import {
   heroCentreZ,
   heroOffsetX,
   sceneSupport,
-} from '@awaitstep/landing-scenes'
+} from './scene'
 
 const POSTER_TITLE =
   'The refund-review workflow on the AwaitStep canvas: fetch the order, branch on the amount, wait for approval, refund and notify in parallel, sleep three days, send a follow-up.'
@@ -48,7 +48,7 @@ export function HeroScene({ className }: { className?: string }) {
     if (!el || !sceneSupport().ok) return
     let cancelled = false
     let destroy: (() => void) | undefined
-    import('@awaitstep/landing-scenes/scenes')
+    import('./scene/scenes')
       .then(async ({ mountHeroScene }) => {
         if (cancelled) return
         const scene = await mountHeroScene(el)

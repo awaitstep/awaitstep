@@ -1,8 +1,0 @@
-{
-  "extends": "../../tooling/tsconfig/base.json",
-  "compilerOptions": {
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
-  },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "src/__tests__"]
-}

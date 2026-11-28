@@ -1,4 +1,4 @@
-import refundReviewIr from './fixtures/refund-review.ir.json' with { type: 'json' }
+import refundReviewIr from './fixtures/refund-review.ir.json'
 
 /** Node kinds the hero draws. Names match `BUILTIN_NODE_TYPE_LIST` in `@awaitstep/ir`. */
 export type SceneNodeKind =
