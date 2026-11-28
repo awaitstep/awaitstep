@@ -13,6 +13,7 @@ import {
   type InstanceStatusBody,
 } from '../lib/ide/session-log'
 import { sessionStaleness, type SessionStaleness } from '../lib/ide/session-staleness'
+import { instanceViewOf } from '../lib/ide/test-instance'
 import { readSseStream, reconnectDelay } from '../lib/sse-stream'
 import {
   DEFAULT_PAYLOAD,
@@ -175,7 +176,13 @@ export function useTestSession({
       const status = typeof body?.status === 'string' ? body.status : undefined
       const line = body ? instanceLine(body, previous.status, Date.now()) : null
       if (line) appendLocal(id, [line])
-      noteInstance(id, instanceId, status, status === undefined || isFinalInstanceStatus(status))
+      noteInstance(
+        id,
+        instanceId,
+        status,
+        status === undefined || isFinalInstanceStatus(status),
+        instanceViewOf(body) ?? undefined,
+      )
     },
     [appendLocal, noteInstance],
   )
@@ -219,9 +226,9 @@ export function useTestSession({
           }
           if (!response.ok) throw new Error(`Log stream failed (${response.status})`)
 
-          attempt = 0
           setStreamError(sessionId!, null)
           let final = false
+          let closed = false
           await readSseStream(
             response,
             (event) => {
@@ -240,6 +247,7 @@ export function useTestSession({
               if (event.event === 'closed') {
                 // `final` is the signal; the wording is for people.
                 final = (JSON.parse(event.data) as { final?: boolean }).final === true
+                closed = true
                 return false
               }
               return true
@@ -251,7 +259,15 @@ export function useTestSession({
             await refetchSession()
             return
           }
-          // The stream expired on schedule — reconnect straight away.
+          if (closed) {
+            // The stream expired on schedule — reconnect straight away.
+            attempt = 0
+            continue
+          }
+          // Cut off without its close (a proxy, a dropped connection): backing
+          // off keeps a stream that keeps ending from reconnecting in a hot loop.
+          attempt += 1
+          await new Promise((resolve) => setTimeout(resolve, reconnectDelay(attempt)))
         } catch (err) {
           if (controller.signal.aborted) return
           attempt += 1

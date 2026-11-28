@@ -51,6 +51,8 @@ const store = {
   runSteps: new Map<string, WorkflowRunStep>(),
   files: new Map<string, WorkflowFile>(),
   testSessions: new Map<string, TestSession>(),
+  /** Users who can no longer edit where their sessions' workflows sit (the adapter reads roles in SQL). */
+  testSessionNonEditors: new Set<string>(),
   deploymentConfigs: new Map<string, DeploymentConfig>(),
   apiKeys: new Map<string, ApiKey>(),
   apiKeyProjects: [] as { keyId: string; projectId: string; revokedAt: string | null }[],
@@ -119,6 +121,11 @@ export function patchTestSession(id: string, patch: Partial<TestSession>): void 
   store.testSessions.set(id, { ...session, ...patch })
 }
 
+/** The user can no longer edit where their sessions' workflows sit. */
+export function loseTestSessionEdit(userId: string) {
+  store.testSessionNonEditors.add(userId)
+}
+
 export function resetStore() {
   store.workflows.clear()
   store.versions.clear()
@@ -127,6 +134,7 @@ export function resetStore() {
   store.runSteps.clear()
   store.files.clear()
   store.testSessions.clear()
+  store.testSessionNonEditors.clear()
   store.deploymentConfigs.clear()
   store.apiKeys.clear()
   store.apiKeyProjects.length = 0
@@ -1655,9 +1663,10 @@ const mockDb: DatabaseAdapter = {
     store.testSessions.set(id, activated)
     return activated
   },
-  async getOwnedTestSession(id, userId, projectId, cutoffs, workspaceId) {
+  async getOwnedTestSession(id, userId, projectId, cutoffs, workspaceId, options) {
     const session = store.testSessions.get(id)
     if (!session || session.userId !== userId) return null
+    if (!options?.toStop && store.testSessionNonEditors.has(userId)) return null
     const workflow = session.workflowId ? store.workflows.get(session.workflowId) : undefined
     if (!workflow || workflow.projectId !== projectId) return null
     if (workspaceId && workflow.workspaceId !== workspaceId) return null
@@ -1685,6 +1694,7 @@ const mockDb: DatabaseAdapter = {
   async touchTestSession(id, userId, cutoffs) {
     const session = store.testSessions.get(id)
     if (!session || session.userId !== userId) return false
+    if (store.testSessionNonEditors.has(userId)) return false
     if (session.status !== 'running' || !isLiveSession(session, cutoffs)) return false
     store.testSessions.set(id, { ...session, lastUsedAt: now() })
     return true
@@ -2657,8 +2667,44 @@ export class FakeTestSessionRunner implements TestSessionRunner {
     return { status: 200, body: { instanceId: 'inst-1' } }
   }
 
+  /** Events sent, oldest first. */
+  events: { sessionId: string; instanceId: string; type: string; payload: unknown }[] = []
+  /** Instances this session "started": anything else answers 404. */
+  instances = new Set(['inst-1'])
+  /** What `instanceStatus` reads; a test can step it along. */
+  instanceBody: unknown = { status: 'complete' }
+  instanceStatusCalls = 0
+  /** Set to give the runner step records. */
+  instanceSteps?: TestSessionRunner['instanceSteps']
+  /** Set to give the runner a terminate; `terminated` records the calls. */
+  terminate?: TestSessionRunner['terminate']
+  terminated: string[] = []
+
   async instanceStatus() {
-    return { status: 200, body: { status: 'complete' } }
+    this.instanceStatusCalls++
+    return { status: 200, body: this.instanceBody }
+  }
+
+  async sendEvent(
+    handle: StartedTestSessionHandle,
+    instanceId: string,
+    type: string,
+    payload: unknown,
+  ) {
+    if (!this.instances.has(instanceId))
+      return { status: 404, body: { message: 'Instance not found' } }
+    this.events.push({ sessionId: handle.sessionId, instanceId, type, payload })
+    return { status: 200, body: { ok: true } }
+  }
+
+  /** Gives the runner a terminate that ends only instances it started. */
+  withTerminate(): this {
+    this.terminate = async (_handle, instanceId) => {
+      if (!this.instances.has(instanceId)) return { status: 404, body: null }
+      this.terminated.push(instanceId)
+      return { status: 200, body: { status: 'terminated' } }
+    }
+    return this
   }
 
   async logs(_handle: StartedTestSessionHandle, after?: string) {

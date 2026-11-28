@@ -152,6 +152,20 @@ export class SandboxTestSessionRunner implements TestSessionRunner {
     return this.proxy(handle, url, { method: 'GET' })
   }
 
+  /** The worker's own send-event request, which it has when the workflow has a wait. */
+  async sendEvent(
+    handle: StartedTestSessionHandle,
+    instanceId: string,
+    type: string,
+    payload: unknown,
+  ): Promise<TestSessionResponse> {
+    return this.proxy(handle, `http://localhost:${handle.port}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'send-event', instanceId, type, payload }),
+    })
+  }
+
   async logs(handle: StartedTestSessionHandle, after?: string): Promise<TestSessionLogPage> {
     const sandbox = this.sandboxFor(handle.containerId)
     const output = await sandbox.getProcessLogs(handle.processId)

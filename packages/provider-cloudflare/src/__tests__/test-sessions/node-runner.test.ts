@@ -120,6 +120,33 @@ describe('NodeTestSessionRunner', () => {
     })
   })
 
+  describe('sendEvent', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('posts the worker’s own send-event request to the session’s port', async () => {
+      const fetchMock = vi.fn(async () => Response.json({ ok: true }))
+      vi.stubGlobal('fetch', fetchMock)
+      const runner = new NodeTestSessionRunner()
+      const result = await runner.sendEvent(
+        { sessionId: 's', containerId: '/tmp/s', processId: '1', port: 8790 },
+        'inst-1',
+        'approval',
+        { ok: true },
+      )
+      expect(result).toEqual({ status: 200, body: { ok: true } })
+      const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
+      expect(url).toBe('http://localhost:8790/')
+      expect(JSON.parse(init.body as string)).toEqual({
+        action: 'send-event',
+        instanceId: 'inst-1',
+        type: 'approval',
+        payload: { ok: true },
+      })
+    })
+  })
+
   describe('stop', () => {
     it('stops the process group and removes the workspace', async () => {
       const dir = await mkdtemp(join(tmpdir(), 'awaitstep-node-runner-'))

@@ -971,13 +971,19 @@ export interface DatabaseAdapter {
     port: number | null,
     cutoffs: TestSessionCutoffs,
   ): Promise<TestSession | null>
-  /** Session + workflow + expiry, scoped to its owner, project and (when given) workspace in one statement. */
+  /**
+   * Session + workflow + expiry, scoped to its owner, project and (when given)
+   * workspace in one statement. The owner must still be an Editor or Admin
+   * where the workflow sits, as starting it took; `toStop` drops that, since
+   * their own session is always theirs to stop.
+   */
   getOwnedTestSession(
     id: string,
     userId: string,
     projectId: string,
     cutoffs: TestSessionCutoffs,
     workspaceId?: string,
+    options?: { toStop?: boolean },
   ): Promise<OwnedTestSession | null>
   /** The user's newest live session for a workflow — never an expired one. */
   getLiveTestSessionForWorkflow(
@@ -991,7 +997,7 @@ export interface DatabaseAdapter {
     userId: string,
     quotaWindowStart: string,
   ): Promise<TestSessionUsage>
-  /** Bumps the idle clock; false once the session is expired, finished or not theirs. */
+  /** Bumps the idle clock; false once the session is expired, finished, not theirs, or they can no longer edit there. */
   touchTestSession(id: string, userId: string, cutoffs: TestSessionCutoffs): Promise<boolean>
   /** False when another writer already finished it (the transition is in the statement). */
   markTestSessionStopped(

@@ -34,6 +34,8 @@ interface CanvasTestRunProps {
   viewOnlyReason?: string | null
   /** Saves the graph as a new version; resolves to whether it was written. */
   onSave: () => Promise<boolean>
+  /** A script's session has no Instance pane. */
+  kind?: 'workflow' | 'script'
   children: (parts: CanvasTestRunParts) => ReactNode
 }
 
@@ -50,6 +52,7 @@ export function CanvasTestRun({
   isDirty,
   viewOnlyReason,
   onSave,
+  kind = 'workflow',
   children,
 }: CanvasTestRunProps) {
   const open = useCanvasLayoutStore((s) => s.testRunOpen)
@@ -107,6 +110,7 @@ export function CanvasTestRun({
         onSaveAll={handleSaveAll}
         onTrigger={runAction.triggerSession}
         unsavedLine={UNSAVED_LINE}
+        kind={kind}
       />
     </TestRunDock>
   )

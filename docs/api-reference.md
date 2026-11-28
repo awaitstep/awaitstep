@@ -3436,7 +3436,10 @@ and no provider credentials are involved.
 
 Sessions are **personal and billed**, so every endpoint is scoped to the user
 who started one: another member of the same project gets `404`, the same as
-for a session that does not exist. They are also **time-boxed** — an idle
+for a session that does not exist. Starting one takes the Editor role where
+the workflow sits, and so does every later request: someone who loses it, or
+leaves the workspace, gets `404` too (an open stream ends within a minute).
+They can still stop their own session. They are also **time-boxed** — an idle
 window, a hard lifetime, and a cap on how many a user may hold at once — and
 a request that arrives after a cut-off stops the session rather than serving
 it, answering `410`.
@@ -3466,6 +3469,8 @@ variables and dependencies); otherwise it is stopped and a new one starts
 Returns `201` with `{ session, reused: false }`. A session reports its `id`,
 `workflowId`, `versionId`, `runtime`, `status`, `error` and clocks; the
 container and process behind it are not part of the response.
+`capabilities` says what the session's runner can do for one run beyond its
+status and send-event: `{ steps, terminate }`.
 
 A session also reports `files`: the project files it was built from, as
 `{ "<path>": "<content hash>" }` (at most 100 entries), or `null` for a session
@@ -3497,21 +3502,30 @@ Invokes the session's `fetch` handler, the way a deployed worker would be
 invoked. Body: `{ "payload": { ... } }`, under 100 KB. Returns the worker's
 own `{ status, body }`.
 
+One trigger a second per user: a faster one answers `429` "Too many
+requests. Try again within a second." Only triggers that went through count,
+so a refused one doesn't hold the next one back.
+
 **Permission:** `workflows:run`
 
 ### `GET /test-sessions/:sessionId/stream`
 
 Server-sent events for one session. `logs` carries `{ entries, cursor }`;
 pass the cursor back as `after` to continue where you left off — it is opaque
-and must not be parsed. `instance` carries the status of the run named by
-`instanceId`, when given, and is sent only when it changes. `closed` ends the
+and must not be parsed. `instance` carries the run named by `instanceId`,
+when given, and is sent only when it changes: the runner's status answer
+(`status`, `output`, `error`) and, where the runner keeps them (the session's
+`capabilities.steps`), `steps` in the run page's step shape, with each step's
+attempts, error and output (cut at 8 KB, `outputTruncated: true`).
+`stepsIncomplete: true` means earlier steps of that run were not kept. Once
+the run has finished the stream stops reading it. `closed` ends the
 stream and carries `{ final, reason }`: `final: true` means the session itself
 is over and reconnecting would only return `410`; `final: false` means the
 stream reached its own five-minute limit and the client should reconnect from
 its cursor. Act on `final`, not on the wording.
 
-Holding the stream open counts as using the session, so a run is never reaped
-mid-flight.
+Holding the stream open counts as using the session (marked at most once a
+minute), so a run is never reaped mid-flight.
 
 **Permission:** `workflows:read`
 
@@ -3521,11 +3535,36 @@ mid-flight.
 | `after`      | query | no       | Cursor from the last `logs` event |
 | `instanceId` | query | no       | Also stream this run's status     |
 
+### `POST /test-sessions/:sessionId/instances/:instanceId/events`
+
+Sends an event to a run this session started, as a deployed workflow's
+send-event request does: a Wait for Event step waiting for `type` takes it.
+Body: `{ "type": "approval", "payload": { ... } }`, the payload under 100 KB.
+Returns the runner's `{ status, body }`.
+
+Refusals: `422` an instance id or event type AwaitStep does not take (up to
+100 letters, digits, `-` or `_`), `400` the workflow has no Wait for Event step,
+`409` the graph was saved since the session started (restart it to send events),
+or the run takes no more events, `404` no such run in this session, `429` the write
+rate limit (shared with your other writes).
+
+**Permission:** `workflows:run`
+
+### `POST /test-sessions/:sessionId/instances/:instanceId/terminate`
+
+Ends one run this session started; the session stays up. `501` when the
+session's runner cannot end one run (`capabilities.terminate` is `false`):
+stop the session instead. `409` the run has already ended, `404` no such run
+in this session, `429` the write rate limit.
+
+**Permission:** `workflows:run`
+
 ### `DELETE /test-sessions/:sessionId`
 
 Stops the worker and closes the session. Stopping one that has already
 stopped is not an error — the container may still exist even when the record
-says otherwise.
+says otherwise. It works for the session's owner even after they lose the Editor
+role.
 
 **Permission:** `workflows:run`
 

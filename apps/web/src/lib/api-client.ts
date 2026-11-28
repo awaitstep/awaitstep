@@ -318,6 +318,8 @@ export interface TestSession {
   files: Record<string, string> | null
   /** The hash of the saved graph the session was built from; null for an older session. */
   graphHash?: string | null
+  /** What the session's runner shows and does for one instance, beyond its status and send-event. */
+  capabilities?: { steps: boolean; terminate: boolean }
 }
 
 export interface StartTestSessionResponse {
@@ -706,6 +708,35 @@ export function createApiClient(scope: () => ApiScope) {
         body: JSON.stringify({ payload }),
         ...(options?.timeoutMs !== undefined && { signal: AbortSignal.timeout(options.timeoutMs) }),
       })
+    },
+
+    sendTestSessionEvent(
+      sessionId: string,
+      instanceId: string,
+      event: { type: string; payload: unknown },
+    ): Promise<TestSessionTriggerResponse> {
+      return request(
+        withProject(
+          `/test-sessions/${pathSegment(sessionId)}/instances/${pathSegment(instanceId)}/events`,
+        ),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(event),
+        },
+      )
+    },
+
+    terminateTestSessionInstance(
+      sessionId: string,
+      instanceId: string,
+    ): Promise<TestSessionTriggerResponse> {
+      return request(
+        withProject(
+          `/test-sessions/${pathSegment(sessionId)}/instances/${pathSegment(instanceId)}/terminate`,
+        ),
+        { method: 'POST' },
+      )
     },
 
     stopTestSession(sessionId: string): Promise<{ status: string }> {

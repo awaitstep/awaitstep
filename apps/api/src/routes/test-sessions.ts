@@ -1,14 +1,22 @@
 import { readSessionManifest } from '../lib/test-session-manifest.js'
+import { graphHash } from '../lib/graph-hash.js'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { z } from 'zod'
+import type { Context } from 'hono'
 import {
+  BAD_EVENT_TYPE,
+  BAD_INSTANCE_ID,
   TestSessionRefusal,
+  isEventType,
+  isInstanceId,
   type StartedTestSessionHandle,
+  type TestSessionResponse,
   type TestSessionRunner,
 } from '@awaitstep/codegen'
 import type { TestSession } from '@awaitstep/db'
 import type { AppEnv } from '../types.js'
+import { followTestSession } from '../lib/test-session-stream.js'
 import { zValidator } from '../lib/validation.js'
 import { testSessionCutoffs, type TestSessionLimits } from '../lib/test-session-policy.js'
 import {
@@ -21,23 +29,29 @@ import {
 
 const MAX_PAYLOAD_BYTES = 102_400 // 100 KB, as for a deployed trigger
 
-const triggerSchema = z.object({
-  payload: z
-    .unknown()
-    .optional()
-    .refine((value) => value === undefined || JSON.stringify(value).length <= MAX_PAYLOAD_BYTES, {
-      message: `Payload must be under ${MAX_PAYLOAD_BYTES / 1024} KB`,
-    }),
+const payloadSchema = z
+  .unknown()
+  .optional()
+  .refine((value) => value === undefined || JSON.stringify(value).length <= MAX_PAYLOAD_BYTES, {
+    message: `Payload must be under ${MAX_PAYLOAD_BYTES / 1024} KB`,
+  })
+
+const triggerSchema = z.object({ payload: payloadSchema })
+
+const instanceParamSchema = z.object({
+  sessionId: z.string(),
+  instanceId: z.string().refine(isInstanceId, { message: BAD_INSTANCE_ID }),
+})
+
+const sendEventSchema = z.object({
+  type: z.string().refine(isEventType, { message: BAD_EVENT_TYPE }),
+  payload: payloadSchema,
 })
 
 const streamQuerySchema = z.object({
   after: z.string().max(64).optional(),
-  instanceId: z.string().max(200).optional(),
+  instanceId: z.string().refine(isInstanceId, { message: BAD_INSTANCE_ID }).optional(),
 })
-
-/** How long one stream stays open before the client reconnects. */
-const STREAM_MAX_MS = 5 * 60_000
-const STREAM_TICK_MS = 1_000
 
 /**
  * Routes addressed by workflow. Mounted once, under `/workflows`.
@@ -56,7 +70,7 @@ export const testSessions = new Hono<AppEnv>()
  * What a session looks like to a client: never the container id or the
  * process, which are ours to act on and meaningless to anyone else.
  */
-function serialize(session: TestSession) {
+function serialize(session: TestSession, runner: TestSessionRunner) {
   const built = readSessionManifest(session.files)
   return {
     id: session.id,
@@ -69,6 +83,11 @@ function serialize(session: TestSession) {
     lastUsedAt: session.lastUsedAt,
     files: built.files,
     graphHash: built.graphHash,
+    /** What the runner can show and do for one instance, beyond status and send-event. */
+    capabilities: {
+      steps: typeof runner.instanceSteps === 'function',
+      terminate: typeof runner.terminate === 'function',
+    },
   }
 }
 
@@ -112,8 +131,10 @@ workflowTestSessions.post('/:workflowId/test-sessions', async (c) => {
       result.status as 400,
     )
   }
-  if (result.reused) return c.json({ session: serialize(result.session), reused: true })
-  return c.json({ session: serialize(result.session), reused: false }, 201)
+  if (result.reused) {
+    return c.json({ session: serialize(result.session, context.runner), reused: true })
+  }
+  return c.json({ session: serialize(result.session, context.runner), reused: false }, 201)
 })
 
 workflowTestSessions.get('/:workflowId/test-sessions', async (c) => {
@@ -127,8 +148,34 @@ workflowTestSessions.get('/:workflowId/test-sessions', async (c) => {
     c.get('userId'),
     testSessionCutoffs(context.limits),
   )
-  return c.json({ session: session ? serialize(session) : null })
+  return c.json({ session: session ? serialize(session, context.runner) : null })
 })
+
+/**
+ * A runner call that threw. A refusal (a limit, a session that is no longer
+ * the runner's) is said as the runner put it; anything else is the runner
+ * failing.
+ */
+async function runnerFailure(
+  c: Context<AppEnv>,
+  context: TestSessionDeps,
+  session: TestSession,
+  err: unknown,
+) {
+  if (err instanceof TestSessionRefusal) {
+    if (err.retryAfterSeconds !== undefined) {
+      c.header('Retry-After', String(Math.max(1, Math.ceil(err.retryAfterSeconds))))
+    }
+    // The runner no longer has it: the record says so too, or the next
+    // start would hand this session back as live.
+    if (err.status === 410) {
+      await stopTestSession(context, session, 'stopped', { error: err.message })
+    }
+    return c.json({ error: err.message }, err.status as 429)
+  }
+  const message = err instanceof Error ? err.message : 'Could not reach the test session'
+  return c.json({ error: message }, 502)
+}
 
 // ── Trigger ────────────────────────────────────────────
 
@@ -162,31 +209,14 @@ testSessions.post(
       )
       return c.json({ status: response.status, body: response.body })
     } catch (err) {
-      // A limit, or a session that is no longer the runner's: said as the runner put it.
-      if (err instanceof TestSessionRefusal) {
-        if (err.retryAfterSeconds !== undefined) {
-          c.header('Retry-After', String(Math.max(1, Math.ceil(err.retryAfterSeconds))))
-        }
-        // The runner no longer has it: the record says so too, or the next
-        // start would hand this session back as live.
-        if (err.status === 410) {
-          await stopTestSession(context, session, 'stopped', { error: err.message })
-        }
-        return c.json({ error: err.message }, err.status as 429)
-      }
-      const message = err instanceof Error ? err.message : 'Could not reach the test session'
-      return c.json({ error: message }, 502)
+      return runnerFailure(c, context, session, err)
     }
   },
 )
 
 // ── Stream ─────────────────────────────────────────────
 
-/**
- * Logs, and the status of one instance when the client names it. The session
- * is touched on every tick: a stream open is a session in use, and without
- * that an active run would be reaped mid-flight.
- */
+/** Logs, and one instance's status and steps when the client names it (`followTestSession`). */
 testSessions.get(
   '/test-sessions/:sessionId/stream',
   zValidator('query', streamQuerySchema),
@@ -213,59 +243,146 @@ testSessions.get(
       stream.onAbort(() => {
         open = false
       })
-
-      const startedAt = Date.now()
-      let cursor = after
       let eventId = 0
-      let lastStatus = ''
-      let closed = false
-      const send = (event: string, data: unknown) =>
-        stream.writeSSE({ id: String(eventId++), event, data: JSON.stringify(data) })
-
-      while (open && Date.now() - startedAt < STREAM_MAX_MS) {
-        const alive = await context.db.touchTestSession(
-          session.id,
-          userId,
-          testSessionCutoffs(context.limits),
-        )
-        if (!alive) {
-          closed = true
-          // `final` is what a client acts on: the wording is for people.
-          await send('closed', { final: true, reason: 'Test session is no longer running' })
-          break
-        }
-
-        try {
-          const page = await context.runner.logs(handle, cursor)
-          cursor = page.cursor
-          if (page.entries.length > 0) await send('logs', { entries: page.entries, cursor })
-        } catch {
-          // A log read failing is not worth ending the stream over; the next
-          // tick either recovers or the session stops being alive.
-        }
-
-        if (instanceId) {
-          try {
-            const status = await context.runner.instanceStatus(handle, instanceId)
-            const serialized = JSON.stringify(status.body)
-            if (serialized !== lastStatus) {
-              lastStatus = serialized
-              await send('instance', status.body)
-            }
-          } catch {
-            // Same again: report what we can, keep the stream.
-          }
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, STREAM_TICK_MS))
-      }
-
-      // Only when the stream ran out of time. Saying "reconnect" after the
-      // session died sends the client back for a 410.
-      if (open && !closed) {
-        await send('closed', { final: false, reason: 'Stream expired — reconnect to continue' })
-      }
+      await followTestSession({
+        deps: context,
+        session,
+        userId,
+        handle,
+        ...(after !== undefined && { after }),
+        ...(instanceId !== undefined && { instanceId }),
+        send: (event, data) =>
+          stream.writeSSE({ id: String(eventId++), event, data: JSON.stringify(data) }),
+        isOpen: () => open,
+      })
     })
+  },
+)
+
+// ── One instance: send an event, terminate ─────────────
+
+/** Whether the version a session runs has a Wait for Event step to send to. */
+/**
+ * Whether the session's build has a Wait for Event step to send to. The
+ * version's graph is the build's only while it is the graph the session was
+ * built from: a save onto an undeployed version keeps the id.
+ */
+async function waitsForEvents(
+  context: TestSessionDeps,
+  session: TestSession,
+): Promise<'yes' | 'no' | 'behind'> {
+  if (!session.versionId) return 'no'
+  const version = await context.db.getWorkflowVersionById(session.versionId)
+  if (!version) return 'no'
+  let waits: boolean
+  try {
+    const ir = JSON.parse(version.ir) as { nodes?: { type?: unknown }[] }
+    waits = (ir.nodes ?? []).some((node) => node.type === 'wait_for_event')
+  } catch {
+    return 'no'
+  }
+  if (!waits) return 'no'
+  const builtFrom = readSessionManifest(session.files).graphHash
+  return builtFrom === null || builtFrom === graphHash(version.ir) ? 'yes' : 'behind'
+}
+
+const NO_SUCH_INSTANCE = 'No such instance in this test session'
+
+/** The runner's answer for one instance: its 404 is ours to say, the rest passes through. */
+function instanceAnswer(c: Context<AppEnv>, response: TestSessionResponse) {
+  if (response.status === 404) return c.json({ error: NO_SUCH_INSTANCE }, 404)
+  return c.json({ status: response.status, body: response.body })
+}
+
+testSessions.post(
+  '/test-sessions/:sessionId/instances/:instanceId/events',
+  zValidator('param', instanceParamSchema),
+  zValidator('json', sendEventSchema),
+  async (c) => {
+    const context = deps(c)
+    if (!context) return c.json({ error: 'Test sessions are not available here' }, 501)
+
+    const { sessionId, instanceId } = c.req.valid('param')
+    const resolved = await resolveTestSession(
+      context,
+      sessionId,
+      c.get('userId'),
+      c.get('projectId'),
+      c.get('workspaceId'),
+    )
+    if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status as 404)
+
+    const { session } = resolved
+    const [waits] = await Promise.all([
+      waitsForEvents(context, session),
+      context.db.touchTestSession(session.id, c.get('userId'), testSessionCutoffs(context.limits)),
+    ])
+    // Without a wait the self-hosted worker has no send-event route, and the
+    // request would start a new run instead.
+    if (waits === 'no') {
+      return c.json({ error: 'This workflow has no Wait for Event step to send an event to' }, 400)
+    }
+    if (waits === 'behind') {
+      return c.json(
+        { error: 'The graph changed since this session started. Restart it to send events.' },
+        409,
+      )
+    }
+
+    const { type, payload } = c.req.valid('json')
+    try {
+      const response = await context.runner.sendEvent(
+        sessionHandle(session) as StartedTestSessionHandle,
+        instanceId,
+        type,
+        payload ?? {},
+      )
+      return instanceAnswer(c, response)
+    } catch (err) {
+      return runnerFailure(c, context, session, err)
+    }
+  },
+)
+
+testSessions.post(
+  '/test-sessions/:sessionId/instances/:instanceId/terminate',
+  zValidator('param', instanceParamSchema),
+  async (c) => {
+    const context = deps(c)
+    if (!context) return c.json({ error: 'Test sessions are not available here' }, 501)
+    const terminate = context.runner.terminate?.bind(context.runner)
+    if (!terminate) {
+      return c.json(
+        { error: 'This test runner cannot end one instance. Stop ends the whole session.' },
+        501,
+      )
+    }
+
+    const { sessionId, instanceId } = c.req.valid('param')
+    const resolved = await resolveTestSession(
+      context,
+      sessionId,
+      c.get('userId'),
+      c.get('projectId'),
+      c.get('workspaceId'),
+    )
+    if (!resolved.ok) return c.json({ error: resolved.error }, resolved.status as 404)
+
+    const { session } = resolved
+    await context.db.touchTestSession(
+      session.id,
+      c.get('userId'),
+      testSessionCutoffs(context.limits),
+    )
+    try {
+      const response = await terminate(
+        sessionHandle(session) as StartedTestSessionHandle,
+        instanceId,
+      )
+      return instanceAnswer(c, response)
+    } catch (err) {
+      return runnerFailure(c, context, session, err)
+    }
   },
 )
 
@@ -282,6 +399,8 @@ testSessions.delete('/test-sessions/:sessionId', async (c) => {
     c.get('projectId'),
     testSessionCutoffs(context.limits),
     c.get('workspaceId'),
+    // Someone who can no longer edit there may still end what they started.
+    { toStop: true },
   )
   if (!found) return c.json({ error: 'Not found' }, 404)
 

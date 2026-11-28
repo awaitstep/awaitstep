@@ -324,6 +324,9 @@ describe('triggeredInstanceId', () => {
     [{ status: 500, body: { instanceId: 'abc' } }, null],
     [{ status: 200, body: { instanceId: '' } }, null],
     [{ status: 200, body: { instanceId: 7 } }, null],
+    // One the stream would refuse is not followed, or it would be asked for again and again.
+    [{ status: 200, body: { instanceId: 'has space' } }, null],
+    [{ status: 200, body: { instanceId: 'x'.repeat(101) } }, null],
     [{ status: 200, body: 'instanceId' }, null],
     [{ status: 200, body: null }, null],
   ])('%j → %s', (result, expected) => {

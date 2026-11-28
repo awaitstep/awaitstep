@@ -521,6 +521,8 @@ export function createRouter(
   router.post('/workflows/:workflowId/runs/:runId/resume', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/terminate', key('workflows', 'run'))
   router.post('/test-sessions/:sessionId/trigger', key('workflows', 'run'))
+  router.post('/test-sessions/:sessionId/instances/:instanceId/events', key('workflows', 'run'))
+  router.post('/test-sessions/:sessionId/instances/:instanceId/terminate', key('workflows', 'run'))
   router.delete('/test-sessions/:sessionId', key('workflows', 'run'))
   for (const path of [
     '/runs',
@@ -545,6 +547,16 @@ export function createRouter(
   const verifyLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
   const deployLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
   const apiKeyCreateLimit = createRateLimiter({ windowMs: 60_000, max: 5, keyGenerator: userKey })
+  // Each test trigger starts a run on the session's worker: one a second is a
+  // person clicking, anything faster is a script. Only a trigger that went
+  // through counts, so a refused one (another workspace's key, a stopped
+  // session) can't hold the owner's next one back.
+  const testTriggerLimit = createRateLimiter({
+    windowMs: 1000,
+    max: 1,
+    keyGenerator: userKey,
+    skipFailedRequests: true,
+  })
   const marketplaceLimit = createRateLimiter({ windowMs: 60_000, max: 10, keyGenerator: userKey })
   const exportLimit = createRateLimiter({ windowMs: 60 * 60_000, max: 10, keyGenerator: userKey })
   // Every upload stores bytes; clearing one deletes them.
@@ -627,6 +639,10 @@ export function createRouter(
   // Starting a session is the expensive verb; reading one is a poll, and
   // sharing the deploy limiter let polling spend the budget for deploys.
   router.post('/workflows/:workflowId/test-sessions', deployLimit)
+  router.post('/test-sessions/:sessionId/trigger', testTriggerLimit)
+  // Each send or terminate reads the session's build and asks the runner afresh.
+  router.post('/test-sessions/:sessionId/instances/:instanceId/events', writeLimit)
+  router.post('/test-sessions/:sessionId/instances/:instanceId/terminate', writeLimit)
   router.use('/workflows/:workflowId/takedown', writeLimit)
   router.post('/api-keys', apiKeyCreateLimit)
   router.post('/library/items', writeLimit)
