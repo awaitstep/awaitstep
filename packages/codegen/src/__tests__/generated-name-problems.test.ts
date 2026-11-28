@@ -120,7 +120,7 @@ describe('generatedNameProblems: inline steps', () => {
     expect(names('const { a, b: stepArgs } = x')).toHaveLength(1)
     expect(names('const [flow] = x')).toHaveLength(1)
     expect(names('let a = 1, env = 2')).toHaveLength(1)
-    expect(names('function durableStep() {}')).toHaveLength(1)
+    expect(names('function waitForEventOrTimeout() {}')).toHaveLength(1)
     expect(names('class createInlineHost {}')).toHaveLength(1)
     expect(names('const { key: renamed } = { key: step }')).toEqual([])
   })
@@ -154,13 +154,13 @@ describe('generatedNameProblems: inline steps', () => {
     expect(generatedNameProblems(inline('import step from "x"'))[0]?.message).toBe(
       'Inline step "Prepare" imports `step` from "x", which generated code uses. Rename it with `as`.',
     )
-    expect(
-      generatedNameProblems(inline('import { durableStep } from "#awaitstep/runtime"')),
-    ).toEqual([])
+    expect(generatedNameProblems(inline('import { stepArgs } from "#awaitstep/runtime"'))).toEqual(
+      [],
+    )
     // Another generated module doesn't merge with the runtime import.
-    expect(
-      generatedNameProblems(inline('import { durableStep } from "#awaitstep/env"')),
-    ).toHaveLength(1)
+    expect(generatedNameProblems(inline('import { stepArgs } from "#awaitstep/env"'))).toHaveLength(
+      1,
+    )
   })
 
   it('leaves step modules alone', () => {

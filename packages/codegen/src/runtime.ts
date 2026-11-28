@@ -61,7 +61,6 @@ export function workflowRuntimeImport(options: {
 }): string {
   return runtimeImport([
     'defineWorkflow',
-    'durableStep',
     ...(options.callsStepModules ? [STEP_ARGS] : []),
     ...(options.hasWait ? ['waitForEventOrTimeout'] : []),
   ])

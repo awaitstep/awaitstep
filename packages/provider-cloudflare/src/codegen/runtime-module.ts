@@ -46,11 +46,6 @@ export function cloudflarePrimitivesModuleFile(): GeneratedFile {
  */
 export const BOOTSTRAP_RUNTIME_IMPORT = `import { createWorkflowContext } from "${CORE_RUNTIME_IMPORT}";`
 
-/** The single-file (legacy) emitter runs the body inline, so it needs both halves. */
-export const FUSED_RUNTIME_IMPORT =
-  `import { createWorkflowContext, durableStep, type StepAttempt, type StepConfig, ` +
-  `type WaitForEventOptions, type WorkflowHost } from "${CORE_RUNTIME_IMPORT}";`
-
 /**
  * The Cloudflare platform adapter. The stable name is
  * `createAwaitstepPlatform`; the generated entry never names Cloudflare. It

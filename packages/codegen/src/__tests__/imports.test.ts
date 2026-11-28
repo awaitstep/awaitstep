@@ -5,14 +5,15 @@ import { importBindings, importOrigin, mergeImports } from '../imports.js'
 import { functionRuntimeImport, workflowRuntimeImport } from '../runtime.js'
 import { computeVarNames } from '../context.js'
 
-const RUNTIME = 'import { defineWorkflow, durableStep, stepArgs } from "#awaitstep/runtime";'
+const RUNTIME =
+  'import { defineWorkflow, waitForEventOrTimeout, stepArgs } from "#awaitstep/runtime";'
 
 describe('mergeImports', () => {
   it('folds a name the generated file already imports into its line', () => {
     expect(
       mergeImports([
         { statement: RUNTIME },
-        { statement: 'import { durableStep } from "#awaitstep/runtime"', origin: '"a"' },
+        { statement: 'import { waitForEventOrTimeout } from "#awaitstep/runtime"', origin: '"a"' },
       ]),
     ).toEqual([RUNTIME])
   })
@@ -24,7 +25,7 @@ describe('mergeImports', () => {
         { statement: "import { HttpError, type StepContext } from '#awaitstep/runtime'" },
       ]),
     ).toEqual([
-      'import { defineWorkflow, durableStep, stepArgs, HttpError, type StepContext } from "#awaitstep/runtime";',
+      'import { defineWorkflow, waitForEventOrTimeout, stepArgs, HttpError, type StepContext } from "#awaitstep/runtime";',
     ])
   })
 

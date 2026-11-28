@@ -27,7 +27,7 @@ The workflow below has two steps:
 ### Generated TypeScript
 
 ```typescript
-import { defineWorkflow, durableStep } from '#awaitstep/runtime'
+import { defineWorkflow } from '#awaitstep/runtime'
 import type { Env } from './env.js'
 
 export default defineWorkflow<Env>({
@@ -35,7 +35,6 @@ export default defineWorkflow<Env>({
   async run(flow) {
     const env = flow.env
     const event = flow.event
-    const step = durableStep(flow)
 
     const validate_input = await flow.step('validate-input', async () => {
       const userId = event.payload?.userId

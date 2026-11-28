@@ -34,7 +34,6 @@ export const GENERATED_NAMES: readonly string[] = [
   'createInlineHost',
   'createCloudflareHost',
   'createAwaitstepPlatform',
-  'durableStep',
   'AWAITSTEP_RETENTION',
 ]
 
@@ -53,7 +52,6 @@ export const INLINE_TAKEN_NAMES: readonly string[] = [
   'flow',
   'step',
   'stepArgs',
-  'durableStep',
   'waitForEventOrTimeout',
   'createWorkflowContext',
   'createInlineHost',
