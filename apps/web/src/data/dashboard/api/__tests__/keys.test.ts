@@ -138,10 +138,9 @@ describe('key rows → records', () => {
 
   it.each([
     ['1h', '2026-10-29T13:00:00.000Z'],
-    ['6h', '2026-10-29T18:00:00.000Z'],
-    ['24h', '2026-10-30T12:00:00.000Z'],
+    ['12h', '2026-10-30T00:00:00.000Z'],
+    ['1d', '2026-10-30T12:00:00.000Z'],
     ['7d', '2026-11-05T12:00:00.000Z'],
-    ['365d', '2027-10-29T12:00:00.000Z'],
   ] as const)('turns the %s preset into the instant that far from now', (preset, at) => {
     expect(expiresAtOf(preset, new Date('2026-10-29T12:00:00.000Z'))).toBe(at)
   })

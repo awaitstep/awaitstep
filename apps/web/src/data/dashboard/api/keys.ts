@@ -23,13 +23,10 @@ const HOUR_MS = 3_600_000
 
 const EXPIRY_HOURS: Record<KeyExpiryPreset, number | null> = {
   '1h': 1,
-  '6h': 6,
   '12h': 12,
-  '24h': 24,
+  '1d': 24,
   '7d': 7 * 24,
   '30d': 30 * 24,
-  '90d': 90 * 24,
-  '365d': 365 * 24,
   never: null,
 }
 

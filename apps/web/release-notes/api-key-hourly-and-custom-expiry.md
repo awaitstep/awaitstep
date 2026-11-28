@@ -6,4 +6,4 @@ link: api-keys
 linkLabel: Open API keys
 ---
 
-A new key can now expire in 1, 6, 12 or 24 hours, in 7 days, or at a date and time you choose. The keys list shows how many minutes or hours a short-lived key has left.
+A new key can now expire in 1 or 12 hours, in 1 or 7 days, or at a date and time you pick under Custom. The keys list shows how many minutes or hours a short-lived key has left.

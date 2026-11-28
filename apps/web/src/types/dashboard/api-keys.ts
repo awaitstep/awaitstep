@@ -57,7 +57,7 @@ export interface ProjectKeys extends ScopedKeys {
 export type WorkspaceKeys = ScopedKeys
 
 /** A period from now that the "Expires" menu offers, or `never`. */
-export type KeyExpiryPreset = '1h' | '6h' | '12h' | '24h' | '7d' | '30d' | '90d' | '365d' | 'never'
+export type KeyExpiryPreset = '1h' | '12h' | '1d' | '7d' | '30d' | 'never'
 
 /** When a new key stops working: a preset period from now, or a picked date and time. */
 export type KeyExpiry = KeyExpiryPreset | { at: Date }
