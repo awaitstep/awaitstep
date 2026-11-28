@@ -521,6 +521,8 @@ export function createRouter(
   router.post('/workflows/:workflowId/runs/:runId/resume', key('workflows', 'run'))
   router.post('/workflows/:workflowId/runs/:runId/terminate', key('workflows', 'run'))
   router.post('/test-sessions/:sessionId/trigger', key('workflows', 'run'))
+  router.post('/test-sessions/:sessionId/instances/:instanceId/events', key('workflows', 'run'))
+  router.post('/test-sessions/:sessionId/instances/:instanceId/terminate', key('workflows', 'run'))
   router.delete('/test-sessions/:sessionId', key('workflows', 'run'))
   for (const path of [
     '/runs',
@@ -627,6 +629,9 @@ export function createRouter(
   // Starting a session is the expensive verb; reading one is a poll, and
   // sharing the deploy limiter let polling spend the budget for deploys.
   router.post('/workflows/:workflowId/test-sessions', deployLimit)
+  // Each send or terminate reads the session's build and asks the runner afresh.
+  router.post('/test-sessions/:sessionId/instances/:instanceId/events', writeLimit)
+  router.post('/test-sessions/:sessionId/instances/:instanceId/terminate', writeLimit)
   router.use('/workflows/:workflowId/takedown', writeLimit)
   router.post('/api-keys', apiKeyCreateLimit)
   router.post('/library/items', writeLimit)
