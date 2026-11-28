@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { logTokens, MAX_HIGHLIGHT_CHARS, responseHead } from '../ide/log-tokens'
+import { logTokens, MAX_HIGHLIGHT_CHARS, lineHead } from '../ide/log-tokens'
 
 const kinds = (text: string) => logTokens(text).map((t) => `${t.kind}:${t.text}`)
 
@@ -65,13 +65,18 @@ describe('logTokens', () => {
   })
 })
 
-describe('responseHead', () => {
+describe('lineHead', () => {
   it.each([
-    ['Response 200\n{"a":1}', { status: 200, rest: '\n{"a":1}' }],
-    ['Response 500', { status: 500, rest: '' }],
+    ['Response 200\n{"a":1}', { label: 'Response 200', tone: 'success', rest: '\n{"a":1}' }],
+    ['Response 500', { label: 'Response 500', tone: 'success', rest: '' }],
+    ['Run complete\n{"n":42}', { label: 'Run complete', tone: 'success', rest: '\n{"n":42}' }],
+    ['Run errored\nError: boom', { label: 'Run errored', tone: 'neutral', rest: '\nError: boom' }],
+    ['Run waiting', { label: 'Run waiting', tone: 'neutral', rest: '' }],
     ['Response 2000', null],
     ['got Response 200', null],
+    ['Run completed', null],
+    ['Run forever', null],
   ])('reads %j', (text, expected) => {
-    expect(responseHead(text)).toEqual(expected)
+    expect(lineHead(text)).toEqual(expected)
   })
 })

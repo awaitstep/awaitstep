@@ -300,3 +300,77 @@ describe('log stream refused with 401', () => {
     }
   })
 })
+
+describe('a triggered workflow instance', () => {
+  /** An SSE response with these events, then the end of the stream. */
+  function sse(events: Array<{ event: string; data: unknown }>, final = false) {
+    const text =
+      events
+        .map((e, i) => `id: ${i}\nevent: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`)
+        .join('') + (final ? `event: closed\ndata: ${JSON.stringify({ final: false })}\n\n` : '')
+    return new Response(text, { status: 200, headers: { 'content-type': 'text/event-stream' } })
+  }
+
+  it('is followed until it completes, and its output becomes a line of Output', async () => {
+    const { useTestSessionStore } = await import('../../stores/test-session-store')
+    useTestSessionStore.getState().reset('old')
+    const urls: string[] = []
+    const fetchMock = vi.fn(async (url: string) => {
+      urls.push(url)
+      if (url.includes('instanceId=i1')) {
+        return sse([
+          { event: 'instance', data: { status: 'running' } },
+          { event: 'instance', data: { status: 'complete', output: { n: 42 } } },
+        ])
+      }
+      // Without an instance: an empty stream that the hook reconnects to.
+      return new Promise<Response>(() => {})
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    useOrgStore.setState({ activeProjectId: 'p1' })
+    try {
+      api.triggerTestSession.mockResolvedValue({ status: 200, body: { instanceId: 'i1' } })
+      const { result } = await setup()
+      await waitFor(() => expect(urls.length).toBeGreaterThan(0))
+      expect(urls[0]).not.toContain('instanceId')
+      await act(() => result.current.trigger({}))
+      await waitFor(() =>
+        expect(result.current.logs.map((l) => l.text)).toContain('Run complete\n{\n  "n": 42\n}'),
+      )
+      // Done: the stream reconnects without asking about it again.
+      await waitFor(() => expect(urls.at(-1)).not.toContain('instanceId'))
+      expect(result.current.logs.filter((l) => l.text.startsWith('Run '))).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('a function answering with an instanceId of its own is not followed past one read', async () => {
+    const { useTestSessionStore } = await import('../../stores/test-session-store')
+    useTestSessionStore.getState().reset('old')
+    const urls: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        urls.push(url)
+        if (url.includes('instanceId=mine')) {
+          return sse([{ event: 'instance', data: { error: 'instance.not_found' } }])
+        }
+        return new Promise<Response>(() => {})
+      }),
+    )
+    useOrgStore.setState({ activeProjectId: 'p1' })
+    try {
+      api.triggerTestSession.mockResolvedValue({ status: 200, body: { instanceId: 'mine' } })
+      const { result } = await setup()
+      await act(() => result.current.trigger({}))
+      await waitFor(() => expect(urls.at(-1)).not.toContain('instanceId'))
+      expect(urls.filter((u) => u.includes('instanceId'))).toHaveLength(1)
+      expect(result.current.logs.map((l) => l.text)).toEqual([
+        'Response 200\n{\n  "instanceId": "mine"\n}',
+      ])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})

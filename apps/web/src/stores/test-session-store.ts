@@ -28,6 +28,19 @@ interface SessionView {
   /** Why the stream is not connected, when something went wrong. */
   streamError: string | null
   nextLineId: number
+  /**
+   * The workflow instance the last trigger started, followed through the
+   * stream until it is done; the last status shown for it, so a status the
+   * stream sends again adds no second line.
+   */
+  instance?: WatchedInstance
+}
+
+export interface WatchedInstance {
+  id: string
+  status?: string
+  /** Done: finished, or not an instance the session knows. The stream stops asking. */
+  done: boolean
 }
 
 /** How many workflows' payloads are remembered; the oldest go first. */
@@ -45,6 +58,15 @@ interface TestSessionState {
   appendLocal: (sessionId: string, entries: readonly ProcessLogEntry[]) => void
   setPayload: (workflowId: string, payload: string) => void
   setPayloadError: (workflowId: string, error: string | null) => void
+  /** Follows the instance a trigger started; replaces the one followed before. */
+  watchInstance: (sessionId: string, instanceId: string) => void
+  /** Records what the stream said about the followed instance; ignored for any other. */
+  noteInstance: (
+    sessionId: string,
+    instanceId: string,
+    status: string | undefined,
+    done: boolean,
+  ) => void
   /** Hides the lines logged so far from the Output view. */
   clearView: (sessionId: string) => void
   setStreamError: (sessionId: string, error: string | null) => void
@@ -121,6 +143,29 @@ export const useTestSessionStore = create<TestSessionState>()(
         set((state) => {
           const { [workflowId]: _old, ...rest } = state.payloadErrors
           return { payloadErrors: error === null ? rest : { ...rest, [workflowId]: error } }
+        }),
+
+      watchInstance: (sessionId, instanceId) =>
+        set((state) => ({
+          views: {
+            ...state.views,
+            [sessionId]: {
+              ...(state.views[sessionId] ?? EMPTY),
+              instance: { id: instanceId, done: false },
+            },
+          },
+        })),
+
+      noteInstance: (sessionId, instanceId, status, done) =>
+        set((state) => {
+          const view = state.views[sessionId]
+          if (view?.instance?.id !== instanceId) return state
+          return {
+            views: {
+              ...state.views,
+              [sessionId]: { ...view, instance: { id: instanceId, status, done } },
+            },
+          }
         }),
 
       clearView: (sessionId) =>

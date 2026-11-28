@@ -195,3 +195,64 @@ export function responseLine(
     text: body ? `Response ${result.status}\n${body}` : `Response ${result.status}`,
   }
 }
+
+/** A workflow instance's status as a test session's stream reports it. */
+export interface InstanceStatusBody {
+  status?: string
+  output?: unknown
+  error?: { name?: string; message?: string } | string | null
+}
+
+/** Statuses after which an instance does not change again. */
+const FINAL_STATUSES = new Set(['complete', 'errored', 'terminated'])
+
+/** Whether an instance in this status is done: its stream needs no more reads. */
+export function isFinalInstanceStatus(status: string | undefined): boolean {
+  return status !== undefined && FINAL_STATUSES.has(status)
+}
+
+/**
+ * Statuses worth a line of their own. `queued` and `running` are what a
+ * trigger's `Response 200` already says; `unknown` says nothing.
+ */
+const REPORTED_STATUSES = new Set(['complete', 'errored', 'terminated', 'waiting', 'paused'])
+
+/**
+ * What a triggered workflow instance did, as a line of the session's output:
+ * `Run complete` with its output under it, `Run errored` with the error (on
+ * stderr), or a pause the run is in. Null for a status not worth a line, or
+ * one already shown (`previous`).
+ */
+export function instanceLine(
+  body: InstanceStatusBody,
+  previous: string | undefined,
+  timestamp: number,
+): ProcessLogEntry | null {
+  const status = body.status
+  if (!status || status === previous || !REPORTED_STATUSES.has(status)) return null
+  if (status === 'errored') {
+    const error = body.error
+    const detail =
+      typeof error === 'string'
+        ? error
+        : error
+          ? [error.name, error.message].filter(Boolean).join(': ')
+          : ''
+    return { timestamp, stream: 'stderr', text: detail ? `Run errored\n${detail}` : 'Run errored' }
+  }
+  const output = status === 'complete' ? formatBody(body.output) : ''
+  return {
+    timestamp,
+    stream: 'stdout',
+    text: output ? `Run ${status}\n${output}` : `Run ${status}`,
+  }
+}
+
+/** The instance a workflow trigger answered with, when it answered with one. */
+export function triggeredInstanceId(result: { status: number; body: unknown }): string | null {
+  if (result.status < 200 || result.status >= 300) return null
+  const body = result.body
+  if (!body || typeof body !== 'object') return null
+  const id = (body as { instanceId?: unknown }).instanceId
+  return typeof id === 'string' && id.length > 0 ? id : null
+}

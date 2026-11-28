@@ -6,7 +6,7 @@ import {
   formatLogTime,
   type LogStreamFilter,
 } from '../../lib/ide/session-log'
-import { logTokens, responseHead, type LogTokenKind } from '../../lib/ide/log-tokens'
+import { logTokens, lineHead, type LogTokenKind } from '../../lib/ide/log-tokens'
 import { cn } from '../../lib/utils'
 import { useTestSessionStore, type SessionLogLine } from '../../stores/test-session-store'
 import { PANE_HEADER } from './session-bars'
@@ -160,7 +160,7 @@ const TOKEN_CLASS: Record<LogTokenKind, string | undefined> = {
 /** Memoised: a session's lines never change, and every new line re-renders the list. */
 const LogRow = memo(function LogRow({ line }: { line: SessionLogLine }) {
   const failed = line.stream === 'stderr'
-  const head = responseHead(line.text)
+  const head = lineHead(line.text)
   const body = head ? head.rest : line.text
   return (
     <div className={cn('flex gap-2', failed ? 'text-status-error' : 'text-foreground')}>
@@ -169,8 +169,13 @@ const LogRow = memo(function LogRow({ line }: { line: SessionLogLine }) {
       </time>
       <span className="min-w-0 whitespace-pre-wrap break-words">
         {head && (
-          <span className={cn('font-semibold', failed ? undefined : 'text-status-success')}>
-            Response {head.status}
+          <span
+            className={cn(
+              'font-semibold',
+              !failed && head.tone === 'success' && 'text-status-success',
+            )}
+          >
+            {head.label}
           </span>
         )}
         {/* An error stays one colour: red is what it says. */}

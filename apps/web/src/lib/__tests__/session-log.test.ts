@@ -14,6 +14,9 @@ import {
   startPhase,
   startPhaseLabel,
   responseLine,
+  instanceLine,
+  isFinalInstanceStatus,
+  triggeredInstanceId,
 } from '../ide/session-log'
 
 const IDLE = { starting: false, stopping: false }
@@ -254,5 +257,76 @@ describe('responseLine', () => {
     [{ status: 302, body: '' }, 'stderr', 'Response 302'],
   ])('puts %j in the output on %s', (result, stream, text) => {
     expect(responseLine(result, 1_000)).toEqual({ timestamp: 1_000, stream, text })
+  })
+})
+
+describe('instanceLine', () => {
+  it.each([
+    [
+      { status: 'complete', output: { n: 42 } },
+      undefined,
+      'stdout',
+      'Run complete\n{\n  "n": 42\n}',
+    ],
+    [{ status: 'complete' }, 'running', 'stdout', 'Run complete'],
+    [
+      { status: 'errored', error: { name: 'Error', message: 'boom' } },
+      'running',
+      'stderr',
+      'Run errored\nError: boom',
+    ],
+    [{ status: 'errored', error: 'plain' }, undefined, 'stderr', 'Run errored\nplain'],
+    [{ status: 'errored' }, undefined, 'stderr', 'Run errored'],
+    [{ status: 'terminated' }, 'waiting', 'stdout', 'Run terminated'],
+    [{ status: 'waiting' }, 'running', 'stdout', 'Run waiting'],
+  ])('puts %j (after %s) in the output on %s', (body, previous, stream, text) => {
+    expect(instanceLine(body, previous, 1_000)).toEqual({ timestamp: 1_000, stream, text })
+  })
+
+  it.each([
+    [{ status: 'running' }, undefined],
+    [{ status: 'queued' }, undefined],
+    [{ status: 'unknown' }, undefined],
+    [{}, undefined],
+    // Already shown: a stream re-sends a status after reconnecting.
+    [{ status: 'complete', output: 1 }, 'complete'],
+  ])('adds no line for %j after %s', (body, previous) => {
+    expect(instanceLine(body, previous, 1_000)).toBeNull()
+  })
+
+  it("does not show the local engine's step outputs", () => {
+    const line = instanceLine(
+      { status: 'complete', output: { ok: 1 }, __LOCAL_DEV_STEP_OUTPUTS: [1] } as never,
+      undefined,
+      1,
+    )
+    expect(line?.text).not.toContain('__LOCAL_DEV_STEP_OUTPUTS')
+  })
+})
+
+describe('isFinalInstanceStatus', () => {
+  it.each([
+    ['complete', true],
+    ['errored', true],
+    ['terminated', true],
+    ['waiting', false],
+    ['running', false],
+    [undefined, false],
+  ])('%s → %s', (status, expected) => {
+    expect(isFinalInstanceStatus(status)).toBe(expected)
+  })
+})
+
+describe('triggeredInstanceId', () => {
+  it.each([
+    [{ status: 200, body: { instanceId: 'abc' } }, 'abc'],
+    // A function's own answer can carry anything: only a 2xx with an id counts.
+    [{ status: 500, body: { instanceId: 'abc' } }, null],
+    [{ status: 200, body: { instanceId: '' } }, null],
+    [{ status: 200, body: { instanceId: 7 } }, null],
+    [{ status: 200, body: 'instanceId' }, null],
+    [{ status: 200, body: null }, null],
+  ])('%j → %s', (result, expected) => {
+    expect(triggeredInstanceId(result)).toBe(expected)
   })
 })

@@ -5,7 +5,13 @@ import { actionToast, failureLine } from '../lib/action-toast'
 import type { ProcessLogEntry } from '@awaitstep/codegen'
 import { ApiError } from '../lib/api-client'
 import type { TestSession } from '../lib/api-client'
-import { responseLine } from '../lib/ide/session-log'
+import {
+  instanceLine,
+  isFinalInstanceStatus,
+  responseLine,
+  triggeredInstanceId,
+  type InstanceStatusBody,
+} from '../lib/ide/session-log'
 import { sessionStaleness, type SessionStaleness } from '../lib/ide/session-staleness'
 import { readSseStream, reconnectDelay } from '../lib/sse-stream'
 import {
@@ -124,17 +130,27 @@ export function useTestSession({
 
   const sessionId = session?.id ?? null
   const view = useTestSessionStore(useShallow((s) => sessionView(s.views, sessionId)))
-  const { appendLogs, appendLocal, setStreamError, storePayload, storePayloadError, reset } =
-    useTestSessionStore(
-      useShallow((s) => ({
-        appendLogs: s.appendLogs,
-        appendLocal: s.appendLocal,
-        setStreamError: s.setStreamError,
-        storePayload: s.setPayload,
-        storePayloadError: s.setPayloadError,
-        reset: s.reset,
-      })),
-    )
+  const {
+    appendLogs,
+    appendLocal,
+    watchInstance,
+    noteInstance,
+    setStreamError,
+    storePayload,
+    storePayloadError,
+    reset,
+  } = useTestSessionStore(
+    useShallow((s) => ({
+      appendLogs: s.appendLogs,
+      appendLocal: s.appendLocal,
+      watchInstance: s.watchInstance,
+      noteInstance: s.noteInstance,
+      setStreamError: s.setStreamError,
+      storePayload: s.setPayload,
+      storePayloadError: s.setPayloadError,
+      reset: s.reset,
+    })),
+  )
   const payload = useTestSessionStore((s) => s.payloads[workflowId] ?? DEFAULT_PAYLOAD)
   const payloadError = useTestSessionStore((s) => s.payloadErrors[workflowId] ?? null)
 
@@ -147,11 +163,31 @@ export function useTestSession({
     [queryClient, workflowId],
   )
 
+  /**
+   * A status the stream sent for the followed instance, as a line of output.
+   * A body with no status (the session does not know the id, say a
+   * function's own answer carrying an `instanceId`) ends the following too.
+   */
+  const showInstance = useCallback(
+    (id: string, instanceId: string, body: InstanceStatusBody | null) => {
+      const previous = useTestSessionStore.getState().views[id]?.instance
+      if (previous?.id !== instanceId) return
+      const status = typeof body?.status === 'string' ? body.status : undefined
+      const line = body ? instanceLine(body, previous.status, Date.now()) : null
+      if (line) appendLocal(id, [line])
+      noteInstance(id, instanceId, status, status === undefined || isFinalInstanceStatus(status))
+    },
+    [appendLocal, noteInstance],
+  )
+
   // The cursor is read inside the stream loop but must not restart it.
   const cursorRef = useRef<string | undefined>(view.cursor)
   cursorRef.current = view.cursor
 
   const streaming = session?.status === 'running'
+  // The instance the last trigger started, while it can still change. The
+  // stream reads its status only then: each read is a call to the runner.
+  const watchedInstanceId = view.instance && !view.instance.done ? view.instance.id : null
 
   useEffect(() => {
     if (!sessionId || !streaming) return
@@ -162,7 +198,10 @@ export function useTestSession({
     async function connect(): Promise<void> {
       while (!controller.signal.aborted) {
         try {
-          const query = cursorRef.current ? `?after=${encodeURIComponent(cursorRef.current)}` : ''
+          const params = new URLSearchParams()
+          if (cursorRef.current) params.set('after', cursorRef.current)
+          if (watchedInstanceId) params.set('instanceId', watchedInstanceId)
+          const query = params.size > 0 ? `?${params}` : ''
           const response = await fetch(api.projectUrl(`${streamPath}${query}`), {
             credentials: 'include',
             signal: controller.signal,
@@ -194,6 +233,10 @@ export function useTestSession({
                 appendLogs(sessionId!, page.entries, page.cursor)
                 return true
               }
+              if (event.event === 'instance' && watchedInstanceId) {
+                showInstance(sessionId!, watchedInstanceId, JSON.parse(event.data))
+                return true
+              }
               if (event.event === 'closed') {
                 // `final` is the signal; the wording is for people.
                 final = (JSON.parse(event.data) as { final?: boolean }).final === true
@@ -222,7 +265,16 @@ export function useTestSession({
 
     void connect()
     return () => controller.abort()
-  }, [api, sessionId, streaming, appendLogs, setStreamError, refetchSession])
+  }, [
+    api,
+    sessionId,
+    streaming,
+    watchedInstanceId,
+    appendLogs,
+    showInstance,
+    setStreamError,
+    refetchSession,
+  ])
 
   // Requests are guarded by refs as well as state: two key presses in one
   // frame both see the same render, and only a ref sees the first.
@@ -313,6 +365,8 @@ export function useTestSession({
           timeoutMs: TRIGGER_TIMEOUT_MS,
         })
         appendLocal(sessionId, [responseLine(result, Date.now())])
+        const instanceId = triggeredInstanceId(result)
+        if (instanceId) watchInstance(sessionId, instanceId)
         actionToast.success('Workflow triggered')
       } catch (err) {
         if (err instanceof ApiError && (err.status === 410 || err.status === 404)) {
@@ -325,7 +379,7 @@ export function useTestSession({
         setTriggering(false)
       }
     },
-    [api, sessionId, appendLocal, refetchSession],
+    [api, sessionId, appendLocal, watchInstance, refetchSession],
   )
 
   const restart = useCallback(async (): Promise<boolean> => {
@@ -386,6 +440,8 @@ export function useTestSession({
                 timeoutMs: TRIGGER_TIMEOUT_MS,
               })
               appendLocal(current.id, [responseLine(result, Date.now())])
+              const instanceId = triggeredInstanceId(result)
+              if (instanceId) watchInstance(current.id, instanceId)
               actionToast.success('Workflow triggered')
             } catch (err) {
               actionToast.error(failureLine(err, 'Couldn’t trigger the workflow'))
@@ -414,7 +470,7 @@ export function useTestSession({
         restartTriggerRef.current = false
       }
     },
-    [api, sessionId, restart, workflowId, setSession, appendLocal],
+    [api, sessionId, restart, workflowId, setSession, appendLocal, watchInstance],
   )
 
   const acceptStale = useCallback(

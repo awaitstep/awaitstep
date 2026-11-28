@@ -48,8 +48,26 @@ export function logTokens(text: string): LogToken[] {
   return tokens
 }
 
-/** `Response 200` at the head of a trigger's answer: the status, and what follows it. */
-export function responseHead(text: string): { status: number; rest: string } | null {
-  const match = /^Response (\d{3})(?=\n|$)/.exec(text)
-  return match ? { status: Number(match[1]), rest: text.slice(match[0].length) } : null
+export type LineHeadTone = 'success' | 'neutral'
+
+/**
+ * The heading of a line the panel wrote itself: `Response 200` over a
+ * trigger's answer, or `Run complete` (`errored`, `waiting`…) over what the
+ * triggered instance did. The label, its tone when the line is not an error,
+ * and what follows it.
+ */
+export function lineHead(text: string): { label: string; tone: LineHeadTone; rest: string } | null {
+  const response = /^Response (\d{3})(?=\n|$)/.exec(text)
+  if (response) {
+    return { label: response[0], tone: 'success', rest: text.slice(response[0].length) }
+  }
+  const run = /^Run (complete|errored|terminated|waiting|paused)(?=\n|$)/.exec(text)
+  if (run) {
+    return {
+      label: run[0],
+      tone: run[1] === 'complete' ? 'success' : 'neutral',
+      rest: text.slice(run[0].length),
+    }
+  }
+  return null
 }
