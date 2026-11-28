@@ -1,6 +1,7 @@
 {
   "name": "@awaitstep/sdk",
   "version": "1.4.14",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "exports": {

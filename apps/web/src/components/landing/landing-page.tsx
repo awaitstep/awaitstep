@@ -68,7 +68,7 @@ export function LandingPage() {
               href={`${REPO_URL}/blob/main/LICENSE`}
               className="underline underline-offset-4 hover:text-[var(--color-ink)]"
             >
-              Apache 2.0
+              AGPL-3.0
             </a>
             .
           </p>

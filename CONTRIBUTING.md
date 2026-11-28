@@ -85,4 +85,10 @@ This project uses AI-assisted development. See [AI_USE.md](AI_USE.md) for our AI
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the Apache License 2.0.
+AwaitStep is licensed under AGPL-3.0-only, except `packages/sdk`, `packages/templates`, `registry/` and `skills/`, which are licensed under Apache 2.0. See the License section of the [README](README.md).
+
+By contributing, you agree that:
+
+- your contribution is licensed under the licence of the part of the repository it changes (AGPL-3.0-only or Apache-2.0);
+- you also grant AwaitStep a perpetual, worldwide, non-exclusive, royalty-free, irrevocable licence to use, reproduce, modify, sublicense and distribute your contribution under the Apache License 2.0, including in AwaitStep's commercial and closed-source offerings; and
+- you have the right to submit it under these terms.

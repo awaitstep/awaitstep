@@ -1,6 +1,7 @@
 {
   "name": "@awaitstep/docs",
   "private": true,
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "node ../../scripts/skills.mjs sync-docs --warn && vitepress dev --port 4000",

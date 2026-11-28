@@ -1,7 +1,7 @@
 /**
  * The pricing page's copy. Cloud prices, limits and plan names do not exist yet, so the page
  * states none (plan/www-cloud-pages.md, decision 1): Cloud says its pricing comes at launch, and
- * self-hosting is free under Apache 2.0. Every other line restates a claim the home page makes.
+ * self-hosting is free under AGPL-3.0. Every other line restates a claim the home page makes.
  */
 import { FAQ, type FaqEntry } from './home'
 import { BUILTIN_NODES, INTEGRATIONS } from './integrations'
@@ -34,7 +34,7 @@ export const PLANS: Plan[] = [
   {
     name: 'Self-host',
     price: 'Free',
-    priceNote: 'Open source under Apache 2.0.',
+    priceNote: 'Open source under AGPL-3.0.',
     line: 'The open-source edition, on your own server.',
     points: [
       'Docker, Node or Cloudflare, with SQLite or Postgres.',
@@ -126,7 +126,7 @@ export const COMPARISON: ComparisonGroup[] = [
 export const PRICING_PAGE = {
   title: 'Pricing: AwaitStep Cloud and self-hosted',
   description:
-    'AwaitStep Cloud, with pricing announced at launch, or the self-hosted edition, free and open source under Apache 2.0.',
+    'AwaitStep Cloud, with pricing announced at launch, or the self-hosted edition, free and open source under AGPL-3.0.',
   heading: 'Pricing',
   line: 'Use AwaitStep Cloud, or self-host the open-source edition for free.',
   compareTitle: 'Compare editions',

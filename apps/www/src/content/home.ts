@@ -138,7 +138,7 @@ export const EDITIONS = {
     points: [
       'Docker, Node or Cloudflare, with SQLite or Postgres.',
       'Deploys to your Cloudflare account, on its plan.',
-      'Your data stays in your database. Apache 2.0.',
+      'Your data stays in your database. AGPL-3.0.',
     ],
     action: 'Install guide',
   },
@@ -175,7 +175,7 @@ export const FAQ: readonly FaqEntry[] = [
   {
     id: 'open-source',
     q: 'Is AwaitStep open source?',
-    a: 'The self-hosted edition is, under Apache 2.0.',
+    a: 'The self-hosted edition is, under AGPL-3.0.',
   },
   {
     id: 'agents',

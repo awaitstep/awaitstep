@@ -29,7 +29,7 @@ export function llmsText(site: URL): string {
     '',
     `- [Documentation](${DOCS_URL}): building workflows, nodes, the API and agents`,
     `- [Self-host](${INSTALL_URL}): run the open-source edition with Docker`,
-    `- [Source](${REPO_URL}): the open-source repository, Apache 2.0`,
+    `- [Source](${REPO_URL}): the open-source repository, AGPL-3.0`,
     '',
   ].join('\n')
 }

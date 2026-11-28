@@ -1,6 +1,7 @@
 {
   "name": "@awaitstep/node-cli",
   "version": "1.4.14",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "bin": {

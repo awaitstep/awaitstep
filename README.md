@@ -5,7 +5,7 @@
 Draw them on a canvas or write them in TypeScript. AwaitStep retries what fails, shows every step, and deploys the code it generates — code you can read in full.
 Use AwaitStep Cloud, or self-host the open-source edition.
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE)
 [![Deploy on Cloudflare](https://img.shields.io/badge/Deploy%20on-Cloudflare-f6821f?logo=cloudflare&logoColor=white)](https://docs.awaitstep.dev/installation/cloudflare-workers)
 
 [Website](https://awaitstep.dev) &bull; [AwaitStep Cloud](https://app.awaitstep.dev) &bull; [Self-host](https://docs.awaitstep.dev/installation/docker-compose) &bull; [Documentation](https://docs.awaitstep.dev) &bull; [REST API](https://docs.awaitstep.dev/api/rest)
@@ -159,12 +159,12 @@ Or install it in Claude Code from the plugin marketplace:
 
 ## Cloud or self-hosted
 
-|                    | **AwaitStep Cloud**                                              | **Self-hosted**                              |
-| ------------------ | ---------------------------------------------------------------- | -------------------------------------------- |
-| Setup              | Nothing to install — [start building](https://app.awaitstep.dev) | Docker, Node, or Cloudflare Workers          |
-| Where runs execute | On AwaitStep, or bring your own Cloudflare account               | Your Cloudflare account, on its plan         |
-| Database           | Managed                                                          | SQLite or Postgres (D1 on Cloudflare)        |
-| License            | —                                                                | Apache 2.0; your data stays in your database |
+|                    | **AwaitStep Cloud**                                              | **Self-hosted**                            |
+| ------------------ | ---------------------------------------------------------------- | ------------------------------------------ |
+| Setup              | Nothing to install — [start building](https://app.awaitstep.dev) | Docker, Node, or Cloudflare Workers        |
+| Where runs execute | On AwaitStep, or bring your own Cloudflare account               | Your Cloudflare account, on its plan       |
+| Database           | Managed                                                          | SQLite or Postgres (D1 on Cloudflare)      |
+| License            | —                                                                | AGPL-3.0; your data stays in your database |
 
 Workflows deploy to Cloudflare today; more providers are on the way.
 
@@ -218,3 +218,13 @@ This project uses AI tools during development. See [AI_USE.md](AI_USE.md) for de
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+
+## License
+
+AwaitStep is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). Copyright 2026 AwaitStep.
+
+The parts that end up inside your own deployed code are licensed under the [Apache License 2.0](packages/sdk/LICENSE) instead: `packages/sdk` (its runtime is copied into every deployed Worker), `packages/templates`, the node registry in `registry/`, and the agent skills in `skills/`. Each carries its own `LICENSE` file.
+
+**Your generated code is yours.** Additional permission under GNU AGPL version 3 section 7: the code AwaitStep generates for your workflows and Functions, and the project files it writes for you, may be used, modified, deployed and distributed under terms of your choosing, even where they contain portions of AwaitStep's source. This permission covers that output only, not AwaitStep itself.
+
+Versions 1.4.14 and earlier were released under Apache 2.0, and those releases stay under it.
