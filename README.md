@@ -223,7 +223,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
 
 AwaitStep is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only). Copyright 2026 AwaitStep.
 
-The parts that end up inside your own deployed code are licensed under the [Apache License 2.0](packages/sdk/LICENSE) instead: `packages/sdk` (its runtime is copied into every deployed Worker), `packages/templates`, the node registry in `registry/`, and the agent skills in `skills/`. Each carries its own `LICENSE` file.
+The parts that end up inside your own deployed code are licensed under the [Apache License 2.0](packages/sdk/LICENSE) instead: `packages/sdk` (its runtime is copied into every deployed Worker), `packages/templates`, the node registry in `registry/`, and the agent skills in `skills/`. The packages and the registry carry their own `LICENSE` file; each skill declares `license: Apache-2.0` in its `SKILL.md`.
 
 **Your generated code is yours.** Additional permission under GNU AGPL version 3 section 7: the code AwaitStep generates for your workflows and Functions, and the project files it writes for you, may be used, modified, deployed and distributed under terms of your choosing, even where they contain portions of AwaitStep's source. This permission covers that output only, not AwaitStep itself.
 
