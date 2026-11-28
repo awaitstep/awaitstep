@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef, useState } from 'react'
+import { memo, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowDownToLine, Eraser, Search } from 'lucide-react'
 import {
   countStderr,
@@ -17,6 +17,8 @@ interface OutputPanelProps {
   sessionId: string | null
   lines: SessionLogLine[]
   clearedBefore: number
+  /** Last in the header: the narrow dock's button to the Instance pane. */
+  headerAction?: ReactNode
 }
 
 /**
@@ -29,7 +31,7 @@ interface OutputPanelProps {
  * after a render: by then the new rows are already in the DOM, which makes
  * any batch of more than a line or two look like the reader had scrolled away.
  */
-export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProps) {
+export function OutputPanel({ sessionId, lines, clearedBefore, headerAction }: OutputPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [follow, setFollow] = useState(true)
   const [stream, setStream] = useState<LogStreamFilter>('all')
@@ -130,6 +132,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
           <Eraser className="h-3 w-3" />
           Clear view
         </button>
+        {headerAction}
       </div>
       <div
         ref={containerRef}

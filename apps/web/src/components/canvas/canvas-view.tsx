@@ -318,6 +318,7 @@ export function CanvasView({
         isDirty={isDirty}
         viewOnlyReason={access.canEdit ? null : (access.reason ?? 'View only')}
         onSave={saveNow}
+        kind={fullData.workflow?.kind === 'script' ? 'script' : 'workflow'}
       >
         {render}
       </CanvasTestRun>

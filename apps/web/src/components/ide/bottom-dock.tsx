@@ -34,6 +34,8 @@ interface BottomDockProps {
   onTrigger: () => void
   /** The file in the editor, with unsaved edits applied — what Quick test runs. */
   activeFile: { path: string; source: string } | null
+  /** A script's session has no Instance pane. */
+  kind?: 'workflow' | 'script'
 }
 
 export function BottomDock({
@@ -45,6 +47,7 @@ export function BottomDock({
   activeFile,
   onSaveAll,
   onTrigger,
+  kind = 'workflow',
 }: BottomDockProps) {
   const { dockTab, showDock, toggleDock } = useIdeLayoutStore(
     useShallow((s) => ({ dockTab: s.dockTab, showDock: s.showDock, toggleDock: s.toggleDock })),
@@ -107,7 +110,12 @@ export function BottomDock({
           />
         )}
         {dockTab === 'session' && hasVersion && (
-          <TestSessionPanel session={testSession} onSaveAll={onSaveAll} onTrigger={onTrigger} />
+          <TestSessionPanel
+            session={testSession}
+            onSaveAll={onSaveAll}
+            onTrigger={onTrigger}
+            kind={kind}
+          />
         )}
         {dockTab === 'quickTest' && hasVersion && (
           <QuickTestPanel workflowId={workflowId} activeFile={activeFile} />

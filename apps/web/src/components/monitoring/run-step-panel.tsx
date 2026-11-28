@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import type { RunStepAttempt } from '@awaitstep/codegen'
+import type { RunStepExtras } from '../../lib/api-client'
 import type { StepItem, StepRowState } from '../../lib/run-step-list'
 import { formatDurationMs } from '../../lib/time'
 import { cn } from '../../lib/utils'
@@ -48,8 +49,7 @@ function SelectedStep({
   item: StepItem
 }) {
   const api = useApi()
-  const { step, row } = item
-  const chip = STATE_CHIP[item.state]
+  const { step } = item
   const { data: extras, isError } = useQuery({
     // A step's output and tries change only as it moves; its last update keys them.
     queryKey: ['workflow-run-step', workflowId, runId, step.id, step.updatedAt],
@@ -57,6 +57,23 @@ function SelectedStep({
     staleTime: Infinity,
   })
 
+  return <StepDetail item={item} extras={extras} failed={isError} cutAt="64 KB" />
+}
+
+interface StepDetailProps {
+  item: StepItem
+  /** Its output and tries; undefined while they load. */
+  extras: RunStepExtras | undefined
+  /** The output could not be read. */
+  failed?: boolean
+  /** Where a cut output was cut, as the note under it says it. */
+  cutAt: string
+}
+
+/** A step's state, error, output and tries, however they were read. */
+export function StepDetail({ item, extras, failed = false, cutAt }: StepDetailProps) {
+  const { step, row } = item
+  const chip = STATE_CHIP[item.state]
   const error = item.state === 'failed' || item.state === 'timedOut' ? step.error : null
 
   return (
@@ -84,7 +101,7 @@ function SelectedStep({
 
         <div className="flex flex-col gap-1.5">
           <span className={SECTION}>Output</span>
-          <StepOutput extras={extras} failed={isError} />
+          <StepOutput extras={extras} failed={failed} cutAt={cutAt} />
         </div>
 
         <AttemptList item={item} attempts={extras?.attempts} />
@@ -96,9 +113,11 @@ function SelectedStep({
 function StepOutput({
   extras,
   failed,
+  cutAt,
 }: {
-  extras: { output: unknown; outputTruncated: boolean; outputPreview: string | null } | undefined
+  extras: RunStepExtras | undefined
   failed: boolean
+  cutAt: string
 }) {
   if (failed) return <span className="text-xs text-status-error">Couldn’t load the output.</span>
   if (!extras) return <span className="text-xs text-muted-foreground">Loading…</span>
@@ -115,7 +134,7 @@ function StepOutput({
         {text}
       </pre>
       {extras.outputTruncated && (
-        <span className="text-xs text-muted-foreground">Cut at 64 KB.</span>
+        <span className="text-xs text-muted-foreground">Cut at {cutAt}.</span>
       )}
     </>
   )

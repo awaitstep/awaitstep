@@ -158,4 +158,45 @@ describe('test session store', () => {
   it('reports an empty view for a session it has never seen', () => {
     expect(sessionView({}, null)).toMatchObject({ logs: [], clearedBefore: 0 })
   })
+
+  it('lists the instances a session started, newest first, each with what was last seen of it', () => {
+    const store = useTestSessionStore.getState()
+    store.watchInstance(SESSION, 'a')
+    store.noteInstance(SESSION, 'a', 'complete', true, { status: 'complete', output: 1 })
+    store.watchInstance(SESSION, 'b')
+    expect(view().instances.map((i) => i.id)).toEqual(['b', 'a'])
+    expect(view().instances[1]!.view).toEqual({ status: 'complete', output: 1 })
+
+    // Picking a finished one follows it again, starting from its last status.
+    store.selectInstance(SESSION, 'a')
+    expect(view().instance).toEqual({ id: 'a', status: 'complete', done: false })
+    expect(view().instances.map((i) => i.id)).toEqual(['b', 'a'])
+
+    // A pasted id joins the list; a stream answer about another instance changes nothing.
+    store.selectInstance(SESSION, 'pasted')
+    store.noteInstance(SESSION, 'a', 'errored', true, { status: 'errored' })
+    expect(view().instances.map((i) => i.id)).toEqual(['pasted', 'b', 'a'])
+    expect(view().instances[2]!.view?.status).toBe('complete')
+  })
+
+  it('reads an instance again after a send or terminate, unless another was picked meanwhile', () => {
+    const store = useTestSessionStore.getState()
+    store.watchInstance(SESSION, 'a')
+    store.noteInstance(SESSION, 'a', 'waiting', false, { status: 'waiting' })
+    store.noteInstance(SESSION, 'a', 'complete', true, { status: 'complete' })
+    store.refollowInstance(SESSION, 'a')
+    expect(view().instance).toMatchObject({ id: 'a', done: false })
+
+    store.selectInstance(SESSION, 'b')
+    store.refollowInstance(SESSION, 'a')
+    expect(view().instance?.id).toBe('b')
+  })
+
+  it('never persists instances', () => {
+    useTestSessionStore.getState().watchInstance(SESSION, 'a')
+    const persisted = useTestSessionStore.persist.getOptions().partialize!(
+      useTestSessionStore.getState(),
+    )
+    expect(JSON.stringify(persisted)).not.toContain('"a"')
+  })
 })
