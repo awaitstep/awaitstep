@@ -7,6 +7,7 @@ import {
   FakeTestSessionRunner,
   TEST_USER_ID,
   TEST_PROJECT_ID,
+  loseTestSessionEdit,
 } from './helpers.js'
 import { TestSessionRefusal } from '@awaitstep/codegen'
 import { graphHash } from '../lib/graph-hash.js'
@@ -98,6 +99,20 @@ describe('test session instance routes', () => {
     resetStore()
     runner = new FakeTestSessionRunner()
     app = createTestApp({ testSessionRunner: runner })
+  })
+
+  it('cuts a session off once its owner can no longer edit there, and still lets them stop it', async () => {
+    const session = await startSession(app)
+    loseTestSessionEdit(TEST_USER_ID)
+    const base = `/api/test-sessions/${session.id}`
+    expect((await post(app, `${base}/trigger`, { payload: {} })).status).toBe(404)
+    expect(
+      (await post(app, `${base}/instances/i-1/events`, { type: 'approved', payload: {} })).status,
+    ).toBe(404)
+    expect((await app.request(url(`${base}/stream`))).status).toBe(404)
+    const stopped = await app.request(url(base), { method: 'DELETE' })
+    expect(stopped.status).toBe(200)
+    expect(await stopped.json()).toEqual({ status: 'stopped' })
   })
 
   it('refuses a stream for an instance id the API does not take', async () => {

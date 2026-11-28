@@ -3436,7 +3436,10 @@ and no provider credentials are involved.
 
 Sessions are **personal and billed**, so every endpoint is scoped to the user
 who started one: another member of the same project gets `404`, the same as
-for a session that does not exist. They are also **time-boxed** — an idle
+for a session that does not exist. Starting one takes the Editor role where
+the workflow sits, and so does every later request: someone who loses it, or
+leaves the workspace, gets `404` too (an open stream ends within a minute).
+They can still stop their own session. They are also **time-boxed** — an idle
 window, a hard lifetime, and a cap on how many a user may hold at once — and
 a request that arrives after a cut-off stops the session rather than serving
 it, answering `410`.
@@ -3556,7 +3559,8 @@ in this session, `429` the write rate limit.
 
 Stops the worker and closes the session. Stopping one that has already
 stopped is not an error — the container may still exist even when the record
-says otherwise.
+says otherwise. It works for the session's owner even after they lose the Editor
+role.
 
 **Permission:** `workflows:run`
 

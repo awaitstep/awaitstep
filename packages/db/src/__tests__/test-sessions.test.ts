@@ -52,9 +52,20 @@ function createTestDb() {
   sqlite.exec(`
     CREATE TABLE workflows (id text PRIMARY KEY, project_id text NOT NULL, workspace_id text, name text NOT NULL, kind text NOT NULL DEFAULT 'workflow', description text, trigger_code text, dependencies text, env_vars text, deploy_config text, current_version_id text, created_by text, shared_by text, shared_at text, created_at text NOT NULL, updated_at text NOT NULL);
     CREATE TABLE workflow_versions (id text PRIMARY KEY, workflow_id text NOT NULL, version integer NOT NULL, ir text NOT NULL, created_at text NOT NULL);
-    INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-1', 'p-1', 'One', '${T0}', '${T0}');
-    INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-2', 'p-1', 'Two', '${T0}', '${T0}');
-    INSERT INTO workflows (id, project_id, name, created_at, updated_at) VALUES ('wf-other', 'p-2', 'Other', '${T0}', '${T0}');
+    INSERT INTO workflows (id, project_id, workspace_id, name, created_at, updated_at) VALUES ('wf-1', 'p-1', 'ws-1', 'One', '${T0}', '${T0}');
+    INSERT INTO workflows (id, project_id, workspace_id, name, created_at, updated_at) VALUES ('wf-2', 'p-1', 'ws-1', 'Two', '${T0}', '${T0}');
+    INSERT INTO workflows (id, project_id, workspace_id, name, created_at, updated_at) VALUES ('wf-other', 'p-2', 'ws-2', 'Other', '${T0}', '${T0}');
+    CREATE TABLE organization (id text PRIMARY KEY, name text, createdAt text);
+    CREATE TABLE member (id text PRIMARY KEY, userId text NOT NULL, organizationId text NOT NULL, role text NOT NULL, createdAt text NOT NULL);
+    CREATE TABLE projects (id text PRIMARY KEY, organization_id text NOT NULL, name text NOT NULL, slug text NOT NULL DEFAULT 'p', created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE workspaces (id text PRIMARY KEY, project_id text NOT NULL, name text NOT NULL, slug text NOT NULL, colour text NOT NULL DEFAULT 'green', created_at text NOT NULL, updated_at text NOT NULL);
+    CREATE TABLE project_members (project_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (project_id, user_id));
+    CREATE TABLE workspace_members (workspace_id text NOT NULL, user_id text NOT NULL, role text NOT NULL, created_by text, created_at text NOT NULL, PRIMARY KEY (workspace_id, user_id));
+    INSERT INTO organization (id, name) VALUES ('o-1', 'Org');
+    INSERT INTO projects (id, organization_id, name, created_at, updated_at) VALUES ('p-1', 'o-1', 'P1', '${T0}', '${T0}'), ('p-2', 'o-1', 'P2', '${T0}', '${T0}');
+    INSERT INTO workspaces (id, project_id, name, slug, created_at, updated_at) VALUES ('ws-1', 'p-1', 'W1', 'w1', '${T0}', '${T0}'), ('ws-2', 'p-2', 'W2', 'w2', '${T0}', '${T0}');
+    INSERT INTO member (id, userId, organizationId, role, createdAt) VALUES ('m-1', 'u-1', 'o-1', 'member', '${T0}'), ('m-2', 'u-2', 'o-1', 'member', '${T0}');
+    INSERT INTO project_members (project_id, user_id, role, created_at) VALUES ('p-1', 'u-1', 'member', '${T0}'), ('p-2', 'u-1', 'member', '${T0}'), ('p-1', 'u-2', 'member', '${T0}'), ('p-2', 'u-2', 'member', '${T0}');
     INSERT INTO workflow_versions (id, workflow_id, version, ir, created_at) VALUES ('v-1', 'wf-1', 1, '{}', '${T0}');
   `)
   applyTestSessionsMigration(sqlite)
@@ -556,6 +567,42 @@ describe('test sessions adapter', () => {
         'too-old': 'lifetime',
       })
       expect(await db.adapter.listExpiredTestSessions(CUTOFFS, 1)).toHaveLength(1)
+    })
+
+    it('cuts a session off once its owner can no longer edit there, but lets them stop it', async () => {
+      seed(db.sqlite, { ...LIVE, id: 'live' })
+      expect(await db.adapter.getOwnedTestSession('live', 'u-1', 'p-1', CUTOFFS)).not.toBeNull()
+
+      // Down to Viewer: they can't start one, so they can't drive this one.
+      // As the members page does it: the project grant goes, a workspace Viewer grant stays.
+      db.sqlite.prepare("DELETE FROM project_members WHERE user_id = 'u-1'").run()
+      db.sqlite
+        .prepare(
+          "INSERT INTO workspace_members (workspace_id, user_id, role, created_at) VALUES ('ws-1', 'u-1', 'viewer', ?)",
+        )
+        .run(T0)
+      expect(await db.adapter.getOwnedTestSession('live', 'u-1', 'p-1', CUTOFFS)).toBeNull()
+      expect(await db.adapter.touchTestSession('live', 'u-1', CUTOFFS)).toBe(false)
+      const toStop = await db.adapter.getOwnedTestSession(
+        'live',
+        'u-1',
+        'p-1',
+        CUTOFFS,
+        undefined,
+        {
+          toStop: true,
+        },
+      )
+      expect(toStop?.session.id).toBe('live')
+
+      // An Editor grant in the workspace gives it back.
+      db.sqlite.prepare("UPDATE workspace_members SET role = 'editor' WHERE user_id = 'u-1'").run()
+      expect(await db.adapter.getOwnedTestSession('live', 'u-1', 'p-1', CUTOFFS)).not.toBeNull()
+
+      // Out of the organization: nothing to drive.
+      db.sqlite.prepare("DELETE FROM member WHERE userId = 'u-1'").run()
+      expect(await db.adapter.getOwnedTestSession('live', 'u-1', 'p-1', CUTOFFS)).toBeNull()
+      expect(await db.adapter.touchTestSession('live', 'u-1', CUTOFFS)).toBe(false)
     })
 
     it('keeps a session row when its workflow is deleted', async () => {

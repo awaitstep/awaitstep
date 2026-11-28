@@ -399,6 +399,8 @@ testSessions.delete('/test-sessions/:sessionId', async (c) => {
     c.get('projectId'),
     testSessionCutoffs(context.limits),
     c.get('workspaceId'),
+    // Someone who can no longer edit there may still end what they started.
+    { toStop: true },
   )
   if (!found) return c.json({ error: 'Not found' }, 404)
 

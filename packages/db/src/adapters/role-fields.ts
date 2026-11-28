@@ -111,6 +111,13 @@ export class RoleFields {
     return sql`exists (select 1 from ${aliasedFrom(w)} inner join ${aliasedFrom(p)} on ${p.id} = ${w.projectId} where ${w.id} = ${workspaceId} and ${this.workspaceRoleOf(who, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} is not null)`
   }
 
+  /** Whether they may edit in the workspace a workflow sits in (Editor or Admin); `workspaceId` is the workflow row's column. */
+  workflowEditable(who: Who, workspaceId: SQL | unknown): SQL {
+    const w = aliasedTable(this.t.workspaces, 'rew')
+    const p = aliasedTable(this.t.projects, 'rep')
+    return sql`exists (select 1 from ${aliasedFrom(w)} inner join ${aliasedFrom(p)} on ${p.id} = ${w.projectId} where ${w.id} = ${workspaceId} and ${this.workspaceRoleOf(who, { organizationId: p.organizationId, projectId: p.id, workspaceId: w.id })} in ('editor', 'admin'))`
+  }
+
   /** Projects in the organization they can open. */
   visibleProjectCount(who: Who, organizationId: SQL | unknown): SQL<number> {
     const p = aliasedTable(this.t.projects, 'rcp')
