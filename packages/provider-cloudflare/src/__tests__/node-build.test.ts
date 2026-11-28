@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-import { readdir } from 'node:fs/promises'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { readdirSync } from 'node:fs'
+import { mkdtemp, readdir, rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { Miniflare } from 'miniflare'
 import type { GeneratedBundle } from '@awaitstep/codegen'
@@ -83,19 +85,32 @@ async function loadAndFetch(build: WorkerBuild): Promise<string> {
   }
 }
 
+// Its own root: other test files deploy in parallel, and their workspaces in
+// the shared temp directory would read as this build's leftovers.
+let workRoot: string
+const deployer = () => new NodeWranglerDeployer({ workRoot })
+
 async function workspaceDirs(): Promise<string[]> {
-  return (await readdir(tmpdir())).filter((name) => name.startsWith('awaitstep-deploy-'))
+  return (await readdir(workRoot)).filter((name) => name.startsWith('awaitstep-deploy-'))
 }
 
 describe('NodeWranglerDeployer.build', () => {
   let build: WorkerBuild
   let leftBehind: string[]
+  let madeInRoot = false
 
   beforeAll(async () => {
+    workRoot = await mkdtemp(join(tmpdir(), 'awaitstep-node-build-'))
     const before = new Set(await workspaceDirs())
-    build = await new NodeWranglerDeployer().build(bundle, options)
+    build = await deployer().build(bundle, options, () => {
+      madeInRoot ||= readdirSync(workRoot).some((name) => name.startsWith('awaitstep-deploy-'))
+    })
     leftBehind = (await workspaceDirs()).filter((dir) => !before.has(dir))
   }, 120_000)
+
+  afterAll(async () => {
+    await rm(workRoot, { recursive: true, force: true })
+  })
 
   it('returns the bundled entry and the modules the upload attaches, and no more', () => {
     expect(build.workerName).toBe('awaitstep-greeter')
@@ -107,6 +122,7 @@ describe('NodeWranglerDeployer.build', () => {
     expect(names[1]![1]).toBe('text')
     // wrangler's README and the source map stay behind; the project module is bundled in.
     expect(names.some(([name]) => /README|\.map$|suffix/.test(name!))).toBe(false)
+    expect(madeInRoot).toBe(true)
     expect(leftBehind).toEqual([])
   })
 
@@ -135,7 +151,7 @@ describe('NodeWranglerDeployer.build', () => {
         },
       ],
     }
-    const failure = await new NodeWranglerDeployer()
+    const failure = await deployer()
       .build(broken, options)
       .catch((err: Error) => err)
     expect(failure).toBeInstanceOf(Error)
@@ -148,7 +164,7 @@ describe('NodeWranglerDeployer.build', () => {
     const controller = new AbortController()
     controller.abort()
     await expect(
-      new NodeWranglerDeployer().build(bundle, options, undefined, { signal: controller.signal }),
+      deployer().build(bundle, options, undefined, { signal: controller.signal }),
     ).rejects.toBeInstanceOf(DeployCancelledError)
   })
 })
