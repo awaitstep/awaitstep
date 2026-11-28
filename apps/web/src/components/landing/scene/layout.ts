@@ -80,7 +80,8 @@ export interface CameraSpec {
  * The scene fills the hero like a background video, so narrow frames crop the graph's sides.
  */
 export const HERO_CAMERA: CameraSpec = {
-  position: [-0.03, 6.123, 6.123],
+  // Distance sets the graph's size on screen: further back draws it smaller at the same angle.
+  position: [-0.03, 9.18, 9.18],
   target: [-0.03, 0, 0.01],
   fov: 20,
 }
@@ -90,7 +91,7 @@ export const HERO_CAMERA: CameraSpec = {
  * frames it moves clear of the hero text, which faces the left; narrow frames keep it centred.
  */
 export function heroOffsetX(aspect: number): number {
-  return aspect >= 1.6 ? 1.4 : 0
+  return aspect >= 1.6 ? 2.1 : 0
 }
 
 /**
