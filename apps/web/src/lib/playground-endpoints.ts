@@ -1355,6 +1355,33 @@ export const endpoints: EndpointDef[] = [
     hasBody: false,
   },
   {
+    id: 'send-test-session-event',
+    group: 'Test sessions',
+    method: 'POST',
+    path: '/api/test-sessions/:sessionId/instances/:instanceId/events',
+    label: 'Send an event to a test run',
+    permission: 'workflows:run',
+    params: [
+      { name: 'sessionId', in: 'path', required: true },
+      { name: 'instanceId', in: 'path', required: true },
+    ],
+    hasBody: true,
+    bodyExample: JSON.stringify({ type: 'approval', payload: { approved: true } }, null, 2),
+  },
+  {
+    id: 'terminate-test-session-instance',
+    group: 'Test sessions',
+    method: 'POST',
+    path: '/api/test-sessions/:sessionId/instances/:instanceId/terminate',
+    label: 'End one test run',
+    permission: 'workflows:run',
+    params: [
+      { name: 'sessionId', in: 'path', required: true },
+      { name: 'instanceId', in: 'path', required: true },
+    ],
+    hasBody: false,
+  },
+  {
     id: 'stop-test-session',
     group: 'Test sessions',
     method: 'DELETE',

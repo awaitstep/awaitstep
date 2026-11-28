@@ -2657,8 +2657,44 @@ export class FakeTestSessionRunner implements TestSessionRunner {
     return { status: 200, body: { instanceId: 'inst-1' } }
   }
 
+  /** Events sent, oldest first. */
+  events: { sessionId: string; instanceId: string; type: string; payload: unknown }[] = []
+  /** Instances this session "started": anything else answers 404. */
+  instances = new Set(['inst-1'])
+  /** What `instanceStatus` reads; a test can step it along. */
+  instanceBody: unknown = { status: 'complete' }
+  instanceStatusCalls = 0
+  /** Set to give the runner step records. */
+  instanceSteps?: TestSessionRunner['instanceSteps']
+  /** Set to give the runner a terminate; `terminated` records the calls. */
+  terminate?: TestSessionRunner['terminate']
+  terminated: string[] = []
+
   async instanceStatus() {
-    return { status: 200, body: { status: 'complete' } }
+    this.instanceStatusCalls++
+    return { status: 200, body: this.instanceBody }
+  }
+
+  async sendEvent(
+    handle: StartedTestSessionHandle,
+    instanceId: string,
+    type: string,
+    payload: unknown,
+  ) {
+    if (!this.instances.has(instanceId))
+      return { status: 404, body: { message: 'Instance not found' } }
+    this.events.push({ sessionId: handle.sessionId, instanceId, type, payload })
+    return { status: 200, body: { ok: true } }
+  }
+
+  /** Gives the runner a terminate that ends only instances it started. */
+  withTerminate(): this {
+    this.terminate = async (_handle, instanceId) => {
+      if (!this.instances.has(instanceId)) return { status: 404, body: null }
+      this.terminated.push(instanceId)
+      return { status: 200, body: { status: 'terminated' } }
+    }
+    return this
   }
 
   async logs(_handle: StartedTestSessionHandle, after?: string) {
