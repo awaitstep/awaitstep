@@ -216,6 +216,26 @@ describe('SandboxTestSessionRunner', () => {
     expect(sandbox.fetchCalls.at(-1)!.url).toBe('http://localhost:8787/?instanceId=inst%2F1')
   })
 
+  it('sends an event as the worker’s own send-event request', async () => {
+    const sandbox = makeFakeSandbox()
+    const runner = new SandboxTestSessionRunner(() => sandbox)
+    await runner.sendEvent(
+      { sessionId: 's', containerId: 'test-s', processId: 'p', port: 8787 },
+      'inst-1',
+      'approval',
+      { ok: true },
+    )
+    const call = sandbox.fetchCalls.at(-1)!
+    expect(call.url).toBe('http://localhost:8787/')
+    expect(call.init.method).toBe('POST')
+    expect(JSON.parse(call.init.body as string)).toEqual({
+      action: 'send-event',
+      instanceId: 'inst-1',
+      type: 'approval',
+      payload: { ok: true },
+    })
+  })
+
   it('pages the process logs', async () => {
     const sandbox = makeFakeSandbox({ logs: { stdout: 'one\ntwo\n' } })
     const runner = new SandboxTestSessionRunner(() => sandbox)

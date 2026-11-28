@@ -54,8 +54,15 @@ export type {
   TestSessionStart,
   TestSessionResponse,
   TestSessionLogPage,
+  TestRunStep,
+  TestInstanceSteps,
 } from './test-session.js'
-export { TEST_SESSION_RUNTIMES, TestSessionRefusal } from './test-session.js'
+export {
+  TEST_SESSION_RUNTIMES,
+  TEST_STEP_ERROR_LIMIT,
+  TEST_STEP_OUTPUT_LIMIT,
+  TestSessionRefusal,
+} from './test-session.js'
 export type { CodeGenerator, GenerateMode } from './code-generator.js'
 export type { TemplateResolver } from './template-resolver.js'
 
@@ -110,6 +117,8 @@ export {
   BAD_EVENT_TYPE,
   BAD_INSTANCE_ID,
   INSTANCE_ID_HEADER,
+  isEventType,
+  isInstanceId,
   namedInstanceId,
   sendEventBody,
   type SendEventBody,

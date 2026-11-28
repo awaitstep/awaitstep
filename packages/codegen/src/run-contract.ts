@@ -14,6 +14,16 @@ const INSTANCE_ID = /^[A-Za-z0-9_][A-Za-z0-9_-]{0,99}$/
 /** An event type as a wait takes one: up to 100 letters, digits, `-` or `_`. */
 const EVENT_TYPE = /^[A-Za-z0-9_-]{1,100}$/
 
+/** Whether AwaitStep takes this as an instance id. */
+export function isInstanceId(value: string): boolean {
+  return INSTANCE_ID.test(value)
+}
+
+/** Whether a wait takes this as an event type. */
+export function isEventType(value: string): boolean {
+  return EVENT_TYPE.test(value)
+}
+
 export const BAD_INSTANCE_ID =
   'instanceId must be up to 100 letters, digits, - or _, not starting with -'
 export const BAD_EVENT_TYPE = 'type must be up to 100 letters, digits, - or _'

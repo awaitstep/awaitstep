@@ -1,4 +1,4 @@
-import type { GeneratedBundle, LocalDevOptions, ProcessLogEntry } from './types.js'
+import type { GeneratedBundle, LocalDevOptions, ProcessLogEntry, RunStepDetail } from './types.js'
 
 /**
  * Where a test session's code actually runs. `'sandbox'` is a Cloudflare
@@ -103,6 +103,29 @@ export interface TestSessionLogPage {
   cursor: string
 }
 
+/** How much of a test step's output is kept; a longer one is cut and marked. */
+export const TEST_STEP_OUTPUT_LIMIT = 8 * 1024
+/** How much of a test step's error message is kept. */
+export const TEST_STEP_ERROR_LIMIT = 2 * 1024
+
+/**
+ * One step of a test run, in the run page's shape. A cut output is the first
+ * {@link TEST_STEP_OUTPUT_LIMIT} bytes as text, with `outputTruncated` set.
+ */
+export interface TestRunStep extends RunStepDetail {
+  outputTruncated?: boolean
+}
+
+/** What a runner kept of one test instance's steps, oldest first. */
+export interface TestInstanceSteps {
+  steps: TestRunStep[]
+  /**
+   * Earlier steps of this instance were not kept (the runner's record of
+   * them was lost): the list holds only what came after.
+   */
+  incomplete?: boolean
+}
+
 /**
  * Runs a generated bundle somewhere disposable so a workflow can be executed
  * before it is deployed. Implementations are DB-free; the API owns session
@@ -157,6 +180,36 @@ export interface TestSessionRunner {
 
   /** Reads one workflow instance's status out of the running session. */
   instanceStatus(handle: StartedTestSessionHandle, instanceId: string): Promise<TestSessionResponse>
+
+  /**
+   * The steps of one instance this session started, or null when the session
+   * started no such instance. A runner without it reports status only, and
+   * the API says steps are not available for it.
+   */
+  instanceSteps?(
+    handle: StartedTestSessionHandle,
+    instanceId: string,
+  ): Promise<TestInstanceSteps | null>
+
+  /**
+   * Sends an event to an instance the session started, as a deployed
+   * workflow's send-event request does. A 404 answer means no such instance
+   * (or one another session started). The API calls it only for a workflow
+   * with a Wait for Event step.
+   */
+  sendEvent(
+    handle: StartedTestSessionHandle,
+    instanceId: string,
+    type: string,
+    payload: unknown,
+  ): Promise<TestSessionResponse>
+
+  /**
+   * Ends one instance the session started; the session stays up. A 404
+   * answer means no such instance. Optional: a runner whose worker has no
+   * way to end an instance leaves it out, and the API answers 501.
+   */
+  terminate?(handle: StartedTestSessionHandle, instanceId: string): Promise<TestSessionResponse>
 
   /** Worker output after the given cursor, oldest first. */
   logs(handle: StartedTestSessionHandle, after?: string): Promise<TestSessionLogPage>
