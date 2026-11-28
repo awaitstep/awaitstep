@@ -56,7 +56,11 @@ export interface ProjectKeys extends ScopedKeys {
 /** Workspace settings → API keys: the workspace's own keys and the keys reaching it. */
 export type WorkspaceKeys = ScopedKeys
 
-export type KeyExpiry = '30' | '90' | '365' | 'never'
+/** A period from now that the "Expires" menu offers, or `never`. */
+export type KeyExpiryPreset = '1h' | '6h' | '12h' | '24h' | '7d' | '30d' | '90d' | '365d' | 'never'
+
+/** When a new key stops working: a preset period from now, or a picked date and time. */
+export type KeyExpiry = KeyExpiryPreset | { at: Date }
 
 /**
  * Create an API key: where it reaches, for how long, and what it may do. At the

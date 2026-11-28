@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useState, type ComponentProps } from 'react'
 import * as Popover from '@radix-ui/react-popover'
 import { DayPicker } from 'react-day-picker'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import 'react-day-picker/style.css'
 
-interface DateTimePickerProps {
+/** The id and aria attributes `FormField` hands its control land on the trigger. */
+type TriggerAttributes = Pick<
+  ComponentProps<'button'>,
+  'id' | 'aria-describedby' | 'aria-invalid' | 'aria-required'
+>
+
+interface DateTimePickerProps extends TriggerAttributes {
   value: Date | null
   onChange: (date: Date | null) => void
   minDate?: Date
@@ -19,6 +25,7 @@ export function DateTimePicker({
   minDate,
   placeholder = 'Pick a date & time',
   className,
+  ...trigger
 }: DateTimePickerProps) {
   const [open, setOpen] = useState(false)
   const [hours, setHours] = useState(value ? String(value.getHours()).padStart(2, '0') : '')
@@ -53,6 +60,8 @@ export function DateTimePicker({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
         <button
+          type="button"
+          {...trigger}
           className={cn(
             'flex h-10 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground transition-colors hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring',
             !displayValue && 'text-muted-foreground/60',

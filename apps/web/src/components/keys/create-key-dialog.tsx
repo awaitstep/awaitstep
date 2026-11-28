@@ -7,7 +7,7 @@ import { useScope, useWorkspaces } from '../../data/dashboard/workspaces'
 import { cn } from '../../lib/utils'
 import type {
   CreatedKey,
-  KeyExpiry,
+  KeyExpiryPreset,
   KeyLevel,
   KeyPermissions,
 } from '../../types/dashboard/api-keys'
@@ -16,6 +16,7 @@ import { Banner } from '../ui/banner'
 import { Button } from '../ui/button'
 import { RadioCardGroup, type RadioCardOption } from '../ui/choice-card'
 import { ConfirmDialog } from '../ui/confirm-dialog'
+import { DateTimePicker } from '../ui/datetime-picker'
 import { FormField } from '../ui/form-field'
 import { Input } from '../ui/input'
 import { ModalDialog } from '../ui/modal-dialog'
@@ -24,6 +25,7 @@ import { SecretReveal } from '../ui/secret-reveal'
 import { Select } from '../ui/select'
 import { Tile } from '../ui/tile'
 import { GrantSummary } from './parts/grant-summary'
+import { customExpiryError } from './parts/key-format'
 import { describeGrantCount, presetPermissions } from './parts/key-permissions'
 import { PermissionGrid } from './parts/permission-grid'
 
@@ -32,10 +34,18 @@ import { PermissionGrid } from './parts/permission-grid'
 // set of its workspaces; at a workspace, just that workspace.
 type Mode = 'org' | 'projects' | 'project' | 'workspaces' | 'workspace'
 
-const EXPIRY_OPTIONS: { value: KeyExpiry; label: string }[] = [
-  { value: '30', label: 'In 30 days' },
-  { value: '90', label: 'In 90 days' },
-  { value: '365', label: 'In 1 year' },
+type ExpiryChoice = KeyExpiryPreset | 'custom'
+
+const EXPIRY_OPTIONS: { value: ExpiryChoice; label: string }[] = [
+  { value: '1h', label: 'In 1 hour' },
+  { value: '6h', label: 'In 6 hours' },
+  { value: '12h', label: 'In 12 hours' },
+  { value: '24h', label: 'In 24 hours' },
+  { value: '7d', label: 'In 7 days' },
+  { value: '30d', label: 'In 30 days' },
+  { value: '90d', label: 'In 90 days' },
+  { value: '365d', label: 'In 1 year' },
+  { value: 'custom', label: 'Custom date' },
   { value: 'never', label: 'Never' },
 ]
 
@@ -81,7 +91,8 @@ export function CreateKeyDialog({
   const formId = useId()
   const create = useCreateKey(org.slug)
   const [name, setName] = useState('')
-  const [expires, setExpires] = useState<KeyExpiry>('30')
+  const [expiry, setExpiry] = useState<ExpiryChoice>('30d')
+  const [customAt, setCustomAt] = useState<Date | null>(null)
   const [mode, setMode] = useState<Mode>(start === 'organization' ? 'org' : start)
   const [projectIds, setProjectIds] = useState<string[]>([])
   const [workspaceIds, setWorkspaceIds] = useState<string[]>([])
@@ -171,8 +182,14 @@ export function CreateKeyDialog({
     create.reset()
   }
 
-  function handleExpires(value: string) {
-    setExpires(value as KeyExpiry)
+  function handleExpiry(value: string) {
+    setExpiry(value as ExpiryChoice)
+    create.reset()
+  }
+
+  function handleCustomAt(at: Date | null) {
+    setCustomAt(at)
+    create.reset()
   }
 
   function handleMode(next: Mode) {
@@ -188,6 +205,8 @@ export function CreateKeyDialog({
 
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
+    if (expiry === 'custom' && (!customAt || customExpiryError(customAt))) return
+    const expires = expiry === 'custom' && customAt ? { at: customAt } : (expiry as KeyExpiryPreset)
     const base = { name, expires, permissions }
     const input =
       mode === 'org'
@@ -256,7 +275,10 @@ export function CreateKeyDialog({
       : mode === 'workspaces'
         ? workspaceIds.length > 0
         : true
-  const canCreate = !create.isPending && (modeCan?.allowed ?? false) && setChosen
+  // A picked time is only judged once there is one; until then Create waits.
+  const customError = expiry === 'custom' && customAt ? customExpiryError(customAt) : undefined
+  const expiryReady = expiry !== 'custom' || (customAt !== null && !customError)
+  const canCreate = !create.isPending && (modeCan?.allowed ?? false) && setChosen && expiryReady
 
   const footerStart = created ? (
     <span className={cn('text-2xs', isCopied ? 'text-status-success' : 'text-status-warning')}>
@@ -327,9 +349,19 @@ export function CreateKeyDialog({
                 />
               </FormField>
               <FormField label="Expires">
-                <Select value={expires} onValueChange={handleExpires} options={EXPIRY_OPTIONS} />
+                <Select value={expiry} onValueChange={handleExpiry} options={EXPIRY_OPTIONS} />
               </FormField>
             </div>
+            {expiry === 'custom' && (
+              <FormField label="Expires at" error={customError}>
+                <DateTimePicker
+                  value={customAt}
+                  onChange={handleCustomAt}
+                  minDate={new Date()}
+                  placeholder="Pick a date & time"
+                />
+              </FormField>
+            )}
             {modeOptions.length > 0 && (
               <RadioCardGroup
                 legend="Where it works"

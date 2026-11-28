@@ -8,6 +8,7 @@ import type {
   ApiKey,
   CreatedKey,
   KeyExpiry,
+  KeyExpiryPreset,
   NewKeyInput,
   ProjectKeys,
   WorkspaceKeys,
@@ -18,10 +19,17 @@ import type { KeyLevel, KeyPermissions, WorkspaceColour } from '@awaitstep/ir'
 // display from the stored prefix and suffix, the creator as a person ref, and
 // the scope set (projects or workspaces) each with its own revoked state.
 
-const EXPIRY_DAYS: Record<KeyExpiry, number | null> = {
-  '30': 30,
-  '90': 90,
-  '365': 365,
+const HOUR_MS = 3_600_000
+
+const EXPIRY_HOURS: Record<KeyExpiryPreset, number | null> = {
+  '1h': 1,
+  '6h': 6,
+  '12h': 12,
+  '24h': 24,
+  '7d': 7 * 24,
+  '30d': 30 * 24,
+  '90d': 90 * 24,
+  '365d': 365 * 24,
   never: null,
 }
 
@@ -71,8 +79,9 @@ export function toCreatedKey(res: ApiKeyRow & { key: string }): CreatedKey {
 
 /** The dialog's "Expires" choice as the instant the API stores, from `now`. */
 export function expiresAtOf(expires: KeyExpiry, now = new Date()): string | null {
-  const days = EXPIRY_DAYS[expires]
-  return days === null ? null : new Date(now.getTime() + days * 86_400_000).toISOString()
+  if (typeof expires === 'object') return expires.at.toISOString()
+  const hours = EXPIRY_HOURS[expires]
+  return hours === null ? null : new Date(now.getTime() + hours * HOUR_MS).toISOString()
 }
 
 /**

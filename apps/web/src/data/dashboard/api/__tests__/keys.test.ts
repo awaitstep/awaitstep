@@ -136,9 +136,26 @@ describe('key rows → records', () => {
     expect('key' in created.key).toBe(false)
   })
 
+  it.each([
+    ['1h', '2026-10-29T13:00:00.000Z'],
+    ['6h', '2026-10-29T18:00:00.000Z'],
+    ['24h', '2026-10-30T12:00:00.000Z'],
+    ['7d', '2026-11-05T12:00:00.000Z'],
+    ['365d', '2027-10-29T12:00:00.000Z'],
+  ] as const)('turns the %s preset into the instant that far from now', (preset, at) => {
+    expect(expiresAtOf(preset, new Date('2026-10-29T12:00:00.000Z'))).toBe(at)
+  })
+
+  it('sends a picked date and time as that instant', () => {
+    const at = new Date('2027-01-15T09:30:00.000Z')
+    expect(expiresAtOf({ at }, new Date('2026-10-29T12:00:00.000Z'))).toBe(
+      '2027-01-15T09:30:00.000Z',
+    )
+  })
+
   it('addresses the create call at the home and turns the expiry choice into an instant', () => {
     const now = new Date('2026-10-29T12:00:00.000Z')
-    expect(expiresAtOf('30', now)).toBe('2026-11-28T12:00:00.000Z')
+    expect(expiresAtOf('30d', now)).toBe('2026-11-28T12:00:00.000Z')
     expect(expiresAtOf('never', now)).toBeNull()
     // A single-workspace key is addressed at its workspace, with no set in the body.
     expect(
