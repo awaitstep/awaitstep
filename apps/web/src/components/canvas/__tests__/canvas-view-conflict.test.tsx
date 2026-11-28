@@ -166,8 +166,17 @@ describe('CanvasView once Code changed the workflow', () => {
     first.unmount()
     persistence.saveConflict = false
     await mount()
+    act(() => useWorkflowStore.setState({ isDirty: true }))
     fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
     expect(persistence.handleSave).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores the save shortcuts while nothing changed, as the Save button does', async () => {
+    await mount()
+    act(() => useWorkflowStore.setState({ isDirty: false }))
+    fireEvent.keyDown(window, { key: 's', metaKey: true })
+    fireEvent.keyDown(window, { key: 'Enter', metaKey: true })
+    expect(persistence.handleSave).not.toHaveBeenCalled()
   })
 
   it('reloads at once while nothing is unsaved', async () => {

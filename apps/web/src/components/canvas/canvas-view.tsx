@@ -36,6 +36,7 @@ import { useWorkflowPersistence } from '../../hooks/use-workflow-persistence'
 import { useAutoSave } from '../../hooks/use-auto-save'
 import { exportWorkflowFile } from '../../lib/export-workflow'
 import { useApi, useApiReady } from '../../contexts/api-client-context'
+import { canSaveCanvas } from '../../lib/canvas/save-gate'
 import { useEditorAccess, useItemSlugs } from '../../contexts/editor-scope-context'
 
 const LazyReactFlowProvider = lazy(() =>
@@ -246,9 +247,11 @@ export function CanvasView({
   }
 
   // ⌘S saves too, as in the Code view, instead of the browser's Save Page.
+  // Off whenever the toolbar's Save button is, but the key is still consumed.
+  const canSave = canSaveCanvas({ readOnly: isReadOnly, isSaving, isDirty, saveConflict })
+
   function handleSaveKey() {
-    if (isReadOnly || isSaving || saveConflict) return
-    handleSave()
+    if (canSave) handleSave()
   }
 
   useAppShortcuts('canvas', { canvasSave: handleSaveKey })
@@ -261,12 +264,11 @@ export function CanvasView({
       // A dialog above the canvas keeps its own keys: ⌘↵ in it is not "save the canvas".
       if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return
       e.preventDefault()
-      if (isReadOnly || isSaving || saveConflict) return
-      handleSave()
+      if (canSave) handleSave()
     }
     window.addEventListener('keydown', handleSaveShortcut)
     return () => window.removeEventListener('keydown', handleSaveShortcut)
-  }, [handleSave, isReadOnly, isSaving, saveConflict])
+  }, [handleSave, canSave])
 
   // Auto-save 30s after the last meaningful change. Skipped on read-only
   // workflows, on never-saved workflows (so a stray drag on /new doesn't

@@ -16,6 +16,7 @@ import { isMacPlatform } from '../../lib/platform'
 import { SaveStatusIndicator } from './save-status-indicator'
 import { EditorExtensions } from '../../extensions/editor-extensions'
 import { readOnlyReason } from '../../lib/workflows/read-only-reason'
+import { canSaveCanvas } from '../../lib/canvas/save-gate'
 import { BLANK_DEPLOY_REASON, canvasMenuGroups, canvasTopBarVersion } from './canvas-toolbar-menu'
 
 /** The canvas's IDE chords, as the shortcuts sheet words them. */
@@ -207,7 +208,12 @@ export function EditorToolbar({
         save={{
           label: 'Save',
           saving: isSaving,
-          disabled: !!readOnly || isSaving || !isDirty || !!saveConflict,
+          disabled: !canSaveCanvas({
+            readOnly: !!readOnly,
+            isSaving,
+            isDirty,
+            saveConflict: !!saveConflict,
+          }),
           title: saveTitle(),
           onClick: onSave,
         }}
