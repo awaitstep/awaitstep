@@ -125,9 +125,9 @@ Rules that matter:
   `onEvent`, `onTimeout`); see `references/node-data.md`. Get these labels wrong
   and codegen silently runs the wrong arm.
 - `data.code` on a step is a **module** —
-  `export default async function <var>({ env, event, inputs, step, ctx })`.
-  A bare body is normalized on save only when it is unambiguous; write the
-  module shape. See `references/step-code.md`.
+  `export default async function <var>({ env, event, inputs, ctx })`, with no
+  `step` (calling `step.*` is refused). A bare body is normalized only when
+  unambiguous. See `references/step-code.md`.
 - A step that reads `env.NAME` needs a workflow variable of that name; nothing
   checks it. See the entry skill's
   [variables reference](https://docs.awaitstep.dev/skills/awaitstep/references/variables.md).

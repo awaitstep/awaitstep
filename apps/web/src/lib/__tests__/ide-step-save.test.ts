@@ -9,7 +9,7 @@ import { useIdeStore } from '../../stores/ide-store'
 const metadata = { name: 'orders', version: 3, createdAt: 't', updatedAt: 't' }
 /** A step's code as the Code view shows it: the module, which is what a draft's base hash is taken from. */
 const asModule = (fn: string, body: string) =>
-  `export default async function ${fn}({ env, event, inputs, step, ctx }) {\n  ${body}\n}\n`
+  `export default async function ${fn}({ env, event, inputs, ctx }) {\n  ${body}\n}\n`
 const VALIDATE_CODE = asModule('Validate', 'return 1')
 const CHARGE_CODE = asModule('Charge', 'return 2')
 const doc: ArtifactIR = {

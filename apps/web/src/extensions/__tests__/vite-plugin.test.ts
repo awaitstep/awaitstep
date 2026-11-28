@@ -96,4 +96,32 @@ describe('extensionsPlugin', () => {
     expect(result).toBeNull()
     expect(resolve).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['the linked package', '/repo/apps/web/src/styles.css?direct', LINKED_DIR, true],
+    ['no package', '/repo/apps/web/src/styles.css', null, false],
+    [
+      'an installed copy',
+      '/repo/apps/web/src/styles.css',
+      '/repo/node_modules/@awaitstep/extensions',
+      false,
+    ],
+    ['a filesystem root', '/repo/apps/web/src/styles.css', '/', false],
+    ['a module that is not a stylesheet', '/repo/apps/web/src/styles.ts', LINKED_DIR, false],
+  ])('has Tailwind read the package’s classes too: %s', async (_what, id, packageDir, added) => {
+    const plugin = extensionsPlugin({
+      stub: '/repo/stub.ts',
+      findPackageDir: async () => packageDir,
+    })
+    const transform = plugin.transform as unknown as (
+      code: string,
+      id: string,
+    ) => Promise<{ code: string } | null>
+    const css = "@import 'tailwindcss';\n"
+    expect(await transform(css, id)).toEqual(
+      added ? { code: `${css}\n@source "${LINKED_DIR}";\n`, map: null } : null,
+    )
+    // A stylesheet without Tailwind is not the one the rules go into.
+    expect(await transform('a { color: red }', id)).toBeNull()
+  })
 })

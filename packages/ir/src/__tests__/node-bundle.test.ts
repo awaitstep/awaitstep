@@ -66,6 +66,29 @@ describe('nodeDefinitionSchema', () => {
       })
     }
   })
+
+  it.each([
+    ['sql', true],
+    ['cobol', false],
+  ])('takes a text field written in a language it knows: %s', (language, taken) => {
+    const result = nodeDefinitionSchema.safeParse({
+      ...definition,
+      configSchema: { query: { type: 'textarea', label: 'SQL', language } },
+    })
+    expect(result.success).toBe(taken)
+  })
+
+  it.each([
+    ['database-connection', true],
+    ['x'.repeat(65), false],
+    [7, false],
+  ])('takes a field that names the control to draw it with: %s', (control, taken) => {
+    const result = nodeDefinitionSchema.safeParse({
+      ...definition,
+      configSchema: { connection: { type: 'string', label: 'Connection', control } },
+    })
+    expect(result.success).toBe(taken)
+  })
 })
 
 describe('stableStringify', () => {

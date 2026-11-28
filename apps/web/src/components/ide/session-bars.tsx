@@ -1,5 +1,9 @@
 import { Button } from '../ui/button'
 
+/** The strip that names each pane of the session panel and holds its controls. One fixed height, so the panes' rules meet in a line. */
+export const PANE_HEADER =
+  'flex h-9 shrink-0 items-center gap-1.5 overflow-hidden border-b border-border px-3'
+
 /** A warning strip about the session being behind, with the one thing that fixes it. */
 export function StalenessLine({
   text,
@@ -22,15 +26,4 @@ export function StalenessLine({
       </Button>
     </div>
   )
-}
-
-/**
- * A worker can answer with anything. A string is shown as it came — an HTML
- * error page or a stack trace put through JSON.stringify becomes one escaped
- * line, which is exactly when it matters most.
- */
-export function formatBody(body: unknown): string {
-  if (body === null || body === undefined) return ''
-  if (typeof body === 'string') return body
-  return JSON.stringify(body, null, 2)
 }

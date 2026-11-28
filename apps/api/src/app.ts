@@ -11,7 +11,7 @@ import { useExtensionProviders } from './lib/provider-registry.js'
 import { useExtensionHooks } from './lib/extension-hooks.js'
 import type { Auth } from './auth/config.js'
 import type { Logger } from './lib/logger.js'
-import type { AppNodeRegistry } from './lib/node-registry.js'
+import { withExtensionNodes, type AppNodeRegistry } from './lib/node-registry.js'
 import type { RemoteNodeRegistry } from './lib/remote-node-registry.js'
 import type { WranglerDeployer } from '@awaitstep/provider-cloudflare'
 import type { TestSessionRunner } from '@awaitstep/codegen'
@@ -139,6 +139,7 @@ export function createApp(deps: AppDeps) {
   checkExtensions(extensions)
   useExtensionProviders(extensions)
   useExtensionHooks(extensions)
+  const nodeRegistry = withExtensionNodes(deps.nodeRegistry, extensions)
   const disabled = checkDisabledFeatures(deps.disabledFeatures ?? [])
   const disabledFeatures: ReadonlySet<OssFeature> = new Set(disabled)
   const oauthReturnPath =
@@ -254,7 +255,7 @@ export function createApp(deps: AppDeps) {
   app.use('/api/*', async (c, next) => {
     c.set('db', deps.db)
     c.set('disabledFeatures', disabledFeatures)
-    if (deps.nodeRegistry) c.set('nodeRegistry', deps.nodeRegistry)
+    if (nodeRegistry) c.set('nodeRegistry', nodeRegistry)
     if (deps.remoteNodeRegistry) c.set('remoteNodeRegistry', deps.remoteNodeRegistry)
     if (deps.appName) c.set('appName', deps.appName)
     c.set('accountProviders', deps.accountProviders)

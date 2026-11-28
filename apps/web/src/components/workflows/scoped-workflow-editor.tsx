@@ -15,7 +15,6 @@ interface ScopedWorkflowEditorProps {
   slugs: WorkspaceSlugs
   workflowId: string
   search: EditorRouteSearch
-  localDev: boolean
 }
 
 /**
@@ -23,12 +22,7 @@ interface ScopedWorkflowEditorProps {
  * (the route resolves it before rendering), never the old switcher's. Its
  * workspace comes from the item's layout (`ItemScopeLayout`).
  */
-export function ScopedWorkflowEditor({
-  slugs,
-  workflowId,
-  search,
-  localDev,
-}: ScopedWorkflowEditorProps) {
+export function ScopedWorkflowEditor({ slugs, workflowId, search }: ScopedWorkflowEditorProps) {
   const ready = useItemScopeReady()
   const workflow = useScopedWorkflow(workflowId)
   const inOtherWorkspace = useInOtherWorkspace(workflow.data)
@@ -45,7 +39,7 @@ export function ScopedWorkflowEditor({
       </PageBody>
     )
   }
-  return <WorkflowEditor workflowId={workflowId} search={search} localDev={localDev} />
+  return <WorkflowEditor workflowId={workflowId} search={search} />
 }
 
 /** The editor route's error page: its scope lookup failed. */

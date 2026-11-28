@@ -55,7 +55,7 @@ export type {
   TestSessionResponse,
   TestSessionLogPage,
 } from './test-session.js'
-export { TEST_SESSION_RUNTIMES } from './test-session.js'
+export { TEST_SESSION_RUNTIMES, TestSessionRefusal } from './test-session.js'
 export type { CodeGenerator, GenerateMode } from './code-generator.js'
 export type { TemplateResolver } from './template-resolver.js'
 
@@ -173,7 +173,9 @@ export type { ExpressionScopes, NodeExpressionProblem } from './expression-scope
 export type { ImportBinding, ImportSource } from './imports.js'
 export {
   MAX_STEP_CODE_LENGTH,
+  LEGACY_STEP_MODULE_SIGNATURE,
   STEP_MODULE_PARAMS,
+  nestedStepProblem,
   STEP_MODULE_SIGNATURE,
   isStepModule,
   stepFunctionName,

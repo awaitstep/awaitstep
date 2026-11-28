@@ -136,7 +136,7 @@ export function stepModuleCall(
   // a module whose parameter type names only what it reads type-checks.
   return {
     varName,
-    call: `${STEP_ARGS}({ env, event, inputs: ${inputsArg}, step, ctx })`,
+    call: `${STEP_ARGS}({ env, event, inputs: ${inputsArg}, ctx })`,
     hasReturn: stepReturnsValue(code),
   }
 }

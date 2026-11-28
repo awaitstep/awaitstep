@@ -89,13 +89,13 @@ describe('generateWorkflow', () => {
           const event = flow.event;
           const step = durableStep(flow);
           await flow.step("Fetch data (step-1)", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
-            await $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx }));
+            await $Fetch_data(stepArgs({ env, event, inputs: {}, ctx }));
           });
 
           await flow.sleep("Wait 10s (sleep-1)", "10 seconds");
 
           await flow.step("Process data (step-2)", { retries: { limit: 2, delay: "5 seconds", backoff: "exponential" } }, async (ctx) => {
-            await $Process_data(stepArgs({ env, event, inputs: {}, step, ctx }));
+            await $Process_data(stepArgs({ env, event, inputs: {}, ctx }));
           });
         },
       });
@@ -787,6 +787,6 @@ describe('generateWorkflowBundle: inline step bindings', () => {
     } as unknown as WorkflowIR
     const code = programOf(ir)
     expect(code).toContain('const user = { email: "a@b.c" }')
-    expect(code).toContain('$Sync_Contact(stepArgs({ env, event, inputs: { user }, step, ctx }))')
+    expect(code).toContain('$Sync_Contact(stepArgs({ env, event, inputs: { user }, ctx }))')
   })
 })

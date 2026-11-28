@@ -11,12 +11,15 @@ interface CanvasLayoutState {
   inspectorOpen: boolean
   /** The read-only preview of the code this graph generates. */
   codePreviewOpen: boolean
+  /** The test run panel under the graph. */
+  testRunOpen: boolean
   togglePalette: () => void
   setPaletteOpen: (open: boolean) => void
   closePalette: () => void
   setInspectorOpen: (open: boolean) => void
   toggleCodePreview: () => void
   setCodePreviewOpen: (open: boolean) => void
+  setTestRunOpen: (open: boolean) => void
 }
 
 /**
@@ -28,10 +31,12 @@ export const useCanvasLayoutStore = create<CanvasLayoutState>()((set, get) => ({
   paletteOpen: false,
   inspectorOpen: true,
   codePreviewOpen: false,
+  testRunOpen: false,
   togglePalette: () => set({ paletteOpen: !get().paletteOpen }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
   closePalette: () => set({ paletteOpen: false }),
   setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
   toggleCodePreview: () => set({ codePreviewOpen: !get().codePreviewOpen }),
   setCodePreviewOpen: (codePreviewOpen) => set({ codePreviewOpen }),
+  setTestRunOpen: (testRunOpen) => set({ testRunOpen }),
 }))

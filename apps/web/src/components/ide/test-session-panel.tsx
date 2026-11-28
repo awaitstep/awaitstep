@@ -15,11 +15,14 @@ export function TestSessionPanel({
   session: state,
   onSaveAll,
   onTrigger,
+  unsavedLine: unsavedWords,
 }: {
   session: TestSessionState
   onSaveAll: () => Promise<number>
   /** Triggers with the current payload; asks first when the session is behind. */
   onTrigger: () => void
+  /** How unsaved work is named where it is not files (the canvas's graph). */
+  unsavedLine?: string
 }) {
   const { session, stale, actionError, logs, restart } = state
   const clearedBefore = useTestSessionStore(
@@ -30,9 +33,11 @@ export function TestSessionPanel({
   const savedLine = session && running ? describeSavedChanges(stale, session.createdAt) : null
   const versionLine =
     running && stale.version && !savedLine
-      ? 'A newer version was saved after this session started.'
+      ? 'Changes were saved after this session started. Restart to run them.'
       : null
-  const unsavedLine = running ? describeUnsaved(stale) : null
+  const unsavedLine = running && stale.unsaved > 0 ? (unsavedWords ?? describeUnsaved(stale)) : null
+
+  const notices = Boolean(savedLine || versionLine || unsavedLine || actionError)
 
   function handleRestart() {
     void restart()
@@ -49,25 +54,31 @@ export function TestSessionPanel({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-3">
+    <div className="flex h-full min-h-0 flex-col">
       <SessionHeader state={state} />
-      {savedLine && <StalenessLine text={savedLine} action="Restart" onAction={handleRestart} />}
-      {versionLine && (
-        <StalenessLine text={versionLine} action="Restart" onAction={handleRestart} />
+      {notices && (
+        <div className="flex shrink-0 flex-col gap-1.5 border-b border-border px-3 py-2">
+          {savedLine && (
+            <StalenessLine text={savedLine} action="Restart" onAction={handleRestart} />
+          )}
+          {versionLine && (
+            <StalenessLine text={versionLine} action="Restart" onAction={handleRestart} />
+          )}
+          {unsavedLine && (
+            <StalenessLine
+              text={unsavedLine}
+              action="Save and restart"
+              onAction={handleSaveAndRestart}
+            />
+          )}
+          {actionError && (
+            <p role="alert" className="text-2xs text-destructive">
+              {actionError}
+            </p>
+          )}
+        </div>
       )}
-      {unsavedLine && (
-        <StalenessLine
-          text={unsavedLine}
-          action="Save and restart"
-          onAction={handleSaveAndRestart}
-        />
-      )}
-      {actionError && (
-        <p role="alert" className="text-2xs text-destructive">
-          {actionError}
-        </p>
-      )}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 divide-y divide-border md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] md:divide-x md:divide-y-0">
         <TriggerPayload state={state} onTrigger={onTrigger} />
         <OutputPanel sessionId={session?.id ?? null} lines={logs} clearedBefore={clearedBefore} />
       </div>

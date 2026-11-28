@@ -13,6 +13,8 @@ vi.mock('../../../hooks/use-switch-view', () => ({ useSwitchView: () => vi.fn() 
 const scope = vi.hoisted(() => ({ canInstall: true }))
 vi.mock('../../../contexts/editor-scope-context', () => ({
   useItemSlugs: () => ({ org: 'acme', project: 'p', workspace: 'sales' }),
+  // No scope: every field is drawn by its type, never by an extension's control.
+  useEditorScope: () => null,
 }))
 vi.mock('../../workspaces/use-workspace-scope', () => ({
   useWorkspaceScope: () => ({ orgManager: scope.canInstall }),

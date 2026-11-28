@@ -51,7 +51,7 @@ const modifiedIR = {
 
 /** `modifiedIR`'s step as a save stores it: the body wrapped into its module. */
 const MODIFIED_MODULE =
-  'export default async function Modified({ env, event, inputs, step, ctx }) {\n  return 2;\n}\n'
+  'export default async function Modified({ env, event, inputs, ctx }) {\n  return 2;\n}\n'
 
 /** A fresh first save seeds the HTTP entry; these tests are about the other files. */
 function withoutSeededEntry<T extends { path: string }>(files: readonly T[] | undefined): T[] {
@@ -328,7 +328,7 @@ describe('version routes', () => {
         nodes: { data: { code: string } }[]
       }
       expect(ir.nodes[0]!.data.code).toBe(
-        'export default async function Hello({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n',
+        'export default async function Hello({ env, event, inputs, ctx }) {\n  return 1;\n}\n',
       )
     })
 
@@ -343,7 +343,7 @@ describe('version routes', () => {
               {
                 ...validIR.nodes[0],
                 data: {
-                  code: 'export default async function other({ env, event, inputs, step, ctx }) { return 1; }',
+                  code: 'export default async function other({ env, event, inputs, ctx }) { return 1; }',
                 },
               },
             ],

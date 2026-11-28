@@ -1,12 +1,4 @@
-import {
-  Download,
-  LayoutTemplate,
-  ListChecks,
-  Variable,
-  Redo2,
-  Terminal,
-  Undo2,
-} from 'lucide-react'
+import { Download, LayoutTemplate, ListChecks, Variable, Redo2, Undo2 } from 'lucide-react'
 import { IDE_SHORTCUTS, formatShortcut } from '../../lib/ide/shortcuts'
 import type { TopBarMenuItem } from '../workflows/top-bar-menu'
 import type { TopBarVersion } from '../workflows/unified-top-bar'
@@ -34,7 +26,7 @@ export function canvasTopBarVersion(args: {
 }
 
 /** The panel a menu item opens, found once the menu has closed. */
-export function panelElement(id: 'local-test' | 'templates') {
+export function panelElement(id: 'templates') {
   return () => document.querySelector<HTMLElement>(`[data-panel="${id}"]`)
 }
 
@@ -49,7 +41,6 @@ interface CanvasMenuArgs {
   isNew: boolean
   onOpenTemplatePicker?: () => void
   onExport?: () => void
-  onTestLocally?: () => void
   onCheck: () => void
 }
 
@@ -96,20 +87,7 @@ export function canvasMenuGroups(args: CanvasMenuArgs): TopBarMenuItem[][] {
 
   const checks: TopBarMenuItem[] = readOnly
     ? []
-    : [
-        ...(args.onTestLocally
-          ? [
-              {
-                id: 'local-test',
-                label: 'Local test',
-                icon: Terminal,
-                onSelect: args.onTestLocally,
-                focusTarget: panelElement('local-test'),
-              },
-            ]
-          : []),
-        { id: 'check', label: 'Check workflow', icon: ListChecks, onSelect: args.onCheck },
-      ]
+    : [{ id: 'check', label: 'Check workflow', icon: ListChecks, onSelect: args.onCheck }]
 
   const history: TopBarMenuItem[] = readOnly
     ? []

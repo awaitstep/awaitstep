@@ -1593,8 +1593,8 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
   activateTestSession(
     id: string,
     userId: string,
-    processId: string,
-    port: number,
+    processId: string | null,
+    port: number | null,
     cutoffs: TestSessionCutoffs,
   ): Promise<TestSession | null> {
     return this._testSessions.activate(id, userId, processId, port, cutoffs)

@@ -95,7 +95,7 @@ describe('useCodeNodeWriter', () => {
       {
         ...NODES.find((n) => n.id === 'charge')!,
         data: {
-          code: 'export default async function Charge_card({ env, event, inputs, step, ctx }) {\n  return 1\n}\n',
+          code: 'export default async function Charge_card({ env, event, inputs, ctx }) {\n  return 1\n}\n',
         },
       },
     ])

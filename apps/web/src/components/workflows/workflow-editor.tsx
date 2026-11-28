@@ -12,11 +12,10 @@ const LazyIdeWorkspace = lazy(() =>
 interface WorkflowEditorProps {
   workflowId: string
   search: EditorRouteSearch
-  localDev: boolean
 }
 
 /** The workflow editor, on its Canvas or Code view, whichever route opened it. */
-export function WorkflowEditor({ workflowId, search, localDev }: WorkflowEditorProps) {
+export function WorkflowEditor({ workflowId, search }: WorkflowEditorProps) {
   const { view, version, file, node, template, kind, open } = search
   return (
     <NodeRegistryProvider workflowId={workflowId}>
@@ -34,7 +33,6 @@ export function WorkflowEditor({ workflowId, search, localDev }: WorkflowEditorP
           kindParam={kind}
           nodeParam={node}
           marketplaceOpen={open === 'marketplace'}
-          localDevEnabled={localDev}
         />
       )}
     </NodeRegistryProvider>

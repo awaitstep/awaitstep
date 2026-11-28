@@ -57,10 +57,7 @@ declare class NonRetryableError extends Error {
   constructor(message: string, name?: string);
 }
 
-// ── Workflow Globals (available in step callbacks) ──
-
-/** The workflow step object — step.do(), step.sleep(), step.sleepUntil(), step.waitForEvent() */
-declare const step: WorkflowStep;
+// No step global: a step's code runs inside a step and does not start another.
 
 // A step's event is declared by the workflow context, on any provider.
 

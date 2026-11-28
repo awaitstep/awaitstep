@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { memo, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowDownToLine, Eraser, Search } from 'lucide-react'
 import {
   countStderr,
@@ -6,8 +6,10 @@ import {
   formatLogTime,
   type LogStreamFilter,
 } from '../../lib/ide/session-log'
+import { logTokens, lineHead, type LogTokenKind } from '../../lib/ide/log-tokens'
 import { cn } from '../../lib/utils'
 import { useTestSessionStore, type SessionLogLine } from '../../stores/test-session-store'
+import { PANE_HEADER } from './session-bars'
 
 const NEAR_BOTTOM_PX = 40
 
@@ -91,7 +93,8 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 pb-1.5">
+      <div className={PANE_HEADER}>
+        <span className="mr-1 shrink-0 text-2xs font-medium text-foreground">Output</span>
         <Chip active={stream === 'all'} onClick={handleAll}>
           All
         </Chip>
@@ -122,7 +125,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
           onClick={handleClear}
           disabled={shown.length === 0}
           title="Clears this view. The session keeps logging."
-          className="inline-flex h-6 items-center gap-1 rounded border border-border px-2 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="inline-flex h-6 shrink-0 whitespace-nowrap items-center gap-1 rounded border border-border px-2 text-2xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
           <Eraser className="h-3 w-3" />
           Clear view
@@ -133,7 +136,7 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
         onScroll={handleScroll}
         role="log"
         aria-label="Test session output"
-        className="min-h-0 flex-1 overflow-auto rounded-md border border-border bg-editor p-2 font-mono text-xs"
+        className="min-h-0 flex-1 overflow-auto bg-editor p-3 font-mono text-xs"
       >
         {empty ? (
           <p className="font-sans text-2xs text-muted-foreground">{empty}</p>
@@ -145,21 +148,48 @@ export function OutputPanel({ sessionId, lines, clearedBefore }: OutputPanelProp
   )
 }
 
-function LogRow({ line }: { line: SessionLogLine }) {
+const TOKEN_CLASS: Record<LogTokenKind, string | undefined> = {
+  plain: undefined,
+  key: 'text-status-info',
+  string: 'text-status-success',
+  number: 'text-status-warning',
+  keyword: 'text-primary-ink',
+  punctuation: 'text-muted-foreground',
+}
+
+/** Memoised: a session's lines never change, and every new line re-renders the list. */
+const LogRow = memo(function LogRow({ line }: { line: SessionLogLine }) {
+  const failed = line.stream === 'stderr'
+  const head = lineHead(line.text)
+  const body = head ? head.rest : line.text
   return (
-    <div
-      className={cn(
-        'flex gap-2',
-        line.stream === 'stderr' ? 'text-status-error' : 'text-foreground',
-      )}
-    >
+    <div className={cn('flex gap-2', failed ? 'text-status-error' : 'text-foreground')}>
       <time className="shrink-0 tabular-nums text-muted-foreground">
         {formatLogTime(line.timestamp)}
       </time>
-      <span className="min-w-0 whitespace-pre-wrap break-words">{line.text}</span>
+      <span className="min-w-0 whitespace-pre-wrap break-words">
+        {head && (
+          <span
+            className={cn(
+              'font-semibold',
+              !failed && head.tone === 'success' && 'text-status-success',
+            )}
+          >
+            {head.label}
+          </span>
+        )}
+        {/* An error stays one colour: red is what it says. */}
+        {failed
+          ? body
+          : logTokens(body).map((token, index) => (
+              <span key={index} className={TOKEN_CLASS[token.kind]}>
+                {token.text}
+              </span>
+            ))}
+      </span>
     </div>
   )
-}
+})
 
 function Chip({
   active,
@@ -178,7 +208,7 @@ function Chip({
       onClick={onClick}
       aria-pressed={pressed ?? active}
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded border px-2 text-2xs transition-colors',
+        'inline-flex h-6 shrink-0 whitespace-nowrap items-center gap-1 rounded border px-2 text-2xs transition-colors',
         active
           ? 'border-primary-ink/40 bg-primary-ink/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground',

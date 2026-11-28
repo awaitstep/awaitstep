@@ -17,9 +17,10 @@ import { EditorToolbar } from './editor-toolbar'
 import { EditorDialogs, type CanvasConfirmAction } from './editor-dialogs'
 import { DeployDialogHost } from '../deploy/deploy-dialog'
 import { CanvasSidePanels } from './canvas-side-panels'
+import { CanvasStatusBar } from './canvas-status-bar'
+import { CanvasTestRun, unsavedTestRun, type CanvasTestRunParts } from './canvas-test-run'
 import { useShallow } from 'zustand/react/shallow'
 import { useCanvasLayoutStore } from '../../stores/canvas-layout-store'
-import { useLocalTestStore } from '../../stores/local-test-store'
 import {
   buildWorkflowStoreState,
   nodeToSelectOnce,
@@ -27,6 +28,7 @@ import {
   deriveDeploymentState,
 } from '../../lib/hydrate-workflow'
 import { surfaceSwitchTarget } from '../../lib/workflows/surfaces'
+import { readOnlyReason } from '../../lib/workflows/read-only-reason'
 import { isOverlayToggle, withOverlay } from '../../lib/dashboard-paths'
 import { MarketplaceDialog } from '../resources/marketplace-dialog'
 import { offersTemplates } from '../../lib/workflows/template-offer'
@@ -53,7 +55,6 @@ interface CanvasViewProps {
   nodeParam?: string
   /** The editor URL's `?open=marketplace`: the marketplace over the graph. */
   marketplaceOpen: boolean
-  localDevEnabled: boolean
 }
 
 export function CanvasView({
@@ -63,10 +64,8 @@ export function CanvasView({
   kindParam,
   nodeParam,
   marketplaceOpen,
-  localDevEnabled,
 }: CanvasViewProps) {
   const api = useApi()
-  const localTestOpen = useLocalTestStore((s) => s.open && s.workflowId === workflowId)
   // Functions never show the template picker — templates are workflow-shaped.
   const [showTemplatePicker, setShowTemplatePicker] = useState(!!template && kindParam !== 'script')
   const [confirmAction, setConfirmAction] = useState<CanvasConfirmAction | null>(null)
@@ -83,14 +82,17 @@ export function CanvasView({
     })),
   )
   const { addNode, reset: resetWorkflowStore, runSimulation, setWorkflowId } = useWorkflowStore()
+  // The store's, not the read's: a save moves it at once, the read only once refetched.
+  const savedGraphHash = useWorkflowStore((s) => s.graphHash)
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       resetWorkflowStore()
       useCanvasLayoutStore.getState().closePalette()
-      // A preview belongs to the graph it was opened on, not the next one.
+      // A preview belongs to the graph it was opened on, not the next one; so does a test run's panel.
       useCanvasLayoutStore.getState().setCodePreviewOpen(false)
+      useCanvasLayoutStore.getState().setTestRunOpen(false)
     }
   }, [resetWorkflowStore])
 
@@ -279,12 +281,6 @@ export function CanvasView({
     addNode(type, { x: 250 + Math.random() * 200, y: 150 + Math.random() * 200 }, nodeRegistry)
   }
 
-  function handleOpenLocalTest() {
-    // Both live in the right-hand slot: testing the graph wins over reading it.
-    useCanvasLayoutStore.getState().setCodePreviewOpen(false)
-    useLocalTestStore.getState().openFor(workflowId, 'canvas')
-  }
-
   // The result opens in the bottom panel, which the canvas already hosts.
   function handleCheck() {
     runSimulation()
@@ -305,6 +301,29 @@ export function CanvasView({
     void navigate({ href: withOverlay(location.href, null), replace: true })
   }
 
+  const statusReason = isReadOnly
+    ? readOnlyReason({ viewOnlyReason: access.reason ?? undefined, olderVersion: isOlderVersion })
+    : undefined
+
+  // A workflow with no row has no session to ask for: its button says to save first.
+  function renderWithTestRun(render: (parts: CanvasTestRunParts) => React.ReactNode) {
+    // Nor has one that did not load.
+    if (isNew || !fullData) return render(unsavedTestRun())
+    return (
+      <CanvasTestRun
+        workflowId={workflowId}
+        versionId={fullData.workflow?.currentVersionId ?? null}
+        graphHash={isOlderVersion ? null : savedGraphHash}
+        viewingOlder={isOlderVersion}
+        isDirty={isDirty}
+        viewOnlyReason={access.canEdit ? null : (access.reason ?? 'View only')}
+        onSave={saveNow}
+      >
+        {render}
+      </CanvasTestRun>
+    )
+  }
+
   // Show skeleton while waiting for workflow data (skip for new workflows)
   const showSkeleton = !isNew && !workflowError && (isLoadingWorkflow || !fullData)
 
@@ -313,63 +332,63 @@ export function CanvasView({
       <Suspense fallback={<CanvasSkeleton />}>
         <LoadingView isLoading={showSkeleton} LoadingPlaceholder={CanvasSkeleton}>
           <LazyReactFlowProvider>
-            <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
-              <EditorToolbar
-                workflowId={workflowId}
-                isNew={isNew}
-                workflowName={metadata.name}
-                kind={isNew ? kindParam : fullData?.workflow?.kind}
-                currentVersion={currentVersion}
-                nodeCount={nodeCount}
-                isDirty={isDirty}
-                hasActiveDeployment={hasActiveDeployment}
-                hasUndeployedChanges={hasUndeployedChanges}
-                deployedVersion={deployedVersion?.version}
-                onSave={handleSave}
-                isSaving={isSaving}
-                lastSavedAt={lastSavedAt}
-                saveError={saveError}
-                saveConflict={saveConflict}
-                onReload={handleReload}
-                reloading={reloading}
-                onDeploy={handleDeploy}
-                onCheck={handleCheck}
-                onTestLocally={localDevEnabled ? handleOpenLocalTest : undefined}
-                onExport={nodeCount > 0 ? exportWorkflowFile : undefined}
-                onOpenTemplatePicker={canPickTemplate ? handleOpenTemplatePicker : undefined}
-                readOnly={isReadOnly}
-                olderVersion={isOlderVersion}
-                readOnlyVersion={readOnlyVersion}
-                viewOnlyReason={access.reason ?? undefined}
-                versionParam={versionParam}
-              />
-              <div className="relative flex-1 overflow-hidden">
-                <LazyCanvas
-                  focusNodeId={nodeParam}
-                  workflowId={isNew ? null : workflowId}
+            {renderWithTestRun((testRun) => (
+              <div className="fixed inset-0 flex flex-col overflow-hidden bg-background">
+                <EditorToolbar
+                  workflowId={workflowId}
+                  isNew={isNew}
+                  workflowName={metadata.name}
+                  kind={isNew ? kindParam : fullData?.workflow?.kind}
+                  currentVersion={currentVersion}
+                  nodeCount={nodeCount}
+                  isDirty={isDirty}
+                  hasActiveDeployment={hasActiveDeployment}
+                  hasUndeployedChanges={hasUndeployedChanges}
+                  deployedVersion={deployedVersion?.version}
+                  onSave={handleSave}
+                  isSaving={isSaving}
+                  lastSavedAt={lastSavedAt}
+                  saveError={saveError}
+                  saveConflict={saveConflict}
+                  onReload={handleReload}
+                  reloading={reloading}
+                  onDeploy={handleDeploy}
+                  onCheck={handleCheck}
+                  testRun={testRun.toggle}
+                  onExport={nodeCount > 0 ? exportWorkflowFile : undefined}
+                  onOpenTemplatePicker={canPickTemplate ? handleOpenTemplatePicker : undefined}
+                  readOnly={isReadOnly}
+                  olderVersion={isOlderVersion}
+                  readOnlyVersion={readOnlyVersion}
+                  viewOnlyReason={access.reason ?? undefined}
                   versionParam={versionParam}
                 />
-                {!isReadOnly && (
-                  <div className="absolute left-4 top-4 z-10">
-                    <NodePalette
-                      onAddNode={handleAddNode}
-                      onBrowseMarketplace={handleBrowseMarketplace}
-                    />
-                  </div>
-                )}
-                {canPickTemplate && !isReadOnly && showTemplatePicker && (
-                  <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
-                )}
-                <BindingsPanel />
-                <SimulationPanel />
-                <ValidationPanel />
-                <CanvasSidePanels
-                  showLocalTest={localTestOpen && !isNew}
-                  onCloseLocalTest={() => useLocalTestStore.getState().requestClose()}
-                  workflowId={workflowId}
-                />
+                <div className="relative flex-1 overflow-hidden">
+                  <LazyCanvas
+                    focusNodeId={nodeParam}
+                    workflowId={isNew ? null : workflowId}
+                    versionParam={versionParam}
+                  />
+                  {!isReadOnly && (
+                    <div className="absolute left-4 top-4 z-10">
+                      <NodePalette
+                        onAddNode={handleAddNode}
+                        onBrowseMarketplace={handleBrowseMarketplace}
+                      />
+                    </div>
+                  )}
+                  {canPickTemplate && !isReadOnly && showTemplatePicker && (
+                    <TemplatePicker onDismiss={() => setShowTemplatePicker(false)} />
+                  )}
+                  <BindingsPanel />
+                  <SimulationPanel />
+                  <ValidationPanel />
+                  <CanvasSidePanels />
+                </div>
+                {testRun.dock}
+                <CanvasStatusBar readOnly={isReadOnly} readOnlyReason={statusReason} />
               </div>
-            </div>
+            ))}
             <EditorDialogs
               confirmAction={confirmAction}
               setConfirmAction={setConfirmAction}

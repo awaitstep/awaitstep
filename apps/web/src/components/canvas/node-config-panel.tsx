@@ -13,7 +13,12 @@ import { HttpRequestFields } from './http-request-fields'
 import { StepEnlargedEditor, StepFields } from './step-fields'
 import { buildIRFromState } from '../../lib/build-ir'
 import { stepScope } from '../../lib/step-scope'
-import { computeVarNames, stepModuleProblem, stepReturnsValue } from '@awaitstep/codegen'
+import {
+  computeVarNames,
+  nestedStepProblem,
+  stepModuleProblem,
+  stepReturnsValue,
+} from '@awaitstep/codegen'
 import { ExpressionEditor } from './expression-editor'
 import { getNodeVisuals } from '../../lib/node-icon-map'
 import { cn } from '../../lib/utils'
@@ -35,8 +40,6 @@ import { useNodeExpressionErrors } from '../../hooks/use-node-expression-errors'
 import { isBuiltinNodeType } from '@awaitstep/ir'
 import { retargetEdge } from '../../lib/canvas/node-sides'
 
-const NESTED_STEP_PATTERN = /step\.(do|sleep|sleepUntil|waitForEvent)\s*\(/
-
 export function validateNode(node: WorkflowNode, expectedFunctionName?: string): string[] {
   const errors: string[] = []
   if (!node.name.trim()) errors.push('Step name is required')
@@ -45,8 +48,8 @@ export function validateNode(node: WorkflowNode, expectedFunctionName?: string):
     case 'step': {
       const code = String(node.data.code ?? '')
       if (!code.trim()) errors.push('Step code cannot be empty')
-      if (NESTED_STEP_PATTERN.test(code))
-        errors.push('This code calls a step inside a step. Move the inner call into its own node.')
+      const nested = nestedStepProblem(node)
+      if (nested) errors.push(nested)
       const moduleProblem =
         expectedFunctionName !== undefined ? stepModuleProblem(node, expectedFunctionName) : null
       if (moduleProblem) errors.push(moduleProblem)

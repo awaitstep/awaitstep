@@ -87,15 +87,14 @@ describe('addNode', () => {
     const [first, second] = useWorkflowStore.getState().nodes.map((n) => n.data.irNode)
     expect(first!.name).toBe('New step')
     expect(first!.data.code).toBe(
-      'export default async function New_step({ env, event, inputs, step, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
+      'export default async function New_step({ env, event, inputs, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
     )
     expect(second!.data.code).toContain('export default async function New_step_2(')
   })
 })
 
 describe('renameNode', () => {
-  const MODULE =
-    'export default async function a({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n'
+  const MODULE = 'export default async function a({ env, event, inputs, ctx }) {\n  return 1;\n}\n'
 
   it('carries the new name into the module’s function when it still had the old one', () => {
     seed(irNode('a', { code: MODULE }))
@@ -121,7 +120,7 @@ describe('renameNode', () => {
 
 describe('step functions follow their variable names', () => {
   const module = (fn: string) =>
-    `export default async function ${fn}({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n`
+    `export default async function ${fn}({ env, event, inputs, ctx }) {\n  return 1;\n}\n`
   const fnOf = (id: string) => /function (\w+)\(/.exec(String(dataOf(id).code))?.[1] ?? null
 
   it('renames the clone of a duplicated step after its own variable', () => {
@@ -164,7 +163,7 @@ describe('the Inline switch converts the code with it', () => {
       ...irNode('a'),
       name: 'a',
       data: {
-        code: 'export default async function a({ env, event, inputs, step, ctx }) {\n  const { b } = inputs;\n  return b + inputs.c;\n}\n',
+        code: 'export default async function a({ env, event, inputs, ctx }) {\n  const { b } = inputs;\n  return b + inputs.c;\n}\n',
       },
     })
     useWorkflowStore.getState().updateNodeField('a', 'inline', true)
@@ -172,7 +171,7 @@ describe('the Inline switch converts the code with it', () => {
     useWorkflowStore.getState().updateNodeField('a', 'inline', false)
     expect(dataOf('a').inline).toBe(false)
     expect(dataOf('a').code).toBe(
-      'export default async function a({ env, event, inputs, step, ctx }) {\n  return b + c;\n}\n',
+      'export default async function a({ env, event, inputs, ctx }) {\n  return b + c;\n}\n',
     )
   })
 })

@@ -10,6 +10,7 @@ import { NO_VERSION_MESSAGE } from './blank-source.js'
 import { unreachableCalls } from './call-reach.js'
 import {
   GenerateInputError,
+  nestedStepProblem,
   generatedNameProblems,
   bundleCodeFiles,
   bundleDeployFiles,
@@ -50,6 +51,7 @@ import {
   escapingImports,
   unresolvedAppImports,
 } from './import-check.js'
+import { graphHash } from './graph-hash.js'
 import { foldProjectFiles, foldProjectHandlers, foldWorkflowRuntime } from './runtime-fold.js'
 
 export interface WorkflowContext {
@@ -57,6 +59,8 @@ export interface WorkflowContext {
   bundle: GeneratedBundle
   ir: ArtifactIR
   versionId: string
+  /** The stored graph's hash: what a save changes even when the version id stays. */
+  graphHash: string
   /** The version's number, for the audit log's "Lead enrichment v12". */
   versionNumber: number
   nodeRegistry: AppNodeRegistry
@@ -286,7 +290,15 @@ export async function prepareWorkflow(
   // A workflow name that the generated code also binds — a loop item hiding a
   // step inside it, inline code declaring `step` — breaks the generated file
   // with an error that doesn't say why; refuse it here with one that does.
-  const nameClashes: PrepareDiagnostic[] = generatedNameProblems(ir).map((problem) => ({
+  // So is a step whose code calls `step`: one saved while a step was still
+  // handed it would fail at run time, on `undefined`.
+  const nameClashes: PrepareDiagnostic[] = [
+    ...generatedNameProblems(ir),
+    ...ir.nodes.flatMap((node) => {
+      const message = nestedStepProblem(node)
+      return message ? [{ nodeId: node.id, message }] : []
+    }),
+  ].map((problem) => ({
     source: 'ir',
     message: problem.message,
     ...(problem.nodeId && { nodeId: problem.nodeId }),
@@ -688,6 +700,7 @@ export async function prepareWorkflow(
     bundle,
     ir,
     versionId,
+    graphHash: graphHash(version.ir),
     versionNumber: version.version,
     nodeRegistry,
     envVars: envResult.envVars,

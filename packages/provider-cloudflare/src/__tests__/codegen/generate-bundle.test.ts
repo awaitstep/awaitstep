@@ -53,7 +53,7 @@ describe('generateWorkflowBundle', () => {
     expect(fetchModule.source).toMatchInlineSnapshot(`
       "import { z } from 'zod'
 
-      export default async function Fetch_data({ env, event, inputs, step, ctx }) {
+      export default async function Fetch_data({ env, event, inputs, ctx }) {
         const res = await fetch(env.API_URL);
         return z.object({ ok: z.boolean() }).parse(await res.json());
       }
@@ -65,7 +65,7 @@ describe('generateWorkflowBundle', () => {
   it('downstream module receives referenced upstream vars via inputs', () => {
     const reportModule = bundle.files.find((f) => f.path === 'steps/report.ts')!
     expect(reportModule.source).toMatchInlineSnapshot(`
-      "export default async function Report({ env, event, inputs, step, ctx }) {
+      "export default async function Report({ env, event, inputs, ctx }) {
         return { ok: inputs.Fetch_data.ok, at: event.timestamp };
       }
       "
@@ -77,10 +77,10 @@ describe('generateWorkflowBundle', () => {
     expect(entry).toContain('import $Fetch_data from "#app/steps/fetch.js";')
     expect(entry).toContain('import $Report from "#app/steps/report.js";')
     expect(entry).toContain(
-      'const Fetch_data = await flow.step("Fetch data (fetch)", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data(stepArgs({ env, event, inputs: {}, step, ctx })),\n    );',
+      'const Fetch_data = await flow.step("Fetch data (fetch)", { retries: { limit: 3, delay: "5 seconds" } }, (ctx) =>\n      $Fetch_data(stepArgs({ env, event, inputs: {}, ctx })),\n    );',
     )
     expect(entry).toMatch(
-      /await flow\.step\("Report \(report\)", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(stepArgs\(\{ env, event, inputs: \{ Fetch_data \}, step, ctx \}\)\);/,
+      /await flow\.step\("Report \(report\)", \{ retries: [\s\S]*?async \(ctx\) => \{\s+await \$Report\(stepArgs\(\{ env, event, inputs: \{ Fetch_data \}, ctx \}\)\);/,
     )
     // No user code left in the entry to need env rewriting.
     expect(entry).not.toContain('z.object')
@@ -127,9 +127,7 @@ describe('generateWorkflowBundle with containers', () => {
       'awaitstep/runtime.ts',
     ])
     const workflow = workflowSource(bundle)
-    expect(workflow).toContain(
-      '$Process_item(stepArgs({ env, event, inputs: { item }, step, ctx }))',
-    )
+    expect(workflow).toContain('$Process_item(stepArgs({ env, event, inputs: { item }, ctx }))')
     expect(bundleSource(bundle, 'steps/work.ts')).toContain('return inputs.item.length;')
     expect(bundle.manifest?.steps).toContainEqual(
       expect.objectContaining({ nodeId: 'work', filePath: 'steps/work.ts' }),
@@ -437,7 +435,7 @@ describe('generateWorkflowBundle: what a step after a container can read', () =>
     const bundle = generateWorkflowBundle(graph)
     const workflow = bundle.files.find((f) => f.path === 'awaitstep/workflow.ts')!.source
     // `inner` is a const inside the if block; the call after it binds nothing of it.
-    expect(workflow).toContain('$after(stepArgs({ env, event, inputs: {}, step, ctx }))')
+    expect(workflow).toContain('$after(stepArgs({ env, event, inputs: {}, ctx }))')
     expect(bundle.files.find((f) => f.path === 'steps/after.ts')!.source).not.toContain('inputs;')
   })
 })

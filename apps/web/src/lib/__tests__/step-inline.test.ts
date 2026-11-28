@@ -14,7 +14,7 @@ describe('stepCodeForInline', () => {
       node('first', 'step', { code: 'return 1;' }),
       node('each', 'loop', { loopType: 'forEach', itemVar: 'item', collection: 'rows' }),
       node('body', 'step', {
-        code: 'export default async function body({ env, event, inputs, step, ctx }) {\n  return inputs.item.price;\n}\n',
+        code: 'export default async function body({ env, event, inputs, ctx }) {\n  return inputs.item.price;\n}\n',
       }),
       // A step inside the loop is scoped to its block; `first` is what `after` can read.
       node('after', 'step', { code: 'return first;', inline: true }),
@@ -32,7 +32,7 @@ describe('stepCodeForInline', () => {
 
   it('turns statements into the module, taking what they read from inputs', () => {
     expect(stepCodeForInline(ir, 'after', false)).toBe(
-      'export default async function after({ env, event, inputs, step, ctx }) {\n  const { first } = inputs;\n  return first;\n}\n',
+      'export default async function after({ env, event, inputs, ctx }) {\n  const { first } = inputs;\n  return first;\n}\n',
     )
   })
 
@@ -41,7 +41,7 @@ describe('stepCodeForInline', () => {
       ...ir,
       nodes: [
         node('fresh', 'step', {
-          code: 'export default async function fresh({ env, event, inputs, step, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
+          code: 'export default async function fresh({ env, event, inputs, ctx }) {\n  // Write your business logic here\n\n  return { result: "ok" };\n}\n',
         }),
       ],
       edges: [],

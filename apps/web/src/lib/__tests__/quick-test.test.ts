@@ -53,7 +53,7 @@ describe('parseStepModule', () => {
 
   it('reads inputs.x members too — the form the step template documents', () => {
     const source =
-      'export default async function a({ env, event, inputs, step, ctx }) {\n  return inputs.user.id + inputs["raw"];\n}\n'
+      'export default async function a({ env, event, inputs, ctx }) {\n  return inputs.user.id + inputs["raw"];\n}\n'
     expect(parseStepModule(source).inputNames).toEqual(['user', 'raw'])
   })
 

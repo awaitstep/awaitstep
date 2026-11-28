@@ -222,7 +222,10 @@ function generateScriptInternal(
   const upstream = upstreamVarNames(irAsWorkflow, boundVarNames(ir, names), (node) =>
     plan.has(node.id),
   )
-  const ctx = createGenerationContext(ir.nodes, { emitModules: true, upstream })
+  const ctx = createGenerationContext(ir.nodes, {
+    emitModules: true,
+    upstream,
+  })
   const useStateTracking = hasTemplateExpressions(ir.nodes)
 
   const inlineTargets = collectBranchInlineTargets(irAsWorkflow)
@@ -449,19 +452,17 @@ function generateScriptInternal(
   // With handler modules it is exported so handlers/fetch.ts can import it.
   const declStatement = hoistedVarNames.length > 0 ? `  let ${hoistedVarNames.join(', ')};\n` : ''
   // The graph runs on the in-request host: `flow.step` runs each step body
-  // here and now, with the node's retries and timeout, and `step` is the
-  // adapter the step modules receive — the same two names a workflow's
-  // `run` establishes, so a step module is the same file in both kinds.
+  // here and now, with the node's retries and timeout. There is no `step`
+  // object: nothing in a function is durable, so its modules get none.
   graphBody = wrapModuleCalls(graphBody, 2)
-  // The context is needed when a step runs here — a module, a container
-  // child's inline `flow.step`, or a hand-written `step.do` — never for a
-  // comment or an inline body's own `step` identifier.
+  // The context is needed when a step runs here — a module or a container
+  // child's inline `flow.step` — never for a comment.
   // A platform call anywhere in the graph's code needs the context (and its
   // PlatformHost import), even from a node the graph doesn't reach yet.
   const usesFlow =
     hasSubCalls ||
     ctx.files.some((file) => file.role === 'module') ||
-    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|getInstance|sendEvent|callScript)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent|http|startWorkflow|workflowStatus|getInstance|sendEvent|callScript))\(/.test(
       withoutComments(graphBody),
     )
   // A function's invocation is a run of its own: the context's event carries
@@ -470,9 +471,7 @@ function generateScriptInternal(
   // another artifact. A context that only makes HTTP calls goes without.
   const needsHost =
     hasSubCalls ||
-    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent)|step\.(?:do|sleep|sleepUntil|waitForEvent))\(/.test(
-      withoutComments(graphBody),
-    )
+    /\b(?:flow\??\.(?:step|sleep|sleepUntil|waitForEvent))\(/.test(withoutComments(graphBody))
   const contextLines = usesFlow
     ? [
         '  const flow = createWorkflowContext({',
@@ -490,7 +489,6 @@ function generateScriptInternal(
             ]
           : []),
         '  });',
-        ...(needsHost ? ['  const step = durableStep(flow);'] : []),
         '',
       ].join('\n')
     : ''

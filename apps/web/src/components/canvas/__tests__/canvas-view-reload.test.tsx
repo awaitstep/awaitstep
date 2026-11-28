@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   getWorkflowFull: vi.fn(),
   createVersion: vi.fn(),
   updateWorkflow: vi.fn(() => Promise.resolve({})),
+  getTestSession: vi.fn(() => Promise.resolve({ session: null })),
 }))
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn() }))
 
@@ -113,7 +114,7 @@ async function mount() {
         <EditorAccessProvider
           value={{ canEdit: true, canDeploy: true, canShare: true, canMove: true, reason: null }}
         >
-          <CanvasView workflowId="wf_1" marketplaceOpen={false} localDevEnabled={false} />
+          <CanvasView workflowId="wf_1" marketplaceOpen={false} />
         </EditorAccessProvider>
       </EditorScopeProvider>
     </QueryClientProvider>,
@@ -159,7 +160,7 @@ describe('CanvasView: a refused save, then Reload', () => {
     expect(state.isDirty).toBe(false)
     // The stored body opens as the step's module.
     expect(state.nodes[0]!.data.irNode.data.code).toBe(
-      'export default async function Step_1({ env, event, inputs, step, ctx }) {\n  return 3;\n}\n',
+      'export default async function Step_1({ env, event, inputs, ctx }) {\n  return 3;\n}\n',
     )
 
     api.createVersion.mockResolvedValueOnce({ id: 'v4', graphHash: 'g4' })

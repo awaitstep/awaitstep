@@ -10,9 +10,9 @@ import { GRAPH_EDITS_KEY, createStepSaver } from '../ide/step-save'
 import { useIdeStore } from '../../stores/ide-store'
 
 const metadata = { name: 'orders', version: 3, createdAt: 't', updatedAt: 't' }
-const TASK_CODE = `export default async function Fetch_user({ env, event, inputs, step, ctx }) {\n  return 1;\n}\n`
-const MAIL_CODE = `export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 2;\n}\n`
-const MAIL_EDIT = `export default async function Send_mail({ env, event, inputs, step, ctx }) {\n  return 20;\n}\n`
+const TASK_CODE = `export default async function Fetch_user({ env, event, inputs, ctx }) {\n  return 1;\n}\n`
+const MAIL_CODE = `export default async function Send_mail({ env, event, inputs, ctx }) {\n  return 2;\n}\n`
+const MAIL_EDIT = `export default async function Send_mail({ env, event, inputs, ctx }) {\n  return 20;\n}\n`
 const doc: ArtifactIR = {
   kind: 'workflow',
   metadata,

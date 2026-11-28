@@ -11,13 +11,11 @@ export default async function fetch_order({
   env,
   event,
   inputs,
-  step,
   ctx,
 }: {
   env: Env
   event: { payload?: unknown }
   inputs: Record<string, unknown>
-  step: unknown
   ctx: { attempt: number }
 }) {
   // ...
@@ -26,13 +24,16 @@ export default async function fetch_order({
 
 The parameters, in the order the worker passes them:
 
-| Name     | What it is                                                      |
-| -------- | --------------------------------------------------------------- |
-| `env`    | The deployed environment. Secrets and bindings by name.         |
-| `event`  | The trigger: `event.payload` is the request/trigger body.       |
-| `inputs` | Values of upstream steps, keyed by their variable names.        |
-| `step`   | The durable host. Do not call `step.do`/`step.sleep` from here. |
-| `ctx`    | `ctx.attempt` is the current attempt, 1-indexed.                |
+| Name     | What it is                                                |
+| -------- | --------------------------------------------------------- |
+| `env`    | The deployed environment. Secrets and bindings by name.   |
+| `event`  | The trigger: `event.payload` is the request/trigger body. |
+| `inputs` | Values of upstream steps, keyed by their variable names.  |
+| `ctx`    | `ctx.attempt` is the current attempt, 1-indexed.          |
+
+There is no `step`: the code already runs inside a step. Calling `step.do`,
+`step.sleep`, `step.sleepUntil` or `step.waitForEvent` is refused on save; give
+each its own node.
 
 The function must be **named exactly the step's variable name**. That name is
 derived from the node's display `name`:
