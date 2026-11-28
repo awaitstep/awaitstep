@@ -10,3 +10,12 @@ export const EDITOR_LIB = [
   'webworker.iterable',
   'webworker.asynciterable',
 ] as const
+
+/**
+ * The same list as the compiler options take it: file names. Monaco's
+ * TypeScript worker is handed the options as they are, with no step that
+ * turns `webworker` into its file, and a bare name it cannot find is dropped
+ * without a word: every Worker global (fetch, Response, URL, timers) then
+ * reads as undeclared.
+ */
+export const EDITOR_LIB_FILES = EDITOR_LIB.map((name) => `lib.${name}.d.ts`)
