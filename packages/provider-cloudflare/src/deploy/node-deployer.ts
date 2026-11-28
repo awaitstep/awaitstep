@@ -37,11 +37,11 @@ interface Staged {
   wranglerConfig: string
 }
 
-function workspaceDirs(): { deployDir: string; buildDir: string } {
+function workspaceDirs(root: string): { deployDir: string; buildDir: string } {
   // Unguessable and unique per call: two deploys or builds in the same
   // millisecond must never share a workspace, and both are made without
   // `recursive`, so a path that already exists (planted or not) fails closed.
-  const deployDir = join(tmpdir(), `awaitstep-deploy-${Date.now()}-${randomUUID()}`)
+  const deployDir = join(root, `awaitstep-deploy-${Date.now()}-${randomUUID()}`)
   // Beside the project, not inside it: the checked build is what uploads.
   return { deployDir, buildDir: `${deployDir}-build` }
 }
@@ -130,6 +130,9 @@ async function stage(
 }
 
 export class NodeWranglerDeployer implements WranglerDeployer {
+  /** `workRoot`: where each deploy's and build's workspace is made; the system temp directory by default. */
+  constructor(private readonly options: { workRoot?: string } = {}) {}
+
   async build(
     bundle: GeneratedBundle,
     options: BuildOptions,
@@ -139,7 +142,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
     const name = workerName(options.workflowId)
     // Before the workspace exists: a name with no letters or digits rejects, as it always did.
     const className = options.className ?? workflowClassName(options.workflowName)
-    const dirs = workspaceDirs()
+    const dirs = workspaceDirs(this.options.workRoot ?? tmpdir())
     try {
       const staged = await stage(bundle, options, className, dirs, onProgress, control?.signal)
       const { mainModule, modules } = await readBuildModules(staged.buildDir, staged.builtEntry)
@@ -169,7 +172,7 @@ export class NodeWranglerDeployer implements WranglerDeployer {
     const name = workerName(options.workflowId)
     // Before the workspace exists: a name with no letters or digits rejects, as it always did.
     const className = options.className ?? workflowClassName(options.workflowName)
-    const dirs = workspaceDirs()
+    const dirs = workspaceDirs(this.options.workRoot ?? tmpdir())
     const signal = control?.signal
 
     try {
