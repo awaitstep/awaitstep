@@ -445,42 +445,6 @@ export async function waitForEventOrTimeout<T = unknown>(
   }
 }
 
-/** The `step` object step code already uses (`step.do`, `step.sleep`, …). */
-export interface DurableStep {
-  do<T>(name: string, fn: StepCallback<T>): Promise<T>
-  do<T>(name: string, config: StepConfig, fn: StepCallback<T>): Promise<T>
-  sleep(name: string, duration: Duration): Promise<void>
-  sleepUntil(name: string, at: Date | number | string): Promise<void>
-  waitForEvent<T = unknown>(name: string, options: WaitForEventOptions): Promise<T>
-}
-
-/**
- * Adapts a workflow context to the `step.do`/`step.sleep` shape inline code
- * and generated step modules already use.
- */
-export function durableStep<Env, Payload>(flow: WorkflowContext<Env, Payload>): DurableStep {
-  const doStep = ((
-    name: string,
-    configOrCallback: StepConfig | StepCallback<unknown>,
-    maybeCallback?: StepCallback<unknown>,
-  ): Promise<unknown> => {
-    if (typeof configOrCallback === 'function') {
-      return flow.step(name, configOrCallback)
-    }
-    if (typeof maybeCallback !== 'function') {
-      throw new TypeError(`Workflow step "${name}" was called without a callback`)
-    }
-    return flow.step(name, configOrCallback, maybeCallback)
-  }) as DurableStep['do']
-
-  return {
-    do: doStep,
-    sleep: (name, duration) => flow.sleep(name, duration),
-    sleepUntil: (name, at) => flow.sleepUntil(name, at),
-    waitForEvent: (name, options) => flow.waitForEvent(name, options),
-  }
-}
-
 /**
  * Hands a step module its context unchanged. Generated code calls step
  * modules through it so a module may declare only what it reads, e.g.

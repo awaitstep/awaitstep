@@ -232,7 +232,7 @@ module, and a provider bootstrap:
 
 ```typescript
 // awaitstep/workflow.ts — portable, what the canvas preview shows
-import { defineWorkflow, durableStep } from '#awaitstep/runtime'
+import { defineWorkflow } from '#awaitstep/runtime'
 import type { Env } from './env.js'
 
 export default defineWorkflow<Env>({
@@ -240,7 +240,6 @@ export default defineWorkflow<Env>({
   async run(flow) {
     const env = flow.env
     const event = flow.event
-    const step = durableStep(flow)
 
     const Fetch_user = await flow.step('fetch-user', async (ctx) => {
       // ...

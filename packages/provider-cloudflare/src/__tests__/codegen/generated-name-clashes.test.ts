@@ -60,7 +60,7 @@ describe('an inline step importing a name the generated file imports', () => {
   it.each(EMITTERS)('in %s, shares the runtime import line', (_kind, generate, path) => {
     const bundle = generate(
       inlineThenModule(
-        'import { durableStep } from "#awaitstep/runtime"\nconst again = durableStep(flow)',
+        'import { stepArgs } from "#awaitstep/runtime"\nconst again = stepArgs(flow)',
       ),
     )
     const source = bundle.files.find((file) => file.path === path)!.source

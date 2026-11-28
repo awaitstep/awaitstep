@@ -184,3 +184,13 @@ describe('inline step bindings', () => {
     expect(String(sync.data.code)).toContain('const { user } = inputs;')
   })
 })
+
+describe('the workflow body', () => {
+  it('binds no step object: step code and inline code no longer take one', () => {
+    const source = generateUniversalWorkflow(
+      chain(getCustomer(), syncContact('return inputs.user')),
+    )
+    expect(source).not.toMatch(/\bdurableStep\b/)
+    expect(source).not.toMatch(/const step\b/)
+  })
+})

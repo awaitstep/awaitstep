@@ -222,7 +222,6 @@ export default defineWorkflow<Env>({
   async run(flow) {
     const env = flow.env;
     const event = flow.event;
-    const step = durableStep(flow);
 ${indent(bodyLines, 4)}
   },
 });

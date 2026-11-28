@@ -13,7 +13,7 @@ describe('awaitstep module ambient types', () => {
     // The canvas's step-code editors have no bundle models, so these ambient
     // declarations are what give `#awaitstep/*` imports completion/hover.
     expect(AWAITSTEP_MODULES_DTS).toContain('export function defineWorkflow')
-    expect(AWAITSTEP_MODULES_DTS).toContain('export function durableStep')
+    expect(AWAITSTEP_MODULES_DTS).toContain('export function stepArgs')
     expect(CLOUDFLARE_MODULES_DTS).toContain('export function kv')
     expect(CLOUDFLARE_MODULES_DTS).toContain('export function service')
   })

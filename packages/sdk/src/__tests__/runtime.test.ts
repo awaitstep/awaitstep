@@ -11,7 +11,6 @@ import {
   InstanceNotFoundError,
   sendInstanceEvent,
   defineWorkflow,
-  durableStep,
   isWorkflowTimeoutError,
   waitForEventOrTimeout,
   type WorkflowContext,
@@ -184,35 +183,6 @@ describe('createWorkflowContext', () => {
       flow.callScript({ script: 'pricing', method: 'GET', params: { cf: { binding: 'PRICING' } } }),
     ).resolves.toEqual({ ok: true })
     expect(calls).toEqual(['start:child', 'status:child-1:child', 'call:pricing:GET'])
-  })
-})
-
-describe('durableStep', () => {
-  it('maps do without config', async () => {
-    const { host, calls } = recordingHost()
-    const flow = createWorkflowContext({ env, event, host })
-    const step = durableStep(flow)
-    const value = await step.do('a', () => 1)
-    expect(value).toBe(1)
-    expect(calls).toEqual(['do:a:plain'])
-  })
-
-  it('maps do with config', async () => {
-    const { host, calls } = recordingHost()
-    const flow = createWorkflowContext({ env, event, host })
-    const step = durableStep(flow)
-    await step.do('b', { retries: { limit: 2, delay: '1 second' } }, () => 2)
-    expect(calls).toEqual(['do:b:config'])
-  })
-
-  it('maps the durable waits', async () => {
-    const { host, calls } = recordingHost()
-    const flow = createWorkflowContext({ env, event, host })
-    const step = durableStep(flow)
-    await step.sleep('s', '1 second')
-    await step.sleepUntil('u', 5)
-    await step.waitForEvent('w', { type: 'thing.happened' })
-    expect(calls).toEqual(['sleep:s:1 second', 'until:u:5', 'wait:w:thing.happened'])
   })
 })
 
@@ -484,7 +454,7 @@ describe('createInlineHost', () => {
     )
   })
 
-  it('serves step.do end to end through the context and the step adapter', async () => {
+  it('serves a step end to end through the context', async () => {
     const flow = createWorkflowContext({
       env: { API_KEY: 'k' },
       event: {
@@ -494,9 +464,10 @@ describe('createInlineHost', () => {
       },
       host: createInlineHost(),
     })
-    const step = durableStep(flow)
-    await expect(step.do('double', (ctx) => ctx.attempt + flow.event.payload.n)).resolves.toBe(3)
-    await expect(step.do('cfg', { retries: { limit: 0, delay: 1 } }, () => 'v')).resolves.toBe('v')
+    await expect(flow.step('double', (ctx) => ctx.attempt + flow.event.payload.n)).resolves.toBe(3)
+    await expect(flow.step('cfg', { retries: { limit: 0, delay: 1 } }, () => 'v')).resolves.toBe(
+      'v',
+    )
   })
 
   it('caps attempts at ten and every wait at thirty seconds, whatever the node asks', async () => {

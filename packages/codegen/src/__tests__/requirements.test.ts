@@ -202,7 +202,7 @@ describe('collectRuntimeRequirements', () => {
             name: 'Step',
             version: '1.0.0',
             provider: 'cloudflare',
-            data: { code: "import { durableStep } from '#awaitstep/runtime'" },
+            data: { code: "import { stepArgs } from '#awaitstep/runtime'" },
           },
         ],
       }),

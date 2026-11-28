@@ -26,7 +26,7 @@ describe('generateWorkflow', () => {
   it('generates a simple sequential workflow', () => {
     const code = workflowSource(generateWorkflowBundle(simpleWorkflow as unknown as WorkflowIR))
     expect(code).toMatchInlineSnapshot(`
-      "import { defineWorkflow, durableStep, stepArgs, sendInstanceEvent as awaitstepSendInstanceEvent, type WorkflowInstanceHandle as AwaitstepInstanceHandle } from "#awaitstep/runtime";
+      "import { defineWorkflow, stepArgs, sendInstanceEvent as awaitstepSendInstanceEvent, type WorkflowInstanceHandle as AwaitstepInstanceHandle } from "#awaitstep/runtime";
       import type { Env } from "#awaitstep/env";
       import $Fetch_data from "#app/steps/step-1.js";
       import $Process_data from "#app/steps/step-2.js";
@@ -87,7 +87,6 @@ describe('generateWorkflow', () => {
         async run(flow) {
           const env = flow.env;
           const event = flow.event;
-          const step = durableStep(flow);
           await flow.step("Fetch data (step-1)", { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "30 seconds" }, async (ctx) => {
             await $Fetch_data(stepArgs({ env, event, inputs: {}, ctx }));
           });
