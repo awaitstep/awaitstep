@@ -501,7 +501,12 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
       schema.deployments,
     )
     this._workflowFiles = new WorkflowFilesAdapter(db, schema.workflowFiles)
-    this._testSessions = new TestSessionsAdapter(db, schema.testSessions, schema.workflows)
+    this._testSessions = new TestSessionsAdapter(
+      db,
+      schema.testSessions,
+      schema.workflows,
+      new RoleFields(this._tables),
+    )
     this._deployments = new DeploymentsAdapter(
       db,
       schema.deployments,
@@ -1605,8 +1610,9 @@ export class DrizzleDatabaseAdapter implements DatabaseAdapter {
     projectId: string,
     cutoffs: TestSessionCutoffs,
     workspaceId?: string,
+    options?: { toStop?: boolean },
   ): Promise<OwnedTestSession | null> {
-    return this._testSessions.getOwned(id, userId, projectId, cutoffs, workspaceId)
+    return this._testSessions.getOwned(id, userId, projectId, cutoffs, workspaceId, options)
   }
   getLiveTestSessionForWorkflow(
     workflowId: string,

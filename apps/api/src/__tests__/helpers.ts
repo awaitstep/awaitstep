@@ -51,6 +51,8 @@ const store = {
   runSteps: new Map<string, WorkflowRunStep>(),
   files: new Map<string, WorkflowFile>(),
   testSessions: new Map<string, TestSession>(),
+  /** Users who can no longer edit where their sessions' workflows sit (the adapter reads roles in SQL). */
+  testSessionNonEditors: new Set<string>(),
   deploymentConfigs: new Map<string, DeploymentConfig>(),
   apiKeys: new Map<string, ApiKey>(),
   apiKeyProjects: [] as { keyId: string; projectId: string; revokedAt: string | null }[],
@@ -119,6 +121,11 @@ export function patchTestSession(id: string, patch: Partial<TestSession>): void 
   store.testSessions.set(id, { ...session, ...patch })
 }
 
+/** The user can no longer edit where their sessions' workflows sit. */
+export function loseTestSessionEdit(userId: string) {
+  store.testSessionNonEditors.add(userId)
+}
+
 export function resetStore() {
   store.workflows.clear()
   store.versions.clear()
@@ -127,6 +134,7 @@ export function resetStore() {
   store.runSteps.clear()
   store.files.clear()
   store.testSessions.clear()
+  store.testSessionNonEditors.clear()
   store.deploymentConfigs.clear()
   store.apiKeys.clear()
   store.apiKeyProjects.length = 0
@@ -1655,9 +1663,10 @@ const mockDb: DatabaseAdapter = {
     store.testSessions.set(id, activated)
     return activated
   },
-  async getOwnedTestSession(id, userId, projectId, cutoffs, workspaceId) {
+  async getOwnedTestSession(id, userId, projectId, cutoffs, workspaceId, options) {
     const session = store.testSessions.get(id)
     if (!session || session.userId !== userId) return null
+    if (!options?.toStop && store.testSessionNonEditors.has(userId)) return null
     const workflow = session.workflowId ? store.workflows.get(session.workflowId) : undefined
     if (!workflow || workflow.projectId !== projectId) return null
     if (workspaceId && workflow.workspaceId !== workspaceId) return null
@@ -1685,6 +1694,7 @@ const mockDb: DatabaseAdapter = {
   async touchTestSession(id, userId, cutoffs) {
     const session = store.testSessions.get(id)
     if (!session || session.userId !== userId) return false
+    if (store.testSessionNonEditors.has(userId)) return false
     if (session.status !== 'running' || !isLiveSession(session, cutoffs)) return false
     store.testSessions.set(id, { ...session, lastUsedAt: now() })
     return true

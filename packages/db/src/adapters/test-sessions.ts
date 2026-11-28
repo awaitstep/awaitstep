@@ -1,4 +1,5 @@
-import { eq, and, or, gt, asc, desc, sql, type SQL } from 'drizzle-orm'
+import { eq, and, or, gt, asc, desc, sql, aliasedTable, inArray, type SQL } from 'drizzle-orm'
+import type { RoleFields } from './role-fields.js'
 import type {
   ExpiringTestSession,
   OwnedTestSession,
@@ -63,7 +64,22 @@ export class TestSessionsAdapter {
     private db: AnyTable,
     private table: AnyTable,
     private workflows: AnyTable,
+    private roles: RoleFields,
   ) {}
+
+  /**
+   * The workflows the user may still edit where they sit: starting a session
+   * takes that, so driving one does too. Losing the role, or the workspace,
+   * cuts a live session off at its next request. No column of the outer row
+   * is named inside, so an UPDATE's unqualified columns can't be captured.
+   */
+  private editableBy(userId: string) {
+    const wf = aliasedTable(this.workflows, 'tsw')
+    return this.db
+      .select({ id: wf.id })
+      .from(wf)
+      .where(this.roles.workflowEditable(userId, wf.workspaceId))
+  }
 
   // A session that may still own a container: what the concurrency cap counts
   // and what the partial unique index covers.
@@ -190,6 +206,7 @@ export class TestSessionsAdapter {
     projectId: string,
     cutoffs: TestSessionCutoffs,
     workspaceId?: string,
+    options: { toStop?: boolean } = {},
   ): Promise<OwnedTestSession | null> {
     const rows = await this.db
       .select({
@@ -205,6 +222,10 @@ export class TestSessionsAdapter {
           eq(this.table.userId, userId),
           eq(this.workflows.projectId, projectId),
           workspaceId ? eq(this.workflows.workspaceId, workspaceId) : undefined,
+          // Their own session is always theirs to stop.
+          options.toStop
+            ? undefined
+            : this.roles.workflowEditable(userId, this.workflows.workspaceId),
         ),
       )
       .limit(1)
@@ -291,6 +312,7 @@ export class TestSessionsAdapter {
           eq(this.table.userId, userId),
           eq(this.table.status, 'running'),
           this.live(cutoffs),
+          inArray(this.table.workflowId, this.editableBy(userId)),
         ),
       )
       .returning({ id: this.table.id })
